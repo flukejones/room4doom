@@ -11,38 +11,22 @@ mod loop_winit;
 mod timestep;
 
 use cli::*;
-#[cfg(feature = "sound-sdl2")]
-use dirs::data_dir;
 use mimalloc::MiMalloc;
 use simplelog::TermLogger;
-use std::error::Error;
 use std::path::PathBuf;
+use std::{error::Error, path::Path};
 
 use gamestate::{Game, prepare_wad};
 
 use crate::config::UserConfig;
-use sound_common::{SndServerTx, SoundServer, SoundServerTic};
+#[cfg(feature = "display-sdl2")]
+use log::info;
+use log::warn;
+use sound_common::{SndServerTx, SoundAction};
 use wad::WadData;
 
-#[cfg(feature = "sound-sdl2")]
-use config::MusicType;
 #[cfg(feature = "display-sdl2")]
 use config::WindowMode;
-#[cfg(feature = "sound-sdl2")]
-use dirs::cache_dir;
-#[cfg(feature = "sound-sdl2")]
-use sound_sdl2::timidity::{GusMemSize, make_timidity_cfg};
-#[cfg(feature = "sound-sdl2")]
-use std::env::set_var;
-#[cfg(feature = "sound-sdl2")]
-use std::fs::File;
-#[cfg(feature = "sound-sdl2")]
-use std::io::Write;
-
-#[cfg(feature = "sound-sdl2")]
-const SOUND_DIR: &str = "room4doom/sound/";
-#[cfg(feature = "sound-sdl2")]
-const TIMIDITY_CFG: &str = "timidity.cfg";
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
@@ -194,44 +178,8 @@ fn run_winit(
     Ok(())
 }
 
-/// Initialise the SDL2 sound backend.
-#[cfg(all(feature = "sound-sdl2", feature = "display-sdl2"))]
-fn init_sound(
-    sdl_ctx: &sdl2::Sdl,
-    wad: &WadData,
-    config: &UserConfig,
-) -> (SndServerTx, std::thread::JoinHandle<()>) {
-    let snd_ctx = sdl_ctx.audio().expect("SDL2 audio init failed");
-    info!("Init SDL2 sound");
-
-    setup_timidity(config.music_type, config.gus_mem_size, wad);
-
-    let music_type = match config.music_type {
-        config::MusicType::OPL3 => sound_sdl2::MusicType::OPL3,
-        config::MusicType::OPL2 | config::MusicType::GUS => sound_sdl2::MusicType::OPL2,
-    };
-
-    match sound_sdl2::Snd::new(snd_ctx, wad, music_type) {
-        Ok(mut s) => {
-            let tx = s.init().unwrap();
-            let thread = std::thread::spawn(move || while s.tic() {});
-            tx.send(SoundAction::SfxVolume(config.sfx_vol)).unwrap();
-            tx.send(SoundAction::MusicVolume(config.mus_vol)).unwrap();
-            (tx, thread)
-        }
-        Err(e) => {
-            warn!("Could not set up SDL2 sound server: {e}");
-            init_nosnd()
-        }
-    }
-}
-
-/// Initialise the rodio sound backend (SDL2 display path).
-#[cfg(all(
-    feature = "sound-rodio",
-    not(feature = "sound-sdl2"),
-    feature = "display-sdl2"
-))]
+/// Initialise the sound server (SDL2 display path).
+#[cfg(feature = "display-sdl2")]
 fn init_sound(
     _sdl_ctx: &sdl2::Sdl,
     wad: &WadData,
@@ -240,24 +188,8 @@ fn init_sound(
     init_sound_rodio(wad, config)
 }
 
-/// No sound backend selected (SDL2 display path).
-#[cfg(all(
-    not(any(feature = "sound-sdl2", feature = "sound-rodio")),
-    feature = "display-sdl2"
-))]
-fn init_sound(
-    _sdl_ctx: &sdl2::Sdl,
-    wad: &WadData,
-    _config: &UserConfig,
-) -> (SndServerTx, std::thread::JoinHandle<()>) {
-    init_nosnd()
-}
-
-/// Initialise sound without SDL2 context (winit path).
-#[cfg(all(
-    feature = "sound-rodio",
-    any(feature = "display-softbuffer", feature = "display-pixels")
-))]
+/// Initialise the sound server (winit display path).
+#[cfg(any(feature = "display-softbuffer", feature = "display-pixels"))]
 fn init_sound_no_sdl(
     wad: &WadData,
     config: &UserConfig,
@@ -265,28 +197,20 @@ fn init_sound_no_sdl(
     init_sound_rodio(wad, config)
 }
 
-#[cfg(all(
-    not(feature = "sound-rodio"),
-    any(feature = "display-softbuffer", feature = "display-pixels"),
-    not(feature = "display-sdl2")
-))]
-fn init_sound_no_sdl(
-    _wad: &WadData,
-    _config: &UserConfig,
-) -> (SndServerTx, std::thread::JoinHandle<()>) {
-    init_nosnd()
-}
-
-/// Initialise the rodio sound backend.
-#[cfg(feature = "sound-rodio")]
+/// Spawn the rodio sound server thread. Asset loading happens here on
+/// the calling thread (so the spawned thread doesn't block on file I/O),
+/// then `sound_rodio::spawn` constructs the server and audio sink
+/// entirely on the new thread — keeping the `!Send` cpal handle from
+/// ever crossing a thread boundary. The server runs silently if no
+/// audio output device is available, so this never falls back to a stub.
 fn init_sound_rodio(
     wad: &WadData,
     config: &UserConfig,
 ) -> (SndServerTx, std::thread::JoinHandle<()>) {
     let music_type = match config.music_type {
-        config::MusicType::GUS => sound_rodio::MusicType::GUS,
-        config::MusicType::OPL3 => sound_rodio::MusicType::OPL3,
-        _ => sound_rodio::MusicType::OPL2,
+        config::MusicType::GUS => sound_common::MusicType::GUS,
+        config::MusicType::OPL3 => sound_common::MusicType::OPL3,
+        config::MusicType::OPL2 => sound_common::MusicType::OPL2,
     };
     let sf2_path = if config.sf2_path.is_empty() {
         None
@@ -298,56 +222,13 @@ fn init_sound_rodio(
             Some(gameplay::dirs::config_dir().join(&config.sf2_path))
         }
     };
-    match sound_rodio::Snd::new(wad, music_type, sf2_path.as_deref()) {
-        Ok(mut s) => {
-            let tx = s.init().unwrap();
-            let thread = std::thread::spawn(move || while s.tic() {});
-            tx.send(SoundAction::SfxVolume(config.sfx_vol)).unwrap();
-            tx.send(SoundAction::MusicVolume(config.mus_vol)).unwrap();
-            (tx, thread)
-        }
-        Err(e) => {
-            warn!("Could not set up rodio sound server: {e}");
-            init_nosnd()
-        }
+    let snd_config = sound_rodio::SndConfig::from_wad(wad, music_type, sf2_path.as_deref());
+    let (tx, thread) = sound_rodio::spawn(snd_config);
+    if let Err(e) = tx.send(SoundAction::SfxVolume(config.sfx_vol)) {
+        warn!("Failed to send initial sfx volume: {e}");
     }
-}
-
-/// Fallback: no-sound backend.
-fn init_nosnd() -> (SndServerTx, std::thread::JoinHandle<()>) {
-    let mut s = sound_nosnd::Snd::new().unwrap();
-    let tx = s.init().unwrap();
-    let thread = std::thread::spawn(move || while s.tic() {});
+    if let Err(e) = tx.send(SoundAction::MusicVolume(config.mus_vol)) {
+        warn!("Failed to send initial music volume: {e}");
+    }
     (tx, thread)
-}
-
-#[cfg(feature = "sound-sdl2")]
-fn setup_timidity(music_type: MusicType, gus_mem: GusMemSize, wad: &WadData) {
-    if music_type == MusicType::FluidSynth {
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { set_var("SDL_MIXER_DISABLE_FLUIDSYNTH", "0") };
-        info!("Using fluidsynth for sound");
-        return;
-    }
-    if let Some(mut path) = data_dir() {
-        path.push(SOUND_DIR);
-        if path.exists() {
-            let mut cache_dir = cache_dir().unwrap_or_else(|| PathBuf::from("/tmp"));
-            cache_dir.push(TIMIDITY_CFG);
-            if let Some(cfg) = make_timidity_cfg(wad, path, gus_mem) {
-                let mut file = File::create(cache_dir.as_path()).unwrap();
-                file.write_all(&cfg).unwrap();
-                // TODO: Audit that the environment access only happens in single-threaded code.
-                unsafe { set_var("SDL_MIXER_DISABLE_FLUIDSYNTH", "1") };
-                // TODO: Audit that the environment access only happens in single-threaded code.
-                unsafe { set_var("TIMIDITY_CFG", cache_dir.as_path()) };
-                info!("Using timidity for sound");
-            } else {
-                warn!("Sound fonts were missing, using fluidsynth instead");
-            }
-        } else {
-            info!("No sound fonts installed to {:?}", path);
-            info!("Using fluidsynth for sound");
-        }
-    }
 }

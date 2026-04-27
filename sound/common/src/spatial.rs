@@ -5,6 +5,9 @@ use std::fmt::Debug;
 
 use glam::Vec2;
 
+/// Audio output sample rate. Doom's audio pipeline runs at a fixed rate;
+/// every backend, source, and mixer samples at this frequency.
+pub const SAMPLE_RATE: u32 = 44_100;
 /// Maximum audible distance in map units
 pub const MAX_DIST: f32 = 1666.0;
 /// Number of simultaneous SFX mixer channels
@@ -14,23 +17,8 @@ pub const MUS_ID: [u8; 4] = [b'M', b'U', b'S', 0x1A];
 /// Standard MIDI header magic bytes
 pub const MID_ID: [u8; 4] = [b'M', b'T', b'h', b'd'];
 
-/// Compute the angle from (x2,y2) to (x1,y1) in radians
-pub fn point_to_angle_2(x1: f32, y1: f32, x2: f32, y2: f32) -> f32 {
-    let x = x1 - x2;
-    let y = y1 - y2;
-    y.atan2(x)
-}
-
-/// Compute the signed angle between a listener direction and a point
-pub fn angle_between(listener_angle: f32, other_x: f32, other_y: f32) -> f32 {
-    let (y, x) = listener_angle.sin_cos();
-    let v1 = Vec2::new(x, y);
-    let other = Vec2::new(other_x, other_y);
-    v1.angle_to(other)
-}
-
 /// Compute listener-relative angle to source in degrees (0-360, SDL2
-/// convention)
+/// convention: 0=front, 90=right, 180=back, 270=left).
 pub fn listener_to_source_angle_deg(
     listener_x: f32,
     listener_y: f32,
@@ -38,8 +26,11 @@ pub fn listener_to_source_angle_deg(
     source_x: f32,
     source_y: f32,
 ) -> f32 {
-    let (y, x) = point_to_angle_2(source_x, source_y, listener_x, listener_y).sin_cos();
-    let mut angle = angle_between(listener_angle, x, y);
+    let dx = source_x - listener_x;
+    let dy = source_y - listener_y;
+    let (sy, sx) = dy.atan2(dx).sin_cos();
+    let (ly, lx) = listener_angle.sin_cos();
+    let mut angle = Vec2::new(lx, ly).angle_to(Vec2::new(sx, sy));
     if angle.is_sign_negative() {
         angle += TAU;
     }

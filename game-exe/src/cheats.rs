@@ -170,9 +170,10 @@ impl Cheats {
                     self.mus.parameter_buf[0], self.mus.parameter_buf[1]
                 );
                 let s = format!("{}{}", self.mus.parameter_buf[0], self.mus.parameter_buf[1]);
-                if let Ok(s) = s.as_str().parse::<u8>() {
-                    let s = MusTrack::from(s);
-                    game.change_music(s);
+                if let Ok(track) = s.as_str().parse::<u8>().map_err(|_| ()).and_then(|n| {
+                    MusTrack::try_from(n).map_err(|_| ())
+                }) {
+                    game.change_music(track);
                     game.players[game.consoleplayer].message = Some(english::STSTR_MUS);
                 } else {
                     game.players[game.consoleplayer].message = Some(english::STSTR_NOMUS);

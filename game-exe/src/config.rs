@@ -52,11 +52,9 @@ fn pretty_ron(compact: &str) -> String {
     out.push('\n');
     out
 }
-#[cfg(feature = "sound-sdl2")]
-pub use sound_sdl2::timidity::GusMemSize;
-
-/// GUS memory size for Timidity configuration (stub when SDL2 sound is absent).
-#[cfg(not(feature = "sound-sdl2"))]
+/// GUS memory size for Timidity configuration. Retained as a config knob
+/// for future MIDI backends; not currently consumed by any active sound
+/// backend (rodio uses an SF2 directly).
 #[derive(Debug, Default, Copy, Clone, DeRon, SerRon)]
 pub enum GusMemSize {
     M256Kb,

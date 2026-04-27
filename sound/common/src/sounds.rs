@@ -1,4 +1,10 @@
 /// Identifiers for all sfx in game-exe.
+///
+/// `#[repr(u8)]` is load-bearing: the enum is converted to/from `u8` in
+/// `TryFrom<u8>` and used as a direct index into `SFX_INFO_BASE`. Variants
+/// must remain in sound-engine ordering with no gaps; new variants must be
+/// appended just before `NumSfx`.
+#[repr(u8)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum SfxName {
     None,
@@ -119,11 +125,16 @@ impl Default for SfxName {
     }
 }
 
-impl From<u8> for SfxName {
-    fn from(i: u8) -> Self {
+impl TryFrom<u8> for SfxName {
+    type Error = u8;
+
+    fn try_from(i: u8) -> Result<Self, Self::Error> {
         if i >= SfxName::NumSfx as u8 {
-            panic!("{} is not a variant of SfxName", i);
+            return Err(i);
         }
-        unsafe { std::mem::transmute(i) }
+        // SAFETY: `SfxName` is `#[repr(u8)]` with contiguous discriminants
+        // `0..NumSfx`; the bound check above guarantees `i` maps to a valid
+        // variant.
+        Ok(unsafe { std::mem::transmute::<u8, SfxName>(i) })
     }
 }

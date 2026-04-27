@@ -6,14 +6,13 @@
 use std::fs::File;
 use std::io::Cursor;
 use std::path::Path;
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
-
-use rodio::Source;
-use rustysynth::{MidiFile, MidiFileSequencer, SoundFont, Synthesizer, SynthesizerSettings};
 use std::sync::Arc as StdArc;
+use std::sync::{Arc, Mutex};
 
-const SAMPLE_RATE: u32 = 44_100;
+use log::warn;
+use rustysynth::{MidiFile, MidiFileSequencer, SoundFont, Synthesizer, SynthesizerSettings};
+use sound_common::SAMPLE_RATE;
+
 const BUFFER_SIZE: usize = 512;
 
 pub struct GusPlayerState {
@@ -80,8 +79,17 @@ impl GusPlayerState {
 }
 
 /// Rodio `Source` that generates GUS/SF2 music samples.
+///
+/// `left`, `right`, and `buffer` are preallocated once; `refill` reuses
+/// them in place to avoid per-frame heap traffic on the audio thread
+/// (called every ~12 ms at 44.1 kHz).
 pub struct GusSource {
     state: Arc<Mutex<GusPlayerState>>,
+    /// Reusable left scratch buffer (`BUFFER_SIZE` samples).
+    left: Vec<f32>,
+    /// Reusable right scratch buffer (`BUFFER_SIZE` samples).
+    right: Vec<f32>,
+    /// Reusable interleaved stereo output (`2 * BUFFER_SIZE` samples).
     buffer: Vec<f32>,
     cursor: usize,
 }
@@ -90,24 +98,29 @@ impl GusSource {
     pub fn new(state: Arc<Mutex<GusPlayerState>>) -> Self {
         Self {
             state,
-            buffer: Vec::new(),
+            left: vec![0.0f32; BUFFER_SIZE],
+            right: vec![0.0f32; BUFFER_SIZE],
+            buffer: vec![0.0f32; BUFFER_SIZE * 2],
             cursor: 0,
         }
     }
 
     fn refill(&mut self) {
-        let mut left = vec![0.0f32; BUFFER_SIZE];
-        let mut right = vec![0.0f32; BUFFER_SIZE];
-        if let Ok(mut state) = self.state.lock() {
-            state.generate_samples(&mut left, &mut right);
+        for s in self.left.iter_mut() {
+            *s = 0.0;
+        }
+        for s in self.right.iter_mut() {
+            *s = 0.0;
+        }
+        match self.state.lock() {
+            Ok(mut state) => state.generate_samples(&mut self.left, &mut self.right),
+            Err(e) => warn!("GUS state mutex poisoned, emitting silence: {e}"),
         }
 
-        // Interleave stereo
-        self.buffer.clear();
-        self.buffer.reserve(BUFFER_SIZE * 2);
+        // Interleave stereo (in-place into preallocated buffer)
         for i in 0..BUFFER_SIZE {
-            self.buffer.push(left[i]);
-            self.buffer.push(right[i]);
+            self.buffer[i * 2] = self.left[i];
+            self.buffer[i * 2 + 1] = self.right[i];
         }
         self.cursor = 0;
     }
@@ -126,20 +139,4 @@ impl Iterator for GusSource {
     }
 }
 
-impl Source for GusSource {
-    fn current_span_len(&self) -> Option<usize> {
-        None
-    }
-
-    fn channels(&self) -> rodio::ChannelCount {
-        rodio::ChannelCount::new(2).unwrap()
-    }
-
-    fn sample_rate(&self) -> rodio::SampleRate {
-        rodio::SampleRate::new(SAMPLE_RATE).unwrap()
-    }
-
-    fn total_duration(&self) -> Option<Duration> {
-        None
-    }
-}
+impl_stereo_source!(GusSource);

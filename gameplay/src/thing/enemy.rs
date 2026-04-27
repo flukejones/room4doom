@@ -260,10 +260,12 @@ pub(crate) fn a_look(actor: &mut MapObject) {
     if actor.info.seesound != SfxName::None {
         let sound = match actor.info.seesound {
             SfxName::Posit1 | SfxName::Posit2 | SfxName::Posit3 => {
-                SfxName::from((SfxName::Posit1 as i32 + p_random() % 3) as u8)
+                SfxName::try_from((SfxName::Posit1 as i32 + p_random() % 3) as u8)
+                    .unwrap_or(SfxName::Posit1)
             }
             SfxName::Bgsit1 | SfxName::Bgsit2 => {
-                SfxName::from((SfxName::Bgsit1 as i32 + p_random() % 2) as u8)
+                SfxName::try_from((SfxName::Bgsit1 as i32 + p_random() % 2) as u8)
+                    .unwrap_or(SfxName::Bgsit1)
             }
             _ => actor.info.seesound,
         };
@@ -306,12 +308,14 @@ pub(crate) fn a_scream(actor: &mut MapObject) {
     let sound = match actor.info.deathsound {
         SfxName::None => return,
         SfxName::Podth1 | SfxName::Podth2 | SfxName::Podth3 => {
-            SfxName::from(SfxName::Podth1 as u8 + (p_random() % 3) as u8)
+            SfxName::try_from(SfxName::Podth1 as u8 + (p_random() % 3) as u8)
+                .unwrap_or(SfxName::Podth1)
         }
         SfxName::Bgdth1 | SfxName::Bgdth2 => {
-            SfxName::from(SfxName::Bgdth1 as u8 + (p_random() % 2) as u8)
+            SfxName::try_from(SfxName::Bgdth1 as u8 + (p_random() % 2) as u8)
+                .unwrap_or(SfxName::Bgdth1)
         }
-        _ => SfxName::from(actor.info.deathsound as u8),
+        _ => actor.info.deathsound,
     };
 
     // Check for bosses.

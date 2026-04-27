@@ -10,6 +10,11 @@ pub const EPISODE4_MUS: [MusTrack; 9] = [
     MusTrack::E1M9, // Tim        e4m9
 ];
 
+/// `#[repr(u8)]` is load-bearing: the enum is converted to/from `u8` via
+/// `TryFrom<u8>` for direct discriminant arithmetic against episode/map.
+/// Variants must remain in track ordering with no gaps; new variants must
+/// be appended just before `NumMus`.
+#[repr(u8)]
 #[derive(Debug, PartialOrd, PartialEq, Eq, Ord, Copy, Clone)]
 #[allow(non_camel_case_types)]
 pub enum MusTrack {
@@ -99,11 +104,16 @@ impl Default for MusTrack {
     }
 }
 
-impl From<u8> for MusTrack {
-    fn from(i: u8) -> Self {
+impl TryFrom<u8> for MusTrack {
+    type Error = u8;
+
+    fn try_from(i: u8) -> Result<Self, Self::Error> {
         if i >= MusTrack::NumMus as u8 {
-            panic!("{} is not a variant of MusEnum", i);
+            return Err(i);
         }
-        unsafe { std::mem::transmute(i) }
+        // SAFETY: `MusTrack` is `#[repr(u8)]` with contiguous discriminants
+        // `0..NumMus`; the bound check above guarantees `i` maps to a valid
+        // variant.
+        Ok(unsafe { std::mem::transmute::<u8, MusTrack>(i) })
     }
 }
