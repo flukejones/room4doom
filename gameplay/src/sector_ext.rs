@@ -28,6 +28,7 @@ pub trait SectorExt {
     /// Must be called if a thing is ever removed
     unsafe fn remove_from_thinglist(&mut self, thing: &mut Thinker);
 
+    #[allow(clippy::mut_from_ref)] // raw-pointer arena access under the hood
     fn sound_target(&self) -> Option<&mut MapObject>;
 
     fn sound_target_raw(&mut self) -> Option<*mut Thinker>;

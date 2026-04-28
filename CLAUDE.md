@@ -40,7 +40,9 @@
 - `gamestate` — `Game` struct, game loop orchestration
 - `game-exe` — entry point (binary name: `room4doom`), wires everything together
 - `input` — keyboard/mouse handling. Depends on gameplay (for TicCmd/WeaponType)
-- `sound/*` — trait (`sound/traits`) + backends (sdl2, rodio, nosnd, opl2_emulator)
+- `sound/common` — shared types + cross-thread protocol: `SfxName`, `MusTrack`, `SoundAction`, `SfxInfoBase`/`SFX_INFO_BASE`, spatial helpers, `read_mus_to_midi`. No backends.
+- `sound/rodio` — the only audio backend. Spawns a sound thread via `sound_rodio::spawn(SndConfig)`; the thread owns the cpal `MixerDeviceSink` and runs `Snd::tic` until `SoundAction::Shutdown`. Runs silent if no audio device is available at startup.
+- `sound/opl2_emulator` — OPL2/OPL3 FM synthesis used by rodio for music. Uses deliberate `wrapping_*` arithmetic; suppress dead-code warnings on this crate as a whole.
 - `tools/` — voxel-viewer, pvs-tool, multigen, test-utils
 
 ### Key dependency: gameplay → level

@@ -156,6 +156,7 @@ impl ThinkerAlloc {
 
     /// Iterates through the list of thinkers until either the closure returns
     /// true or the end is reached.
+    #[allow(clippy::mut_from_ref)] // raw-pointer intrusive-list traversal
     pub(crate) fn find_thinker<F>(&self, finder: F) -> Option<&mut Thinker>
     where
         F: Fn(&Thinker) -> bool,
@@ -182,6 +183,7 @@ impl ThinkerAlloc {
     /// true or the end is reached.
     ///
     /// # This is worse than the `find_thinker()` as there can be side effects
+    #[allow(clippy::mut_from_ref)] // raw-pointer intrusive-list traversal
     pub(crate) fn find_thinker_mut<F>(&self, mut finder: F) -> Option<&mut Thinker>
     where
         F: FnMut(&mut Thinker) -> bool,

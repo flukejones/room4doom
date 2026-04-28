@@ -349,7 +349,7 @@ impl MapObject {
             best_slide: BestSlide::default(),
             reactiontime,
             threshold: 0,
-            lastlook: p_random() as usize % MAXPLAYERS as usize,
+            lastlook: p_random() as usize % MAXPLAYERS,
             spawnpoint: WadThing::default(),
             target: None,
             tracer: None,
@@ -746,11 +746,11 @@ impl MapObject {
         let mut slope = source.aim_line_attack(distance, &mut bsp_trace);
 
         if slope.is_none() {
-            an = an + Angle::from_bam(1 << 26);
+            an += Angle::from_bam(1 << 26);
             source.angle = an;
             slope = source.aim_line_attack(distance, &mut bsp_trace);
             if slope.is_none() {
-                an = an - Angle::from_bam(2 << 26);
+                an -= Angle::from_bam(2 << 26);
                 source.angle = an;
                 slope = source.aim_line_attack(distance, &mut bsp_trace);
             }
@@ -810,7 +810,7 @@ impl MapObject {
         // fuzzy player
         if target.flags.contains(MapObjFlag::Shadow) {
             let fuzz = ((p_random() - p_random()) << 20) as u32;
-            mobj.angle = mobj.angle + Angle::from_bam(fuzz);
+            mobj.angle += Angle::from_bam(fuzz);
         }
 
         mobj.target = Some(source.thinker);

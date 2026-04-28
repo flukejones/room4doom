@@ -101,7 +101,7 @@ pub(crate) fn a_facetarget(actor: &mut MapObject) {
         angle = Angle::from_bam(r_point_to_angle(dx, dy));
         if target.flags.contains(MapObjFlag::Shadow) {
             let fuzz = ((p_random() - p_random()) << 21) as u32;
-            angle = angle + Angle::from_bam(fuzz);
+            angle += Angle::from_bam(fuzz);
         }
     }
     actor.angle = angle;
@@ -189,13 +189,12 @@ pub(crate) fn a_chase(actor: &mut MapObject) {
     if actor.info.missilestate != StateNum::None {
         let skill = unsafe { (*actor.level).options.skill };
         // OG: skip if (gameskill < nightmare && movecount != 0)
-        if skill == Skill::Nightmare || actor.movecount == 0 {
-            if actor.check_missile_range() {
+        if (skill == Skill::Nightmare || actor.movecount == 0)
+            && actor.check_missile_range() {
                 actor.set_state(actor.info.missilestate);
                 actor.flags.insert(MapObjFlag::Justattacked);
                 return;
             }
-        }
     }
 
     // nomissile:
@@ -235,8 +234,8 @@ pub(crate) fn a_look(actor: &mut MapObject) {
 
     let ss = actor.subsector.clone();
     let mut goto_seeyou = false;
-    if let Some(target) = ss.sector.sound_target() {
-        if target.flags.contains(MapObjFlag::Shootable) {
+    if let Some(target) = ss.sector.sound_target()
+        && target.flags.contains(MapObjFlag::Shootable) {
             actor.target = actor.subsector.sector.sound_target_raw();
 
             if actor.flags.contains(MapObjFlag::Ambush) {
@@ -248,7 +247,6 @@ pub(crate) fn a_look(actor: &mut MapObject) {
                 goto_seeyou = true;
             }
         }
-    }
     if !goto_seeyou && !actor.look_for_players(false) {
         return;
     }
@@ -340,15 +338,12 @@ pub(crate) fn a_xscream(actor: &mut MapObject) {
 pub(crate) fn a_keendie(actor: &mut MapObject) {
     a_fall(actor);
 
-    // TODO: ev_do_door takes &mut LevelState<f32>, narrow transmute until
-    // LevelState is fully generic
-    let level: &mut LevelState =
-        unsafe { &mut *(actor.level as *mut LevelState as *mut LevelState) };
+    let level: &mut LevelState = unsafe { &mut *actor.level };
     // Check keens are all dead
     let mut dead = true;
     level.thinkers.run_fn_on_things(|thinker| {
-        if let &ThinkerData::MapObject(ref mobj) = thinker.data() {
-            if !ptr::eq(
+        if let ThinkerData::MapObject(mobj) = thinker.data()
+            && !ptr::eq(
                 mobj as *const _ as *const (),
                 actor as *const _ as *const (),
             ) && mobj.kind == actor.kind
@@ -356,7 +351,6 @@ pub(crate) fn a_keendie(actor: &mut MapObject) {
             {
                 dead = false;
             }
-        }
         true
     });
     if !dead {
@@ -1006,7 +1000,7 @@ pub(crate) fn a_spidrefire(actor: &mut MapObject) {
     if p_random() < 10 {
         return;
     }
-    let should_idle = actor.target.map_or(true, |t| {
+    let should_idle = actor.target.is_none_or(|t| {
         let t = unsafe { (*t).mobj_mut() };
         t.health <= 0 || !actor.check_sight_target(t)
     });
@@ -1016,8 +1010,7 @@ pub(crate) fn a_spidrefire(actor: &mut MapObject) {
 }
 
 pub(crate) fn a_bossdeath(actor: &mut MapObject) {
-    let level: &mut LevelState =
-        unsafe { &mut *(actor.level as *mut LevelState as *mut LevelState) };
+    let level: &mut LevelState = unsafe { &mut *actor.level };
     let map = level.options.map;
     let episode = level.options.episode;
     let mode = level.game_mode;
@@ -1131,8 +1124,8 @@ pub(crate) fn a_bossdeath(actor: &mut MapObject) {
 fn all_bosses_dead(actor: &MapObject, level: &mut LevelState) -> bool {
     let mut dead = true;
     level.thinkers.run_fn_on_things(|thinker| {
-        if let &ThinkerData::MapObject(ref mobj) = thinker.data() {
-            if !ptr::eq(
+        if let ThinkerData::MapObject(mobj) = thinker.data()
+            && !ptr::eq(
                 mobj as *const _ as *const (),
                 actor as *const _ as *const (),
             ) && mobj.kind == actor.kind
@@ -1140,7 +1133,6 @@ fn all_bosses_dead(actor: &MapObject, level: &mut LevelState) -> bool {
             {
                 dead = false;
             }
-        }
         true
     });
     dead

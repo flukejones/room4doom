@@ -10,9 +10,7 @@ Key features:
   - Pixels (pure rust)
   - Softbuffer (pure rust)
   - SDL2 (good for Linux KMS/DRM)
-- 2 different sound backends
-  - Rodio (pure rust)
-  - SDL2 Mixer
+- Pure-Rust audio via rodio (cpal-backed); silent fallback if no audio device is available
 - Complete demo compatibility with OG Doom (no longtics yet)
 - FixedPoint can be 32 bit or 2 types of 64bit (48.16, or 32.32)
 
@@ -65,8 +63,8 @@ Options:
   -s, --skill       set the game-exe skill, 0-4 (0: easiest, 4: hardest)
   -e, --episode     select episode
   -m, --map         select level in episode. If Doom II the episode is ignored
-  -r, --rendering   rendering type <software, software3d, softopengl>
-  -M, --music-type  music type <fluidsynth, timidity, opl2(default)>
+  -r, --rendering   rendering type <software, software3d>
+  -M, --music-type  music type <opl2(default), opl3, gus>
   -E, --enable-demos
                     enable demo playback
   --demo            play this demo lump name immediately and exit when done
@@ -172,11 +170,12 @@ And maybe write a book on all I've learned about writing a Doom engine.
 
 I use and develop on Linux exclusively so although I once did a Windows build I don't maintain it.
 
-- Distro SDL2: `cargo build`
+- Default build: `cargo build` (uses the `display-pixels` + rodio audio path; pure-Rust)
+- SDL2 display path (Linux KMS/DRM friendly): `cargo build --no-default-features --features "display-sdl2,trig_lut"` — needs SDL2 dev packages installed.
 
-The distro requires SDL2 + SDL2-mixer to be installed along with the related dev packages including `alsa-lib-devel` and `pulseaudio-libs-devel`.
-Music support requires fluidsynth or timidity to be installed along with files in the `data/sound/`
-being installed to `~/.local/share/room4doom/sound/`.
+Audio uses rodio (cpal-backed), so no extra audio dev packages are required for the default build. On Linux, cpal will use ALSA / PulseAudio / PipeWire as the system provides.
+
+For GUS-style MIDI playback set `sf2_path` in `~/.config/room4doom/user.toml` to a SoundFont (e.g. `gm.sf2`); otherwise music falls back to OPL2/OPL3 FM synthesis with no external dependencies.
 
 ## User Config
 

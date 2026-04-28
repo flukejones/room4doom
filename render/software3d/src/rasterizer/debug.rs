@@ -56,7 +56,7 @@ impl Software3D {
         );
 
         let interpolator = match TriangleInterpolator::new(
-            &screen_poly.0,
+            screen_poly.0,
             &self.rasterizer.tex_coords_buffer[..self.rasterizer.tex_coords_len],
             &self.rasterizer.inv_w_buffer[..self.rasterizer.inv_w_len],
         ) {
@@ -240,7 +240,7 @@ impl Software3D {
                                 x += 1;
                                 break;
                             }
-                            if v < 0.0 || v >= 1.0 {
+                            if !(0.0..1.0).contains(&v) {
                                 interp_state.step_x();
                                 edge_inv_w += edge_inv_w_dx;
                                 x += 1;
@@ -372,15 +372,14 @@ impl Software3D {
 
             // Draw a 2px thick line by writing the pixel and its neighbour below
             for y in cy..=(cy + 1).min(h - 1) {
-                if cx < w && y < h {
-                    if self
+                if cx < w && y < h
+                    && self
                         .rasterizer
                         .depth_buffer
                         .test_and_set_depth_unchecked(cx, y, depth)
                     {
                         rend.set_pixel(cx, y, color);
                     }
-                }
             }
         }
     }

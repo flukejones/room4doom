@@ -32,8 +32,8 @@ pub struct DepthBuffer {
 impl DepthBuffer {
     pub fn new(width: usize, height: usize) -> Self {
         let size = width * height;
-        let tiles_x = (width + TILE_SIZE - 1) / TILE_SIZE;
-        let tiles_y = (height + TILE_SIZE - 1) / TILE_SIZE;
+        let tiles_x = width.div_ceil(TILE_SIZE);
+        let tiles_y = height.div_ceil(TILE_SIZE);
         let tile_count = tiles_x * tiles_y;
 
         Self {
@@ -76,8 +76,8 @@ impl DepthBuffer {
         self.height = height;
         self.covered_pixels = 0;
 
-        self.tiles_x = (width + TILE_SIZE - 1) / TILE_SIZE;
-        self.tiles_y = (height + TILE_SIZE - 1) / TILE_SIZE;
+        self.tiles_x = width.div_ceil(TILE_SIZE);
+        self.tiles_y = height.div_ceil(TILE_SIZE);
         let tile_count = self.tiles_x * self.tiles_y;
         self.tile_min_depth = vec![f32::MAX; tile_count].into_boxed_slice();
         self.tile_covered = vec![0; tile_count].into_boxed_slice();

@@ -4,6 +4,13 @@
 //! Public API: `init_tables()`, `Chip::new()`, `Chip::setup()`,
 //! `Chip::write_reg()`, `Chip::generate_block_2()`.
 
+// FM synthesis carries waveform tables, register bits, and chip-state
+// fields that are part of the OPL2/3 spec but not all currently consumed
+// by the GENMIDI playback path. Keeping the spec surface intact lets us
+// add features (drum mode, percussion, vibrato variants) without
+// re-deriving constants. Suppress dead-code warnings crate-wide.
+#![allow(dead_code)]
+
 pub mod player;
 pub use player::OplPlayerState;
 
@@ -71,7 +78,7 @@ pub fn init_tables() {
         for i in 0..512 {
             let v = (((i as f64 + 0.5) * (PI / 512.0)).sin() * 4084.0) as i16;
             t[0x200 + i] = v;
-            t[0x000 + i] = -v;
+            t[i] = -v;
         }
         for i in 0..256 {
             let v =
@@ -89,7 +96,7 @@ pub fn init_tables() {
             t[0xD00 + i] = t[0];
             t[0x800 + i] = t[0x200 + i];
             t[0xA00 + i] = t[0x200 + i * 2];
-            t[0xB00 + i] = t[0x000 + i * 2];
+            t[0xB00 + i] = t[i * 2];
             t[0xE00 + i] = t[0x200 + i * 2];
             t[0xF00 + i] = t[0x200 + i * 2];
         }
@@ -1023,7 +1030,7 @@ impl Chip {
         self.tremolo_value = trem_tbl()[self.tremolo_index as usize] >> self.tremolo_strength;
 
         let todo = LFO_MAX - self.lfo_counter;
-        let mut count = (todo + self.lfo_add - 1) / self.lfo_add;
+        let mut count = todo.div_ceil(self.lfo_add);
 
         // Guard against zero to prevent infinite loops when called with total=1
         if count == 0 {

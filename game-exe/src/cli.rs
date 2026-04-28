@@ -87,10 +87,10 @@ pub struct CLIOptions {
     /// select level in episode. If Doom II the episode is ignored
     #[argh(option, short = 'm')]
     pub map: Option<usize>,
-    /// rendering type <software, software3d, softopengl>
+    /// rendering type <software, software3d>
     #[argh(option, short = 'r')]
     pub rendering: Option<config::RenderType>,
-    /// music type <fluidsynth, timidity, opl2(default)>
+    /// music type <opl2(default), opl3, gus>
     #[argh(option, short = 'M')]
     pub music_type: Option<MusicType>,
     /// play this demo lump name immediately and exit when done (e.g. demo1,

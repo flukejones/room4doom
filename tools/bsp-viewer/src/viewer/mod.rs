@@ -104,8 +104,8 @@ impl MapViewerApp {
         let is_primary_drag = response.dragged_by(egui::PointerButton::Primary);
         let primary_stopped = response.drag_stopped_by(egui::PointerButton::Primary);
 
-        if is_primary_drag && ctrl && self.state.drag_tool == DragTool::None {
-            if let Some(pos) = response.interact_pointer_pos() {
+        if is_primary_drag && ctrl && self.state.drag_tool == DragTool::None
+            && let Some(pos) = response.interact_pointer_pos() {
                 let vc = response.rect.center();
                 let map_pos = self.screen_to_map(pos, vc);
                 if shift {
@@ -118,7 +118,6 @@ impl MapViewerApp {
                     };
                 }
             }
-        }
 
         if primary_stopped && self.state.drag_tool != DragTool::None {
             if let Some(pos) = response.interact_pointer_pos() {
@@ -149,19 +148,18 @@ impl MapViewerApp {
             self.state.drag_tool = DragTool::None;
         }
 
-        if self.state.drag_tool == DragTool::None {
-            if is_primary_drag || response.dragged_by(egui::PointerButton::Middle) {
+        if self.state.drag_tool == DragTool::None
+            && (is_primary_drag || response.dragged_by(egui::PointerButton::Middle)) {
                 self.state.offset += response.drag_delta();
                 self.state.is_dragging = true;
             }
-        }
         if primary_stopped || response.drag_stopped_by(egui::PointerButton::Middle) {
             self.state.is_dragging = false;
         }
 
         let scroll = response.ctx.input(|i| i.smooth_scroll_delta.y);
-        if scroll != 0.0 {
-            if let Some(pointer_pos) = response.hover_pos() {
+        if scroll != 0.0
+            && let Some(pointer_pos) = response.hover_pos() {
                 let vc = response.rect.center();
                 let mouse_map = self.screen_to_map(pointer_pos, vc);
                 self.state.zoom *= 1.002_f32.powf(scroll);
@@ -170,16 +168,14 @@ impl MapViewerApp {
                 self.state.offset.x += pointer_pos.x - new_screen.x;
                 self.state.offset.y += pointer_pos.y - new_screen.y;
             }
-        }
 
         if response.clicked() && !self.state.is_dragging {
             if ctrl {
-                if let Some(ss_id) = self.state.hovered_subsector {
-                    if let Some(ss) = self.data.subsectors.iter().find(|s| s.index == ss_id) {
+                if let Some(ss_id) = self.state.hovered_subsector
+                    && let Some(ss) = self.data.subsectors.iter().find(|s| s.index == ss_id) {
                         let text = self.query_sector(ss.sector_id);
                         self.output_query(&response.ctx, &text);
                     }
-                }
             } else if let Some(hovered) = self.state.hovered_subsector {
                 if self.state.pinned && self.state.selected_subsector == Some(hovered) {
                     self.state.pinned = false;

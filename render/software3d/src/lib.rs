@@ -774,7 +774,7 @@ impl Software3D {
         for (i, &vertex_idx) in polygon.vertices.iter().enumerate() {
             let (_, clip_pos) = self.get_transformed_vertex(vertex_idx, bsp3d);
             let vertex = bsp3d.vertex_get(vertex_idx);
-            let (u, v) = self.calculate_tex_coords(vertex, &polygon, bsp3d, pic_data, wall_z_range);
+            let (u, v) = self.calculate_tex_coords(vertex, polygon, bsp3d, pic_data, wall_z_range);
 
             input_vertices[i] = clip_pos;
             input_tex_coords[i] = Vec3::new(u, v, clip_pos.w);
@@ -1269,8 +1269,8 @@ impl Software3D {
             }
 
             for poly_surface in &leaf.polygons {
-                if poly_surface.is_facing_point(player_pos, &bsp3d.vertices) {
-                    if self.cull_polygon_bounds(poly_surface, bsp3d).is_some() {
+                if poly_surface.is_facing_point(player_pos, &bsp3d.vertices)
+                    && self.cull_polygon_bounds(poly_surface, bsp3d).is_some() {
                         self.stats.polygons_submitted += 1;
                         self.render_surface_polygon(
                             poly_surface,
@@ -1281,7 +1281,6 @@ impl Software3D {
                             buffer,
                         );
                     }
-                }
             }
             return;
         }

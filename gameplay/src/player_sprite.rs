@@ -201,7 +201,7 @@ pub(crate) fn a_fireshotgun2(player: &mut Player, _pspr: &mut PspDef) {
             // OG: bulletslope + ((P_Random()-P_Random())<<5) — slope adjusted per pellet
             let slope_adj = bullet_slope.clone().map(|mut res| {
                 let adj = FixedT::from_fixed((p_random() - p_random()) << 5);
-                res.aimslope = res.aimslope + adj;
+                res.aimslope += adj;
                 res
             });
             mobj.line_attack(damage, distance, angle, slope_adj, &mut bsp_trace);

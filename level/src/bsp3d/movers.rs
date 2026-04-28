@@ -102,8 +102,8 @@ pub fn classify_sector_mover(
 ) -> Option<MoverKind> {
     let mut result: Option<MoverKind> = None;
 
-    if sector.tag != 0 {
-        if let Some(indices) = tag_linedefs.get(&sector.tag) {
+    if sector.tag != 0
+        && let Some(indices) = tag_linedefs.get(&sector.tag) {
             for &li in indices {
                 if let Some(kind) = classify_special(linedefs[li].special) {
                     result = Some(match result {
@@ -113,18 +113,15 @@ pub fn classify_sector_mover(
                 }
             }
         }
-    }
     for line in &sector.lines {
-        if let Some(ref back) = line.backsector {
-            if back.num == sector.num {
-                if let Some(kind) = classify_special(line.special) {
+        if let Some(ref back) = line.backsector
+            && back.num == sector.num
+                && let Some(kind) = classify_special(line.special) {
                     result = Some(match result {
                         Some(prev) => prev.combine(kind),
                         None => kind,
                     });
                 }
-            }
-        }
     }
     result
 }
@@ -548,7 +545,7 @@ impl BSP3D {
                 if !line.flags.contains(LineDefFlags::TwoSided) {
                     continue;
                 }
-                let neighbor = if line.frontsector.num == sector.num as i32 {
+                let neighbor = if line.frontsector.num == sector.num {
                     line.backsector.as_ref()
                 } else {
                     Some(&line.frontsector)
@@ -604,8 +601,8 @@ impl BSP3D {
             add(seg.v2.pos, &mut seen, &mut pts);
             // Also collect vertices from adjacent back-sector subsectors.
             let front_id = seg.frontsector.num as usize;
-            if front_id == sector_id {
-                if let Some(back) = &seg.backsector {
+            if front_id == sector_id
+                && let Some(back) = &seg.backsector {
                     let back_num = back.num as usize;
                     for &ss_id in &self.sector_subsectors[back_num] {
                         let ss = &subsectors[ss_id];
@@ -619,7 +616,6 @@ impl BSP3D {
                         }
                     }
                 }
-            }
         }
         pts
     }
@@ -1042,13 +1038,11 @@ impl BSP3D {
         sector_id: usize,
         vertex_map: &VertexMap,
     ) {
-        if (vertex_z - sector_height).abs() < HEIGHT_EPSILON {
-            if let Some(target_vi) = qp.lookup(vertex_map, sector_id) {
-                if vi != target_vi {
+        if (vertex_z - sector_height).abs() < HEIGHT_EPSILON
+            && let Some(target_vi) = qp.lookup(vertex_map, sector_id)
+                && vi != target_vi {
                     self.subsector_leaves[ss_id].polygons[pi].vertices[vi_idx] = target_vi;
                 }
-            }
-        }
     }
 
     /// Step 7: set `moves` flag on all polygons in mover sectors.
@@ -1223,7 +1217,7 @@ impl BSP3D {
             }
             let ap = Vec2::new(pt.x - a.x, pt.y - a.y);
             let t = ap.dot(ab) / ab_len_sq;
-            if t < -0.01 || t > 1.01 {
+            if !(-0.01..=1.01).contains(&t) {
                 continue;
             }
             let proj = Vec2::new(a.x + t * ab.x, a.y + t * ab.y);

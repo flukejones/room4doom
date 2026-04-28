@@ -197,7 +197,7 @@ impl Software25D {
         if flip > 0 {
             tx -= FixedT::from((patch.data.len() - patch.left_offset as u32 as usize) as i32);
         } else {
-            tx -= FixedT::from(patch.left_offset as i32);
+            tx -= FixedT::from(patch.left_offset);
         }
 
         // focal_length for texture stepping
@@ -235,7 +235,7 @@ impl Software25D {
         vis.gx = sx;
         vis.gy = sy;
         vis.gz = sz;
-        vis.gzt = sz + FixedT::from(patch.top_offset as i32);
+        vis.gzt = sz + FixedT::from(patch.top_offset);
         vis.texture_mid = vis.gzt - view.viewz;
         vis.x1 = if x1 < 0 { FixedT::ZERO } else { x1 };
         vis.x2 = if x2 >= FixedT::from(screen_width as i32) {
@@ -308,8 +308,8 @@ impl Software25D {
             let texture_column = &patch.data[tex_column];
             let sprtopscreen = self.seg_renderer.centery - dc_texmid * spryscale;
             let bottomscreen = sprtopscreen + spryscale * FixedT::from(texture_column.len() as i32);
-            let mut top = FixedT::from(((sprtopscreen.0 + FRACUNIT - 1) >> FRACBITS) as i32);
-            let mut bottom = FixedT::from(((bottomscreen.0 - 1) >> FRACBITS) as i32);
+            let mut top = FixedT::from((sprtopscreen.0 + FRACUNIT - 1) >> FRACBITS  );
+            let mut bottom = FixedT::from((bottomscreen.0 - 1) >> FRACBITS  );
 
             if bottom >= clip_bottom[x] {
                 bottom = clip_bottom[x] - 1;
@@ -370,7 +370,7 @@ impl Software25D {
         pic_data: &PicData,
         rend: &mut impl DrawBuffer,
     ) {
-        let size = rend.size().clone();
+        let size = *rend.size();
         let mut clip_bottom = vec![FixedT::from(-2); size.width_usize()];
         let mut clip_top = vec![FixedT::from(-2); size.width_usize()];
 
@@ -475,7 +475,7 @@ impl Software25D {
         pic_data: &PicData,
         rend: &mut impl DrawBuffer,
     ) {
-        let size = rend.size().clone();
+        let size = *rend.size();
         let f = size.height() / 200;
         let pspriteiscale = FixedT::ONE / FixedT::from(f);
         let pspritescale = FixedT::from(f);
@@ -489,7 +489,7 @@ impl Software25D {
         let patch = pic_data.sprite_patch(frame.lump[0] as u32 as usize);
         let flip = frame.flip[0];
         // 160 is pretty much a hardcoded number to center the weapon always
-        let mut tx = FixedT::from_f32(sprite.sx) - 160 - FixedT::from(patch.left_offset as i32);
+        let mut tx = FixedT::from_f32(sprite.sx) - 160 - FixedT::from(patch.left_offset);
         let x_offset = pspritescale / self.y_scale;
         let x1 = FixedT::from(size.half_width()) + (tx * x_offset);
 
@@ -511,7 +511,7 @@ impl Software25D {
         };
         vis.patch = frame.lump[0] as u32 as usize;
         vis.texture_mid = FixedT::from(100)
-            - (FixedT::from_f32(sprite.sy) - FixedT::from(patch.top_offset as i32));
+            - (FixedT::from_f32(sprite.sy) - FixedT::from(patch.top_offset));
         let tmp = self.seg_renderer.centery - FixedT::from(size.view_height() / 2);
         if size.hi_res() {
             vis.texture_mid += tmp / 2;
@@ -596,7 +596,7 @@ impl Software25D {
         pic_data: &PicData,
         rend: &mut impl DrawBuffer,
     ) {
-        let size = rend.size().clone();
+        let size = *rend.size();
         let seg = unsafe { ds.curline.as_ref() };
         let frontsector = seg.frontsector.clone();
 
@@ -672,8 +672,8 @@ impl Software25D {
                     let bottomscreen =
                         sprtopscreen + spryscale * FixedT::from(texture_column.len() as i32);
                     let mut top =
-                        FixedT::from(((sprtopscreen.0 + FRACUNIT - 1) >> FRACBITS) as i32);
-                    let mut bottom = FixedT::from(((bottomscreen.0 - 1) >> FRACBITS) as i32);
+                        FixedT::from((sprtopscreen.0 + FRACUNIT - 1) >> FRACBITS  );
+                    let mut bottom = FixedT::from((bottomscreen.0 - 1) >> FRACBITS  );
 
                     if bottom >= mfloorclip {
                         bottom = mfloorclip - 1;

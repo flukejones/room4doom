@@ -94,8 +94,8 @@ pub fn draw_patch(
     palette: &WadPalette,
     pixels: &mut impl DrawBuffer,
 ) {
-    let buf_w = pixels.size().width() as i32;
-    let buf_h = pixels.size().height() as i32;
+    let buf_w = pixels.size().width();
+    let buf_h = pixels.size().height();
     let x_base = x - patch.left_offset as f32 * sx;
     let mut src_col: u32 = 0;
 
@@ -139,12 +139,12 @@ pub fn draw_patch_tinted(
     tint: u32,
     pixels: &mut impl DrawBuffer,
 ) {
-    let buf_w = pixels.size().width() as i32;
-    let buf_h = pixels.size().height() as i32;
+    let buf_w = pixels.size().width();
+    let buf_h = pixels.size().height();
     let x_base = x - patch.left_offset as f32 * sx;
-    let tr = ((tint >> 16) & 0xFF) as u32;
-    let tg = ((tint >> 8) & 0xFF) as u32;
-    let tb = (tint & 0xFF) as u32;
+    let tr = (tint >> 16) & 0xFF ;
+    let tg = (tint >> 8) & 0xFF ;
+    let tb = tint & 0xFF ;
     let mut src_col: u32 = 0;
 
     for column in patch.columns.iter() {
@@ -323,11 +323,10 @@ impl HUDString {
 
     pub fn add_char(&mut self, c: char) {
         self.data.push(c);
-        if let Some(p) = get_patch_for_char(c) {
-            if p.height as i32 > self.line_height {
+        if let Some(p) = get_patch_for_char(c)
+            && p.height as i32 > self.line_height {
                 self.line_height = p.height as i32;
             }
-        }
     }
 
     pub fn inc_current_char(&mut self) {

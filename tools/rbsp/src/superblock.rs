@@ -212,9 +212,9 @@ fn point_on_line_side(
     x: Float,
     y: Float,
 ) -> i32 {
-    let cross = (pdx as f64) * (y as f64 - py as f64) - (pdy as f64) * (x as f64 - px as f64);
-    let dist = cross / dir_len as f64;
-    if dist.abs() < EPSILON as f64 {
+    let cross = pdx * (y - py) - pdy * (x - px);
+    let dist = cross / dir_len;
+    if dist.abs() < EPSILON {
         0
     } else if dist > 0.0 {
         -1

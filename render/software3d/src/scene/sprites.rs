@@ -71,8 +71,8 @@ impl Software3D {
                 let frame = (thing.frame & FF_FRAMEMASK) as usize;
 
                 // Check for voxel replacement (within distance threshold)
-                if let Some(ref mgr) = voxel_mgr {
-                    if let Some(vslices) = mgr.get(sprnum, frame) {
+                if let Some(ref mgr) = voxel_mgr
+                    && let Some(vslices) = mgr.get(sprnum, frame) {
                         let dx = player_pos.x - thing.x.to_f32();
                         let dy = player_pos.y - thing.y.to_f32();
                         let dist_sq = dx * dx + dy * dy;
@@ -108,7 +108,6 @@ impl Software3D {
                             self.stats.voxel_distance_culled += 1;
                         }
                     }
-                }
 
                 if let Some(quad) = Self::build_sprite_quad(
                     thing,

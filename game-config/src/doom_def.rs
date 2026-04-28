@@ -30,8 +30,10 @@ pub enum GameMission {
 /// The defined weapons, including a marker indicating user has not changed
 /// weapon.
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
+#[derive(Default)]
 pub enum WeaponType {
     Fist,
+    #[default]
     Pistol,
     Shotgun,
     Chaingun,
@@ -63,11 +65,6 @@ impl From<WeaponType> for usize {
     }
 }
 
-impl Default for WeaponType {
-    fn default() -> Self {
-        Self::Pistol
-    }
-}
 
 impl From<u8> for WeaponType {
     fn from(w: u8) -> Self {

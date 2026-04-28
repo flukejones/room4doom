@@ -1,8 +1,8 @@
-/// KVX voxel model parser.
-///
-/// Format: numbytes(u32), xsiz/ysiz/zsiz(u32x3), xpivot/ypivot/zpivot(i32x3 8.8
-/// fixed), xoffset[xsiz+1](u32), xyoffset[xsiz*(ysiz+1)](u16), then slab data
-/// per (x,y) column.
+//! KVX voxel model parser.
+//!
+//! Format: numbytes(u32), xsiz/ysiz/zsiz(u32x3), xpivot/ypivot/zpivot(i32x3 8.8
+//! fixed), xoffset[xsiz+1](u32), xyoffset[xsiz*(ysiz+1)](u16), then slab data
+//! per (x,y) column.
 
 pub struct VoxelModel {
     pub xsiz: u32,

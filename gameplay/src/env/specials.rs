@@ -52,11 +52,10 @@ pub fn get_next_sector(line: MapPtr<LineDef>, sector: MapPtr<Sector>) -> Option<
 pub fn find_min_light_surrounding(sec: MapPtr<Sector>, max: usize) -> usize {
     let mut min = max;
     for line in &sec.lines {
-        if let Some(other) = get_next_sector(line.clone(), sec.clone()) {
-            if other.lightlevel < min {
+        if let Some(other) = get_next_sector(line.clone(), sec.clone())
+            && other.lightlevel < min {
                 min = other.lightlevel;
             }
-        }
     }
     trace!("find_min_light_surrounding: {min}");
     min
@@ -64,11 +63,10 @@ pub fn find_min_light_surrounding(sec: MapPtr<Sector>, max: usize) -> usize {
 
 pub fn find_max_light_surrounding(sec: MapPtr<Sector>, mut max: usize) -> usize {
     for line in &sec.lines {
-        if let Some(other) = get_next_sector(line.clone(), sec.clone()) {
-            if other.lightlevel > max {
+        if let Some(other) = get_next_sector(line.clone(), sec.clone())
+            && other.lightlevel > max {
                 max = other.lightlevel;
             }
-        }
     }
     debug!("find_max_light_surrounding: {max}");
     max
@@ -78,11 +76,10 @@ pub fn find_max_light_surrounding(sec: MapPtr<Sector>, mut max: usize) -> usize 
 pub fn find_lowest_ceiling_surrounding(sec: MapPtr<Sector>) -> SectorHeight {
     let mut height = SectorHeight::MAX;
     for line in &sec.lines {
-        if let Some(other) = get_next_sector(line.clone(), sec.clone()) {
-            if other.ceilingheight < height {
+        if let Some(other) = get_next_sector(line.clone(), sec.clone())
+            && other.ceilingheight < height {
                 height = other.ceilingheight;
             }
-        }
     }
     debug!("find_lowest_ceiling_surrounding: {height}");
     height
@@ -92,11 +89,10 @@ pub fn find_lowest_ceiling_surrounding(sec: MapPtr<Sector>) -> SectorHeight {
 pub fn find_highest_ceiling_surrounding(sec: MapPtr<Sector>) -> SectorHeight {
     let mut height = SectorHeight::ZERO;
     for line in &sec.lines {
-        if let Some(other) = get_next_sector(line.clone(), sec.clone()) {
-            if other.ceilingheight > height {
+        if let Some(other) = get_next_sector(line.clone(), sec.clone())
+            && other.ceilingheight > height {
                 height = other.ceilingheight;
             }
-        }
     }
     debug!("find_highest_ceiling_surrounding: {height}");
     height
@@ -106,11 +102,10 @@ pub fn find_highest_ceiling_surrounding(sec: MapPtr<Sector>) -> SectorHeight {
 pub fn find_lowest_floor_surrounding(sec: MapPtr<Sector>) -> SectorHeight {
     let mut floor = sec.floorheight;
     for line in &sec.lines {
-        if let Some(other) = get_next_sector(line.clone(), sec.clone()) {
-            if other.floorheight < floor {
+        if let Some(other) = get_next_sector(line.clone(), sec.clone())
+            && other.floorheight < floor {
                 floor = other.floorheight;
             }
-        }
     }
     debug!("find_lowest_floor_surrounding: {floor}");
     floor
@@ -120,11 +115,10 @@ pub fn find_lowest_floor_surrounding(sec: MapPtr<Sector>) -> SectorHeight {
 pub fn find_highest_floor_surrounding(sec: MapPtr<Sector>) -> SectorHeight {
     let mut floor = -SectorHeight::MAX;
     for line in &sec.lines {
-        if let Some(other) = get_next_sector(line.clone(), sec.clone()) {
-            if other.floorheight > floor {
+        if let Some(other) = get_next_sector(line.clone(), sec.clone())
+            && other.floorheight > floor {
                 floor = other.floorheight;
             }
-        }
     }
     debug!("find_highest_floor_surrounding: {floor}");
     floor
@@ -241,7 +235,7 @@ pub fn move_plane(
                     } else {
                         // COULD GET CRUSHED
                         let last_pos = sector.floorheight;
-                        sector.floorheight = sector.floorheight - speed;
+                        sector.floorheight -= speed;
                         bsp3d.move_surface(
                             sector_num,
                             MovementType::Floor,
@@ -291,7 +285,7 @@ pub fn move_plane(
                         return PlaneResult::PastDest;
                     } else {
                         let last_pos = sector.floorheight;
-                        sector.floorheight = sector.floorheight + speed;
+                        sector.floorheight += speed;
                         bsp3d.move_surface(
                             sector_num,
                             MovementType::Floor,
@@ -350,7 +344,7 @@ pub fn move_plane(
                     } else {
                         // COULD GET CRUSHED
                         let last_pos = sector.ceilingheight;
-                        sector.ceilingheight = sector.ceilingheight - speed;
+                        sector.ceilingheight -= speed;
                         bsp3d.move_surface(
                             sector_num,
                             MovementType::Ceiling,
@@ -403,7 +397,7 @@ pub fn move_plane(
                         }
                         return PlaneResult::PastDest;
                     } else {
-                        sector.ceilingheight = sector.ceilingheight + speed;
+                        sector.ceilingheight += speed;
                         bsp3d.move_surface(
                             sector_num,
                             MovementType::Ceiling,
@@ -785,13 +779,12 @@ pub fn cross_special_line(side: usize, mut line: MapPtr<LineDef>, thing: &mut Ma
             ev_build_stairs(line.clone(), StairKind::Turbo16, level);
             line.special = 0;
         }
-        125 => {
+        125
             // TELEPORT MonsterONLY
-            if thing.player().is_none() {
+            if thing.player().is_none() => {
                 teleport(line.clone(), side, thing, level);
                 line.special = 0;
             }
-        }
         39 => {
             teleport(line.clone(), side, thing, level);
             line.special = 0;
@@ -806,12 +799,11 @@ pub fn cross_special_line(side: usize, mut line: MapPtr<LineDef>, thing: &mut Ma
         97 => {
             teleport(line, side, thing, level);
         }
-        126 => {
+        126
             // TELEPORT MonsterONLY
-            if thing.player().is_none() {
+            if thing.player().is_none() => {
                 teleport(line.clone(), side, thing, level);
             }
-        }
         114 | 103 => {
             // Ignore. It's a switch
         }

@@ -94,7 +94,7 @@ fn main() {
 
 fn cmd_list(wad: &WadData, cmd: &ListCmd) {
     let filter = cmd.filter.as_deref().unwrap_or("").to_ascii_uppercase();
-    println!("{:<4}  {:<8}  {:>8}  {}", "#", "NAME", "SIZE", "TYPE");
+    println!("{:<4}  {:<8}  {:>8}  TYPE", "#", "NAME", "SIZE");
     println!("{}", "-".repeat(40));
     for (i, lump) in wad.lumps().iter().enumerate() {
         if !filter.is_empty() && !lump.name.contains(&filter) {
@@ -145,7 +145,7 @@ fn cmd_extract(wad: &WadData, cmd: &ExtractCmd) {
 
 fn cmd_info(wad: &WadData, path: &str) {
     println!("WAD: {}", path);
-    let wad_type = if wad.lumps().first().map_or(false, |l| {
+    let wad_type = if wad.lumps().first().is_some_and(|l| {
         l.name.starts_with("MAP") || l.name.starts_with("E")
     }) {
         "PWAD"

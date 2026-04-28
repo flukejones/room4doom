@@ -170,7 +170,7 @@ impl MapObject {
         let valid = level.valid_count;
 
         // OG: dist = (damage + MAXRADIUS) << FRACBITS
-        let dist_raw = (damage + MAXRADIUS as i32) << 16;
+        let dist_raw = (damage + MAXRADIUS) << 16;
         let bm = level.level_data.blockmap();
         let orgx = bm.x_origin;
         let orgy = bm.y_origin;
@@ -221,7 +221,7 @@ impl MapObject {
         let dy = (other.y - self.y).doom_abs();
         // OG: dist = max(dx,dy); dist = (dist - thing->radius) >> FRACBITS
         let mut dist = if dx > dy { dx } else { dy };
-        dist = dist - other.radius;
+        dist -= other.radius;
         let dist_i = if dist.to_i32() < 0 { 0 } else { dist.to_i32() };
 
         if dist_i >= damage {
@@ -393,7 +393,7 @@ impl MapObject {
                     }
                 }
 
-                let last_look = self.lastlook as usize;
+                let last_look = self.lastlook;
                 self.target = self.level_mut().players_mut()[last_look]
                     .mobj_mut()
                     .map(|m| m.thinker);
@@ -417,11 +417,10 @@ impl MapObject {
         let bytenum = pnum >> 3;
         let bitnum = 1 << (pnum & 7);
 
-        if !self.level().level_data.get_devils_rejects().is_empty() {
-            if self.level().level_data.get_devils_rejects()[bytenum as usize] & bitnum != 0 {
+        if !self.level().level_data.get_devils_rejects().is_empty()
+            && self.level().level_data.get_devils_rejects()[bytenum as usize] & bitnum != 0 {
                 return false;
             }
-        }
 
         self.check_sight(target.x, target.y, target.z, target.height)
     }
@@ -470,7 +469,7 @@ impl MapObject {
             let mut dist = raw_dist - 64;
 
             if self.info.meleestate == StateNum::None {
-                dist = dist - 128; // no melee attack, so fire more
+                dist -= 128; // no melee attack, so fire more
             }
 
             // OG: dist >>= 16 to get integer units
@@ -578,7 +577,7 @@ impl SubSectTraverse {
 
             return true;
         } else if let Some(thing) = intercept.thing.as_mut() {
-            if shooter as *const _ as usize == thing.as_ref() as *const _ as usize {
+            if std::ptr::eq(shooter, thing.as_ref()) {
                 return true;
             }
             if !thing.flags.contains(MapObjFlag::Shootable) {
@@ -671,11 +670,10 @@ impl ShootTraverse {
                 return;
             }
             // OG: sky hack wall — backsector also has sky ceiling
-            if let Some(back) = line.backsector.as_ref() {
-                if back.ceilingpic == self.sky_num {
+            if let Some(back) = line.backsector.as_ref()
+                && back.ceilingpic == self.sky_num {
                     return;
                 }
-            }
         }
 
         MapObject::spawn_puff(x, y, z, self.attack_range, unsafe { &mut *shooter.level });
@@ -720,7 +718,7 @@ impl ShootTraverse {
 
             return true;
         } else if let Some(thing) = intercept.thing.as_mut() {
-            if shooter as *const _ as usize == thing.as_ref() as *const _ as usize {
+            if std::ptr::eq(shooter, thing.as_ref()) {
                 return true;
             }
             if !thing.flags.contains(MapObjFlag::Shootable) {
