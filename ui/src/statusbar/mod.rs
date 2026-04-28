@@ -462,8 +462,8 @@ impl Statusbar {
         self.draw_stbar_background(sx, sy, bar_y, x, buffer);
 
         // ARMS background patch
-        if self.mode != GameMode::Commercial {
-            if let Some(patch) = self.patches.get("STARMS") {
+        if self.mode != GameMode::Commercial
+            && let Some(patch) = self.patches.get("STARMS") {
                 draw_patch(
                     patch,
                     x + ST_ARMSBGX * sx,
@@ -474,7 +474,6 @@ impl Statusbar {
                     buffer,
                 );
             }
-        }
 
         // Face
         let face = self.faces.get_face();
@@ -595,7 +594,7 @@ impl Statusbar {
         let max_ys = [ST_MAXAMMO0Y, ST_MAXAMMO1Y, ST_MAXAMMO3Y, ST_MAXAMMO2Y];
         for i in 0..4 {
             draw_num(
-                self.status.ammo[i] as u32,
+                self.status.ammo[i],
                 x + ST_AMMO0X * sx,
                 ammo_ys[i] * sy,
                 0,
@@ -606,7 +605,7 @@ impl Statusbar {
                 buffer,
             );
             draw_num(
-                self.status.maxammo[i] as u32,
+                self.status.maxammo[i],
                 x + ST_MAXAMMO0X * sx,
                 max_ys[i] * sy,
                 0,

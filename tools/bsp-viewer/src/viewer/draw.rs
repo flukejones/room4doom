@@ -83,8 +83,8 @@ impl MapViewerApp {
         }
 
         // Highlight hovered polygon edge
-        if let Some((ss_idx, edge_idx)) = self.state.hovered_polygon_edge {
-            if let Some(ss) = self.data.subsectors.iter().find(|s| s.index == ss_idx) {
+        if let Some((ss_idx, edge_idx)) = self.state.hovered_polygon_edge
+            && let Some(ss) = self.data.subsectors.iter().find(|s| s.index == ss_idx) {
                 let n = ss.vertices.len();
                 if edge_idx < n {
                     let p1 = self.map_to_screen(ss.vertices[edge_idx], vc);
@@ -94,7 +94,6 @@ impl MapViewerApp {
                     painter.circle_filled(p2, 4.0, Color32::from_rgb(255, 220, 50));
                 }
             }
-        }
 
         if self.state.show_aabb {
             let sel = self.state.selected_subsector;
@@ -160,9 +159,9 @@ impl MapViewerApp {
             }
         }
 
-        if self.state.show_divlines {
-            if let Some(sel) = self.state.selected_subsector {
-                if let Some(path) = self.data.ss_divline_path.get(sel) {
+        if self.state.show_divlines
+            && let Some(sel) = self.state.selected_subsector
+                && let Some(path) = self.data.ss_divline_path.get(sel) {
                     for (depth, &dl_idx) in path.iter().enumerate() {
                         let dl = &self.data.divlines[dl_idx];
                         let len = dl.dir.length();
@@ -182,8 +181,6 @@ impl MapViewerApp {
                         );
                     }
                 }
-            }
-        }
 
         self.draw_drag_overlay(painter, vc);
     }
@@ -280,11 +277,10 @@ impl MapViewerApp {
 
         ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
             if let Some(sel) = self.state.selected_subsector {
-                if self.state.pinned {
-                    if ui.button("Unpin selection").clicked() {
+                if self.state.pinned
+                    && ui.button("Unpin selection").clicked() {
                         self.state.pinned = false;
                     }
-                }
                 Self::draw_subsector_info_static(&self.data, ui, sel);
             } else {
                 ui.label("Hover a subsector to select");
@@ -307,8 +303,8 @@ impl MapViewerApp {
             lines.push(Self::build_ss_spans(&self.data, hovered));
         }
 
-        if let Some((ss_idx, edge_idx)) = self.state.hovered_polygon_edge {
-            if let Some(ss) = self.data.subsectors.iter().find(|s| s.index == ss_idx) {
+        if let Some((ss_idx, edge_idx)) = self.state.hovered_polygon_edge
+            && let Some(ss) = self.data.subsectors.iter().find(|s| s.index == ss_idx) {
                 let n = ss.vertices.len();
                 if edge_idx < n {
                     let v1 = ss.vertices[edge_idx];
@@ -327,10 +323,9 @@ impl MapViewerApp {
                     lines.push(spans);
                 }
             }
-        }
 
-        if let Some(lid) = self.state.hovered_linedef {
-            if let Some(ld) = self.data.linedefs.get(lid) {
+        if let Some(lid) = self.state.hovered_linedef
+            && let Some(ld) = self.data.linedefs.get(lid) {
                 let lbl = Color32::from_rgb(255, 220, 100);
                 let back: String = ld.back_sector_id.map_or("none".into(), |b| b.to_string());
                 let spans = vec![
@@ -352,10 +347,9 @@ impl MapViewerApp {
                 ];
                 lines.push(spans);
             }
-        }
 
-        if let Some(vid) = self.state.hovered_vertex {
-            if let Some(vx) = self.data.vertices.get(vid) {
+        if let Some(vid) = self.state.hovered_vertex
+            && let Some(vx) = self.data.vertices.get(vid) {
                 let lbl = Color32::from_rgb(180, 255, 180);
                 let ld_list: String = vx
                     .linedef_ids
@@ -380,7 +374,6 @@ impl MapViewerApp {
                 ];
                 lines.push(spans);
             }
-        }
 
         if lines.is_empty() {
             return;

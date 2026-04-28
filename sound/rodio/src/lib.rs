@@ -430,44 +430,33 @@ impl Snd {
 
         let sources = &mut self.sources;
         with_lock(&self.mixer, "sfx mixer", |mixer| {
-            // Find a free channel
-            let mut assigned = false;
-            for c in 0..MIXER_CHANNELS as usize {
-                if !mixer.channels[c].active {
-                    mixer.channels[c] = ChannelState {
-                        samples: chunk.samples.clone(),
-                        cursor: 0,
-                        active: true,
-                        priority: chunk.priority,
-                        pan,
-                        distance_vol,
-                    };
-                    let mut o = origin;
-                    o.channel = c as i32;
-                    sources[c] = o;
-                    assigned = true;
-                    break;
-                }
-            }
+            let new_state = || ChannelState {
+                samples: chunk.samples.clone(),
+                cursor: 0,
+                active: true,
+                priority: chunk.priority,
+                pan,
+                distance_vol,
+            };
 
-            // Priority eviction
-            if !assigned {
-                for c in 0..MIXER_CHANNELS as usize {
-                    if origin.priority >= mixer.channels[c].priority {
-                        mixer.channels[c] = ChannelState {
-                            samples: chunk.samples.clone(),
-                            cursor: 0,
-                            active: true,
-                            priority: chunk.priority,
-                            pan,
-                            distance_vol,
-                        };
-                        let mut o = origin;
-                        o.channel = c as i32;
-                        sources[c] = o;
-                        break;
-                    }
-                }
+            // Find a free channel
+            let assigned = mixer
+                .channels
+                .iter()
+                .position(|ch| !ch.active)
+                .or_else(|| {
+                    // Priority eviction
+                    mixer
+                        .channels
+                        .iter()
+                        .position(|ch| origin.priority >= ch.priority)
+                });
+
+            if let Some(c) = assigned {
+                mixer.channels[c] = new_state();
+                let mut o = origin;
+                o.channel = c as i32;
+                sources[c] = o;
             }
         });
     }

@@ -384,11 +384,10 @@ pub fn ev_turn_tag_lights_off(line: MapPtr<LineDef>, level: &mut LevelState) {
 
         for line in sector.lines.iter_mut() {
             let tsec = get_next_sector(line.clone(), sec.clone());
-            if let Some(tsec) = tsec {
-                if tsec.lightlevel < min {
+            if let Some(tsec) = tsec
+                && tsec.lightlevel < min {
                     min = tsec.lightlevel;
                 }
-            }
         }
 
         sector.lightlevel = min;

@@ -687,14 +687,10 @@ impl Game {
             level.clear_active_platforms();
 
             // Apply saved state
-            let level_f32 = unsafe { &mut *(level as *mut LevelState as *mut LevelState) };
-            let players_f32 = unsafe {
-                &mut *(&mut self.players as *mut [Player; MAXPLAYERS] as *mut [Player; MAXPLAYERS])
-            };
             match save::load_game_from_bytes(
                 &data,
-                level_f32,
-                players_f32,
+                level,
+                &mut self.players,
                 &mut self.players_in_game,
             ) {
                 Ok(h) => {
@@ -725,13 +721,9 @@ impl Game {
         };
 
         if let Some(ref level) = self.level {
-            let level_f32 = unsafe { &*(level as *const LevelState as *const LevelState) };
-            let players_f32 = unsafe {
-                &*(&self.players as *const [Player; MAXPLAYERS] as *const [Player; MAXPLAYERS])
-            };
             let data = save::save_game_to_bytes(
-                level_f32,
-                players_f32,
+                level,
+                &self.players,
                 &self.players_in_game,
                 self.game_tic,
                 &self.save_description,
@@ -804,12 +796,11 @@ impl Game {
 
     /// G_ReadDemoTicCmd
     fn read_demo_tic_cmd(&mut self, cmd: &mut TicCmd) {
-        if let Some(byte) = self.demo.buffer.peek() {
-            if *byte == DEMO_MARKER {
+        if let Some(byte) = self.demo.buffer.peek()
+            && *byte == DEMO_MARKER {
                 self.check_demo_status();
                 return;
             }
-        }
 
         if let Some(byte) = self.demo.buffer.next() {
             cmd.forwardmove = byte as i8;
@@ -912,12 +903,11 @@ impl Game {
         if let Some(demo) = self.wad_data.get_lump(&self.demo.name) {
             self.demo.buffer = demo.data.clone().into_iter().peekable();
 
-            if let Some(byte) = self.demo.buffer.next() {
-                if byte != 109 {
+            if let Some(byte) = self.demo.buffer.next()
+                && byte != 109 {
                     self.pending_action = GameAction::None;
                     return;
                 }
-            }
 
             if let Some(byte) = self.demo.buffer.next() {
                 self.options.skill = Skill::from(byte);
@@ -937,11 +927,10 @@ impl Game {
             if let Some(byte) = self.demo.buffer.next() {
                 self.options.fast_parm = byte == 1;
             }
-            if let Some(byte) = self.demo.buffer.next() {
-                if !self.options.no_monsters {
+            if let Some(byte) = self.demo.buffer.next()
+                && !self.options.no_monsters {
                     self.options.no_monsters = byte == 1;
                 }
-            }
             if let Some(byte) = self.demo.buffer.next() {
                 self.consoleplayer = byte as usize;
             }
@@ -996,22 +985,21 @@ impl Game {
         let secret = self.level.as_ref().unwrap().secret_exit;
 
         // UMAPINFO end-game checks (endgame, endpic, endbunny, endcast)
-        if let Some(entry) = map_entry {
-            if entry.end_game == Some(true)
+        if let Some(entry) = map_entry
+            && (entry.end_game == Some(true)
                 || entry.end_pic.is_some()
                 || entry.end_bunny
-                || entry.end_cast
+                || entry.end_cast)
             {
                 self.pending_action = GameAction::Victory;
                 return;
             }
-        }
 
         // Default end-game: E*M8 triggers victory unless UMAPINFO overrides
         let default_victory =
             !matches!(self.game_type.mode, GameMode::Commercial) && self.options.map == 8;
         let umapinfo_prevents_victory =
-            map_entry.map_or(false, |e| e.end_game == Some(false) || e.next.is_some());
+            map_entry.is_some_and(|e| e.end_game == Some(false) || e.next.is_some());
 
         if default_victory && !umapinfo_prevents_victory {
             self.pending_action = GameAction::Victory;
@@ -1133,12 +1121,11 @@ impl Game {
             }
         }
 
-        if let Some(level) = &mut self.level {
-            if let Some(action) = level.game_action.take() {
+        if let Some(level) = &mut self.level
+            && let Some(action) = level.game_action.take() {
                 self.pending_action = action;
                 info!("Game state changed: {:?}", self.pending_action);
             }
-        }
 
         // do things to change the game-exe state
         match self.pending_action {

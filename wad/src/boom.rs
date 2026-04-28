@@ -1,4 +1,4 @@
-/// BOOM binary lump parsers: SWITCHES, ANIMATED
+//! BOOM binary lump parsers: SWITCHES, ANIMATED
 
 const SWITCH_ENTRY_SIZE: usize = 20;
 const ANIMATED_ENTRY_SIZE: usize = 23;

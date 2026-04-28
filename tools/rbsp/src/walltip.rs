@@ -25,19 +25,21 @@ pub fn build_wall_tips(
 
         let dx = vertices[v2].x - vertices[v1].x;
         let dy = vertices[v2].y - vertices[v1].y;
+        #[allow(clippy::unnecessary_cast)] // cast needed when Float = f32
         let angle_v1 = (dy as f64).atan2(dx as f64);
+        #[allow(clippy::unnecessary_cast)]
         let angle_v2 = (-(dy as f64)).atan2(-(dx as f64));
 
         let front_sector = ld.front_sidedef_idx().map(|i| sidedefs[i].sector_idx());
         let back_sector = ld.back_sidedef_idx().map(|i| sidedefs[i].sector_idx());
 
         tips[v1].push(WallTip {
-            angle: angle_v1 as f64,
+            angle: angle_v1,
             front: front_sector,
             back: back_sector,
         });
         tips[v2].push(WallTip {
-            angle: angle_v2 as f64,
+            angle: angle_v2,
             front: back_sector,
             back: front_sector,
         });
@@ -106,7 +108,9 @@ pub fn copy_wall_tips_for_split(
     let v2 = linedef.end_vertex_idx();
     let dx = vertices[v2].x - vertices[v1].x;
     let dy = vertices[v2].y - vertices[v1].y;
+    #[allow(clippy::unnecessary_cast)] // cast needed when Float = f32
     let angle_fwd = (dy as f64).atan2(dx as f64);
+    #[allow(clippy::unnecessary_cast)]
     let angle_rev = (-(dy as f64)).atan2(-(dx as f64));
 
     let front_sector = linedef
@@ -116,12 +120,12 @@ pub fn copy_wall_tips_for_split(
 
     let tips = &mut wall_tips[new_vertex_idx];
     tips.push(WallTip {
-        angle: angle_fwd as f64,
+        angle: angle_fwd,
         front: front_sector,
         back: back_sector,
     });
     tips.push(WallTip {
-        angle: angle_rev as f64,
+        angle: angle_rev,
         front: back_sector,
         back: front_sector,
     });

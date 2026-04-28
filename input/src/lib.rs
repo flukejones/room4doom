@@ -93,9 +93,9 @@ impl InputEvents {
         }
 
         if val > self.mouse_threshold {
-            return (val - self.mouse_threshold) * self.mouse_acceleration + self.mouse_threshold;
+            (val - self.mouse_threshold) * self.mouse_acceleration + self.mouse_threshold
         } else {
-            return val;
+            val
         }
     }
 
@@ -164,8 +164,8 @@ impl InputEvents {
         }
 
         for i in 0..WeaponType::NumWeapons as u8 {
-            if let Some(key) = KeyCode::from_i32(30 + i as i32) {
-                if self.is_kb_pressed(key) {
+            if let Some(key) = KeyCode::from_i32(30 + i as i32)
+                && self.is_kb_pressed(key) {
                     cmd.buttons |= TIC_CMD_BUTTONS.bt_change;
                     if i == 8 {
                         cmd.buttons |= 2 << TIC_CMD_BUTTONS.bt_weaponshift;
@@ -173,7 +173,6 @@ impl InputEvents {
                         cmd.buttons |= i << TIC_CMD_BUTTONS.bt_weaponshift;
                     }
                 }
-            }
         }
 
         // Mouse

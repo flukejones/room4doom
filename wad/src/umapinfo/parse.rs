@@ -580,21 +580,19 @@ pub fn parse(input: &str) -> Result<UMapInfo, ParseError> {
 
     // Resolve cluster references: copy cluster data onto map entries
     for entry in &mut entries {
-        if let Some(cid) = entry.cluster_id {
-            if let Some(cluster) = clusters.get(&cid) {
+        if let Some(cid) = entry.cluster_id
+            && let Some(cluster) = clusters.get(&cid) {
                 if entry.inter_backdrop.is_none() {
                     entry.inter_backdrop = cluster.flat.clone();
                 }
                 if entry.inter_music.is_none() {
                     entry.inter_music = cluster.music.clone();
                 }
-                if entry.inter_text.is_none() {
-                    if let Some(text) = &cluster.exit_text {
+                if entry.inter_text.is_none()
+                    && let Some(text) = &cluster.exit_text {
                         entry.inter_text = Some(TextOrClear::Text(text.clone()));
                     }
-                }
             }
-        }
     }
 
     // Resolve episode definitions: attach to the first map entry they reference

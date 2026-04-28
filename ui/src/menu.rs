@@ -544,11 +544,10 @@ impl GameMenu {
                 }
             }
             for item in &menu.items {
-                if !item.patch.is_empty() {
-                    if let Some(lump) = wad.get_lump(&item.patch) {
+                if !item.patch.is_empty()
+                    && let Some(lump) = wad.get_lump(&item.patch) {
                         patches.insert(item.patch.to_string(), WadPatch::from_lump(lump));
                     }
-                }
             }
         }
 

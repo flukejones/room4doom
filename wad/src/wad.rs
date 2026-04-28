@@ -385,7 +385,7 @@ impl WadData {
     /// Parse the BLOCKMAP lump for `map_name` into a grid of linedef groups.
     pub fn read_blockmap(&self, map_name: &str) -> Option<WadBlockMap> {
         if let Some(info) = self.find_lump_for_map(map_name, MapLump::Blockmap) {
-            if info.data.len() == 0 {
+            if info.data.is_empty() {
                 return None;
             }
 
@@ -425,7 +425,7 @@ impl WadData {
     /// non-empty.
     pub fn read_rejects(&self, map_name: &str) -> Option<Vec<u8>> {
         if let Some(info) = self.find_lump_for_map(map_name, MapLump::Reject) {
-            if info.data.len() == 0 {
+            if info.data.is_empty() {
                 return None;
             }
             return Some(info.data.clone());

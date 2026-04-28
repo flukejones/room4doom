@@ -209,7 +209,7 @@ impl App {
                     let hx = self.slices.xpivot;
                     let hy = self.slices.ypivot;
                     let hz = self.slices.zpivot;
-                    for &(ref columns, d) in &[
+                    for &(columns, d) in &[
                         (&quad.neg_columns, quad.depth),
                         (&quad.pos_columns, quad.depth + 1.0),
                     ] {
@@ -493,7 +493,7 @@ impl ApplicationHandler for App {
                 .build()
                 .unwrap()
         };
-        self.pixels = Some(unsafe { std::mem::transmute(px) });
+        self.pixels = Some(unsafe { std::mem::transmute::<Pixels<'_>, Pixels<'static>>(px) });
         self.window = Some(window);
     }
 
@@ -525,12 +525,11 @@ impl ApplicationHandler for App {
                 state,
                 button,
                 ..
-            } => {
-                if button == winit::event::MouseButton::Left {
+            }
+                if button == winit::event::MouseButton::Left => {
                     self.mouse_dragging = state == winit::event::ElementState::Pressed;
                     self.camera.auto_rotate = false;
                 }
-            }
             WindowEvent::CursorMoved {
                 position,
                 ..
@@ -566,8 +565,8 @@ impl ApplicationHandler for App {
             WindowEvent::KeyboardInput {
                 event,
                 ..
-            } => {
-                if event.state == winit::event::ElementState::Pressed {
+            }
+                if event.state == winit::event::ElementState::Pressed => {
                     use winit::keyboard::{Key, NamedKey};
                     match event.logical_key {
                         Key::Named(NamedKey::ArrowLeft) => self.camera.pan_x -= 1.0,
@@ -590,7 +589,6 @@ impl ApplicationHandler for App {
                         _ => {}
                     }
                 }
-            }
             _ => {}
         }
     }

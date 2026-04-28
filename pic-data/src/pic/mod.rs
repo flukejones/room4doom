@@ -112,7 +112,7 @@ fn apply_crt_tone(color: u32, tone_lut: &[u8; 256], saturation: f32) -> u32 {
 
     // Perceptual luminance
     let lum = 0.299 * r + 0.587 * g + 0.114 * b;
-    let lum_i = (lum as u8).min(255);
+    let lum_i = lum as u8;
     let new_lum = tone_lut[lum_i as usize] as f32;
 
     // Scale channels by luminance ratio (preserves colour ratios)
@@ -846,13 +846,12 @@ impl PicData {
                 unsafe {
                     let c = texture.data.get_unchecked(x * texture.height + y);
                     let colourmap = self.vert_light_colourmap(light, scale);
-                    if let Some(cm) = colourmap.get(*c as usize) {
-                        if let Some(&color) = self.palette().get(*cm) {
+                    if let Some(cm) = colourmap.get(*c)
+                        && let Some(&color) = self.palette().get(*cm) {
                             r_sum += (color >> 16) & 0xFF;
                             g_sum += (color >> 8) & 0xFF;
                             b_sum += color & 0xFF;
                         }
-                    }
                 }
                 #[cfg(feature = "safety_check")]
                 {

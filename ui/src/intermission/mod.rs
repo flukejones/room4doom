@@ -184,11 +184,10 @@ impl Intermission {
         let mut umapinfo_names = HashMap::new();
         if let Some(info) = umapinfo {
             for entry in info.entries() {
-                if let Some(ref pic) = entry.level_pic {
-                    if let Some(lump) = wad.get_lump(pic) {
+                if let Some(ref pic) = entry.level_pic
+                    && let Some(lump) = wad.get_lump(pic) {
                         umapinfo_patches.insert(entry.map_name.clone(), WadPatch::from_lump(lump));
                     }
-                }
                 if let Some(ref name) = entry.level_name {
                     umapinfo_names.insert(entry.map_name.clone(), name.clone());
                 }
@@ -271,11 +270,10 @@ impl Intermission {
         }
         let ep = self.level_info.episode.min(self.level_names.len() - 1);
         let idx = self.level_info.last - 1;
-        if let Some(names) = self.level_names.get(ep) {
-            if let Some(patch) = names.get(idx) {
+        if let Some(names) = self.level_names.get(ep)
+            && let Some(patch) = names.get(idx) {
                 return LevelDisplay::Patch(patch);
             }
-        }
         LevelDisplay::Patch(&self.level_names[0][0])
     }
 
@@ -288,11 +286,10 @@ impl Intermission {
             return LevelDisplay::Text(text);
         }
         let ep = self.level_info.episode.min(self.level_names.len() - 1);
-        if let Some(names) = self.level_names.get(ep) {
-            if let Some(patch) = names.get(self.level_info.next) {
+        if let Some(names) = self.level_names.get(ep)
+            && let Some(patch) = names.get(self.level_info.next) {
                 return LevelDisplay::Patch(patch);
             }
-        }
         LevelDisplay::Patch(&self.level_names[0][0])
     }
 
@@ -410,8 +407,8 @@ impl SubsystemTrait for Intermission {
 
         // Pre-load intertext backdrop from UMAPINFO
         let map_name = self.map_name_for(self.level_info.episode, self.level_info.last);
-        if let Some(entry) = self.umapinfo.as_ref().and_then(|u| u.get(&map_name)) {
-            if entry.inter_text.is_some() {
+        if let Some(entry) = self.umapinfo.as_ref().and_then(|u| u.get(&map_name))
+            && entry.inter_text.is_some() {
                 let backdrop = entry.inter_backdrop.as_deref().unwrap_or("FLOOR4_8");
                 let wad = game.get_wad_data();
                 if let Some(lump) = wad.get_lump(backdrop) {
@@ -421,7 +418,6 @@ impl SubsystemTrait for Intermission {
                     });
                 }
             }
-        }
 
         self.init_stats();
     }

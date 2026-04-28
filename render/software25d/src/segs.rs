@@ -199,7 +199,7 @@ impl SegRender {
 
     pub fn set_view_pitch(&mut self, pitch: i16, half_screen_height: FixedT) {
         unsafe {
-            self.look_yslope = (LOOKDIRMAX as i16 + pitch) as usize;
+            self.look_yslope = (LOOKDIRMAX + pitch) as usize;
         }
         self.centery = half_screen_height + FixedT::from(pitch as i32);
     }
@@ -317,7 +317,7 @@ impl SegRender {
 
             ds_p.silhouette = SIL_BOTH;
             // negonearray at [0..width], screenheightarray at [width..2*width]
-            let width = FixedT::from(rend.size().width() as i32);
+            let width = FixedT::from(rend.size().width());
             ds_p.sprtopclip = Some(width); // screenheightarray
             ds_p.sprbottomclip = Some(FixedT::ZERO); // negonearray
             ds_p.bsilheight = FixedT::MAX;
@@ -453,11 +453,10 @@ impl SegRender {
                 if self.wall_lights > 0 {
                     self.wall_lights -= 1;
                 }
-            } else if seg_bam == ANG90 || seg_bam == math::ANG270 {
-                if self.wall_lights < 15 {
+            } else if (seg_bam == ANG90 || seg_bam == math::ANG270)
+                && self.wall_lights < 15 {
                     self.wall_lights += 1;
                 }
-            }
         }
 
         // if a floor / ceiling plane is on the wrong side

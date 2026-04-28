@@ -65,6 +65,7 @@ impl FixedT {
 
     /// Export as WAD-compatible 16.16 i32 (truncates in 64-bit modes).
     #[inline]
+    #[allow(clippy::unnecessary_cast)] // cast is required in 64-bit Inner modes
     pub const fn to_fixed_raw(self) -> i32 {
         (self.0 >> WAD_SHIFT) as i32
     }
@@ -155,8 +156,10 @@ impl FixedT {
         }
     }
 
+
     /// Arithmetic right shift by `bits`.
     #[inline]
+    #[allow(clippy::should_implement_trait)] // inherent method kept for ergonomics; Shr trait also implemented
     pub fn shr(self, bits: u32) -> Self {
         Self(self.0 >> bits)
     }
@@ -169,6 +172,7 @@ impl FixedT {
 
     /// Convert to i32 (truncating fractional part).
     #[inline]
+    #[allow(clippy::unnecessary_cast)] // cast is required in 64-bit Inner modes
     pub fn to_i32(self) -> i32 {
         (self.0 >> FRACBITS) as i32
     }
@@ -235,6 +239,7 @@ impl AddAssign for FixedT {
     }
 }
 
+#[allow(clippy::suspicious_op_assign_impl)]
 impl AddAssign<i32> for FixedT {
     #[inline]
     fn add_assign(&mut self, rhs: i32) {
@@ -249,6 +254,7 @@ impl SubAssign for FixedT {
     }
 }
 
+#[allow(clippy::suspicious_op_assign_impl)]
 impl SubAssign<i32> for FixedT {
     #[inline]
     fn sub_assign(&mut self, rhs: i32) {
@@ -320,6 +326,7 @@ impl PartialOrd<f32> for FixedT {
 
 // --- Mixed ops with i32 ---
 
+#[allow(clippy::suspicious_arithmetic_impl)]
 impl Add<i32> for FixedT {
     type Output = Self;
     #[inline]
@@ -328,6 +335,7 @@ impl Add<i32> for FixedT {
     }
 }
 
+#[allow(clippy::suspicious_arithmetic_impl)]
 impl Sub<i32> for FixedT {
     type Output = Self;
     #[inline]
@@ -336,6 +344,7 @@ impl Sub<i32> for FixedT {
     }
 }
 
+#[allow(clippy::suspicious_arithmetic_impl)]
 impl Mul<i32> for FixedT {
     type Output = Self;
     #[inline]
@@ -344,6 +353,7 @@ impl Mul<i32> for FixedT {
     }
 }
 
+#[allow(clippy::suspicious_arithmetic_impl)]
 impl Div<i32> for FixedT {
     type Output = Self;
     #[inline]
@@ -362,6 +372,7 @@ impl Div<FixedT> for f32 {
     }
 }
 
+#[allow(clippy::suspicious_arithmetic_impl)]
 impl Sub<FixedT> for i32 {
     type Output = FixedT;
     #[inline]
@@ -370,6 +381,7 @@ impl Sub<FixedT> for i32 {
     }
 }
 
+#[allow(clippy::suspicious_arithmetic_impl)]
 impl Div<FixedT> for i32 {
     type Output = FixedT;
     #[inline]

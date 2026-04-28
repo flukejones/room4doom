@@ -14,13 +14,13 @@ const CONVEX_EPSILON: Float = 2.0;
 /// Classify a point relative to a partition line.
 /// Uses the original linedef vertex as origin to avoid float drift.
 pub fn classify_point(partition: &Seg, point: &Vertex, vertices: &[Vertex]) -> PointSide {
-    let px = vertices[partition.linedef_v1].x as f64;
-    let py = vertices[partition.linedef_v1].y as f64;
-    let cross = (partition.dx as f64) * (point.y as f64 - py)
-        - (partition.dy as f64) * (point.x as f64 - px);
-    let dist = cross / partition.dir_len as f64;
+    let px = vertices[partition.linedef_v1].x;
+    let py = vertices[partition.linedef_v1].y;
+    let cross = partition.dx * (point.y - py)
+        - partition.dy * (point.x - px);
+    let dist = cross / partition.dir_len;
 
-    if dist.abs() < EPSILON as f64 {
+    if dist.abs() < EPSILON {
         PointSide::OnLine
     } else if dist > 0.0 {
         PointSide::Left
@@ -162,11 +162,10 @@ fn score_superblock(
 
     // Recurse into children.
     for child in &block.children {
-        if let Some(c) = child {
-            if score_superblock(c, partition, segs, vertices, state) {
+        if let Some(c) = child
+            && score_superblock(c, partition, segs, vertices, state) {
                 return true;
             }
-        }
     }
 
     false

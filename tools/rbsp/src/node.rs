@@ -462,7 +462,7 @@ fn insert_boundary_verts(
 /// The clip polygon already has seg vertices inserted (done during the
 /// combined split_segs_and_poly pass). Seg vertices ARE polygon vertices.
 fn create_subsector(seg_indices: &[usize], clip_poly: ClipPoly, bs: &mut BuildState) -> u32 {
-    if bs.subsectors.len() % 200 == 0 {
+    if bs.subsectors.len().is_multiple_of(200) {
         let elapsed = bs.start_time.elapsed();
         print!(
             "\r  rBSP: {} ss, {} segs, {} nodes, {} verts [{:.1}s]",

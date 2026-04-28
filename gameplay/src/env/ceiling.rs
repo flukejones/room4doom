@@ -17,6 +17,7 @@ use level::map_defs::{LineDef, Sector, SectorHeight};
 const CEILSPEED: SectorHeight = SectorHeight::ONE;
 
 #[derive(Debug, Clone, Copy)]
+#[repr(u8)]
 pub enum CeilKind {
     LowerToFloor,
     RaiseToHighest,

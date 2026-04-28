@@ -14,9 +14,9 @@ use math::{Angle, FixedT, get_prndindex, get_rndindex, set_prndindex, set_rndind
 use wad::types::WadThing;
 
 use crate::doom_def::MAXPLAYERS;
-use crate::env::ceiling::CeilingMove;
-use crate::env::doors::VerticalDoor;
-use crate::env::floor::FloorMove;
+use crate::env::ceiling::{CeilingMove, CeilKind};
+use crate::env::doors::{DoorKind, VerticalDoor};
+use crate::env::floor::{FloorKind, FloorMove};
 use crate::env::lights::{FireFlicker, Glow, LightFlash, StrobeFlash};
 use crate::env::platforms::Platform;
 use crate::info::{MOBJINFO, MapObjKind, STATES, SpriteNum, StateNum};
@@ -634,7 +634,7 @@ fn load_vdoor(r: &mut SaveReader, level: &mut LevelState) -> Result<(), SaveErro
     let door = VerticalDoor {
         thinker: null_mut(),
         sector: sector.clone(),
-        kind: unsafe { std::mem::transmute::<u8, _>(kind) },
+        kind: unsafe { std::mem::transmute::<u8, DoorKind>(kind) },
         topheight,
         speed,
         direction,
@@ -670,7 +670,7 @@ fn load_floor(r: &mut SaveReader, level: &mut LevelState) -> Result<(), SaveErro
     let floor = FloorMove {
         thinker: null_mut(),
         sector: sector.clone(),
-        kind: unsafe { std::mem::transmute::<u8, _>(kind) },
+        kind: unsafe { std::mem::transmute::<u8, FloorKind>(kind) },
         speed,
         crush,
         direction,
@@ -707,7 +707,7 @@ fn load_ceiling(r: &mut SaveReader, level: &mut LevelState) -> Result<(), SaveEr
     let ceil = CeilingMove {
         thinker: null_mut(),
         sector: sector.clone(),
-        kind: unsafe { std::mem::transmute::<u8, _>(kind) },
+        kind: unsafe { std::mem::transmute::<u8, CeilKind>(kind) },
         bottomheight,
         topheight,
         speed,

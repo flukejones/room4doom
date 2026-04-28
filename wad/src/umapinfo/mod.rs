@@ -108,13 +108,12 @@ pub fn parse(input: &str) -> Result<UMapInfo, ParseError> {
 /// Episode 0 means commercial format (MAPxx).
 pub fn parse_map_name(name: &str) -> (usize, usize) {
     let upper = name.to_ascii_uppercase();
-    if upper.starts_with('E') {
-        if let Some(m_pos) = upper.find('M') {
+    if upper.starts_with('E')
+        && let Some(m_pos) = upper.find('M') {
             let ep = upper[1..m_pos].parse().unwrap_or(0);
             let map = upper[m_pos + 1..].parse().unwrap_or(0);
             return (ep, map);
         }
-    }
     if upper.starts_with("MAP") {
         let map = upper[3..].parse().unwrap_or(0);
         return (0, map);

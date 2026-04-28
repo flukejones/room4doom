@@ -98,7 +98,7 @@ impl Software25D {
         rend: &mut impl DrawBuffer,
     ) {
         // TODO: pull duplicate functionality out to a function
-        self.clear(FixedT::from(rend.size().width() as i32));
+        self.clear(FixedT::from(rend.size().width()));
         let mut count = 0;
         // TODO: netupdate
 

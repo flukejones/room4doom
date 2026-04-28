@@ -54,7 +54,7 @@ impl Software3D {
         );
 
         let interpolator = match TriangleInterpolator::new(
-            &screen_poly.0,
+            screen_poly.0,
             &self.rasterizer.tex_coords_buffer[..self.rasterizer.tex_coords_len],
             &self.rasterizer.inv_w_buffer[..self.rasterizer.inv_w_len],
         ) {
@@ -230,7 +230,7 @@ impl Software3D {
                             }
                             let (u, v) = interp_state.get_current_uv();
                             // Outside texture vertical bounds — no tiling for middle walls
-                            if v < 0.0 || v >= 1.0 {
+                            if !(0.0..1.0).contains(&v) {
                                 interp_state.step_x();
                                 edge_inv_w += edge_inv_w_dx;
                                 x += 1;
@@ -453,7 +453,7 @@ impl Software3D {
         let bounds = screen_poly.bounds()?;
 
         let interpolator = TriangleInterpolator::new(
-            &screen_poly.0,
+            screen_poly.0,
             &self.rasterizer.tex_coords_buffer[..self.rasterizer.tex_coords_len],
             &self.rasterizer.inv_w_buffer[..self.rasterizer.inv_w_len],
         )?;

@@ -19,6 +19,12 @@ pub struct VertexPool {
     grid: HashMap<(i32, i32), Vec<u32>>,
 }
 
+impl Default for VertexPool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl VertexPool {
     pub fn new() -> Self {
         Self {

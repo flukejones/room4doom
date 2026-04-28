@@ -87,8 +87,8 @@ pub fn change_switch_texture(
 
     for i in 0..switch_list.len() {
         let sw = switch_list[i];
-        if let Some(tex_top) = line.front_sidedef.toptexture {
-            if sw == tex_top {
+        if let Some(tex_top) = line.front_sidedef.toptexture
+            && sw == tex_top {
                 start_sector_sound(&line, sfx, snd);
                 let new_tex = switch_list[i ^ 1];
                 line.front_sidedef.toptexture = Some(new_tex);
@@ -104,9 +104,8 @@ pub fn change_switch_texture(
                 }
                 return;
             }
-        }
-        if let Some(tex_mid) = line.front_sidedef.midtexture {
-            if sw == tex_mid {
+        if let Some(tex_mid) = line.front_sidedef.midtexture
+            && sw == tex_mid {
                 start_sector_sound(&line, sfx, snd);
                 let new_tex = switch_list[i ^ 1];
                 line.front_sidedef.midtexture = Some(new_tex);
@@ -122,9 +121,8 @@ pub fn change_switch_texture(
                 }
                 return;
             }
-        }
-        if let Some(tex_low) = line.front_sidedef.bottomtexture {
-            if sw == tex_low {
+        if let Some(tex_low) = line.front_sidedef.bottomtexture
+            && sw == tex_low {
                 start_sector_sound(&line, sfx, snd);
                 let new_tex = switch_list[i ^ 1];
                 line.front_sidedef.bottomtexture = Some(new_tex);
@@ -140,7 +138,6 @@ pub fn change_switch_texture(
                 }
                 return;
             }
-        }
     }
 }
 

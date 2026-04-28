@@ -74,7 +74,7 @@ impl MapObject {
         // inflict thrust and push the victim out of reach,
         // thus kick away unless using the chainsaw.
         if let Some((inflict_x, inflict_y, inflict_z)) = inflictor {
-            let no_chainsaw = source.as_ref().map_or(true, |src| {
+            let no_chainsaw = source.as_ref().is_none_or(|src| {
                 src.player.is_none()
                     || unsafe { (*src.player.unwrap()).status.readyweapon != WeaponType::Chainsaw }
             });
@@ -171,8 +171,8 @@ impl MapObject {
 
         self.reactiontime = 0; // AWAKE AND READY!
 
-        if self.threshold == 0 || self.kind == MapObjKind::MT_VILE {
-            if let Some(source) = source {
+        if (self.threshold == 0 || self.kind == MapObjKind::MT_VILE)
+            && let Some(source) = source {
                 // TODO: gameversion <= exe_doom_1_2
                 if !ptr::eq(self, source) && source.kind != MapObjKind::MT_VILE {
                     self.target = Some(source.thinker);
@@ -185,7 +185,6 @@ impl MapObject {
                     }
                 }
             }
-        }
     }
 
     /// Doom function name `P_KillMobj`
