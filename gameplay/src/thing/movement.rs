@@ -92,8 +92,8 @@ impl MapObject {
         // adjust height
         self.z += self.momz;
 
-        if self.flags.contains(MapObjFlag::Float) {
-            if let Some(target) = self.target {
+        if self.flags.contains(MapObjFlag::Float)
+            && let Some(target) = self.target {
                 let target = unsafe { (*target).mobj() };
 
                 // float down towards target if too close
@@ -116,7 +116,6 @@ impl MapObject {
                     }
                 }
             }
-        }
 
         // clip movement
 
@@ -153,7 +152,7 @@ impl MapObject {
             if self.momz.is_zero() {
                 self.momz = FixedT::from_fixed(-GRAVITY * 2);
             } else {
-                self.momz = self.momz - FixedT::from_fixed(GRAVITY);
+                self.momz -= FixedT::from_fixed(GRAVITY);
             }
         }
 
@@ -239,14 +238,12 @@ impl MapObject {
                 if self.player.is_some() {
                     self.p_slide_move();
                 } else if self.flags.contains(MapObjFlag::Missile) {
-                    if let Some(line) = ctrl.sky_line {
-                        if let Some(back) = line.backsector.as_ref() {
-                            if back.ceilingpic == self.level().sky_num {
+                    if let Some(line) = ctrl.sky_line
+                        && let Some(back) = line.backsector.as_ref()
+                            && back.ceilingpic == self.level().sky_num {
                                 self.remove();
                                 return;
                             }
-                        }
-                    }
                     self.p_explode_missile(); //
                 } else {
                     self.momx = FixedT::ZERO;
@@ -722,7 +719,7 @@ impl MapObject {
             }
 
             // Fudge to avoid re-hitting the wall
-            self.best_slide.best_slide_frac = self.best_slide.best_slide_frac - fudge;
+            self.best_slide.best_slide_frac -= fudge;
             if self.best_slide.best_slide_frac > FixedT::ZERO {
                 let frac = self.best_slide.best_slide_frac;
                 let newx = self.momx.fixed_mul(frac);

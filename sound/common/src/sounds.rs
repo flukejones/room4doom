@@ -6,7 +6,9 @@
 /// appended just before `NumSfx`.
 #[repr(u8)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Default)]
 pub enum SfxName {
+    #[default]
     None,
     Pistol,
     Shotgn,
@@ -119,11 +121,6 @@ pub enum SfxName {
     NumSfx,
 }
 
-impl Default for SfxName {
-    fn default() -> Self {
-        Self::None
-    }
-}
 
 impl TryFrom<u8> for SfxName {
     type Error = u8;

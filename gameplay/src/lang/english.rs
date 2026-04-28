@@ -81,8 +81,6 @@ pub const OPT_SFX_VOL: &str = "SFX VOLUME";
 pub const OPT_MUS_VOL: &str = "MUSIC VOLUME";
 pub const OPT_MUS_TYPE: &str = "MUSIC TYPE";
 pub const OPT_MUS_OPL2: &str = "OPL2";
-pub const OPT_MUS_FLUID: &str = "FLUIDSYNTH";
-pub const OPT_MUS_TIMIDITY: &str = "TIMIDITY";
 pub const OPT_MUS_OPL3: &str = "OPL3";
 pub const OPT_MUS_GUS: &str = "GUS";
 

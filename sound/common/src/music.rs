@@ -17,7 +17,9 @@ pub const EPISODE4_MUS: [MusTrack; 9] = [
 #[repr(u8)]
 #[derive(Debug, PartialOrd, PartialEq, Eq, Ord, Copy, Clone)]
 #[allow(non_camel_case_types)]
+#[derive(Default)]
 pub enum MusTrack {
+    #[default]
     None,
     E1M1,
     E1M2,
@@ -98,11 +100,6 @@ impl MusTrack {
     }
 }
 
-impl Default for MusTrack {
-    fn default() -> Self {
-        Self::None
-    }
-}
 
 impl TryFrom<u8> for MusTrack {
     type Error = u8;

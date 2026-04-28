@@ -86,18 +86,18 @@ pub fn clip_convex_poly(
         );
 
         if crossing {
-            let cx = pool.vertices[curr_idx as usize].x as f64;
-            let cy = pool.vertices[curr_idx as usize].y as f64;
-            let nx = pool.vertices[next_idx as usize].x as f64;
-            let ny = pool.vertices[next_idx as usize].y as f64;
+            let cx = pool.vertices[curr_idx as usize].x;
+            let cy = pool.vertices[curr_idx as usize].y;
+            let nx = pool.vertices[next_idx as usize].x;
+            let ny = pool.vertices[next_idx as usize].y;
             let edx = nx - cx;
             let edy = ny - cy;
-            let pdx = partition.dx as f64;
-            let pdy = partition.dy as f64;
+            let pdx = partition.dx;
+            let pdy = partition.dy;
 
             let denom = pdx * edy - pdy * edx;
-            if denom.abs() > PARALLEL_EPSILON as f64 {
-                let num = pdy * (cx - px as f64) - pdx * (cy - py as f64);
+            if denom.abs() > PARALLEL_EPSILON {
+                let num = pdy * (cx - px) - pdx * (cy - py);
                 let u = (num / denom).clamp(0.0, 1.0);
                 let hx = (cx + u * edx) as Float;
                 let hy = (cy + u * edy) as Float;

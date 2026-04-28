@@ -20,6 +20,7 @@ use level::map_defs::{LineDef, Sector, SectorHeight};
 const FLOORSPEED: SectorHeight = SectorHeight::ONE;
 
 #[derive(Debug, Clone, Copy)]
+#[repr(u8)]
 pub enum FloorKind {
     /// lower floor to highest surrounding floor
     LowerFloor,
@@ -146,8 +147,8 @@ pub fn ev_do_floor(line: MapPtr<LineDef>, kind: FloorKind, level: &mut LevelStat
                                 min = tmp;
                             }
                         }
-                        if let Some(side) = line.back_sidedef.as_ref() {
-                            if let Some(bottomtexture) = side.bottomtexture {
+                        if let Some(side) = line.back_sidedef.as_ref()
+                            && let Some(bottomtexture) = side.bottomtexture {
                                 let tmp = SectorHeight::from(
                                     level.animations[bottomtexture].num_pics() as i32,
                                 );
@@ -155,7 +156,6 @@ pub fn ev_do_floor(line: MapPtr<LineDef>, kind: FloorKind, level: &mut LevelStat
                                     min = tmp;
                                 }
                             }
-                        }
                     }
                 }
                 floor.destheight = sec.floorheight + min;

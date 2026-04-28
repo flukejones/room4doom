@@ -130,11 +130,10 @@ impl SubsystemTrait for Messages {
                 l.inc_current_char();
             }
         }
-        if let Some(msg) = game.player_msg_take() {
-            if self.msg_mode > 0 {
+        if let Some(msg) = game.player_msg_take()
+            && self.msg_mode > 0 {
                 self.add_line(msg.to_ascii_uppercase());
             }
-        }
         self.count_down -= 1;
         if self.count_down <= 0 {
             self.count_down = self.count_down_max;

@@ -32,13 +32,12 @@ pub fn teleport(
             // TODO: check teleport move P_TeleportMove
             if let Some(thinker) = level.thinkers.find_thinker(|thinker| {
                 // Find the right thinker
-                if let &ThinkerData::MapObject(ref mobj) = thinker.data() {
-                    if mobj.kind == MapObjKind::MT_TELEPORTMAN
+                if let ThinkerData::MapObject(mobj) = thinker.data()
+                    && mobj.kind == MapObjKind::MT_TELEPORTMAN
                         && ptr::eq(mobj.subsector.sector.as_ref(), sector)
                     {
                         return true;
                     }
-                }
                 false
             }) {
                 let level = unsafe { &mut *thing.level };

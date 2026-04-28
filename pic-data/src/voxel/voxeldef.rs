@@ -1,4 +1,4 @@
-/// VOXELDEF.txt parser — maps sprite frame names to KVX files.
+//! VOXELDEF.txt parser — maps sprite frame names to KVX files.
 
 pub struct VoxelDef {
     pub sprite_name: String,
@@ -38,23 +38,23 @@ fn parse_line(line: &str) -> Option<VoxelDef> {
     let mut angle_offset = None;
 
     // Parse brace block
-    if let Some(brace_start) = rest.find('{') {
-        if let Some(brace_end) = rest.find('}') {
-            let block = &rest[brace_start + 1..brace_end];
-            for pair in block.split_whitespace().collect::<Vec<_>>().chunks(3) {
-                // key = value
-                if pair.len() >= 3 && pair[1] == "=" {
-                    let key = pair[0];
-                    let val: i32 = match pair[2].parse() {
-                        Ok(v) => v,
-                        Err(_) => continue,
-                    };
-                    match key {
-                        "PlacedSpin" => placed_spin = Some(val),
-                        "DroppedSpin" => dropped_spin = Some(val),
-                        "AngleOffset" => angle_offset = Some(val),
-                        _ => {}
-                    }
+    if let Some(brace_start) = rest.find('{')
+        && let Some(brace_end) = rest.find('}')
+    {
+        let block = &rest[brace_start + 1..brace_end];
+        for pair in block.split_whitespace().collect::<Vec<_>>().chunks(3) {
+            // key = value
+            if pair.len() >= 3 && pair[1] == "=" {
+                let key = pair[0];
+                let val: i32 = match pair[2].parse() {
+                    Ok(v) => v,
+                    Err(_) => continue,
+                };
+                match key {
+                    "PlacedSpin" => placed_spin = Some(val),
+                    "DroppedSpin" => dropped_spin = Some(val),
+                    "AngleOffset" => angle_offset = Some(val),
+                    _ => {}
                 }
             }
         }

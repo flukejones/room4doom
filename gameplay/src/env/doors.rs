@@ -24,6 +24,7 @@ const VDOORWAIT: i32 = 150;
 const VDOORSPEED: SectorHeight = FixedT::from_fixed(2 << 16);
 
 #[derive(Debug, Clone, Copy)]
+#[repr(u8)]
 pub enum DoorKind {
     Normal,
     Close30ThenOpen,

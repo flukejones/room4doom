@@ -1,3 +1,6 @@
+// Generated LUT — approx_constant and large_const_arrays are expected here.
+#![allow(clippy::approx_constant, clippy::large_const_arrays)]
+
 pub(crate) const TAN_TABLE: [f32; 8192] = [
     0.0007669906,
     0.001533982,

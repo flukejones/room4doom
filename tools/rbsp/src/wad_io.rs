@@ -167,7 +167,7 @@ fn write_segs(output: &BspOutput) -> Vec<u8> {
     for seg in &output.segs {
         buf.extend_from_slice(&(seg.start as i16).to_le_bytes());
         buf.extend_from_slice(&(seg.end as i16).to_le_bytes());
-        let angle = ((seg.angle as f64 * 65536.0 / (2.0 * PI)) as i32) as i16;
+        let angle = ((seg.angle * 65536.0 / (2.0 * PI)) as i32) as i16;
         buf.extend_from_slice(&angle.to_le_bytes());
         buf.extend_from_slice(&(seg.linedef as i16).to_le_bytes());
         let side: i16 = match seg.side {
@@ -215,7 +215,7 @@ fn write_bbox_i16(buf: &mut Vec<u8>, bbox: &BBox) {
 
 fn write_reject(num_sectors: usize) -> Vec<u8> {
     let bits = num_sectors * num_sectors;
-    let bytes = (bits + 7) / 8;
+    let bytes = bits.div_ceil(8);
     vec![0u8; bytes]
 }
 

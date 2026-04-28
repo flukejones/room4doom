@@ -106,17 +106,17 @@ pub fn split_segs_and_poly(
             SegSide::Right => right_segs.push(seg_idx),
             SegSide::Split => {
                 let seg = &segs[seg_idx];
-                let sx = pool.vertices[seg.start].x as f64;
-                let sy = pool.vertices[seg.start].y as f64;
-                let px = pool.vertices[partition.linedef_v1].x as f64;
-                let py = pool.vertices[partition.linedef_v1].y as f64;
-                let pdx = partition.dx as f64;
-                let pdy = partition.dy as f64;
-                let sdx = seg.dx as f64;
-                let sdy = seg.dy as f64;
+                let sx = pool.vertices[seg.start].x;
+                let sy = pool.vertices[seg.start].y;
+                let px = pool.vertices[partition.linedef_v1].x;
+                let py = pool.vertices[partition.linedef_v1].y;
+                let pdx = partition.dx;
+                let pdy = partition.dy;
+                let sdx = seg.dx;
+                let sdy = seg.dy;
                 let denom = pdx * sdy - pdy * sdx;
 
-                if denom.abs() < PARALLEL_EPSILON as f64 {
+                if denom.abs() < PARALLEL_EPSILON {
                     right_segs.push(seg_idx);
                     continue;
                 }
@@ -124,7 +124,7 @@ pub fn split_segs_and_poly(
                 let num = pdy * (sx - px) - pdx * (sy - py);
                 let u = num / denom;
 
-                if u < EPSILON as f64 || u > 1.0 - EPSILON as f64 {
+                if !(EPSILON..=1.0 - EPSILON).contains(&u) {
                     let mx = (sx + 0.5 * sdx) as Float;
                     let my = (sy + 0.5 * sdy) as Float;
                     let mid_side = classify_point(

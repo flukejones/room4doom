@@ -36,13 +36,12 @@ pub fn extract_voxels(path: &Path, game_mode: GameMode) -> Option<Pk3Voxels> {
     if let Some(name) = names
         .iter()
         .find(|n| n.eq_ignore_ascii_case("VOXELDEF.txt"))
+        && let Ok(mut entry) = archive.by_name(name)
     {
-        if let Ok(mut entry) = archive.by_name(name) {
-            let mut text = String::new();
-            entry.read_to_string(&mut text).ok();
-            voxeldef_text.push_str(&text);
-            voxeldef_text.push('\n');
-        }
+        let mut text = String::new();
+        entry.read_to_string(&mut text).ok();
+        voxeldef_text.push_str(&text);
+        voxeldef_text.push('\n');
     }
 
     // Filter-specific VOXELDEF appended (last-match-wins)

@@ -146,8 +146,8 @@ pub fn build_bsp(input: BspInput, options: &BspOptions) -> BspOutput {
 
 fn compact_vertices(
     vertices: Vec<Vertex>,
-    segs: &mut Vec<Seg>,
-    poly_indices: &mut Vec<u32>,
+    segs: &mut [Seg],
+    poly_indices: &mut [u32],
     linedefs: &[WadLineDef],
 ) -> Vec<Vertex> {
     let n = vertices.len();

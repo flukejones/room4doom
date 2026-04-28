@@ -288,6 +288,7 @@ impl QuantizedVec3 {
     }
 }
 
+#[derive(Default)]
 pub struct BSP3D {
     nodes: Vec<Node3D>,
     pub subsector_leaves: Vec<BSPLeaf3D>,
@@ -352,7 +353,7 @@ impl BSP3D {
 
             bsp3d.subsector_leaves[ss_id].sector_id = subsector.sector.num as usize;
 
-            if let Some(_) = segments.get(start_seg..end_seg) {
+            if segments.get(start_seg..end_seg).is_some() {
                 for seg_idx in start_seg..end_seg {
                     let segment = &segments[seg_idx];
                     let front_sector = &segment.frontsector;
@@ -649,11 +650,9 @@ impl BSP3D {
                 wall_type: wt,
                 ..
             } = &mut polygon.surface_kind
-            {
-                if *wt == wall_type {
+                && *wt == wall_type {
                     *texture = Some(new_texture);
                 }
-            }
         }
     }
 
@@ -736,9 +735,9 @@ impl BSP3D {
         // Upper wall: create if toptexture exists and back ceiling is at or
         // below front ceiling (includes zero-height for movers). Suppressed
         // when both sectors have sky ceilings.
-        if !both_sky_ceil {
-            if let Some(texture) = segment.sidedef.toptexture {
-                if back_sector.ceilingheight <= front_sector.ceilingheight {
+        if !both_sky_ceil
+            && let Some(texture) = segment.sidedef.toptexture
+                && back_sector.ceilingheight <= front_sector.ceilingheight {
                     self.add_wall_quad(
                         segment,
                         back_sector.ceilingheight.to_f32(),
@@ -752,15 +751,13 @@ impl BSP3D {
                         vertex_map,
                     );
                 }
-            }
-        }
 
         // Lower wall: create if bottomtexture exists and back floor is at or
         // above front floor (includes zero-height for movers). Suppressed
         // when both sectors have sky floors.
-        if !both_sky_floor {
-            if let Some(texture) = segment.sidedef.bottomtexture {
-                if back_sector.floorheight >= front_sector.floorheight {
+        if !both_sky_floor
+            && let Some(texture) = segment.sidedef.bottomtexture
+                && back_sector.floorheight >= front_sector.floorheight {
                     self.add_wall_quad(
                         segment,
                         front_sector.floorheight.to_f32(),
@@ -774,8 +771,6 @@ impl BSP3D {
                         vertex_map,
                     );
                 }
-            }
-        }
 
         // Middle wall: create if midtexture exists.
         if let Some(texture) = segment.sidedef.midtexture {
@@ -922,8 +917,8 @@ impl BSP3D {
         let pi = self.subsector_leaves[subsector_id].polygons.len();
         self.subsector_leaves[subsector_id].polygons.push(quad);
 
-        if is_zero_height {
-            if let Some(back_id) = back_sector_id {
+        if is_zero_height
+            && let Some(back_id) = back_sector_id {
                 self.zh_wall_records.push(ZhWallRecord {
                     subsector_id,
                     poly_index: pi,
@@ -934,7 +929,6 @@ impl BSP3D {
                     back_sector: back_id,
                 });
             }
-        }
     }
 
     /// Compute global sky bounds for the level.
@@ -1290,20 +1284,6 @@ impl BSP3D {
     }
 }
 
-impl Default for BSP3D {
-    fn default() -> Self {
-        Self {
-            nodes: Vec::new(),
-            subsector_leaves: Vec::new(),
-            root_node: 0,
-            vertices: Vec::new(),
-            sector_subsectors: Vec::new(),
-            carved_polygons: Vec::new(),
-            linedef_wall_polygons: HashMap::new(),
-            zh_wall_records: Vec::new(),
-        }
-    }
-}
 
 impl Default for BSPLeaf3D {
     fn default() -> Self {
