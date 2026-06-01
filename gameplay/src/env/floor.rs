@@ -50,6 +50,30 @@ pub enum FloorKind {
     RaiseFloor512,
 }
 
+impl TryFrom<u8> for FloorKind {
+    /// The raw byte that failed to map to a variant.
+    type Error = u8;
+
+    fn try_from(v: u8) -> Result<Self, u8> {
+        match v {
+            0 => Ok(FloorKind::LowerFloor),
+            1 => Ok(FloorKind::LowerFloorToLowest),
+            2 => Ok(FloorKind::TurboLower),
+            3 => Ok(FloorKind::RaiseFloor),
+            4 => Ok(FloorKind::RaiseFloorToNearest),
+            5 => Ok(FloorKind::RaiseToTexture),
+            6 => Ok(FloorKind::LowerAndChange),
+            7 => Ok(FloorKind::RaiseFloor24),
+            8 => Ok(FloorKind::RaiseFloor24andChange),
+            9 => Ok(FloorKind::RaiseFloorCrush),
+            10 => Ok(FloorKind::RaiseFloorTurbo),
+            11 => Ok(FloorKind::DonutRaise),
+            12 => Ok(FloorKind::RaiseFloor512),
+            _ => Err(v),
+        }
+    }
+}
+
 /// Very special kind of thinker used specifically for building a set of stairs
 /// that raises one-by-one.
 #[derive(Debug, Clone, Copy)]
@@ -78,7 +102,7 @@ pub fn ev_do_floor(line: MapPtr<LineDef>, kind: FloorKind, level: &mut LevelStat
 
     for sector in level
         .level_data
-        .sectors_mut()
+        .sectors
         .iter_mut()
         .filter(|s| s.tag == line.tag)
     {
@@ -148,14 +172,15 @@ pub fn ev_do_floor(line: MapPtr<LineDef>, kind: FloorKind, level: &mut LevelStat
                             }
                         }
                         if let Some(side) = line.back_sidedef.as_ref()
-                            && let Some(bottomtexture) = side.bottomtexture {
-                                let tmp = SectorHeight::from(
-                                    level.animations[bottomtexture].num_pics() as i32,
-                                );
-                                if tmp < min {
-                                    min = tmp;
-                                }
+                            && let Some(bottomtexture) = side.bottomtexture
+                        {
+                            let tmp = SectorHeight::from(
+                                level.animations[bottomtexture].num_pics() as i32,
+                            );
+                            if tmp < min {
+                                min = tmp;
                             }
+                        }
                     }
                 }
                 floor.destheight = sec.floorheight + min;
@@ -283,14 +308,6 @@ impl Think for FloorMove {
         }
         unsafe { Thinker::from_erased(self.thinker) }
     }
-
-    fn thinker(&self) -> &Thinker {
-        #[cfg(feature = "null_check")]
-        if self.thinker.is_null() {
-            std::panic!("NULL");
-        }
-        unsafe { Thinker::from_erased_ref(self.thinker) }
-    }
 }
 
 pub fn ev_build_stairs(line: MapPtr<LineDef>, kind: StairKind, level: &mut LevelState) -> bool {
@@ -299,54 +316,61 @@ pub fn ev_build_stairs(line: MapPtr<LineDef>, kind: StairKind, level: &mut Level
     let mut height;
     let mut stair_size;
 
-    for sector in level
-        .level_data
-        .sectors
-        .iter_mut()
-        .filter(|s| s.tag == line.tag)
-    {
-        if sector.specialdata.is_some() {
+    let sector_count = level.level_data.sectors.len();
+    for i in 0..sector_count {
+        if level.level_data.sectors[i].tag != line.tag {
             continue;
         }
-        ret = true;
 
-        let mut floor = FloorMove {
-            thinker: null_mut(),
-            sector: MapPtr::new(sector),
-            kind: FloorKind::LowerFloor,
-            speed: FLOORSPEED,
-            crush: false,
-            direction: 1,
-            newspecial: 0,
-            texture: sector.floorpic,
-            destheight: SectorHeight::ZERO,
+        let (mut sec, texture) = {
+            let sector = &mut level.level_data.sectors[i];
+            if sector.specialdata.is_some() {
+                continue;
+            }
+            ret = true;
+
+            let mut floor = FloorMove {
+                thinker: null_mut(),
+                sector: MapPtr::new(sector),
+                kind: FloorKind::LowerFloor,
+                speed: FLOORSPEED,
+                crush: false,
+                direction: 1,
+                newspecial: 0,
+                texture: sector.floorpic,
+                destheight: SectorHeight::ZERO,
+            };
+
+            match kind {
+                StairKind::Build8 => {
+                    speed = FLOORSPEED / 4;
+                    stair_size = SectorHeight::from(8);
+                }
+                StairKind::Turbo16 => {
+                    speed = FLOORSPEED * 4;
+                    stair_size = SectorHeight::from(16);
+                }
+            }
+            floor.speed = speed;
+            height = sector.floorheight + stair_size;
+            floor.destheight = height;
+
+            let sec = MapPtr::new(sector);
+            let thinker =
+                MapObject::create_thinker(ThinkerData::FloorMove(floor), FloorMove::think);
+
+            let sec = if let Some(ptr) = level.thinkers.push::<FloorMove>(thinker) {
+                ptr.set_obj_thinker_ptr();
+                let mut sec = sec;
+                sec.set_sector_mover(ptr);
+                sec
+            } else {
+                sec
+            };
+
+            let texture = sec.floorpic;
+            (sec, texture)
         };
-
-        match kind {
-            StairKind::Build8 => {
-                speed = FLOORSPEED / 4;
-                stair_size = SectorHeight::from(8);
-            }
-            StairKind::Turbo16 => {
-                speed = FLOORSPEED * 4;
-                stair_size = SectorHeight::from(16);
-            }
-        }
-        floor.speed = speed;
-        height = sector.floorheight + stair_size;
-        floor.destheight = height;
-
-        // Because we need to break lifetimes...
-        let mut sec = MapPtr::new(sector);
-
-        let thinker = MapObject::create_thinker(ThinkerData::FloorMove(floor), FloorMove::think);
-
-        if let Some(ptr) = level.thinkers.push::<FloorMove>(thinker) {
-            ptr.set_obj_thinker_ptr();
-            sec.set_sector_mover(ptr);
-        }
-
-        let texture = sec.floorpic;
 
         loop {
             let mut ok = false;
@@ -384,7 +408,7 @@ pub fn ev_build_stairs(line: MapPtr<LineDef>, kind: StairKind, level: &mut Level
                     crush: false,
                     direction: 1,
                     newspecial: 0,
-                    texture: sector.floorpic,
+                    texture,
                     destheight: height,
                 };
 
@@ -414,7 +438,7 @@ pub fn ev_do_donut(line: MapPtr<LineDef>, level: &mut LevelState) -> bool {
 
     for sector in level
         .level_data
-        .sectors_mut()
+        .sectors
         .iter_mut()
         .filter(|s| s.tag == line.tag)
     {

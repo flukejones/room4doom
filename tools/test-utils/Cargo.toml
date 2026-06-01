@@ -10,3 +10,6 @@ publish = false
 dirs.workspace = true
 level.workspace = true
 wad.workspace = true
+
+[lints]
+workspace = true

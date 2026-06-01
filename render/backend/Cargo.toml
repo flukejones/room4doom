@@ -29,3 +29,6 @@ sdl2 = { workspace = true, optional = true }
 softbuffer = { workspace = true, optional = true }
 pixels = { workspace = true, optional = true }
 winit = { workspace = true, optional = true }
+
+[lints]
+workspace = true

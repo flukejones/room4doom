@@ -48,7 +48,7 @@ mod map_data_tests {
         // side: 1
         // sidenum: 4387
         let mut success = false;
-        for (i, seg) in map.segments().iter().enumerate() {
+        for (i, seg) in map.segments.iter().enumerate() {
             if seg.v1.pos == Vec2::new(496.0, -1072.0) && seg.v2.pos == Vec2::new(496.0, -1040.0) {
                 assert_eq!(ext.segments[i].linedef, 2670);
                 dbg!(i, &ext.segments[i]);
@@ -149,8 +149,8 @@ mod map_data_tests {
 
         let mut bsp_trace = BSPTrace::new_line(ox, oy, ex, ey, FixedT::from_f32(1.0));
 
-        let sub_sect = map.subsectors();
-        let segs = map.segments();
+        let sub_sect = &map.subsectors;
+        let segs = &map.segments;
 
         // BSP trace should find valid subsectors along a vertical line
         let mut count = 0;
@@ -206,7 +206,7 @@ mod map_data_tests {
         let mut map = LevelData::default();
         map.load("E1M1", |_| None, &wad, None, None);
 
-        let linedefs = map.linedefs();
+        let linedefs = map.linedefs;
 
         // Builder may remove zero-length linedefs, but the first few should survive
         // Check LINEDEF->VERTEX chain is intact
@@ -217,7 +217,7 @@ mod map_data_tests {
         // LINEDEF->SIDEDEF->SECTOR chain
         assert_eq!(linedefs[2].front_sidedef.sector.ceilingheight, 72.0);
 
-        let segments = map.segments();
+        let segments = map.segments;
         // Segments should exist and have valid vertex pointers
         assert!(segments.len() > 500, "Should have many segments");
         // Every segment should have valid linedef reference
@@ -232,7 +232,7 @@ mod map_data_tests {
         let mut map = LevelData::default();
         map.load("E1M1", |_| None, &wad, None, None);
 
-        let linedefs = map.linedefs();
+        let linedefs = map.linedefs;
         assert_eq!(linedefs[0].v1.x as i32, 1088);
         assert_eq!(linedefs[0].v2.x as i32, 1024);
         assert_eq!(linedefs[2].v1.x as i32, 1088);
@@ -262,7 +262,7 @@ mod map_data_tests {
         let mut map = LevelData::default();
         map.load("E1M1", |_| None, &wad, None, None);
 
-        let sectors = map.sectors();
+        let sectors = map.sectors;
         assert_eq!(sectors[0].floorheight, 0.0);
         assert_eq!(sectors[0].ceilingheight, 72.0);
         assert_eq!(sectors[0].lightlevel, 160);
@@ -281,7 +281,7 @@ mod map_data_tests {
         let mut map = LevelData::default();
         map.load("E1M1", |_| None, &wad, None, None);
 
-        let sidedefs = map.sidedefs();
+        let sidedefs = &map.sidedefs;
         assert_eq!(sidedefs[0].rowoffset, 0i32);
         assert_eq!(sidedefs[0].textureoffset, 0i32);
         assert_eq!(sidedefs[9].rowoffset, 48i32);
@@ -297,7 +297,7 @@ mod map_data_tests {
         let mut map = LevelData::default();
         map.load("E1M1", |_| None, &wad, None, None);
 
-        let segments = map.segments();
+        let segments = map.segments;
         assert!(segments.len() > 500, "Should have many segments");
 
         // Every segment should have a valid angle computed from its vertices
@@ -321,7 +321,7 @@ mod map_data_tests {
             );
         }
 
-        let subsectors = map.subsectors();
+        let subsectors = &map.subsectors;
         assert!(subsectors.len() > 100, "Should have many subsectors");
         // Every subsector should have at least 1 seg
         for ss in subsectors.iter() {
@@ -342,7 +342,7 @@ mod map_data_tests {
         // Should find a valid subsector with segs
         assert!(subsector.seg_count >= 1, "Should have segs");
         let end = subsector.start_seg as usize + subsector.seg_count as usize;
-        assert!(end <= map.segments().len(), "Seg range should be valid");
+        assert!(end <= map.segments.len(), "Seg range should be valid");
     }
 
     #[test]
@@ -355,7 +355,7 @@ mod map_data_tests {
         assert!(nodes.len() > 100, "Should have many BSP nodes");
 
         // Every node child should be either a valid node index or a valid subsector ref
-        let num_subsectors = map.subsectors().len();
+        let num_subsectors = map.subsectors.len();
         for node in nodes.iter() {
             for &child in &node.children {
                 if child & IS_SSECTOR_MASK != 0 {

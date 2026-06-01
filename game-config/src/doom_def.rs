@@ -29,8 +29,7 @@ pub enum GameMission {
 
 /// The defined weapons, including a marker indicating user has not changed
 /// weapon.
-#[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
-#[derive(Default)]
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Default)]
 pub enum WeaponType {
     Fist,
     #[default]
@@ -65,12 +64,22 @@ impl From<WeaponType> for usize {
     }
 }
 
+impl TryFrom<u8> for WeaponType {
+    /// The raw byte that failed to map to a selectable weapon variant.
+    type Error = u8;
 
-impl From<u8> for WeaponType {
-    fn from(w: u8) -> Self {
-        if w >= WeaponType::NumWeapons as u8 {
-            panic!("{} is not a variant of WeaponType", w);
+    fn try_from(w: u8) -> Result<Self, u8> {
+        match w {
+            0 => Ok(WeaponType::Fist),
+            1 => Ok(WeaponType::Pistol),
+            2 => Ok(WeaponType::Shotgun),
+            3 => Ok(WeaponType::Chaingun),
+            4 => Ok(WeaponType::Missile),
+            5 => Ok(WeaponType::Plasma),
+            6 => Ok(WeaponType::BFG),
+            7 => Ok(WeaponType::Chainsaw),
+            8 => Ok(WeaponType::SuperShotgun),
+            _ => Err(w),
         }
-        unsafe { std::mem::transmute(w) }
     }
 }

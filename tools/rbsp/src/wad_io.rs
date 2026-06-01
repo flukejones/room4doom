@@ -116,12 +116,12 @@ pub fn process_wad(input_path: &Path, output_path: &Path, options: &BspOptions) 
 fn find_map_lump_data(wad: &WadData, map_name: &str, lump_name: &str) -> Option<Vec<u8>> {
     let lumps = wad.lumps();
     let marker_idx = lumps.iter().rposition(|l| l.name == map_name)?;
-    for i in (marker_idx + 1)..lumps.len() {
-        if is_map_marker(&lumps[i].name) {
+    for lump in lumps.iter().skip(marker_idx + 1) {
+        if is_map_marker(&lump.name) {
             break;
         }
-        if lumps[i].name == lump_name {
-            return Some(lumps[i].data.clone());
+        if lump.name == lump_name {
+            return Some(lump.data.clone());
         }
     }
     None
@@ -219,7 +219,7 @@ fn write_reject(num_sectors: usize) -> Vec<u8> {
     vec![0u8; bytes]
 }
 
-fn sort_level_lumps(lumps: &mut Vec<OutputLump>) {
+fn sort_level_lumps(lumps: &mut [OutputLump]) {
     let mut i = 0;
     while i < lumps.len() {
         let name = std::str::from_utf8(&lumps[i].name)

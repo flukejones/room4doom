@@ -3,15 +3,17 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 
 use crate::doom_trig::{fine_cos, fine_sin};
 
-// --- Compile-time configuration ---
-
 #[cfg(any(feature = "fixed64", feature = "fixed64hd"))]
 pub type Inner = i64;
+#[cfg(any(feature = "fixed64", feature = "fixed64hd"))]
+pub type UInner = u64;
 #[cfg(any(feature = "fixed64", feature = "fixed64hd"))]
 pub type WideInner = i128;
 
 #[cfg(not(any(feature = "fixed64", feature = "fixed64hd")))]
 pub type Inner = i32;
+#[cfg(not(any(feature = "fixed64", feature = "fixed64hd")))]
+pub type UInner = u32;
 #[cfg(not(any(feature = "fixed64", feature = "fixed64hd")))]
 pub type WideInner = i64;
 
@@ -145,7 +147,6 @@ impl FixedT {
         }
     }
 
-
     /// Arithmetic right shift by `bits`.
     #[inline]
     #[allow(clippy::should_implement_trait)] // inherent method kept for ergonomics; Shr trait also implemented
@@ -178,8 +179,6 @@ impl FixedT {
         self.0 == 0
     }
 }
-
-// --- Arithmetic ops (wrapping) ---
 
 impl Add for FixedT {
     type Output = Self;
@@ -265,8 +264,6 @@ impl DivAssign for FixedT {
     }
 }
 
-// --- Mixed ops with f32 ---
-
 impl Add<f32> for FixedT {
     type Output = Self;
     #[inline]
@@ -313,8 +310,6 @@ impl PartialOrd<f32> for FixedT {
     }
 }
 
-// --- Mixed ops with i32 ---
-
 #[allow(clippy::suspicious_arithmetic_impl)]
 impl Add<i32> for FixedT {
     type Output = Self;
@@ -350,8 +345,6 @@ impl Div<i32> for FixedT {
         self.fixed_div(Self((rhs as Inner) << FRACBITS))
     }
 }
-
-// --- Reverse ops (i32/f32 on left) ---
 
 impl Div<FixedT> for f32 {
     type Output = FixedT;
@@ -392,8 +385,6 @@ impl PartialOrd<i32> for FixedT {
         Some(self.0.cmp(&((*other as Inner) << FRACBITS)))
     }
 }
-
-// --- Conversions ---
 
 impl From<i32> for FixedT {
     #[inline]
@@ -443,16 +434,16 @@ impl fmt::Display for FixedT {
     }
 }
 
-// --- Free functions ---
-
-/// OG Doom `P_AproxDistance`.
 #[inline]
+/// OG Doom `P_AproxDistance` — cheap distance estimate. The subtractive form
+/// (`a + b - (min >> 1)`) is exact to OG: `ceil` rounding on the halved term
+/// differs from `min.shr(1) + max` by one unit when the smaller delta is odd.
 pub fn p_aprox_distance(dx: FixedT, dy: FixedT) -> FixedT {
     let dx = dx.doom_abs();
     let dy = dy.doom_abs();
     if dx < dy {
-        dx.shr(1) + dy
+        dx + dy - dx.shr(1)
     } else {
-        dx + dy.shr(1)
+        dx + dy - dy.shr(1)
     }
 }

@@ -55,6 +55,20 @@ impl Default for SpriteNum {
         SpriteNum::TROO
     }
 }
+impl TryFrom<u16> for SpriteNum {
+    /// The raw value that fell outside the valid `0..Count` discriminant range.
+    type Error = u16;
+
+    fn try_from(v: u16) -> Result<Self, u16> {
+        if v < SpriteNum::Count as u16 {
+            // Sound: `#[repr(u16)]` with contiguous `0..Count` discriminants,
+            // and `v` is bounds-checked against that range above.
+            Ok(unsafe { std::mem::transmute::<u16, SpriteNum>(v) })
+        } else {
+            Err(v)
+        }
+    }
+}
 #[repr(u16)]
 #[derive(Debug, Copy, Clone, PartialEq)]
 #[allow(non_camel_case_types, dead_code)]

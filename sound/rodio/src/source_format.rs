@@ -19,8 +19,7 @@ macro_rules! impl_stereo_source {
             }
 
             fn sample_rate(&self) -> ::rodio::SampleRate {
-                ::rodio::SampleRate::new(::sound_common::SAMPLE_RATE)
-                    .expect("non-zero sample rate")
+                ::rodio::SampleRate::new(::sound_common::SAMPLE_RATE).expect("non-zero sample rate")
             }
 
             fn total_duration(&self) -> Option<::std::time::Duration> {

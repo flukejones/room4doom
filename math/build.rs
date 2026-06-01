@@ -1,6 +1,6 @@
 use std::f64::consts::{PI, TAU};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 const FINEANGLES: usize = 8192;
 
@@ -17,7 +17,7 @@ fn main() {
 }
 
 /// Generate 32.32 fixed-point trig tables (i64) for fixed64hd.
-fn gen_hd_tables(out: &PathBuf) {
+fn gen_hd_tables(out: &Path) {
     let fracunit: i64 = 1 << 32;
     let path = out.join("hd_trig_tables.rs");
 

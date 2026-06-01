@@ -5,8 +5,7 @@
 /// must remain in sound-engine ordering with no gaps; new variants must be
 /// appended just before `NumSfx`.
 #[repr(u8)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-#[derive(Default)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub enum SfxName {
     #[default]
     None,
@@ -120,7 +119,6 @@ pub enum SfxName {
     Radio,
     NumSfx,
 }
-
 
 impl TryFrom<u8> for SfxName {
     type Error = u8;

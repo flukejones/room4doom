@@ -2,15 +2,17 @@
 use coarse_prof::profile;
 use glam::{Mat4, Vec3};
 use pic_data::voxel::kvx::VoxelModel;
-use pic_data::voxel::slices::{self, VoxelSlices};
+use pic_data::voxel::slices::{self, VoxelColumn, VoxelSlices};
 use pixels::{Pixels, SurfaceTexture};
 use software3d::rasterizer::Rasterizer;
-use software3d::voxel::collect::{VoxelCollectParams, collect_visible_slices};
+use software3d::voxel::collect::{VoxelCollectParams, VoxelSliceRef, collect_visible_slices};
+use std::sync::Arc;
 use std::time::Instant;
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
 use winit::event::WindowEvent;
 use winit::event_loop::{ActiveEventLoop, EventLoop};
+use winit::keyboard::{Key, NamedKey};
 use winit::window::{Window, WindowId};
 
 const W: u32 = 640;
@@ -54,7 +56,7 @@ impl Camera {
 }
 
 struct App {
-    window: Option<Window>,
+    window: Option<Arc<Window>>,
     pixels: Option<Pixels<'static>>,
     model: VoxelModel,
     slices: VoxelSlices,
@@ -228,7 +230,6 @@ impl App {
                         let origin = corner(u0, v0);
                         let u_vec = corner(u0 + 1.0, v0) - origin;
                         let v_vec = corner(u0, v0 + 1.0) - origin;
-                        use software3d::voxel::collect::VoxelSliceRef;
                         voxel_slices.push(VoxelSliceRef {
                             origin,
                             u_vec,
@@ -237,7 +238,7 @@ impl App {
                             width: quad.width,
                             height: quad.height,
                             axis: dominant_axis as u8,
-                            columns: &columns[..] as *const _,
+                            columns: &columns[..],
                             depth: 0.0,
                             is_shadow: false,
                         });
@@ -258,7 +259,7 @@ impl App {
             voxel_slices.sort_unstable_by(|a, b| a.depth.total_cmp(&b.depth));
 
             for vq in &voxel_slices {
-                let columns = unsafe { &*vq.columns };
+                let columns = vq.columns;
                 self.rasterizer.rasterize_voxel_texels(
                     vq.origin,
                     vq.u_vec,
@@ -313,8 +314,7 @@ impl App {
                 } else {
                     // Draw all non-empty quads, coloured per axis
                     let axis_colors: [u32; 3] = [0xFF0000FF, 0xFF00FF00, 0xFFFF0000];
-                    for axis in 0..3 {
-                        let color = axis_colors[axis];
+                    for (axis, color) in axis_colors.iter().enumerate() {
                         for quad in &self.slices.slices[axis] {
                             for &d in &[quad.depth, quad.depth + 1.0] {
                                 let corner = |u: f32, v: f32| -> Vec3 {
@@ -355,7 +355,7 @@ impl App {
                                     if let (Some(a), Some(b)) = (proj[i], proj[(i + 1) % 4]) {
                                         draw_line(
                                             frame_u32, W as i32, H as i32, a.0, a.1, b.0, b.1,
-                                            color,
+                                            *color,
                                         );
                                     }
                                 }
@@ -482,9 +482,11 @@ impl ApplicationHandler for App {
             })
             .with_inner_size(LogicalSize::new(W, H))
             .with_resizable(true);
-        let window = event_loop.create_window(attrs).unwrap();
+        let window = Arc::new(event_loop.create_window(attrs).unwrap());
         let phys = window.inner_size();
-        let surface = SurfaceTexture::new(phys.width, phys.height, &window);
+        // Pass the `Arc<Window>` (owned, `'static`) into the surface so `Pixels`
+        // genuinely outlives nothing it borrows — no lifetime transmute needed.
+        let surface = SurfaceTexture::new(phys.width, phys.height, window.clone());
         let px = if self.vsync {
             Pixels::new(W, H, surface).unwrap()
         } else {
@@ -493,7 +495,7 @@ impl ApplicationHandler for App {
                 .build()
                 .unwrap()
         };
-        self.pixels = Some(unsafe { std::mem::transmute::<Pixels<'_>, Pixels<'static>>(px) });
+        self.pixels = Some(px);
         self.window = Some(window);
     }
 
@@ -523,13 +525,12 @@ impl ApplicationHandler for App {
             }
             WindowEvent::MouseInput {
                 state,
-                button,
+                button: winit::event::MouseButton::Left,
                 ..
+            } => {
+                self.mouse_dragging = state == winit::event::ElementState::Pressed;
+                self.camera.auto_rotate = false;
             }
-                if button == winit::event::MouseButton::Left => {
-                    self.mouse_dragging = state == winit::event::ElementState::Pressed;
-                    self.camera.auto_rotate = false;
-                }
             WindowEvent::CursorMoved {
                 position,
                 ..
@@ -565,30 +566,26 @@ impl ApplicationHandler for App {
             WindowEvent::KeyboardInput {
                 event,
                 ..
-            }
-                if event.state == winit::event::ElementState::Pressed => {
-                    use winit::keyboard::{Key, NamedKey};
-                    match event.logical_key {
-                        Key::Named(NamedKey::ArrowLeft) => self.camera.pan_x -= 1.0,
-                        Key::Named(NamedKey::ArrowRight) => self.camera.pan_x += 1.0,
-                        Key::Named(NamedKey::ArrowUp) => self.camera.pan_y += 1.0,
-                        Key::Named(NamedKey::ArrowDown) => self.camera.pan_y -= 1.0,
-                        Key::Character(ref c) => match c.as_str() {
-                            "=" | "+" => self.camera.zoom = (self.camera.zoom - 0.1).max(0.1),
-                            "-" => self.camera.zoom += 0.1,
-                            "r" => self.camera.auto_rotate = !self.camera.auto_rotate,
-                            "s" => self.use_slices = !self.use_slices,
-                            "w" => self.wireframe = (self.wireframe + 1) % 3,
-                            "d" => {
-                                self.single_slice = !self.single_slice;
-                                self.slice_index = 0;
-                            }
-                            _ => {}
-                        },
-                        Key::Named(NamedKey::Escape) => event_loop.exit(),
-                        _ => {}
+            } if event.state == winit::event::ElementState::Pressed => match event.logical_key {
+                Key::Named(NamedKey::ArrowLeft) => self.camera.pan_x -= 1.0,
+                Key::Named(NamedKey::ArrowRight) => self.camera.pan_x += 1.0,
+                Key::Named(NamedKey::ArrowUp) => self.camera.pan_y += 1.0,
+                Key::Named(NamedKey::ArrowDown) => self.camera.pan_y -= 1.0,
+                Key::Character(ref c) => match c.as_str() {
+                    "=" | "+" => self.camera.zoom = (self.camera.zoom - 0.1).max(0.1),
+                    "-" => self.camera.zoom += 0.1,
+                    "r" => self.camera.auto_rotate = !self.camera.auto_rotate,
+                    "s" => self.use_slices = !self.use_slices,
+                    "w" => self.wireframe = (self.wireframe + 1) % 3,
+                    "d" => {
+                        self.single_slice = !self.single_slice;
+                        self.slice_index = 0;
                     }
-                }
+                    _ => {}
+                },
+                Key::Named(NamedKey::Escape) => event_loop.exit(),
+                _ => {}
+            },
             _ => {}
         }
     }
@@ -639,8 +636,8 @@ fn main() {
         }
         eprintln!("Using KVX embedded palette (6-bit scaled to 8-bit)");
     } else {
-        for i in 0..256 {
-            palette[i] = (
+        for (i, palette) in palette.iter_mut().enumerate() {
+            *palette = (
                 ((i * 37 + 7) % 200 + 55) as u8,
                 ((i * 53 + 13) % 200 + 55) as u8,
                 ((i * 97 + 29) % 200 + 55) as u8,
@@ -662,9 +659,7 @@ fn main() {
 
     let slices = slices::generate(&model);
     for (i, axis) in slices.slices.iter().enumerate() {
-        let count = |cols: &[_]| -> usize {
-            use pic_data::voxel::slices::VoxelColumn;
-            let cols: &[VoxelColumn] = cols;
+        let count = |cols: &[VoxelColumn]| -> usize {
             cols.iter()
                 .flat_map(|c| c.spans.iter())
                 .map(|s| s.pixels.len())

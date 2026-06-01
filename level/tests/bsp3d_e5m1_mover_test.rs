@@ -15,17 +15,16 @@ fn test_e5m1_sector24_has_lower_walls() {
                 wall_type,
                 ..
             } = &poly.surface_kind
+                && matches!(wall_type, WallType::Lower)
             {
-                if matches!(wall_type, WallType::Lower) {
-                    lower_wall_count += 1;
-                }
+                lower_wall_count += 1;
             }
         }
     }
 
     let boundary_linedefs = [207, 627, 208];
     for seg in map.segments.iter() {
-        if !boundary_linedefs.contains(&(seg.linedef.num as usize)) {
+        if !boundary_linedefs.contains(&(seg.linedef.num)) {
             continue;
         }
         if seg.sidedef.bottomtexture.is_none() {
@@ -39,10 +38,9 @@ fn test_e5m1_sector24_has_lower_walls() {
                     wall_type,
                     ..
                 } = &poly.surface_kind
+                    && matches!(wall_type, WallType::Lower)
                 {
-                    if matches!(wall_type, WallType::Lower) {
-                        lower_wall_count += 1;
-                    }
+                    lower_wall_count += 1;
                 }
             }
         }
@@ -71,10 +69,9 @@ fn test_e5m1_sector24_wall_properties() {
                 wall_type,
                 ..
             } = &poly.surface_kind
+                && matches!(wall_type, WallType::Lower)
             {
-                if matches!(wall_type, WallType::Lower) {
-                    total_lower_walls += 1;
-                }
+                total_lower_walls += 1;
             }
         }
     }

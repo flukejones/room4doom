@@ -136,10 +136,8 @@ fn parse_map_header(line: &str) -> MapEntry {
 
     let level_name = if !remainder.is_empty() {
         let name = unquote(remainder.trim());
-        if name.to_ascii_lowercase().starts_with("lookup") {
+        if name.to_ascii_lowercase().starts_with("lookup") || name.is_empty() {
             None // "lookup" references — not supported
-        } else if name.is_empty() {
-            None
         } else {
             Some(name)
         }
@@ -178,14 +176,13 @@ fn split_key_value(line: &str) -> (String, String) {
 
 fn split_first_token(s: &str) -> (String, &str) {
     let s = s.trim();
-    if s.starts_with('"') {
-        // Quoted token
-        if let Some(end) = s[1..].find('"') {
-            let token = s[1..1 + end].to_string();
-            let rest = s[2 + end..].trim();
-            return (token, rest);
-        }
+    // Quoted token
+    if let Some(end) = s[1..].find('"') {
+        let token = s[1..1 + end].to_string();
+        let rest = s[2 + end..].trim();
+        return (token, rest);
     }
+
     match s.find(|c: char| c.is_whitespace()) {
         Some(pos) => (s[..pos].to_string(), s[pos..].trim()),
         None => (s.to_string(), ""),

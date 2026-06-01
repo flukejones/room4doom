@@ -12,7 +12,8 @@ use log::{debug, info, warn};
 use opl2_emulator::OplPlayerState;
 use rodio::{DeviceSinkBuilder, MixerDeviceSink};
 use sound_common::{
-    MAX_DIST, MIXER_CHANNELS, MusicType, SAMPLE_RATE, SFX_INFO_BASE, SfxName, SndServerRx, SndServerTx, SoundAction, SoundObject, dist_from_points, listener_to_source_angle_deg
+    MAX_DIST, MIXER_CHANNELS, MusicType, SAMPLE_RATE, SFX_INFO_BASE, SfxName, SndServerRx,
+    SndServerTx, SoundAction, SoundObject, dist_from_points, listener_to_source_angle_deg,
 };
 use wad::WadData;
 
@@ -24,7 +25,7 @@ const TIC_POLL_TIMEOUT: Duration = Duration::from_micros(500);
 mod source_format;
 
 mod mixer;
-use mixer::{ChannelState, SfxMixer};
+use mixer::{BUFFER_SAMPLES, ChannelState, SfxMixer};
 
 mod opl_source;
 use opl_source::OplSource;
@@ -34,8 +35,9 @@ use gus_source::{GusPlayerState, GusSource};
 
 /// Pre-loaded sound effect data
 struct SfxChunk {
-    /// Mono f32 samples at 44100 Hz
-    samples: Vec<f32>,
+    /// Mono f32 samples at 44100 Hz. `Arc` so playing a sound shares the
+    /// buffer with the channel instead of copying it.
+    samples: Arc<[f32]>,
     /// Playback priority
     priority: i32,
 }
@@ -185,7 +187,7 @@ fn load_sfx_chunks(wad: &WadData) -> Vec<SfxChunk> {
                 Vec::new()
             };
             SfxChunk {
-                samples,
+                samples: samples.into(),
                 priority: s.priority,
             }
         })
@@ -287,9 +289,7 @@ impl Snd {
             }
         };
 
-        let mixer_source = SfxMixerSource {
-            mixer: Arc::clone(&self.mixer),
-        };
+        let mixer_source = SfxMixerSource::new(Arc::clone(&self.mixer));
         sink.mixer().add(mixer_source);
 
         // Add both music sources — the inactive one generates silence.
@@ -330,15 +330,38 @@ impl Snd {
 /// a `!Mutex` type while internally we synchronise on each pull.
 struct SfxMixerSource {
     mixer: Arc<Mutex<SfxMixer>>,
+    /// Staging copy of the last mixed block, dispensed lock-free per sample.
+    block: Vec<f32>,
+    /// Cursor into `block`; `>= block.len()` triggers a locked refill.
+    pos: usize,
+}
+
+impl SfxMixerSource {
+    fn new(mixer: Arc<Mutex<SfxMixer>>) -> Self {
+        Self {
+            mixer,
+            block: vec![0.0; BUFFER_SAMPLES],
+            pos: BUFFER_SAMPLES, // start exhausted: first next() triggers a fill
+        }
+    }
 }
 
 impl Iterator for SfxMixerSource {
     type Item = f32;
 
     fn next(&mut self) -> Option<f32> {
-        // On poison, emit silence rather than panicking on the audio
-        // callback thread; warning is logged inside `with_lock`.
-        with_lock(&self.mixer, "sfx mixer", |m| m.next()).unwrap_or(Some(0.0))
+        if self.pos >= self.block.len() {
+            // One lock per block, not per sample. On poison, emit a silent
+            // block rather than panicking on the audio callback thread;
+            // warning is logged inside `with_lock`.
+            if with_lock(&self.mixer, "sfx mixer", |m| m.fill_block(&mut self.block)).is_none() {
+                self.block.fill(0.0);
+            }
+            self.pos = 0;
+        }
+        let sample = self.block[self.pos];
+        self.pos += 1;
+        Some(sample)
     }
 }
 
@@ -431,7 +454,7 @@ impl Snd {
         let sources = &mut self.sources;
         with_lock(&self.mixer, "sfx mixer", |mixer| {
             let new_state = || ChannelState {
-                samples: chunk.samples.clone(),
+                samples: Arc::clone(&chunk.samples),
                 cursor: 0,
                 active: true,
                 priority: chunk.priority,
@@ -440,17 +463,13 @@ impl Snd {
             };
 
             // Find a free channel
-            let assigned = mixer
-                .channels
-                .iter()
-                .position(|ch| !ch.active)
-                .or_else(|| {
-                    // Priority eviction
-                    mixer
-                        .channels
-                        .iter()
-                        .position(|ch| origin.priority >= ch.priority)
-                });
+            let assigned = mixer.channels.iter().position(|ch| !ch.active).or_else(|| {
+                // Priority eviction
+                mixer
+                    .channels
+                    .iter()
+                    .position(|ch| origin.priority >= ch.priority)
+            });
 
             if let Some(c) = assigned {
                 mixer.channels[c] = new_state();
@@ -629,10 +648,7 @@ mod tests {
 
     #[test]
     fn resolve_music_type_gus_without_sf2_falls_back_to_opl2() {
-        assert_eq!(
-            resolve_music_type(MusicType::GUS, false),
-            MusicType::OPL2
-        );
+        assert_eq!(resolve_music_type(MusicType::GUS, false), MusicType::OPL2);
     }
 
     #[test]

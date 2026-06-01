@@ -1,5 +1,5 @@
 use crate::bam::{ANG90, ANG180, ANG270};
-use crate::fixed_point::FixedT;
+use crate::fixed_point::{FixedT, UInner};
 
 include!("og_trig_tables.rs");
 
@@ -91,19 +91,30 @@ pub fn r_point_to_dist(vx: FixedT, vy: FixedT, ox: FixedT, oy: FixedT) -> FixedT
     if dx.is_zero() {
         return FixedT::ZERO;
     }
-    let angle = (TANTOANGLE[slope_div(dy.0 as u32, dx.0 as u32) as usize].wrapping_add(ANG90))
+    let angle = (TANTOANGLE[slope_div(dy.0 as UInner, dx.0 as UInner) as usize]
+        .wrapping_add(ANG90))
         >> ANGLETOFINESHIFT;
     dx.fixed_div(fine_sin(angle << ANGLETOFINESHIFT))
 }
 
 /// OG Doom `SlopeDiv` — integer slope used to index `TANTOANGLE`.
+///
+/// Returns `(num/den) * SLOPERANGE` clamped to `[0, SLOPERANGE]`. The result is
+/// a pure ratio, invariant under uniform scaling of `num`/`den`, so the same
+/// magic shifts hold across all precision modes. `num`/`den` are full-width
+/// `UInner` so `num << 3` cannot overflow in the 64-bit fixed-point modes.
 #[inline]
-fn slope_div(num: u32, den: u32) -> u32 {
+#[allow(clippy::unnecessary_cast)] // for 64bit feature
+fn slope_div(num: UInner, den: UInner) -> u32 {
     if den < 512 {
         return SLOPERANGE;
     }
     let ans = (num << 3) / (den >> 8);
-    if ans <= SLOPERANGE { ans } else { SLOPERANGE }
+    if ans <= SLOPERANGE as UInner {
+        ans as u32
+    } else {
+        SLOPERANGE
+    }
 }
 
 /// OG Doom `R_PointToAngle2(0, 0, dx, dy)` — returns BAM angle from dx/dy.
@@ -112,16 +123,18 @@ fn slope_div(num: u32, den: u32) -> u32 {
 /// `TANTOANGLE` LUT, matching OG Doom `r_main.c:R_PointToAngle` exactly.
 #[inline]
 pub fn r_point_to_angle(dx: FixedT, dy: FixedT) -> u32 {
-    // slope_div operates on ratios so i32 truncation is fine
-    let dxi = dx.to_fixed_raw();
-    let dyi = dy.to_fixed_raw();
+    // Full-width raw bits: `slope_div` needs a true ratio plus correct octant
+    // signs. `to_fixed_raw()` narrows to i32, corrupting both for deltas beyond
+    // ±2^31 raw in the 64-bit fixed-point modes — use `raw()` instead.
+    let dxi = dx.raw();
+    let dyi = dy.raw();
     if dxi == 0 && dyi == 0 {
         return 0;
     }
 
     if dxi >= 0 {
         if dyi >= 0 {
-            let (x, y) = (dxi as u32, dyi as u32);
+            let (x, y) = (dxi as UInner, dyi as UInner);
             if x > y {
                 TANTOANGLE[slope_div(y, x) as usize]
             } else {
@@ -130,7 +143,7 @@ pub fn r_point_to_angle(dx: FixedT, dy: FixedT) -> u32 {
                     .wrapping_sub(TANTOANGLE[slope_div(x, y) as usize])
             }
         } else {
-            let (x, y) = (dxi as u32, (-dyi) as u32);
+            let (x, y) = (dxi as UInner, (-dyi) as UInner);
             if x > y {
                 0u32.wrapping_sub(TANTOANGLE[slope_div(y, x) as usize])
             } else {
@@ -138,9 +151,9 @@ pub fn r_point_to_angle(dx: FixedT, dy: FixedT) -> u32 {
             }
         }
     } else {
-        let x = (-dxi) as u32;
+        let x = (-dxi) as UInner;
         if dyi >= 0 {
-            let y = dyi as u32;
+            let y = dyi as UInner;
             if x > y {
                 ANG180
                     .wrapping_sub(1)
@@ -149,7 +162,7 @@ pub fn r_point_to_angle(dx: FixedT, dy: FixedT) -> u32 {
                 ANG90.wrapping_add(TANTOANGLE[slope_div(x, y) as usize])
             }
         } else {
-            let y = (-dyi) as u32;
+            let y = (-dyi) as UInner;
             if x > y {
                 ANG180.wrapping_add(TANTOANGLE[slope_div(y, x) as usize])
             } else {
@@ -158,5 +171,50 @@ pub fn r_point_to_angle(dx: FixedT, dy: FixedT) -> u32 {
                     .wrapping_sub(TANTOANGLE[slope_div(x, y) as usize])
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Expected BAM angles match OG Doom's `R_PointToAngle` octant build, which
+    // lands one BAM below the ideal boundary on the half-open arms.
+    const A_RIGHT: u32 = 0; // +x
+    const A_UP: u32 = ANG90 - 1; // +y
+    const A_LEFT: u32 = ANG180 - 1; // -x
+    const A_DOWN: u32 = ANG270; // -y
+    const A_DIAG: u32 = crate::bam::ANG45 - 1; // +x +y
+
+    /// Cardinal and diagonal angles — octant dispatch is correct in every
+    /// precision mode (these assertions run under default and 64-bit features).
+    #[test]
+    fn cardinal_and_diagonal() {
+        assert_eq!(r_point_to_angle(FixedT::from(1), FixedT::from(0)), A_RIGHT);
+        assert_eq!(r_point_to_angle(FixedT::from(0), FixedT::from(1)), A_UP);
+        assert_eq!(r_point_to_angle(FixedT::from(-1), FixedT::from(0)), A_LEFT);
+        assert_eq!(r_point_to_angle(FixedT::from(0), FixedT::from(-1)), A_DOWN);
+        assert_eq!(r_point_to_angle(FixedT::from(1), FixedT::from(1)), A_DIAG);
+        assert_eq!(r_point_to_angle(FixedT::from(0), FixedT::from(0)), 0);
+    }
+
+    /// Regression for the i32-truncation bug: in the 64-bit fixed-point modes a
+    /// delta whose raw value exceeds the i32 range must still resolve to the
+    /// same angle as the equivalent small delta. `40000 << FRACBITS` overflows
+    /// i32 in those modes, so `to_fixed_raw()` (the old path) corrupted the
+    /// octant and ratio. A large delta and a small delta of equal slope must
+    /// agree.
+    #[cfg(any(feature = "fixed64", feature = "fixed64hd"))]
+    #[test]
+    fn large_delta_beyond_i32() {
+        let big = FixedT::from(40000);
+        // Raw value must exceed i32 range, else the test proves nothing.
+        assert!(big.raw() > i32::MAX as crate::fixed_point::Inner);
+        // Same octant results as the unit-delta cardinal/diagonal cases.
+        assert_eq!(r_point_to_angle(big, big), A_DIAG);
+        assert_eq!(r_point_to_angle(big, FixedT::from(0)), A_RIGHT);
+        assert_eq!(r_point_to_angle(FixedT::from(0), big), A_UP);
+        assert_eq!(r_point_to_angle(-big, FixedT::from(0)), A_LEFT);
+        assert_eq!(r_point_to_angle(FixedT::from(0), -big), A_DOWN);
     }
 }

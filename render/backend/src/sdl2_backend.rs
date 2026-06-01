@@ -3,7 +3,7 @@
 use sdl2::pixels::PixelFormatEnum;
 use sdl2::rect::Rect;
 use sdl2::render::{Canvas, TextureCreator};
-use sdl2::video::{Window, WindowContext};
+use sdl2::video::{FullscreenType, Window, WindowContext};
 
 use crate::DrawBuffer;
 
@@ -67,7 +67,6 @@ impl Sdl2Display {
     }
 
     pub(crate) fn set_fullscreen(&mut self, mode: u8) {
-        use sdl2::video::FullscreenType;
         let fs = match mode {
             1 => FullscreenType::Desktop,
             2 => FullscreenType::True,

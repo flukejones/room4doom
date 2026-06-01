@@ -373,39 +373,19 @@ impl OplPlayerState {
     /// Refresh OPL volume registers for all voices on every channel.
     /// Call after changing `self.volume`.
     pub fn refresh_all_volumes(&mut self) {
-        let updates: Vec<_> = self
-            .playing_notes
-            .iter()
-            .map(|n| {
-                let ch = self.channels[n.midi_channel as usize];
-                (
-                    n.opl_channel,
-                    n.note_volume,
-                    ch.volume,
-                    ch.expression,
-                    n.current_instrument,
-                    n.instrument_voice,
-                )
-            })
-            .collect();
-
-        for (opl_channel, note_volume, channel_volume, expression, instrument, voice_num) in updates
-        {
-            let reg_volume = self.set_voice_volume(
-                opl_channel,
-                note_volume,
-                channel_volume,
-                expression,
-                &instrument,
-                voice_num,
+        for i in 0..self.playing_notes.len() {
+            let note = &self.playing_notes[i];
+            let ch = self.channels[note.midi_channel as usize];
+            let reg_volume = Self::set_voice_volume(
+                &mut self.chip,
+                note.opl_channel,
+                note.note_volume,
+                ch.volume,
+                ch.expression,
+                &note.current_instrument,
+                note.instrument_voice,
             );
-
-            for note in &mut self.playing_notes {
-                if note.opl_channel == opl_channel {
-                    note.reg_volume = reg_volume;
-                    break;
-                }
-            }
+            self.playing_notes[i].reg_volume = reg_volume;
         }
     }
 
@@ -811,7 +791,7 @@ impl OplPlayerState {
 
     /// Compute and write operator volume registers for a voice.
     fn set_voice_volume(
-        &mut self,
+        chip: &mut Chip,
         opl_channel: usize,
         note_volume: u8,
         channel_volume: u8,
@@ -839,13 +819,13 @@ impl OplPlayerState {
         let car_reg = 0x3F - (car_level * full_volume / 128) as u8;
         let final_volume = car_reg | (voice.carrier.scale & 0xC0);
 
-        self.chip.write_reg(0x40 + op2_offset as u32, final_volume);
+        chip.write_reg(0x40 + op2_offset as u32, final_volume);
 
         if (voice.feedback & 0x01) != 0 {
             let mod_level = (0x3F - (voice.modulator.level & 0x3F)) as u32;
             let mod_reg = 0x3F - (mod_level * full_volume / 128) as u8;
             let mod_final = mod_reg | (voice.modulator.scale & 0xC0);
-            self.chip.write_reg(0x40 + op1_offset as u32, mod_final);
+            chip.write_reg(0x40 + op1_offset as u32, mod_final);
         }
 
         final_volume
@@ -854,36 +834,21 @@ impl OplPlayerState {
     /// Rewrite OPL volume registers for all active voices on a MIDI channel.
     fn refresh_channel_volumes(&mut self, midi_channel: u8) {
         let chan = self.channels[midi_channel as usize];
-        let updates: Vec<_> = self
-            .playing_notes
-            .iter()
-            .filter(|n| n.midi_channel == midi_channel)
-            .map(|n| {
-                (
-                    n.opl_channel,
-                    n.note_volume,
-                    n.current_instrument,
-                    n.instrument_voice,
-                )
-            })
-            .collect();
-
-        for (opl_channel, note_volume, instrument, voice_num) in updates {
-            let reg_volume = self.set_voice_volume(
-                opl_channel,
-                note_volume,
+        for i in 0..self.playing_notes.len() {
+            let note = &self.playing_notes[i];
+            if note.midi_channel != midi_channel {
+                continue;
+            }
+            let reg_volume = Self::set_voice_volume(
+                &mut self.chip,
+                note.opl_channel,
+                note.note_volume,
                 chan.volume,
                 chan.expression,
-                &instrument,
-                voice_num,
+                &note.current_instrument,
+                note.instrument_voice,
             );
-
-            for note in &mut self.playing_notes {
-                if note.opl_channel == opl_channel {
-                    note.reg_volume = reg_volume;
-                    break;
-                }
-            }
+            self.playing_notes[i].reg_volume = reg_volume;
         }
     }
 
@@ -992,7 +957,8 @@ impl OplPlayerState {
             self.setup_instrument(opl_channel, instrument, voice_num);
 
             let channel_data = self.channels[channel as usize];
-            let reg_volume = self.set_voice_volume(
+            let reg_volume = Self::set_voice_volume(
+                &mut self.chip,
                 opl_channel,
                 velocity,
                 channel_data.volume,

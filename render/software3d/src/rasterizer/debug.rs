@@ -33,7 +33,11 @@ pub(crate) fn write_pixel(
         let r = ((sr as u16 * a + dr as u16 * inv_a) >> 8) as u8;
         let g = ((sg as u16 * a + dg as u16 * inv_a) >> 8) as u8;
         let b = ((sb as u16 * a + db as u16 * inv_a) >> 8) as u8;
-        buffer.set_pixel(x, y, 0xFF000000 | (r as u32) << 16 | (g as u32) << 8 | b as u32);
+        buffer.set_pixel(
+            x,
+            y,
+            0xFF000000 | (r as u32) << 16 | (g as u32) << 8 | b as u32,
+        );
     } else {
         buffer.set_pixel(x, y, color);
     }
@@ -372,14 +376,15 @@ impl Software3D {
 
             // Draw a 2px thick line by writing the pixel and its neighbour below
             for y in cy..=(cy + 1).min(h - 1) {
-                if cx < w && y < h
+                if cx < w
+                    && y < h
                     && self
                         .rasterizer
                         .depth_buffer
                         .test_and_set_depth_unchecked(cx, y, depth)
-                    {
-                        rend.set_pixel(cx, y, color);
-                    }
+                {
+                    rend.set_pixel(cx, y, color);
+                }
             }
         }
     }

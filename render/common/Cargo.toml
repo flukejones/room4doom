@@ -13,3 +13,6 @@ math.workspace = true
 pic-data.workspace = true
 
 [dev-dependencies]
+
+[lints]
+workspace = true

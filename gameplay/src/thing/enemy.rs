@@ -189,12 +189,11 @@ pub(crate) fn a_chase(actor: &mut MapObject) {
     if actor.info.missilestate != StateNum::None {
         let skill = unsafe { (*actor.level).options.skill };
         // OG: skip if (gameskill < nightmare && movecount != 0)
-        if (skill == Skill::Nightmare || actor.movecount == 0)
-            && actor.check_missile_range() {
-                actor.set_state(actor.info.missilestate);
-                actor.flags.insert(MapObjFlag::Justattacked);
-                return;
-            }
+        if (skill == Skill::Nightmare || actor.movecount == 0) && actor.check_missile_range() {
+            actor.set_state(actor.info.missilestate);
+            actor.flags.insert(MapObjFlag::Justattacked);
+            return;
+        }
     }
 
     // nomissile:
@@ -235,18 +234,19 @@ pub(crate) fn a_look(actor: &mut MapObject) {
     let ss = actor.subsector.clone();
     let mut goto_seeyou = false;
     if let Some(target) = ss.sector.sound_target()
-        && target.flags.contains(MapObjFlag::Shootable) {
-            actor.target = actor.subsector.sector.sound_target_raw();
+        && target.flags.contains(MapObjFlag::Shootable)
+    {
+        actor.target = actor.subsector.sector.sound_target_raw();
 
-            if actor.flags.contains(MapObjFlag::Ambush) {
-                if actor.check_sight_target(target) {
-                    goto_seeyou = true;
-                }
-                // ambush + no sight: fall through to look_for_players
-            } else {
+        if actor.flags.contains(MapObjFlag::Ambush) {
+            if actor.check_sight_target(target) {
                 goto_seeyou = true;
             }
+            // ambush + no sight: fall through to look_for_players
+        } else {
+            goto_seeyou = true;
         }
+    }
     if !goto_seeyou && !actor.look_for_players(false) {
         return;
     }
@@ -346,11 +346,12 @@ pub(crate) fn a_keendie(actor: &mut MapObject) {
             && !ptr::eq(
                 mobj as *const _ as *const (),
                 actor as *const _ as *const (),
-            ) && mobj.kind == actor.kind
-                && mobj.health > 0
-            {
-                dead = false;
-            }
+            )
+            && mobj.kind == actor.kind
+            && mobj.health > 0
+        {
+            dead = false;
+        }
         true
     });
     if !dead {
@@ -1128,11 +1129,12 @@ fn all_bosses_dead(actor: &MapObject, level: &mut LevelState) -> bool {
             && !ptr::eq(
                 mobj as *const _ as *const (),
                 actor as *const _ as *const (),
-            ) && mobj.kind == actor.kind
-                && mobj.health > 0
-            {
-                dead = false;
-            }
+            )
+            && mobj.kind == actor.kind
+            && mobj.health > 0
+        {
+            dead = false;
+        }
         true
     });
     dead

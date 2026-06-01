@@ -1,6 +1,6 @@
 use std::str;
 
-use log::error;
+use log::{error, warn};
 
 use crate::Lump;
 
@@ -140,9 +140,23 @@ impl WadPatch {
     /// with the patch, e.g, `wad.file_data[lump.handle]`
     pub fn from_lump(lump: &Lump) -> Self {
         let data = &lump.data;
+        // Header is 8 bytes (width, height, left/top offset) plus the column
+        // offset table. Malformed/truncated lumps degrade to an empty patch
+        // rather than panicking on out-of-range indexing.
+        if data.len() < 8 {
+            warn!("Patch lump {} too short ({} bytes)", lump.name, data.len());
+            return Self {
+                name: lump.name.clone(),
+                width: 0,
+                height: 0,
+                left_offset: 0,
+                top_offset: 0,
+                columns: Vec::new(),
+            };
+        }
         let width = i16::from_le_bytes([data[0], data[1]]) as u16;
         // A flat was included as a pic?
-        if width >= data.len() as u16 || data.len() == 4096 {
+        if width as usize >= data.len() || data.len() == 4096 {
             let x = (data.len() as f32).sqrt();
             return Self {
                 name: lump.name.clone(),
@@ -155,19 +169,27 @@ impl WadPatch {
                     .chunks(x as usize)
                     .map(|c| WadPatchCol {
                         y_offset: 0,
-                        pixels: c.iter().map(|n| *n as usize).collect(),
+                        pixels: c.iter().map(|n| *n as u16).collect(),
                     })
                     .collect(),
             };
         }
         let mut columns = Vec::new();
-        for q in 0..width {
+        'columns: for q in 0..width {
             let tmp = 8 + 4 * q as usize;
+            let Some(off_bytes) = data.get(tmp..tmp + 4) else {
+                warn!("Patch {} column offset table truncated", lump.name);
+                break;
+            };
             let mut offset =
-                i32::from_le_bytes([data[tmp], data[tmp + 1], data[tmp + 2], data[tmp + 3]])
+                i32::from_le_bytes([off_bytes[0], off_bytes[1], off_bytes[2], off_bytes[3]])
                     as usize;
             loop {
-                let y_offset = data[offset] as i32;
+                let Some(&y) = data.get(offset) else {
+                    warn!("Patch {} column {q} runs past lump end", lump.name);
+                    break 'columns;
+                };
+                let y_offset = y as i32;
                 if y_offset == 255 {
                     columns.push(WadPatchCol {
                         y_offset,
@@ -177,20 +199,21 @@ impl WadPatch {
                 }
 
                 offset += 1;
-                let len = data[offset] as i32;
-                offset += 1;
-                let column = WadPatchCol {
-                    y_offset,
-                    pixels: (0..len)
-                        .map(|_| {
-                            offset += 1;
-                            data[offset] as usize
-                        })
-                        .collect(),
+                let Some(&len) = data.get(offset) else {
+                    warn!("Patch {} column {q} runs past lump end", lump.name);
+                    break 'columns;
                 };
-                columns.push(column);
-
-                offset += 2;
+                offset += 1;
+                let pixel_end = offset + 1 + len as usize;
+                let Some(pixels) = data.get(offset + 1..pixel_end) else {
+                    warn!("Patch {} column {q} pixel run past lump end", lump.name);
+                    break 'columns;
+                };
+                columns.push(WadPatchCol {
+                    y_offset,
+                    pixels: pixels.iter().map(|&p| p as u16).collect(),
+                });
+                offset = pixel_end + 1;
             }
         }
 
@@ -213,8 +236,8 @@ pub struct WadPatchCol {
     /// Determines where on the column the pixel stream starts.
     /// An 0xFF terminates the patch data.
     pub y_offset: i32,
-    /// Every `usize` here is an index in to the play palette
-    pub pixels: Vec<usize>,
+    /// Every `u16` here is an index in to the play palette
+    pub pixels: Vec<u16>,
 }
 
 /// Contains all the data required to compose a full texture from a series of

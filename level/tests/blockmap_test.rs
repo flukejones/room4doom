@@ -25,7 +25,7 @@ fn test_e1m1_generated_blockmap_coverage() {
     );
     assert_eq!(gen_bm.rows, wad_rows, "Generated rows should match WAD");
     assert!(
-        gen_bm.block_lines.len() > 0,
+        !gen_bm.block_lines.is_empty(),
         "Generated blockmap should have line refs"
     );
 
@@ -67,7 +67,7 @@ fn test_sunder_map20_generated_blockmap() {
         "Generated blockmap should have valid dimensions for MAP20"
     );
     assert!(
-        bm.block_lines.len() > 0,
+        !bm.block_lines.is_empty(),
         "Generated blockmap should have line refs"
     );
 

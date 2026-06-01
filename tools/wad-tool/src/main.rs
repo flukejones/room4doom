@@ -4,7 +4,7 @@ use std::path::Path;
 use argh::FromArgs;
 use serde_json::{Value, json};
 use wad::types::{
-    WadLineDef, WadNode, WadSector, WadSegment, WadSideDef, WadSubSector, WadThing, WadVertex
+    WadLineDef, WadNode, WadSector, WadSegment, WadSideDef, WadSubSector, WadThing, WadVertex,
 };
 use wad::{MapLump, WadData};
 
@@ -145,9 +145,11 @@ fn cmd_extract(wad: &WadData, cmd: &ExtractCmd) {
 
 fn cmd_info(wad: &WadData, path: &str) {
     println!("WAD: {}", path);
-    let wad_type = if wad.lumps().first().is_some_and(|l| {
-        l.name.starts_with("MAP") || l.name.starts_with("E")
-    }) {
+    let wad_type = if wad
+        .lumps()
+        .first()
+        .is_some_and(|l| l.name.starts_with("MAP") || l.name.starts_with("E"))
+    {
         "PWAD"
     } else {
         "IWAD"

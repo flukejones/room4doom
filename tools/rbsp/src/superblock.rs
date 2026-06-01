@@ -5,7 +5,7 @@
 //! `box_on_line_side`, avoiding per-seg classification for blocks that
 //! don't straddle the partition line. Based on the technique from glbsp.
 
-use crate::types::{EPSILON, Float, Vertex, Seg};
+use crate::types::{EPSILON, Float, Seg, Vertex};
 
 const LEAF_SIZE: Float = 256.0;
 

@@ -22,16 +22,16 @@ fn test_e1m1_linedef373_vertex_sharing() {
                 linedef_id,
                 ..
             } = &poly.surface_kind
+                && *linedef_id == 373
+                && matches!(wall_type, WallType::Lower)
             {
-                if *linedef_id == 373 && matches!(wall_type, WallType::Lower) {
-                    println!(
-                        "Lower wall for ld=373 in ss={}: vertices={:?}",
-                        ssid, poly.vertices
-                    );
-                    for &vi in &poly.vertices {
-                        println!("  vi={} pos={:?}", vi, vertices[vi]);
-                        wall_vertex_indices.push(vi);
-                    }
+                println!(
+                    "Lower wall for ld=373 in ss={}: vertices={:?}",
+                    ssid, poly.vertices
+                );
+                for &vi in &poly.vertices {
+                    println!("  vi={} pos={:?}", vi, vertices[vi]);
+                    wall_vertex_indices.push(vi);
                 }
             }
         }
@@ -171,9 +171,9 @@ fn test_e1m1_all_mover_vertex_sharing() {
             .segments
             .iter()
             .filter(|s| {
-                s.frontsector.num == 14 || s.backsector.as_ref().map_or(false, |b| b.num == 14)
+                s.frontsector.num == 14 || s.backsector.as_ref().is_some_and(|b| b.num == 14)
             })
-            .map(|s| s.linedef.num as usize)
+            .map(|s| s.linedef.num)
             .collect();
 
         let mut unshared = Vec::new();
@@ -184,19 +184,19 @@ fn test_e1m1_all_mover_vertex_sharing() {
                     linedef_id,
                     ..
                 } = &poly.surface_kind
+                    && border_lds.contains(linedef_id)
+                    && matches!(wall_type, WallType::Lower)
                 {
-                    if border_lds.contains(linedef_id) && matches!(wall_type, WallType::Lower) {
-                        let all_same_z = poly
-                            .vertices
-                            .iter()
-                            .all(|&vi| (verts[vi].z - verts[poly.vertices[0]].z).abs() < 1.0);
-                        if all_same_z {
-                            continue;
-                        }
-                        for &vi in &poly.vertices {
-                            if (verts[vi].z - floor_h).abs() < 1.0 && !floor_verts.contains(&vi) {
-                                unshared.push(vi);
-                            }
+                    let all_same_z = poly
+                        .vertices
+                        .iter()
+                        .all(|&vi| (verts[vi].z - verts[poly.vertices[0]].z).abs() < 1.0);
+                    if all_same_z {
+                        continue;
+                    }
+                    for &vi in &poly.vertices {
+                        if (verts[vi].z - floor_h).abs() < 1.0 && !floor_verts.contains(&vi) {
+                            unshared.push(vi);
                         }
                     }
                 }
@@ -231,9 +231,9 @@ fn test_e1m1_all_mover_vertex_sharing() {
             .segments
             .iter()
             .filter(|s| {
-                s.frontsector.num == 26 || s.backsector.as_ref().map_or(false, |b| b.num == 26)
+                s.frontsector.num == 26 || s.backsector.as_ref().is_some_and(|b| b.num == 26)
             })
-            .map(|s| s.linedef.num as usize)
+            .map(|s| s.linedef.num)
             .collect();
 
         let mut unshared = Vec::new();
@@ -244,19 +244,19 @@ fn test_e1m1_all_mover_vertex_sharing() {
                     linedef_id,
                     ..
                 } = &poly.surface_kind
+                    && border_lds.contains(linedef_id)
+                    && matches!(wall_type, WallType::Upper)
                 {
-                    if border_lds.contains(linedef_id) && matches!(wall_type, WallType::Upper) {
-                        let all_same_z = poly
-                            .vertices
-                            .iter()
-                            .all(|&vi| (verts[vi].z - verts[poly.vertices[0]].z).abs() < 1.0);
-                        if all_same_z {
-                            continue;
-                        }
-                        for &vi in &poly.vertices {
-                            if (verts[vi].z - ceil_h).abs() < 1.0 && !ceil_verts.contains(&vi) {
-                                unshared.push(vi);
-                            }
+                    let all_same_z = poly
+                        .vertices
+                        .iter()
+                        .all(|&vi| (verts[vi].z - verts[poly.vertices[0]].z).abs() < 1.0);
+                    if all_same_z {
+                        continue;
+                    }
+                    for &vi in &poly.vertices {
+                        if (verts[vi].z - ceil_h).abs() < 1.0 && !ceil_verts.contains(&vi) {
+                            unshared.push(vi);
                         }
                     }
                 }

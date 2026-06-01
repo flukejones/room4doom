@@ -349,22 +349,19 @@ impl Parser {
             );
 
             if is_flag {
-                match key.as_str() {
-                    "map07special" => {
-                        entry.boss_actions = Some(BossActions::Actions(vec![
-                            BossAction {
-                                thing_type: "Fatso".into(),
-                                line_special: 38,
-                                tag: 666,
-                            },
-                            BossAction {
-                                thing_type: "Arachnotron".into(),
-                                line_special: 30,
-                                tag: 667,
-                            },
-                        ]));
-                    }
-                    _ => {} // skip other flags
+                if key.as_str() == "map07special" {
+                    entry.boss_actions = Some(BossActions::Actions(vec![
+                        BossAction {
+                            thing_type: "Fatso".into(),
+                            line_special: 38,
+                            tag: 666,
+                        },
+                        BossAction {
+                            thing_type: "Arachnotron".into(),
+                            line_special: 30,
+                            tag: 667,
+                        },
+                    ]));
                 }
                 continue;
             }
@@ -581,18 +578,20 @@ pub fn parse(input: &str) -> Result<UMapInfo, ParseError> {
     // Resolve cluster references: copy cluster data onto map entries
     for entry in &mut entries {
         if let Some(cid) = entry.cluster_id
-            && let Some(cluster) = clusters.get(&cid) {
-                if entry.inter_backdrop.is_none() {
-                    entry.inter_backdrop = cluster.flat.clone();
-                }
-                if entry.inter_music.is_none() {
-                    entry.inter_music = cluster.music.clone();
-                }
-                if entry.inter_text.is_none()
-                    && let Some(text) = &cluster.exit_text {
-                        entry.inter_text = Some(TextOrClear::Text(text.clone()));
-                    }
+            && let Some(cluster) = clusters.get(&cid)
+        {
+            if entry.inter_backdrop.is_none() {
+                entry.inter_backdrop = cluster.flat.clone();
             }
+            if entry.inter_music.is_none() {
+                entry.inter_music = cluster.music.clone();
+            }
+            if entry.inter_text.is_none()
+                && let Some(text) = &cluster.exit_text
+            {
+                entry.inter_text = Some(TextOrClear::Text(text.clone()));
+            }
+        }
     }
 
     // Resolve episode definitions: attach to the first map entry they reference

@@ -1,12 +1,15 @@
+use std::sync::atomic::{AtomicUsize, Ordering};
+
 pub mod angle;
 pub mod bam;
 pub mod doom_trig;
 pub mod fixed_point;
 mod intercept;
+#[cfg(feature = "trig_lut")]
 mod trig;
 
 pub use angle::*;
-pub use bam::{ANG45, ANG90, ANG180, ANG270, Bam, aprox_distance, bam_to_radian, radian_to_bam};
+pub use bam::{ANG45, ANG90, ANG180, ANG270, Bam, bam_to_radian, radian_to_bam};
 pub use doom_trig::{
     ANGLETOFINESHIFT, fine_cos, fine_sin, fine_tan, finecosine, finesine, r_point_to_angle, r_point_to_dist
 };
@@ -25,8 +28,11 @@ pub const fn float_to_fixed(value: f32) -> i32 {
     (value * FRACUNIT_F) as i32
 }
 
-static mut RNDINDEX: usize = 0;
-static mut PRNDINDEX: usize = 0;
+/// Doom RNG indices. The engine is single-threaded so contention never
+/// happens; `AtomicUsize` is used purely to provide sound interior mutability
+/// without `static mut`.
+static RNDINDEX: AtomicUsize = AtomicUsize::new(0);
+static PRNDINDEX: AtomicUsize = AtomicUsize::new(0);
 
 pub const RNDTABLE: [i32; 256] = [
     0, 8, 109, 220, 222, 241, 149, 107, 75, 248, 254, 140, 16, 66, 74, 21, 211, 47, 80, 242, 154,
@@ -46,46 +52,42 @@ pub const RNDTABLE: [i32; 256] = [
 
 #[inline]
 pub fn p_random() -> i32 {
-    unsafe {
-        PRNDINDEX = (PRNDINDEX + 1) & 0xFF;
-        RNDTABLE[PRNDINDEX]
-    }
+    let idx = (PRNDINDEX.load(Ordering::Relaxed) + 1) & 0xFF;
+    PRNDINDEX.store(idx, Ordering::Relaxed);
+    RNDTABLE[idx]
 }
 
 #[inline]
-pub const fn m_random() -> i32 {
-    unsafe {
-        RNDINDEX = (RNDINDEX + 1) & 0xFF;
-        RNDTABLE[RNDINDEX]
-    }
+pub fn m_random() -> i32 {
+    let idx = (RNDINDEX.load(Ordering::Relaxed) + 1) & 0xFF;
+    RNDINDEX.store(idx, Ordering::Relaxed);
+    RNDTABLE[idx]
 }
 
 #[inline]
 pub fn m_clear_random() {
-    unsafe {
-        RNDINDEX = 0;
-        PRNDINDEX = 0;
-    }
+    RNDINDEX.store(0, Ordering::Relaxed);
+    PRNDINDEX.store(0, Ordering::Relaxed);
 }
 
 #[inline]
 pub fn get_prndindex() -> usize {
-    unsafe { PRNDINDEX }
+    PRNDINDEX.load(Ordering::Relaxed)
 }
 
 #[inline]
 pub fn set_prndindex(i: usize) {
-    unsafe { PRNDINDEX = i & 0xFF }
+    PRNDINDEX.store(i & 0xFF, Ordering::Relaxed);
 }
 
 #[inline]
 pub fn get_rndindex() -> usize {
-    unsafe { RNDINDEX }
+    RNDINDEX.load(Ordering::Relaxed)
 }
 
 #[inline]
 pub fn set_rndindex(i: usize) {
-    unsafe { RNDINDEX = i & 0xFF }
+    RNDINDEX.store(i & 0xFF, Ordering::Relaxed);
 }
 
 #[inline]

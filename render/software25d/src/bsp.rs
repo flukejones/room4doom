@@ -4,6 +4,7 @@ use super::segs::SegRender;
 use super::things::VisSprite;
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
+use game_config::tic_cmd::LookDirs;
 use glam::Vec2;
 use level::{LevelData, Sector, Segment, SubSector, is_subsector, subsector_index};
 use log::trace;
@@ -105,16 +106,15 @@ impl Software25D {
         pic_data.set_fixed_lightscale(view.fixedcolormap);
 
         self.seg_renderer.clear();
-        unsafe {
-            let max_offset = if view.lookdir >= 0.0 {
-                game_config::tic_cmd::LOOKDIRMIN
-            } else {
-                game_config::tic_cmd::LOOKDIRMAX
-            } as f32;
-            let pitch_pixels = (view.lookdir / (std::f32::consts::PI / 2.0) * max_offset) as i16;
-            self.seg_renderer
-                .set_view_pitch(pitch_pixels, FixedT::from(rend.size().half_view_height()));
-        }
+        let look_dirs = self.seg_renderer.look_dirs;
+        let max_offset = if view.lookdir >= 0.0 {
+            look_dirs.min
+        } else {
+            look_dirs.max
+        } as f32;
+        let pitch_pixels = (view.lookdir / (std::f32::consts::PI / 2.0) * max_offset) as i16;
+        self.seg_renderer
+            .set_view_pitch(pitch_pixels, FixedT::from(rend.size().half_view_height()));
         #[cfg(feature = "hprof")]
         profile!("render_bsp_node begin!");
         self.render_bsp_node(
@@ -123,7 +123,6 @@ impl Software25D {
             level_data.start_node(),
             pic_data,
             rend,
-            view.subsector_id,
             &mut count,
         );
 
@@ -139,7 +138,8 @@ impl Software25D {
         // TODO: netupdate again
     }
 
-    pub fn new(fov: f32, width: f32, height: f32, debug: bool) -> Software25D {
+    pub fn new(fov: f32, width: f32, height: f32, hi_res: bool, debug: bool) -> Software25D {
+        let look_dirs = LookDirs::new(hi_res);
         let (_, _, focal_length_f) = render_common::og_projection(fov, width, height);
         // OG: projection = centerxfrac = half_width (used for scale comparison)
         let projection = FixedT::from((width / 2.0) as i32);
@@ -174,7 +174,7 @@ impl Software25D {
         // OG Doom uses FRACUNIT*2 (2.0) as the tangent limit, not the FOV edge tangent.
         let tan_limit = FixedT::from(2);
         let mut viewangletox = vec![0i32; FINEANGLES / 2];
-        for i in 0..FINEANGLES / 2 {
+        (0..FINEANGLES / 2).for_each(|i| {
             let tangent = math::fine_tan(i);
             if tangent > tan_limit {
                 viewangletox[i] = -1;
@@ -190,18 +190,18 @@ impl Software25D {
                     base_col * res_scale
                 };
             }
-        }
+        });
 
         // OG Doom: build xtoviewangle by inverting viewangletox (before fencepost fix)
         // xtoviewangle[x] = smallest fine angle that maps to column x
         let mut xtoviewangle = vec![0u32; width + 1];
-        for x in 0..=width {
+        (0..=width).for_each(|x| {
             let mut i = 0;
             while i < FINEANGLES / 2 && viewangletox[i] > x as i32 {
                 i += 1;
             }
             xtoviewangle[x] = ((i as u32) << math::ANGLETOFINESHIFT).wrapping_sub(ANG90);
-        }
+        });
 
         // OG Doom fencepost fix
         let w = width as i32;
@@ -215,7 +215,7 @@ impl Software25D {
 
         Self {
             r_data: RenderData::new(width, height),
-            seg_renderer: SegRender::new(width, height, xtoviewangle),
+            seg_renderer: SegRender::new(width, height, xtoviewangle, look_dirs),
             new_end: 0,
             solidsegs: [ClipRange {
                 first: FixedT::ZERO,
@@ -374,7 +374,7 @@ impl Software25D {
         self.add_sprites(view, front_sector, rend.size().width() as u32, pic_data);
 
         for i in subsect.start_seg..subsect.start_seg + subsect.seg_count {
-            let seg = &map.segments()[i as usize];
+            let seg = &map.segments[i as usize];
             self.add_line(view, seg, front_sector, pic_data, rend);
         }
     }
@@ -618,7 +618,6 @@ impl Software25D {
         node_id: u32,
         pic_data: &PicData,
         rend: &mut impl DrawBuffer,
-        player_subsector_id: usize,
         count: &mut usize,
     ) {
         // profile!("render_bsp_node");
@@ -631,12 +630,12 @@ impl Software25D {
                 subsector_index(node_id)
             };
 
-            if subsector_id < map.subsectors().len() {
+            if subsector_id < map.subsectors.len() {
                 if node_id == u32::MAX {
-                    let subsect = &map.subsectors()[0];
+                    let subsect = &map.subsectors[0];
                     self.draw_subsector(map, view, subsect, pic_data, rend);
                 } else {
-                    let subsect = &map.subsectors()[subsector_index(node_id)];
+                    let subsect = &map.subsectors[subsector_index(node_id)];
                     self.draw_subsector(map, view, subsect, pic_data, rend);
                 }
                 return;
@@ -648,12 +647,12 @@ impl Software25D {
         let side = node.point_on_side_fixed(view.x, view.y);
         let (front, back) = node.front_back_children_fixed(view.x, view.y);
         // Recursively divide front space.
-        self.render_bsp_node(map, view, front, pic_data, rend, player_subsector_id, count);
+        self.render_bsp_node(map, view, front, pic_data, rend, count);
 
         // Possibly divide back space.
         let back_side = side ^ 1;
         if self.bb_extents_in_fov(&node.bboxes[back_side], view.x, view.y, view.angle) {
-            self.render_bsp_node(map, view, back, pic_data, rend, player_subsector_id, count);
+            self.render_bsp_node(map, view, back, pic_data, rend, count);
         }
     }
 

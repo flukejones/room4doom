@@ -265,20 +265,6 @@ impl std::fmt::Debug for LineDef {
     }
 }
 
-impl LineDef {
-    /// True if the right side of the segment faces the point
-    pub fn is_facing_point(&self, point: &Vec2) -> bool {
-        let start = &self.v1;
-        let end = &self.v2;
-
-        let d = (end.y - start.y) * (start.x - point.x) - (end.x - start.x) * (start.y - point.y);
-        if d >= 0.0 {
-            return false;
-        }
-        true
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct Segment {
     // Vertices, from v1 to v2.
@@ -304,19 +290,6 @@ impl Segment {
     /// derived from. Required for ZDBSP style nodes.
     pub fn recalc_offset(v1: &Vertex, v2: &Vertex) -> FixedT {
         p_aprox_distance(v1.x_fp - v2.x_fp, v1.y_fp - v2.y_fp)
-    }
-
-    /// True if the right side of the segment faces the point
-    #[inline]
-    pub fn is_facing_point(&self, point: Vec2) -> bool {
-        let start = &self.v1;
-        let end = &self.v2;
-
-        let d = (end.y - start.y) * (start.x - point.x) - (end.x - start.x) * (start.y - point.y);
-        if d <= 0.1 {
-            return true;
-        }
-        false
     }
 }
 

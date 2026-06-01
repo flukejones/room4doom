@@ -79,7 +79,7 @@ fn find_iwad() -> String {
     if let Ok(entries) = std::fs::read_dir(&dir) {
         let files: Vec<String> = entries
             .flatten()
-            .filter_map(|e| Some(e.file_name().to_string_lossy().to_string()))
+            .map(|e| e.file_name().to_string_lossy().to_string())
             .collect();
         for candidate in candidates {
             if files.iter().any(|f| f.eq_ignore_ascii_case(candidate)) {
@@ -107,9 +107,10 @@ fn find_voxel_pk3() -> String {
 
 fn get_cfg_file() -> PathBuf {
     let dir = config_dir();
-    if !dir.exists() {
-        create_dir(&dir)
-            .unwrap_or_else(|e| panic!("{}: Couldn't create {:?}: {}", LOG_TAG, dir, e));
+    if !dir.exists()
+        && let Err(e) = create_dir(&dir)
+    {
+        warn!(target: LOG_TAG, "Couldn't create config dir {dir:?}: {e}");
     }
     dir.join("user.toml")
 }
@@ -139,9 +140,9 @@ impl FromStr for RenderType {
     }
 }
 
-impl Into<render_backend::RenderType> for RenderType {
-    fn into(self) -> render_backend::RenderType {
-        match self {
+impl From<RenderType> for render_backend::RenderType {
+    fn from(val: RenderType) -> Self {
+        match val {
             RenderType::Software => render_backend::RenderType::Software,
             RenderType::Software3D => render_backend::RenderType::Software3D,
         }
@@ -190,6 +191,7 @@ pub enum HudMsgMode {
     Overwrite,
 }
 
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Default, Clone, Copy, PartialEq, DeRon, SerRon)]
 pub enum MusicType {
     #[default]
@@ -206,10 +208,7 @@ impl FromStr for MusicType {
             "opl2" => Ok(Self::OPL2),
             "opl3" => Ok(Self::OPL3),
             "gus" => Ok(Self::GUS),
-            _ => Err(IoError::new(
-                ErrorKind::Unsupported,
-                "Invalid Music type",
-            )),
+            _ => Err(IoError::new(ErrorKind::Unsupported, "Invalid Music type")),
         }
     }
 }
@@ -251,13 +250,19 @@ impl UserConfig {
     pub fn load() -> Self {
         let path = get_cfg_file();
 
-        let mut file = OpenOptions::new()
+        let mut file = match OpenOptions::new()
             .read(true)
             .write(true)
             .create(true)
             .truncate(false)
             .open(path.clone())
-            .unwrap_or_else(|e| panic!("Couldn't open {:?}, {}", path, e));
+        {
+            Ok(file) => file,
+            Err(e) => {
+                warn!(target: LOG_TAG, "Couldn't open config {path:?}: {e} — using defaults");
+                return Self::default_config();
+            }
+        };
         let mut buf = String::new();
         if let Ok(read_len) = file.read_to_string(&mut buf) {
             if read_len == 0 {
@@ -273,9 +278,10 @@ impl UserConfig {
         UserConfig::create_default(&mut file)
     }
 
-    fn create_default(file: &mut File) -> Self {
-        // create a default config here
-        let config = UserConfig {
+    /// The in-memory default config, with auto-detected IWAD/voxel paths.
+    /// Does not touch the filesystem.
+    fn default_config() -> Self {
+        UserConfig {
             width: 640,
             height: 480,
             hi_res: true,
@@ -294,18 +300,28 @@ impl UserConfig {
             voxels_path: find_voxel_pk3(),
             iwad: find_iwad(),
             ..UserConfig::default()
-        };
-        info!("Created default user config file");
-        // Should be okay to unwrap this as is since it is a Default
+        }
+    }
+
+    fn create_default(file: &mut File) -> Self {
+        let config = Self::default_config();
         let data = pretty_ron(&config.serialize_ron());
-        file.write_all(data.as_bytes())
-            .unwrap_or_else(|_| panic!("Could not write {:?}", get_cfg_file()));
-        info!("Saved user config to {:?}", get_cfg_file());
+        if let Err(e) = file.write_all(data.as_bytes()) {
+            warn!(target: LOG_TAG, "Could not write default config: {e}");
+        } else {
+            info!("Saved default user config to {:?}", get_cfg_file());
+        }
         config
     }
 
     pub fn write(&self) {
-        let mut file = File::create(get_cfg_file()).expect("Couldn't overwrite config");
+        let mut file = match File::create(get_cfg_file()) {
+            Ok(file) => file,
+            Err(e) => {
+                warn!(target: LOG_TAG, "Couldn't open config for writing: {e}");
+                return;
+            }
+        };
         let data = pretty_ron(&self.serialize_ron());
         file.write_all(data.as_bytes())
             .unwrap_or_else(|err| error!("Could not write config: {}", err));

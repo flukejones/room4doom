@@ -165,14 +165,15 @@ impl InputEvents {
 
         for i in 0..WeaponType::NumWeapons as u8 {
             if let Some(key) = KeyCode::from_i32(30 + i as i32)
-                && self.is_kb_pressed(key) {
-                    cmd.buttons |= TIC_CMD_BUTTONS.bt_change;
-                    if i == 8 {
-                        cmd.buttons |= 2 << TIC_CMD_BUTTONS.bt_weaponshift;
-                    } else {
-                        cmd.buttons |= i << TIC_CMD_BUTTONS.bt_weaponshift;
-                    }
+                && self.is_kb_pressed(key)
+            {
+                cmd.buttons |= TIC_CMD_BUTTONS.bt_change;
+                if i == 8 {
+                    cmd.buttons |= 2 << TIC_CMD_BUTTONS.bt_weaponshift;
+                } else {
+                    cmd.buttons |= i << TIC_CMD_BUTTONS.bt_weaponshift;
                 }
+            }
         }
 
         // Mouse

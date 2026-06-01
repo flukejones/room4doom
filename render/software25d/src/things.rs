@@ -1,3 +1,5 @@
+#![allow(clippy::unnecessary_cast)] // required for 64bit fixed point
+
 use std::cmp;
 
 use gameplay::{MapObjFlag, MapObject, SectorExt};
@@ -11,6 +13,7 @@ use render_common::{DrawBuffer, FUZZ_TABLE, RenderPspDef, RenderView, fuzz_darke
 
 use super::bsp::Software25D;
 use super::defs::DrawSeg;
+use super::segs::SegRender;
 
 const FF_FULLBRIGHT: u32 = 0x8000;
 const FF_FRAMEMASK: u32 = 0x7FFF;
@@ -308,8 +311,8 @@ impl Software25D {
             let texture_column = &patch.data[tex_column];
             let sprtopscreen = self.seg_renderer.centery - dc_texmid * spryscale;
             let bottomscreen = sprtopscreen + spryscale * FixedT::from(texture_column.len() as i32);
-            let mut top = FixedT::from((sprtopscreen.0 + FRACUNIT - 1) >> FRACBITS  );
-            let mut bottom = FixedT::from((bottomscreen.0 - 1) >> FRACBITS  );
+            let mut top = FixedT::from(((sprtopscreen.0 + FRACUNIT - 1) >> FRACBITS) as i32);
+            let mut bottom = FixedT::from(((bottomscreen.0 - 1) >> FRACBITS) as i32);
 
             if bottom >= clip_bottom[x] {
                 bottom = clip_bottom[x] - 1;
@@ -405,7 +408,15 @@ impl Software25D {
                     })
                 {
                     if seg.maskedtexturecol != FixedT::from(-1) {
-                        self.render_masked_seg_range(view, seg, r1, r2, pic_data, rend);
+                        Self::render_masked_seg_range(
+                            &mut self.seg_renderer,
+                            view,
+                            seg,
+                            r1,
+                            r2,
+                            pic_data,
+                            rend,
+                        );
                     }
                     // seg is behind sprite
                     continue;
@@ -413,8 +424,10 @@ impl Software25D {
             }
 
             for r in r1.to_i32() as usize..=r2.to_i32() as usize {
-                if clip_bottom[r] == FixedT::from(-2) && seg.sprbottomclip.is_some() {
-                    let i = (seg.sprbottomclip.unwrap() + FixedT::from(r as i32)).to_i32() as usize;
+                if clip_bottom[r] == FixedT::from(-2)
+                    && let Some(bottom_clip) = seg.sprbottomclip
+                {
+                    let i = (bottom_clip + FixedT::from(r as i32)).to_i32() as usize;
                     if i < self.seg_renderer.openings.len() {
                         clip_bottom[r] = self.seg_renderer.openings[i];
                         if clip_bottom[r] < 0 {
@@ -422,8 +435,10 @@ impl Software25D {
                         }
                     }
                 }
-                if clip_top[r] == FixedT::from(-2) && seg.sprtopclip.is_some() {
-                    let i = (seg.sprtopclip.unwrap() + FixedT::from(r as i32)).to_i32() as usize;
+                if clip_top[r] == FixedT::from(-2)
+                    && let Some(top_clip) = seg.sprtopclip
+                {
+                    let i = (top_clip + FixedT::from(r as i32)).to_i32() as usize;
                     if i < self.seg_renderer.openings.len() {
                         clip_top[r] = self.seg_renderer.openings[i];
                         if clip_top[r] >= FixedT::from(size.view_height()) {
@@ -510,8 +525,8 @@ impl Software25D {
             0
         };
         vis.patch = frame.lump[0] as u32 as usize;
-        vis.texture_mid = FixedT::from(100)
-            - (FixedT::from_f32(sprite.sy) - FixedT::from(patch.top_offset));
+        vis.texture_mid =
+            FixedT::from(100) - (FixedT::from_f32(sprite.sy) - FixedT::from(patch.top_offset));
         let tmp = self.seg_renderer.centery - FixedT::from(size.view_height() / 2);
         if size.hi_res() {
             vis.texture_mid += tmp / 2;
@@ -569,9 +584,16 @@ impl Software25D {
             }
         }
 
-        let segs: Vec<DrawSeg> = self.r_data.drawsegs.to_vec();
-        for ds in segs.iter().rev() {
-            self.render_masked_seg_range(view, ds, ds.x1, ds.x2, pic_data, rend);
+        for ds in self.r_data.drawsegs.iter().rev() {
+            Self::render_masked_seg_range(
+                &mut self.seg_renderer,
+                view,
+                ds,
+                ds.x1,
+                ds.x2,
+                pic_data,
+                rend,
+            );
         }
 
         self.draw_player_sprites(view, pic_data, rend);
@@ -588,7 +610,7 @@ impl Software25D {
     ///   drawseg
     /// - Marks rendered openings as `MAX` to prevent double-drawing
     fn render_masked_seg_range(
-        &mut self,
+        seg_renderer: &mut SegRender,
         view: &RenderView,
         ds: &DrawSeg,
         x1: FixedT,
@@ -639,27 +661,27 @@ impl Software25D {
                 let index = (ds.maskedtexturecol + FixedT::from(x as i32)).to_i32() as usize;
 
                 if index != usize::MAX
-                    && index < self.seg_renderer.openings.len()
-                    && ds.sprbottomclip.is_some()
-                    && ds.sprtopclip.is_some()
-                    && self.seg_renderer.openings[index] != FixedT::MAX
+                    && index < seg_renderer.openings.len()
+                    && let Some(bottom_clip) = ds.sprbottomclip
+                    && let Some(top_clip) = ds.sprtopclip
+                    && seg_renderer.openings[index] != FixedT::MAX
                     && seg.sidedef.midtexture.is_some()
                 {
                     let texture_column = pic_data.wall_pic_column(
                         unsafe { seg.sidedef.midtexture.unwrap_unchecked() },
-                        self.seg_renderer.openings[index].doom_abs().to_i32() as usize,
+                        seg_renderer.openings[index].doom_abs().to_i32() as usize,
                     );
 
-                    let i = (ds.sprtopclip.unwrap() + FixedT::from(x as i32)).to_i32() as usize;
-                    if i >= self.seg_renderer.openings.len() {
+                    let i = (top_clip + FixedT::from(x as i32)).to_i32() as usize;
+                    if i >= seg_renderer.openings.len() {
                         continue;
                     }
-                    let mut mceilingclip = self.seg_renderer.openings[i];
-                    let i = (ds.sprbottomclip.unwrap() + FixedT::from(x as i32)).to_i32() as usize;
-                    if i >= self.seg_renderer.openings.len() {
+                    let mut mceilingclip = seg_renderer.openings[i];
+                    let i = (bottom_clip + FixedT::from(x as i32)).to_i32() as usize;
+                    if i >= seg_renderer.openings.len() {
                         continue;
                     }
-                    let mut mfloorclip = self.seg_renderer.openings[i];
+                    let mut mfloorclip = seg_renderer.openings[i];
                     if mceilingclip >= FixedT::from(size.view_height()) {
                         mceilingclip = FixedT::from(size.view_height());
                     }
@@ -668,12 +690,12 @@ impl Software25D {
                     }
 
                     // calculate unclipped screen coordinates for post
-                    let sprtopscreen = self.seg_renderer.centery - dc_texturemid * spryscale;
+                    let sprtopscreen = seg_renderer.centery - dc_texturemid * spryscale;
                     let bottomscreen =
                         sprtopscreen + spryscale * FixedT::from(texture_column.len() as i32);
                     let mut top =
-                        FixedT::from((sprtopscreen.0 + FRACUNIT - 1) >> FRACBITS  );
-                    let mut bottom = FixedT::from((bottomscreen.0 - 1) >> FRACBITS  );
+                        FixedT::from(((sprtopscreen.0 + FRACUNIT - 1) >> FRACBITS) as i32);
+                    let mut bottom = FixedT::from(((bottomscreen.0 - 1) >> FRACBITS) as i32);
 
                     if bottom >= mfloorclip {
                         bottom = mfloorclip - 1;
@@ -686,7 +708,7 @@ impl Software25D {
                         texture_column,
                         pic_data.vert_light_colourmap(wall_lights, spryscale.to_f32()),
                         1 / spryscale,
-                        self.seg_renderer.centery,
+                        seg_renderer.centery,
                         x,
                         dc_texturemid,
                         top,
@@ -695,7 +717,7 @@ impl Software25D {
                         rend,
                     );
 
-                    self.seg_renderer.openings[index] = FixedT::MAX;
+                    seg_renderer.openings[index] = FixedT::MAX;
                 }
                 spryscale += rw_scalestep;
             }
@@ -705,11 +727,11 @@ impl Software25D {
 
 /// Draw a single vertical column of a masked (transparent) texture.
 ///
-/// Iterates texels top-to-bottom, skipping transparent pixels (`usize::MAX`),
+/// Iterates texels top-to-bottom, skipping transparent pixels (`u16::MAX`),
 /// mapping through the colourmap for lighting, and writing to the framebuffer.
 #[allow(clippy::too_many_arguments)]
 fn draw_masked_column(
-    texture_column: &[usize],
+    texture_column: &[u16],
     colourmap: &[usize],
     fracstep: FixedT,
     centery: FixedT,
@@ -730,11 +752,11 @@ fn draw_masked_column(
         if select >= texture_column.len() {
             return;
         }
-        if texture_column[select] == usize::MAX {
+        if texture_column[select] == u16::MAX {
             frac += fracstep;
             continue;
         }
-        let c = pal[colourmap[texture_column[select]]];
+        let c = pal[colourmap[texture_column[select] as usize]];
         pixels.set_pixel(dc_x, y, c);
         frac += fracstep;
     }
@@ -747,7 +769,7 @@ fn draw_masked_column(
 /// partial-invisibility shimmer.
 #[allow(clippy::too_many_arguments)]
 fn draw_fuzz_column(
-    texture_column: &[usize],
+    texture_column: &[u16],
     fracstep: FixedT,
     centery: FixedT,
     dc_x: usize,
@@ -768,7 +790,7 @@ fn draw_fuzz_column(
         if select >= texture_column.len() {
             return;
         }
-        if texture_column[select] == usize::MAX {
+        if texture_column[select] == u16::MAX {
             frac += fracstep;
             continue;
         }

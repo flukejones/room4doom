@@ -1,6 +1,8 @@
 use egui::{Color32, Pos2, Stroke};
 use glam::Vec2;
 
+const SUBSECTOR_INFO_COL_W: usize = 12;
+
 use super::MapViewerApp;
 use super::data::ViewerData;
 use super::geom::filled_polygon;
@@ -84,16 +86,17 @@ impl MapViewerApp {
 
         // Highlight hovered polygon edge
         if let Some((ss_idx, edge_idx)) = self.state.hovered_polygon_edge
-            && let Some(ss) = self.data.subsectors.iter().find(|s| s.index == ss_idx) {
-                let n = ss.vertices.len();
-                if edge_idx < n {
-                    let p1 = self.map_to_screen(ss.vertices[edge_idx], vc);
-                    let p2 = self.map_to_screen(ss.vertices[(edge_idx + 1) % n], vc);
-                    painter.line_segment([p1, p2], Stroke::new(3.0, Color32::YELLOW));
-                    painter.circle_filled(p1, 4.0, Color32::from_rgb(255, 220, 50));
-                    painter.circle_filled(p2, 4.0, Color32::from_rgb(255, 220, 50));
-                }
+            && let Some(ss) = self.data.subsectors.iter().find(|s| s.index == ss_idx)
+        {
+            let n = ss.vertices.len();
+            if edge_idx < n {
+                let p1 = self.map_to_screen(ss.vertices[edge_idx], vc);
+                let p2 = self.map_to_screen(ss.vertices[(edge_idx + 1) % n], vc);
+                painter.line_segment([p1, p2], Stroke::new(3.0, Color32::YELLOW));
+                painter.circle_filled(p1, 4.0, Color32::from_rgb(255, 220, 50));
+                painter.circle_filled(p2, 4.0, Color32::from_rgb(255, 220, 50));
             }
+        }
 
         if self.state.show_aabb {
             let sel = self.state.selected_subsector;
@@ -161,26 +164,27 @@ impl MapViewerApp {
 
         if self.state.show_divlines
             && let Some(sel) = self.state.selected_subsector
-                && let Some(path) = self.data.ss_divline_path.get(sel) {
-                    for (depth, &dl_idx) in path.iter().enumerate() {
-                        let dl = &self.data.divlines[dl_idx];
-                        let len = dl.dir.length();
-                        if len < 1e-6 {
-                            continue;
-                        }
-                        let norm_dir = dl.dir / len;
-                        let extent = 32768.0;
-                        let p1 = dl.origin - norm_dir * extent;
-                        let p2 = dl.origin + norm_dir * extent;
-                        let sp1 = self.map_to_screen(p1, vc);
-                        let sp2 = self.map_to_screen(p2, vc);
-                        let alpha = (200 - (depth as u32 * 8).min(160)) as u8;
-                        painter.line_segment(
-                            [sp1, sp2],
-                            Stroke::new(1.0, Color32::from_rgba_unmultiplied(0, 200, 255, alpha)),
-                        );
-                    }
+            && let Some(path) = self.data.ss_divline_path.get(sel)
+        {
+            for (depth, &dl_idx) in path.iter().enumerate() {
+                let dl = &self.data.divlines[dl_idx];
+                let len = dl.dir.length();
+                if len < 1e-6 {
+                    continue;
                 }
+                let norm_dir = dl.dir / len;
+                let extent = 32768.0;
+                let p1 = dl.origin - norm_dir * extent;
+                let p2 = dl.origin + norm_dir * extent;
+                let sp1 = self.map_to_screen(p1, vc);
+                let sp2 = self.map_to_screen(p2, vc);
+                let alpha = (200 - (depth as u32 * 8).min(160)) as u8;
+                painter.line_segment(
+                    [sp1, sp2],
+                    Stroke::new(1.0, Color32::from_rgba_unmultiplied(0, 200, 255, alpha)),
+                );
+            }
+        }
 
         self.draw_drag_overlay(painter, vc);
     }
@@ -277,10 +281,9 @@ impl MapViewerApp {
 
         ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
             if let Some(sel) = self.state.selected_subsector {
-                if self.state.pinned
-                    && ui.button("Unpin selection").clicked() {
-                        self.state.pinned = false;
-                    }
+                if self.state.pinned && ui.button("Unpin selection").clicked() {
+                    self.state.pinned = false;
+                }
                 Self::draw_subsector_info_static(&self.data, ui, sel);
             } else {
                 ui.label("Hover a subsector to select");
@@ -304,76 +307,79 @@ impl MapViewerApp {
         }
 
         if let Some((ss_idx, edge_idx)) = self.state.hovered_polygon_edge
-            && let Some(ss) = self.data.subsectors.iter().find(|s| s.index == ss_idx) {
-                let n = ss.vertices.len();
-                if edge_idx < n {
-                    let v1 = ss.vertices[edge_idx];
-                    let v2 = ss.vertices[(edge_idx + 1) % n];
-                    let lbl = Color32::from_rgb(255, 255, 100);
-                    let spans = vec![
-                        (lbl, "Edge:".into()),
-                        (val, format!(" ss{} e{}/{}", ss_idx, edge_idx, n)),
-                        (lbl, "  from:".into()),
-                        (val, format!("({:.1},{:.1})", v1.x, v1.y)),
-                        (lbl, " to:".into()),
-                        (val, format!("({:.1},{:.1})", v2.x, v2.y)),
-                        (lbl, " len:".into()),
-                        (val, format!("{:.2}", (v2 - v1).length())),
-                    ];
-                    lines.push(spans);
-                }
+            && let Some(ss) = self.data.subsectors.iter().find(|s| s.index == ss_idx)
+        {
+            let n = ss.vertices.len();
+            if edge_idx < n {
+                let v1 = ss.vertices[edge_idx];
+                let v2 = ss.vertices[(edge_idx + 1) % n];
+                let lbl = Color32::from_rgb(255, 255, 100);
+                let spans = vec![
+                    (lbl, "Edge:".into()),
+                    (val, format!(" ss{} e{}/{}", ss_idx, edge_idx, n)),
+                    (lbl, "  from:".into()),
+                    (val, format!("({:.1},{:.1})", v1.x, v1.y)),
+                    (lbl, " to:".into()),
+                    (val, format!("({:.1},{:.1})", v2.x, v2.y)),
+                    (lbl, " len:".into()),
+                    (val, format!("{:.2}", (v2 - v1).length())),
+                ];
+                lines.push(spans);
             }
+        }
 
         if let Some(lid) = self.state.hovered_linedef
-            && let Some(ld) = self.data.linedefs.get(lid) {
-                let lbl = Color32::from_rgb(255, 220, 100);
-                let back: String = ld.back_sector_id.map_or("none".into(), |b| b.to_string());
-                let spans = vec![
-                    (lbl, "LD:".into()),
-                    (val, format!("{:<5}", lid)),
-                    (lbl, " front:".into()),
-                    (val, format!("{:<5}", ld.front_sector_id)),
-                    (lbl, " back:".into()),
-                    (val, format!("{:<8}", back)),
-                    (lbl, " sided:".into()),
-                    (
-                        val,
-                        format!("{:<6}", if ld.is_two_sided { "2" } else { "1" }),
-                    ),
-                    (lbl, " spc:".into()),
-                    (val, format!("{:<5}", ld.special)),
-                    (lbl, " tag:".into()),
-                    (val, format!("{:<5}", ld.tag)),
-                ];
-                lines.push(spans);
-            }
+            && let Some(ld) = self.data.linedefs.get(lid)
+        {
+            let lbl = Color32::from_rgb(255, 220, 100);
+            let back: String = ld.back_sector_id.map_or("none".into(), |b| b.to_string());
+            let spans = vec![
+                (lbl, "LD:".into()),
+                (val, format!("{:<5}", lid)),
+                (lbl, " front:".into()),
+                (val, format!("{:<5}", ld.front_sector_id)),
+                (lbl, " back:".into()),
+                (val, format!("{:<8}", back)),
+                (lbl, " sided:".into()),
+                (
+                    val,
+                    format!("{:<6}", if ld.is_two_sided { "2" } else { "1" }),
+                ),
+                (lbl, " spc:".into()),
+                (val, format!("{:<5}", ld.special)),
+                (lbl, " tag:".into()),
+                (val, format!("{:<5}", ld.tag)),
+            ];
+            lines.push(spans);
+        }
 
         if let Some(vid) = self.state.hovered_vertex
-            && let Some(vx) = self.data.vertices.get(vid) {
-                let lbl = Color32::from_rgb(180, 255, 180);
-                let ld_list: String = vx
-                    .linedef_ids
-                    .iter()
-                    .map(|id| id.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                let spans = vec![
-                    (lbl, "VX:".into()),
-                    (val, format!("{:<5}", vid)),
-                    (lbl, " pos:".into()),
-                    (val, format!("({:.1},{:.1})", vx.pos.x, vx.pos.y)),
-                    (lbl, "  ld:".into()),
-                    (
-                        val,
-                        if ld_list.is_empty() {
-                            "none".into()
-                        } else {
-                            ld_list
-                        },
-                    ),
-                ];
-                lines.push(spans);
-            }
+            && let Some(vx) = self.data.vertices.get(vid)
+        {
+            let lbl = Color32::from_rgb(180, 255, 180);
+            let ld_list: String = vx
+                .linedef_ids
+                .iter()
+                .map(|id| id.to_string())
+                .collect::<Vec<_>>()
+                .join(",");
+            let spans = vec![
+                (lbl, "VX:".into()),
+                (val, format!("{:<5}", vid)),
+                (lbl, " pos:".into()),
+                (val, format!("({:.1},{:.1})", vx.pos.x, vx.pos.y)),
+                (lbl, "  ld:".into()),
+                (
+                    val,
+                    if ld_list.is_empty() {
+                        "none".into()
+                    } else {
+                        ld_list
+                    },
+                ),
+            ];
+            lines.push(spans);
+        }
 
         if lines.is_empty() {
             return;
@@ -432,15 +438,26 @@ impl MapViewerApp {
     fn draw_subsector_info_static(data: &ViewerData, ui: &mut egui::Ui, ss_id: usize) {
         if let Some(ss) = data.subsectors.get(ss_id) {
             let sid = ss.sector_id;
-            const W: usize = 12;
-            ui.monospace(format!("{:<W$}{}", "Subsector:", ss_id));
-            ui.monospace(format!("{:<W$}{}", "Sector:", sid));
+            ui.monospace(format!("{:<SUBSECTOR_INFO_COL_W$}{}", "Subsector:", ss_id));
+            ui.monospace(format!("{:<SUBSECTOR_INFO_COL_W$}{}", "Sector:", sid));
             if let Some(s) = data.sectors.get(sid) {
-                ui.monospace(format!("{:<W$}{}", "Floor:", s.floor_height));
-                ui.monospace(format!("{:<W$}{}", "Ceil:", s.ceiling_height));
-                ui.monospace(format!("{:<W$}{}", "Light:", s.light_level));
-                ui.monospace(format!("{:<W$}{}", "Special:", s.special));
-                ui.monospace(format!("{:<W$}{}", "Tag:", s.tag));
+                ui.monospace(format!(
+                    "{:<SUBSECTOR_INFO_COL_W$}{}",
+                    "Floor:", s.floor_height
+                ));
+                ui.monospace(format!(
+                    "{:<SUBSECTOR_INFO_COL_W$}{}",
+                    "Ceil:", s.ceiling_height
+                ));
+                ui.monospace(format!(
+                    "{:<SUBSECTOR_INFO_COL_W$}{}",
+                    "Light:", s.light_level
+                ));
+                ui.monospace(format!(
+                    "{:<SUBSECTOR_INFO_COL_W$}{}",
+                    "Special:", s.special
+                ));
+                ui.monospace(format!("{:<SUBSECTOR_INFO_COL_W$}{}", "Tag:", s.tag));
             }
         }
     }

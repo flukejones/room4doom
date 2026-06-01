@@ -149,17 +149,17 @@ impl WadData {
         let mut ends = Vec::new();
         for (i, info) in self.lumps.iter().enumerate() {
             if info.name == "P1_START"
-                || info.name.contains("P2_START")
-                || info.name.contains("P3_START")
-                || info.name.contains("PP_START")
+                || info.name == "P2_START"
+                || info.name == "P3_START"
+                || info.name == "PP_START"
             {
                 starts.push(i);
             }
 
             if info.name == "P1_END"
-                || info.name.contains("P2_END")
-                || info.name.contains("P3_END")
-                || info.name.contains("PP_END")
+                || info.name == "P2_END"
+                || info.name == "P3_END"
+                || info.name == "PP_END"
             {
                 ends.push(i);
             }
@@ -236,7 +236,7 @@ impl WadData {
             }
         }
         if starts.is_empty() {
-            panic!("Could not find flats");
+            panic!("Could not find sprites");
         }
 
         LumpIter {

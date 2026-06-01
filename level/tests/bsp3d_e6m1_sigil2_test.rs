@@ -354,9 +354,9 @@ fn test_e6m1_sector76_floor_ceil_separation() {
             s.frontsector.num == sector_id as i32
                 || s.backsector
                     .as_ref()
-                    .map_or(false, |b| b.num == sector_id as i32)
+                    .is_some_and(|b| b.num == sector_id as i32)
         })
-        .map(|s| s.linedef.num as usize)
+        .map(|s| s.linedef.num)
         .collect();
 
     let mut wall_unshared = Vec::new();

@@ -1,6 +1,6 @@
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
-use game_config::tic_cmd::{LOOKDIRMAX, LOOKDIRS};
+use game_config::tic_cmd::LookDirs;
 use level::{LineDefFlags, Segment};
 use log::warn;
 use math::{ANG90, ANG180, ANGLETOFINESHIFT, Angle, Bam, FixedT, fine_tan};
@@ -79,6 +79,7 @@ pub(crate) struct SegRender {
     /// Light level for the wall
     wall_lights: usize,
     pub yslopes: Vec<Vec<FixedT>>,
+    pub look_dirs: LookDirs,
     pub look_yslope: usize,
     pub centery: FixedT,
     pub screen_x: Vec<Angle<Bam>>,
@@ -92,7 +93,12 @@ pub(crate) struct SegRender {
 }
 
 impl SegRender {
-    pub fn new(screen_width: usize, screen_height: usize, xtoviewangle: Vec<u32>) -> Self {
+    pub fn new(
+        screen_width: usize,
+        screen_height: usize,
+        xtoviewangle: Vec<u32>,
+        look_dirs: LookDirs,
+    ) -> Self {
         // OG Doom: xtoviewangle built from integer viewangletox inversion.
         // No float — pure BAM angles.
         let screen_x: Vec<Angle<Bam>> = xtoviewangle
@@ -141,17 +147,16 @@ impl SegRender {
             wall_lights: 0,
             openings: {
                 let mut o = vec![FixedT::MAX; screen_width * screen_height];
-                for i in 0..screen_width {
-                    o[i] = FixedT::from(-1);
+                for i in o.iter_mut().take(screen_width) {
+                    *i = FixedT::from(-1);
                 }
                 o
             },
             lastopening: FixedT::from((screen_width * 2) as i32),
-            yslopes: unsafe {
-                (0..LOOKDIRS)
-                    .map(|_| vec![FixedT::ZERO; screen_height + 2])
-                    .collect()
-            },
+            yslopes: (0..look_dirs.count)
+                .map(|_| vec![FixedT::ZERO; screen_height + 2])
+                .collect(),
+            look_dirs,
             look_yslope: 0,
             centery: FixedT::ZERO,
             screen_x,
@@ -174,16 +179,15 @@ impl SegRender {
             self.openings[screen_width + i] = FixedT::from(view_height as i32);
         }
         // Yslopes — stored as [look_dir][y] for contiguous scanline slicing.
-        // Center at view_height/2 + (j - LOOKDIRMAX) so that at pitch=0
-        // (look_yslope = LOOKDIRMAX), the yslope center aligns with centery.
+        // Center at view_height/2 + (j - look_dirs.max) so that at pitch=0
+        // (look_yslope = look_dirs.max), the yslope center aligns with centery.
         let num_y = self.yslopes[0].len();
-        unsafe {
-            for j in 0..LOOKDIRS {
-                for y in 0..num_y {
-                    let dy = y as f32 - (view_height as f32 / 2.0 + (j - LOOKDIRMAX) as f32) + 0.5;
-                    self.yslopes[j as usize][y] =
-                        FixedT::from_f32(screen_width as f32 / 2.0 / dy.abs());
-                }
+        for j in 0..self.look_dirs.count {
+            for y in 0..num_y {
+                let dy =
+                    y as f32 - (view_height as f32 / 2.0 + (j - self.look_dirs.max) as f32) + 0.5;
+                self.yslopes[j as usize][y] =
+                    FixedT::from_f32(screen_width as f32 / 2.0 / dy.abs());
             }
         }
         self.centery = FixedT::from(view_height as i32 / 2);
@@ -198,9 +202,7 @@ impl SegRender {
     }
 
     pub fn set_view_pitch(&mut self, pitch: i16, half_screen_height: FixedT) {
-        unsafe {
-            self.look_yslope = (LOOKDIRMAX + pitch) as usize;
-        }
+        self.look_yslope = (self.look_dirs.max + pitch) as usize;
         self.centery = half_screen_height + FixedT::from(pitch as i32);
     }
 
@@ -298,32 +300,7 @@ impl SegRender {
         self.maskedtexture = false;
         self.maskedtexturecol = FixedT::from(-1);
 
-        if seg.backsector.is_none() {
-            // single sided line
-            self.markfloor = true;
-            self.markceiling = true;
-            self.midtexture = sidedef.midtexture.is_some();
-            if linedef.flags.contains(LineDefFlags::UnpegBottom) {
-                if let Some(mid_tex) = sidedef.midtexture {
-                    let texture_column = pic_data.wall_pic_column(mid_tex, 0);
-                    let vtop = frontsector.floorheight + FixedT::from(texture_column.len() as i32);
-                    self.rw_midtexturemid = vtop - view.viewz;
-                }
-            } else {
-                // top of texture at top
-                self.rw_midtexturemid = self.worldtop;
-            }
-            self.rw_midtexturemid += sidedef.rowoffset;
-
-            ds_p.silhouette = SIL_BOTH;
-            // negonearray at [0..width], screenheightarray at [width..2*width]
-            let width = FixedT::from(rend.size().width());
-            ds_p.sprtopclip = Some(width); // screenheightarray
-            ds_p.sprbottomclip = Some(FixedT::ZERO); // negonearray
-            ds_p.bsilheight = FixedT::MAX;
-            ds_p.tsilheight = FixedT::MIN;
-        } else {
-            let backsector = seg.backsector.as_ref().unwrap();
+        if let Some(backsector) = seg.backsector.as_ref() {
             // two sided line
             // TODO: when thing render started
             ds_p.sprtopclip = None;
@@ -432,6 +409,30 @@ impl SegRender {
 
             self.lastopening += self.rw_stopx - self.rw_startx;
             // }
+        } else {
+            // single sided line
+            self.markfloor = true;
+            self.markceiling = true;
+            self.midtexture = sidedef.midtexture.is_some();
+            if linedef.flags.contains(LineDefFlags::UnpegBottom) {
+                if let Some(mid_tex) = sidedef.midtexture {
+                    let texture_column = pic_data.wall_pic_column(mid_tex, 0);
+                    let vtop = frontsector.floorheight + FixedT::from(texture_column.len() as i32);
+                    self.rw_midtexturemid = vtop - view.viewz;
+                }
+            } else {
+                // top of texture at top
+                self.rw_midtexturemid = self.worldtop;
+            }
+            self.rw_midtexturemid += sidedef.rowoffset;
+
+            ds_p.silhouette = SIL_BOTH;
+            // negonearray at [0..width], screenheightarray at [width..2*width]
+            let width = FixedT::from(rend.size().width());
+            ds_p.sprtopclip = Some(width); // screenheightarray
+            ds_p.sprbottomclip = Some(FixedT::ZERO); // negonearray
+            ds_p.bsilheight = FixedT::MAX;
+            ds_p.tsilheight = FixedT::MIN;
         }
 
         // calculate rw_offset (only needed for textured lines)
@@ -453,10 +454,9 @@ impl SegRender {
                 if self.wall_lights > 0 {
                     self.wall_lights -= 1;
                 }
-            } else if (seg_bam == ANG90 || seg_bam == math::ANG270)
-                && self.wall_lights < 15 {
-                    self.wall_lights += 1;
-                }
+            } else if (seg_bam == ANG90 || seg_bam == math::ANG270) && self.wall_lights < 15 {
+                self.wall_lights += 1;
+            }
         }
 
         // if a floor / ceiling plane is on the wrong side
@@ -580,6 +580,8 @@ impl SegRender {
         let floor_height = (seg.frontsector.floorheight - view.viewz).doom_abs();
         let floor_tex = pic_data.get_flat(seg.frontsector.floorpic);
 
+        // allow so that f64 feature can still work
+        #[allow(clippy::unnecessary_cast)]
         while self.rw_startx < self.rw_stopx {
             let clip_index = self.rw_startx.to_i32() as usize;
             // The yl and yh blocks are what affect wall clipping the most. You can make
@@ -587,7 +589,7 @@ impl SegRender {
             // and is the starting point that topstep is added to
             top = rdata.portal_clip.ceilingclip[clip_index] + 1;
             // OG: yl = (topfrac + HEIGHTUNIT - 1) >> HEIGHTBITS (ceiling in 20.12)
-            yl = FixedT::from((self.topfrac.0 + 0xFFF) >> 12);
+            yl = FixedT::from(((self.topfrac.0 + 0xFFF) >> 12) as i32);
             if yl < top {
                 yl = top;
             }
@@ -644,7 +646,7 @@ impl SegRender {
 
             bottom = rdata.portal_clip.floorclip[clip_index] - 1;
             // OG: yh = bottomfrac >> HEIGHTBITS (floor in 20.12)
-            yh = FixedT::from(self.bottomfrac.0 >> 12);
+            yh = FixedT::from((self.bottomfrac.0 >> 12) as i32);
             if yh > bottom {
                 yh = bottom;
             }
@@ -712,7 +714,7 @@ impl SegRender {
                 if self.toptexture {
                     // floor vs ceil affects how things align in slightly off ways
                     // OG: mid = pixhigh >> HEIGHTBITS
-                    mid = FixedT::from(self.pixhigh.0 >> 12);
+                    mid = FixedT::from((self.pixhigh.0 >> 12) as i32);
                     self.pixhigh += self.pixhighstep;
 
                     if mid >= rdata.portal_clip.floorclip[clip_index] {
@@ -742,7 +744,7 @@ impl SegRender {
                 if self.bottomtexture {
                     // floor vs ceil affects how things align in slightly off ways
                     // OG: mid = (pixlow + HEIGHTUNIT - 1) >> HEIGHTBITS
-                    mid = FixedT::from((self.pixlow.0 + 0xFFF) >> 12);
+                    mid = FixedT::from(((self.pixlow.0 + 0xFFF) >> 12) as i32);
                     self.pixlow += self.pixlowstep;
 
                     if mid <= rdata.portal_clip.ceilingclip[clip_index] {
@@ -789,7 +791,7 @@ impl SegRender {
     #[inline]
     fn draw_wall_column(
         &mut self,
-        texture_column: &[usize],
+        texture_column: &[u16],
         dc_texturemid: FixedT,
         y_start: i32,
         mut y_end: i32,
@@ -808,8 +810,9 @@ impl SegRender {
 
         let pal = pic_data.palette();
         let mut frac = dc_texturemid + (FixedT::from(y_start) - self.centery) * self.dc_iscale;
-
         let mut pos = pixels.get_buf_index(self.rw_startx.to_i32() as usize, y_start as usize);
+        let pitch = pixels.pitch();
+        let buf = pixels.buf_mut();
 
         let colourmap = if !sky {
             pic_data.vert_light_colourmap(self.wall_lights, self.rw_scale.to_f32())
@@ -826,18 +829,18 @@ impl SegRender {
                 return;
             }
             let tc = texture_column[select];
-            if tc < colourmap.len() {
+            if (tc as usize) < colourmap.len() {
                 unsafe {
-                    let c = *pal.get_unchecked(*colourmap.get_unchecked(tc));
-                    *pixels.buf_mut().get_unchecked_mut(pos) = c;
+                    let c = *pal.get_unchecked(*colourmap.get_unchecked(tc as usize));
+                    *buf.get_unchecked_mut(pos) = c;
                 }
             }
             #[cfg(any())] // disabled
             {
-                pixels.set_pixel(dc_x, i as u32 as usize, pal[colourmap[tc]]);
+                pixels.set_pixel(dc_x, i as u32 as usize, pal[colourmap[tc as usize]]);
             }
             frac += self.dc_iscale;
-            pos += pixels.pitch();
+            pos += pitch;
         }
     }
 
@@ -934,6 +937,7 @@ impl SegRender {
                 let mut xfrac = x0;
                 let mut yfrac = y0;
 
+                let buf = pixels.buf_mut();
                 for j in 0..FLAT_INTERP_INTERVAL {
                     let diminished_light = plane_height * yslopes[i + j];
                     let colourmap = pic_data.flat_light_colourmap(
@@ -946,8 +950,8 @@ impl SegRender {
 
                     unsafe {
                         let tc = texture.data[y_step * tex_w + x_step];
-                        let c = *pal.get_unchecked(*colourmap.get_unchecked(tc));
-                        *pixels.buf_mut().get_unchecked_mut(pos) = c;
+                        let c = *pal.get_unchecked(*colourmap.get_unchecked(tc as usize));
+                        *buf.get_unchecked_mut(pos) = c;
                     }
                     pos += pitch;
                     xfrac += dx;
@@ -955,6 +959,7 @@ impl SegRender {
                 }
                 i += FLAT_INTERP_INTERVAL;
             } else {
+                let buf = pixels.buf_mut();
                 // Tail: fewer than N pixels, compute each exactly
                 for j in 0..remaining {
                     let (xfrac, yfrac) = sample_coords(
@@ -977,8 +982,8 @@ impl SegRender {
 
                     unsafe {
                         let tc = texture.data[y_step * tex_w + x_step];
-                        let c = *pal.get_unchecked(*colourmap.get_unchecked(tc));
-                        *pixels.buf_mut().get_unchecked_mut(pos) = c;
+                        let c = *pal.get_unchecked(*colourmap.get_unchecked(tc as usize));
+                        *buf.get_unchecked_mut(pos) = c;
                     }
                     pos += pitch;
                 }

@@ -37,7 +37,7 @@ const RADIATIONPAL: usize = 13;
 #[derive(Debug)]
 pub struct FlatPic {
     pub name: String,
-    pub data: [usize; 64 * 64],
+    pub data: [u16; 64 * 64],
     pub width: usize,
     pub height: usize,
 }
@@ -45,7 +45,7 @@ pub struct FlatPic {
 #[derive(Debug)]
 pub struct WallPic {
     pub name: String,
-    pub data: Vec<usize>,
+    pub data: Vec<u16>,
     pub width: usize,
     pub height: usize,
 }
@@ -55,7 +55,7 @@ pub struct SpritePic {
     pub name: String,
     pub left_offset: i32,
     pub top_offset: i32,
-    pub data: Vec<Vec<usize>>,
+    pub data: Vec<Vec<u16>>,
 }
 
 type Colourmap = [usize; 256];
@@ -89,7 +89,7 @@ impl Default for CrtGamma {
 /// Applied to each palette entry in luminance space to preserve colour ratios.
 fn build_crt_tone_lut(brightness: f32, black_crush: f32, highlight_boost: f32) -> [u8; 256] {
     let mut lut = [0u8; 256];
-    for i in 0..256 {
+    for (i, entry) in lut.iter_mut().enumerate() {
         let v = i as f32 / 255.0;
         // S-curve: crush blacks, boost highlights, slightly wash midtones.
         // Approximates CRT phosphor response vs LCD backlight.
@@ -98,7 +98,7 @@ fn build_crt_tone_lut(brightness: f32, black_crush: f32, highlight_boost: f32) -
         let crushed = v.powf(1.0 + black_crush); // darks get darker
         let boosted = 1.0 - (1.0 - crushed).powf(1.0 + highlight_boost); // highlights lift
         let out = (boosted * brightness).clamp(0.0, 1.0);
-        lut[i] = (out * 255.0) as u8;
+        *entry = (out * 255.0) as u8;
     }
     lut
 }
@@ -253,7 +253,7 @@ impl PicData {
             }
 
             let mut x_pos = 0;
-            let mut compose = vec![vec![usize::MAX; patch.height as usize]; patch.width as usize];
+            let mut compose = vec![vec![u16::MAX; patch.height as usize]; patch.width as usize];
             for c in patch.columns.iter() {
                 if x_pos == patch.width as i32 {
                     break;
@@ -366,6 +366,7 @@ impl PicData {
         let mut tmp = [[0usize; 128]; 16];
         for i in 0..LIGHTLEVELS {
             let startmap = ((LIGHTLEVELS - 1 - i) * 2) * NUMCOLORMAPS / LIGHTLEVELS;
+            #[allow(clippy::needless_range_loop)] // j used in arithmetic (160 / (j+1)) and as index
             for j in 0..MAXLIGHTZ {
                 let scale = (160 / (j + 1)) as f32;
                 let mut level = startmap - (scale / 2.0) as i32;
@@ -472,7 +473,7 @@ impl PicData {
                         outofbounds = true;
                         break;
                     }
-                    flat.data[x * flat.height + y] = *px as usize;
+                    flat.data[x * flat.height + y] = *px as u16;
                 }
             }
             if outofbounds {
@@ -483,7 +484,7 @@ impl PicData {
             }
 
             flat_alloc_size += size_of_val(&flat.name);
-            flat_alloc_size += flat.data.len() * size_of::<usize>();
+            flat_alloc_size += flat.data.len() * size_of::<u16>();
             if i % 32 == 0 {
                 print!(".");
             }
@@ -500,7 +501,7 @@ impl PicData {
     }
 
     fn build_wall_pic(texture: WadTexture, patches: &[WadPatch]) -> WallPic {
-        let mut compose = vec![usize::MAX; texture.height as usize * texture.width as usize];
+        let mut compose = vec![u16::MAX; texture.height as usize * texture.width as usize];
         for wad_tex_patch in texture.patches.iter() {
             let wad_patch = &patches[wad_tex_patch.patch_index];
             let mut x_pos = wad_tex_patch.origin_x;
@@ -732,7 +733,11 @@ impl PicData {
     #[inline(always)]
     pub fn get_flat(&self, num: usize) -> &FlatPic {
         if num >= self.flat_translation.len() || num >= self.flats.len() {
-            panic!()
+            panic!(
+                "get_flat: flat index {num} out of range (translations {}, flats {})",
+                self.flat_translation.len(),
+                self.flats.len()
+            )
         }
         #[cfg(not(feature = "safety_check"))]
         unsafe {
@@ -778,7 +783,7 @@ impl PicData {
     }
 
     #[inline(always)]
-    pub fn wall_pic_column(&self, texture: usize, mut texture_column: usize) -> &[usize] {
+    pub fn wall_pic_column(&self, texture: usize, mut texture_column: usize) -> &[u16] {
         #[cfg(not(feature = "safety_check"))]
         let texture = unsafe {
             self.walls
@@ -846,27 +851,22 @@ impl PicData {
                 unsafe {
                     let c = texture.data.get_unchecked(x * texture.height + y);
                     let colourmap = self.vert_light_colourmap(light, scale);
-                    if let Some(cm) = colourmap.get(*c)
-                        && let Some(&color) = self.palette().get(*cm) {
-                            r_sum += (color >> 16) & 0xFF;
-                            g_sum += (color >> 8) & 0xFF;
-                            b_sum += color & 0xFF;
-                        }
+                    if let Some(cm) = colourmap.get(*c as usize)
+                        && let Some(&color) = self.palette().get(*cm)
+                    {
+                        r_sum += (color >> 16) & 0xFF;
+                        g_sum += (color >> 8) & 0xFF;
+                        b_sum += color & 0xFF;
+                    }
                 }
                 #[cfg(feature = "safety_check")]
+                if let Some(&c) = texture.data.get(x * texture.height + y)
+                    && let Some(&cm) = self.vert_light_colourmap(light, scale).get(c as usize)
+                    && let Some(&color) = self.palette().get(cm)
                 {
-                    if let Some(column) = texture.data.get(x) {
-                        if let Some(&c) = column.get(y) {
-                            let colourmap = self.vert_light_colourmap(light, scale);
-                            if let Some(&cm) = colourmap.get(c as usize) {
-                                if let Some(&color) = self.palette().get(cm) {
-                                    r_sum += (color >> 16) & 0xFF;
-                                    g_sum += (color >> 8) & 0xFF;
-                                    b_sum += color & 0xFF;
-                                }
-                            }
-                        }
-                    }
+                    r_sum += (color >> 16) & 0xFF;
+                    g_sum += (color >> 8) & 0xFF;
+                    b_sum += color & 0xFF;
                 }
                 sample_count += 1;
             }
@@ -892,27 +892,22 @@ impl PicData {
                 #[cfg(not(feature = "safety_check"))]
                 unsafe {
                     let c = flat.data.get_unchecked(y * 64 + x);
-                    let cm = self.flat_light_colourmap(light, scale).get_unchecked(*c);
+                    let cm = self
+                        .flat_light_colourmap(light, scale)
+                        .get_unchecked(*c as usize);
                     let color = *self.palette().get_unchecked(*cm);
                     r_sum += (color >> 16) & 0xFF;
                     g_sum += (color >> 8) & 0xFF;
                     b_sum += color & 0xFF;
                 }
                 #[cfg(feature = "safety_check")]
+                if let Some(&c) = flat.data.get(y * 64 + x)
+                    && let Some(&cm) = self.flat_light_colourmap(light, scale).get(c as usize)
+                    && let Some(&color) = self.palette().get(cm)
                 {
-                    if let Some(row) = flat.data.get(y) {
-                        if let Some(&c) = row.get(x) {
-                            if let Some(colourmap_row) = self.colourmap.get(1) {
-                                if let Some(&cm) = colourmap_row.get(c) {
-                                    if let Some(&color) = self.palette().get(cm) {
-                                        r_sum += (color >> 16) & 0xFF;
-                                        g_sum += (color >> 8) & 0xFF;
-                                        b_sum += color & 0xFF;
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    r_sum += (color >> 16) & 0xFF;
+                    g_sum += (color >> 8) & 0xFF;
+                    b_sum += color & 0xFF;
                 }
                 sample_count += 1;
             }

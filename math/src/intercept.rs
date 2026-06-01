@@ -83,29 +83,12 @@ pub fn point_on_divline_side(x: FixedT, y: FixedT, line: &DivLineFixed) -> usize
     }
 }
 
-/// Returns the fractional intercept point along the first divline.
-///
-/// The lines can be pictured as arg1 being an infinite plane, and arg2 being
-/// the line to check if intersected by the plane.
-///
-/// P_InterceptVector
-#[inline]
-pub fn intercept_vector(v2: Trace, v1: Trace) -> f32 {
-    // Doom does `v1->dy >> 8`, this is  x * 0.00390625
-    let denominator = (v1.dxy.y * v2.dxy.x) - (v1.dxy.x * v2.dxy.y);
-    if denominator == f32::EPSILON {
-        return -0.0;
-    }
-    let numerator = ((v1.xy.x - v2.xy.x) * v1.dxy.y) + ((v2.xy.y - v1.xy.y) * v1.dxy.x);
-    numerator / denominator
-}
-
 /// OG Doom `P_InterceptVector` — fixed-point intercept fraction.
 ///
 /// Returns fixed-point fraction matching OG Doom's `>> 8` overflow
 /// prevention and `FixedMul`/`FixedDiv` arithmetic.
 #[inline]
-pub fn intercept_vector_fixed(v2: &DivLineFixed, v1: &DivLineFixed) -> FixedT {
+pub fn intercept_vector(v2: &DivLineFixed, v1: &DivLineFixed) -> FixedT {
     #[cfg(not(any(feature = "fixed64", feature = "fixed64hd")))]
     {
         let den_a = FixedT::from_fixed(v1.dy.to_fixed_raw() >> 8).fixed_mul(v2.dx);

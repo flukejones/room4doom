@@ -27,17 +27,17 @@ pub fn teleport(
     }
 
     let tag = line.tag;
-    for sector in level.level_data.sectors().iter() {
+    for sector in level.level_data.sectors.iter() {
         if sector.tag == tag {
             // TODO: check teleport move P_TeleportMove
             if let Some(thinker) = level.thinkers.find_thinker(|thinker| {
                 // Find the right thinker
                 if let ThinkerData::MapObject(mobj) = thinker.data()
                     && mobj.kind == MapObjKind::MT_TELEPORTMAN
-                        && ptr::eq(mobj.subsector.sector.as_ref(), sector)
-                    {
-                        return true;
-                    }
+                    && ptr::eq(mobj.subsector.sector.as_ref(), sector)
+                {
+                    return true;
+                }
                 false
             }) {
                 let level = unsafe { &mut *thing.level };

@@ -27,6 +27,20 @@ use wad::WadData;
 
 #[cfg(feature = "display-sdl2")]
 use config::WindowMode;
+#[cfg(feature = "display-sdl2")]
+use loop_sdl2::d_doom_loop_sdl2;
+#[cfg(all(
+    any(feature = "display-softbuffer", feature = "display-pixels"),
+    not(feature = "display-sdl2")
+))]
+use loop_winit::DoomApp;
+#[cfg(feature = "display-sdl2")]
+use render_backend::DisplayBackend;
+#[cfg(all(
+    any(feature = "display-softbuffer", feature = "display-pixels"),
+    not(feature = "display-sdl2")
+))]
+use winit::event_loop::EventLoop;
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
@@ -75,9 +89,6 @@ fn run_sdl2(
     user_config: &UserConfig,
     options: CLIOptions,
 ) -> Result<(), Box<dyn Error>> {
-    use loop_sdl2::d_doom_loop_sdl2;
-    use render_backend::DisplayBackend;
-
     let sdl_ctx = sdl2::init()?;
     info!("Init SDL2 main");
     let video_ctx = sdl_ctx.video()?;
@@ -158,9 +169,6 @@ fn run_winit(
     user_config: &UserConfig,
     options: CLIOptions,
 ) -> Result<(), Box<dyn Error>> {
-    use loop_winit::DoomApp;
-    use winit::event_loop::EventLoop;
-
     let (snd_tx, snd_thread) = init_sound_no_sdl(&wad, user_config);
     let input_state = input::InputState::new((&user_config.input).into());
     let event_loop = EventLoop::new().expect("failed to create winit event loop");
@@ -232,4 +240,3 @@ fn init_sound_rodio(
     }
     (tx, thread)
 }
-
