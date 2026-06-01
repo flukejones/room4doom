@@ -4,7 +4,7 @@
 use std::fmt;
 use std::time::Instant;
 
-const MS_PER_UPDATE: f32 = 28.571428571;
+const MS_PER_UPDATE: f32 = 28.571_428;
 
 #[derive(Debug)]
 pub struct TimeStep {

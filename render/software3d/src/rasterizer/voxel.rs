@@ -3,6 +3,11 @@ use render_common::{FUZZ_TABLE, fuzz_darken};
 
 use super::Rasterizer;
 
+/// Screen-space corner returned by `pdiv`: (screen_x, screen_y, inv_w).
+type ScreenCorner = (f32, f32, f32);
+/// Cached top-edge corner pair for the corner-sharing optimisation.
+type CachedTop = Option<(ScreenCorner, ScreenCorner)>;
+
 #[inline(always)]
 fn pdiv(c: glam::Vec4, hw: f32, hh: f32) -> Option<(f32, f32, f32)> {
     if c.w <= 0.0 {
@@ -146,7 +151,7 @@ impl Rasterizer {
             for span in &col.spans {
                 let v0 = span.start as f32;
                 let mut c00 = clip_col + s.clip_dv * v0;
-                let mut cached_top: Option<((f32, f32, f32), (f32, f32, f32))> = None;
+                let mut cached_top: CachedTop = None;
 
                 for &color in &span.pixels {
                     let (s0, s1) = if let Some(top) = cached_top {
@@ -239,8 +244,8 @@ impl Rasterizer {
                                 let mut scan_min = f32::MAX;
                                 let mut scan_max = f32::MIN;
 
-                                for i in 0..edge_count as usize {
-                                    let (x0, y0, dx_dy, y_lo, y_hi) = eslopes[i];
+                                for &(x0, y0, dx_dy, y_lo, y_hi) in &eslopes[..edge_count as usize]
+                                {
                                     if fy < y_lo || fy > y_hi {
                                         continue;
                                     }
@@ -312,7 +317,7 @@ impl Rasterizer {
             for span in &col.spans {
                 let v0 = span.start as f32;
                 let mut c00 = clip_col + s.clip_dv * v0;
-                let mut cached_top: Option<((f32, f32, f32), (f32, f32, f32))> = None;
+                let mut cached_top: CachedTop = None;
 
                 for &_color in &span.pixels {
                     let (s0, s1) = if let Some(top) = cached_top {
@@ -403,8 +408,8 @@ impl Rasterizer {
                                 let mut scan_min = f32::MAX;
                                 let mut scan_max = f32::MIN;
 
-                                for i in 0..edge_count as usize {
-                                    let (x0, y0, dx_dy, y_lo, y_hi) = eslopes[i];
+                                for &(x0, y0, dx_dy, y_lo, y_hi) in &eslopes[..edge_count as usize]
+                                {
                                     if fy < y_lo || fy > y_hi {
                                         continue;
                                     }

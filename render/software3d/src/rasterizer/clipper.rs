@@ -15,10 +15,9 @@ impl Rasterizer {
         vertex_count: usize,
     ) {
         // Copy input to working buffer
-        for i in 0..vertex_count {
-            self.clipped_vertices_buffer[i] = vertices[i];
-            self.clipped_tex_coords_buffer[i] = tex_coords[i];
-        }
+        self.clipped_vertices_buffer[0..vertex_count].clone_from_slice(&vertices[0..vertex_count]);
+        self.clipped_tex_coords_buffer[0..vertex_count]
+            .clone_from_slice(&tex_coords[0..vertex_count]);
         self.clipped_vertices_len = vertex_count;
 
         // Clip against each frustum plane using Sutherland-Hodgman algorithm
@@ -104,10 +103,10 @@ impl Rasterizer {
         }
 
         // Copy results back to working buffer
-        for i in 0..output_count.min(MAX_CLIPPED_VERTICES) {
-            self.clipped_vertices_buffer[i] = output_vertices[i];
-            self.clipped_tex_coords_buffer[i] = output_tex_coords[i];
-        }
+        let min = output_count.min(MAX_CLIPPED_VERTICES);
+        self.clipped_vertices_buffer[0..min].clone_from_slice(&output_vertices[0..min]);
+        self.clipped_tex_coords_buffer[0..min].clone_from_slice(&output_tex_coords[0..min]);
+
         self.clipped_vertices_len = output_count.min(MAX_CLIPPED_VERTICES);
     }
 }

@@ -5,6 +5,7 @@ pub mod voxeldef;
 
 use std::collections::HashMap;
 use std::f32::consts::{PI, TAU};
+use std::io::Write;
 use std::path::Path;
 
 use game_config::GameMode;
@@ -140,7 +141,6 @@ impl VoxelManager {
 
         for (def_idx, def) in defs.iter().enumerate() {
             if def_idx % dot_interval == 0 {
-                use std::io::Write;
                 print!(".");
                 std::io::stdout().flush().ok();
             }

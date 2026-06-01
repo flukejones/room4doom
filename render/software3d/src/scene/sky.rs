@@ -68,7 +68,7 @@ fn hrand(x: u32, y: u32, seed: u32) -> f32 {
 
 #[inline]
 fn resolve(
-    data: &[usize],
+    data: &[u16],
     col: usize,
     row: usize,
     height: usize,
@@ -76,10 +76,10 @@ fn resolve(
     palette: &[u32],
 ) -> u32 {
     let idx = data[col * height + row];
-    if idx == usize::MAX {
+    if idx == u16::MAX {
         0
     } else {
-        palette[colourmap[idx]]
+        palette[colourmap[idx as usize]]
     }
 }
 
@@ -99,7 +99,7 @@ fn lerp_color(a: u32, b: u32, t: f32) -> u32 {
 /// Sample the top source strip at `row_idx` rows from the join, with drift.
 /// Walk advances from row 0 (join) toward row `source_rows-1` (away from join).
 fn jitter_sample_up(
-    data: &[usize],
+    data: &[u16],
     col: usize,
     row_idx: usize,
     drift: f32,
@@ -123,7 +123,7 @@ fn jitter_sample_up(
 /// Walk advances from row `height-1` (join) toward row `height-source_rows`
 /// (away).
 fn jitter_sample_down(
-    data: &[usize],
+    data: &[u16],
     col: usize,
     row_idx: usize,
     drift: f32,
@@ -148,7 +148,7 @@ fn jitter_sample_down(
 
 /// Average `count` rows starting at `row_start` across all columns.
 fn avg_rows_color(
-    data: &[usize],
+    data: &[u16],
     width: usize,
     row_start: usize,
     count: usize,
@@ -169,8 +169,9 @@ fn avg_rows_color(
             }
         }
     }
+    #[allow(clippy::manual_checked_ops)] // don't want 3 lots of if let Some() = checked_div()
     if n > 0 {
-        ((sum[0] / n) << 16) | ((sum[1] / n) << 8) | (sum[2] / n)
+        (sum[0] / n) << 16 | (sum[1] / n) << 8 | (sum[2] / n)
     } else {
         0
     }
@@ -197,7 +198,7 @@ fn build_drift(width: usize, rows: usize, max_drift: f32, smoothness: f32, seed:
 }
 
 pub(crate) fn build_sky_combined(
-    data: &[usize],
+    data: &[u16],
     width: usize,
     height: usize,
     colourmap: &[usize],

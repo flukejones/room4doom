@@ -5,7 +5,9 @@ use hud_util::{draw_text_line, hud_scale, measure_text_line};
 use level::LevelData;
 use pic_data::{PicData, VoxelManager};
 use render_common::wipe::Wipe;
-use render_common::{BufferSize, DrawBuffer as DrawBufferTrait, GameRenderer, RenderView};
+use render_common::{
+    BufferSize, DrawBuffer as DrawBufferTrait, GameRenderer, RenderView, build_vignette_alpha_lut
+};
 use software3d::{DebugDrawOptions, Software3D};
 use software25d::Software25D;
 use std::sync::Arc;
@@ -34,9 +36,9 @@ pub enum RenderType {
 pub enum Renderer {
     /// Purely software. Typically used with blitting a framebuffer maintained
     /// in memory directly to screen using SDL2
-    Software(Software25D),
+    Software(Box<Software25D>),
     /// Fully 3D software rendering.
-    Software3D(Software3D),
+    Software3D(Box<Software3D>),
 }
 
 /// Backend-agnostic display presentation.
@@ -110,6 +112,14 @@ impl DisplayBackend {
 pub struct RenderTarget {
     renderer: Renderer,
     framebuffer: FrameBuffer,
+    /// Radial-distance LUT for the health vignette, keyed by the
+    /// `(width, view_height)` it was built for; rebuilt on size change.
+    vignette_lut: Vec<f32>,
+    vignette_dims: (usize, usize),
+    /// Quantised distance→alpha table; rebuilt only when `vignette_health`
+    /// changes.
+    vignette_alpha_lut: [u32; 256],
+    vignette_health: i32,
 }
 
 impl RenderTarget {
@@ -138,19 +148,24 @@ impl RenderTarget {
                 display,
             },
             renderer: match render_type {
-                RenderType::Software => Renderer::Software(Software25D::new(
+                RenderType::Software => Renderer::Software(Box::new(Software25D::new(
                     90f32.to_radians(),
                     buf_width as f32,
                     buf_height as f32,
+                    double,
                     debug,
-                )),
-                RenderType::Software3D => Renderer::Software3D(Software3D::new(
+                ))),
+                RenderType::Software3D => Renderer::Software3D(Box::new(Software3D::new(
                     buf_width as f32,
                     buf_height as f32,
                     90.0_f32.to_radians(),
                     debug_draw.clone(),
-                )),
+                ))),
             },
+            vignette_lut: Vec::new(),
+            vignette_dims: (0, 0),
+            vignette_alpha_lut: [0; 256],
+            vignette_health: 100,
         }
     }
 
@@ -263,6 +278,42 @@ impl GameRenderer for RenderTarget {
 
     fn buffer_size(&self) -> &BufferSize {
         &self.framebuffer.buffer.size
+    }
+
+    fn vignette_lut(&mut self) -> &[f32] {
+        let size = &self.framebuffer.buffer.size;
+        let dims = (size.width_usize(), size.view_height_usize());
+        if self.vignette_dims != dims {
+            self.vignette_lut = self.build_vignette_lut();
+            self.vignette_dims = dims;
+        }
+        &self.vignette_lut
+    }
+
+    fn draw_health_vignette(&mut self, health: i32) {
+        let Some((start, max_alpha)) = Self::vignette_params(health) else {
+            return;
+        };
+        // Rebuild the distance LUT on a size change and the alpha LUT on a
+        // health change; both cached. Then hoist the disjoint field borrows
+        // for the blend.
+        self.vignette_lut();
+        if self.vignette_health != health {
+            self.vignette_alpha_lut = build_vignette_alpha_lut(start, max_alpha);
+            self.vignette_health = health;
+        }
+        let size = &self.framebuffer.buffer.size;
+        let (width, view_height) = (size.width_usize(), size.view_height_usize());
+        let pitch = self.framebuffer.buffer.pitch();
+        Self::blend_vignette(
+            &mut self.framebuffer.buffer.buffer,
+            &self.vignette_lut,
+            &self.vignette_alpha_lut,
+            pitch,
+            width,
+            view_height,
+            health > 100,
+        );
     }
 }
 

@@ -1,4 +1,6 @@
 use crate::info::StateNum;
+use crate::player_sprite::*;
+use crate::thing::enemy::*;
 use crate::{MapObject, Player, PspDef};
 
 /// Do not know where this is set
@@ -119,7 +121,6 @@ pub enum PowerType {
 pub enum PowerDuration {
     Invulnerability = (30 * TICRATE) as isize,
     Invisibility = (61 * TICRATE) as isize,
-    // TODO: fix back to 60
     Infrared = (120 * TICRATE) as isize,
     IronFeet = (60 * TICRATE) as isize,
 }
@@ -230,8 +231,6 @@ impl ActionId {
     /// Resolve to an actor action function, or None if this is a player action
     /// or None.
     pub fn resolve_actor(&self) -> Option<fn(&mut MapObject)> {
-        use crate::player_sprite::a_bfgspray;
-        use crate::thing::enemy::*;
         match self {
             ActionId::ABfgspray => Some(a_bfgspray),
             ActionId::AExplode => Some(a_explode),
@@ -292,7 +291,6 @@ impl ActionId {
     /// Resolve to a player action function, or None if this is an actor action
     /// or None.
     pub fn resolve_player(&self) -> Option<fn(&mut Player, &mut PspDef)> {
-        use crate::player_sprite::*;
         match self {
             ActionId::PLight0 => Some(a_light0),
             ActionId::PWeaponready => Some(a_weaponready),

@@ -117,12 +117,7 @@ impl WadExtendedMap {
     pub fn parse(wad_data: &WadData, map_name: &str) -> Option<Self> {
         let lump = wad_data.find_lump_for_map_or_panic(map_name, MapLump::Nodes);
 
-        let bytes = [
-            lump.read_i16(0) as u8,
-            lump.read_i16(1) as u8,
-            lump.read_i16(2) as u8,
-            lump.read_i16(3) as u8,
-        ];
+        let bytes = [lump.data[0], lump.data[1], lump.data[2], lump.data[3]];
         let node_type = NodeLumpType::from_bytes(&bytes);
 
         if let NodeLumpType::Extended(t) = node_type {

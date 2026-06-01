@@ -154,7 +154,7 @@ fn shoot_bullet(player: &mut Player) {
 
 pub(crate) fn a_firepistol(player: &mut Player, _pspr: &mut PspDef) {
     shoot_bullet(player);
-    player.status.ammo[WEAPON_INFO[player.status.readyweapon as usize].ammo as usize] -= 1;
+    player.subtract_readyweapon_ammo(1);
     player.set_psprite(
         PsprNum::Flash as usize,
         WEAPON_INFO[player.status.readyweapon as usize].flashstate,

@@ -100,7 +100,6 @@ impl MusTrack {
     }
 }
 
-
 impl TryFrom<u8> for MusTrack {
     type Error = u8;
 

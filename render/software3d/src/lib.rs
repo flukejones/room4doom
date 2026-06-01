@@ -34,7 +34,7 @@ const MAX_PITCH: f32 = 89.0 * PI / 180.0;
 /// Frustum clipping puts vertices on boundary planes, but the perspective
 /// divide reintroduces sub-pixel drift; without snapping the scanline fill
 /// rule misses the boundary row/column and produces 1px gaps at screen edges.
-const SCREEN_EDGE_SNAP: f32 = 0.01;
+pub(crate) const SCREEN_EDGE_SNAP: f32 = 0.01;
 
 use scene::sprites::SpriteQuad;
 
@@ -937,7 +937,7 @@ impl Software3D {
             let tip = center + polygon.normal * normal_len;
 
             // Project both points to screen (camera-relative)
-            let vp = self.projection_matrix * self.view_matrix;
+            let vp = self.view_projection;
             let cp = self.camera_pos;
             let c_rel = center - cp;
             let t_rel = tip - cp;
@@ -1271,17 +1271,18 @@ impl Software3D {
 
             for poly_surface in &leaf.polygons {
                 if poly_surface.is_facing_point(player_pos, &bsp3d.vertices)
-                    && self.cull_polygon_bounds(poly_surface, bsp3d).is_some() {
-                        self.stats.polygons_submitted += 1;
-                        self.render_surface_polygon(
-                            poly_surface,
-                            bsp3d,
-                            sectors,
-                            pic_data,
-                            player_light,
-                            buffer,
-                        );
-                    }
+                    && self.cull_polygon_bounds(poly_surface, bsp3d).is_some()
+                {
+                    self.stats.polygons_submitted += 1;
+                    self.render_surface_polygon(
+                        poly_surface,
+                        bsp3d,
+                        sectors,
+                        pic_data,
+                        player_light,
+                        buffer,
+                    );
+                }
             }
             return;
         }

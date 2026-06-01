@@ -10,9 +10,7 @@ use render_common::{GameRenderer, STBAR_HEIGHT};
 
 use crate::CLIOptions;
 use crate::cheats::Cheats;
-use crate::d_main::{
-    d_display, input_responder, load_voxels, run_game_tic, set_lookdirs, set_lookdirs_hires, update_sound
-};
+use crate::d_main::{d_display, input_responder, load_voxels, run_game_tic, update_sound};
 use crate::timestep::TimeStep;
 
 /// Backend-agnostic window events returned from input processing.
@@ -46,7 +44,6 @@ pub fn d_doom_loop_sdl2(
     }
     info!("Started title sequence");
 
-    set_lookdirs(&options);
     let debug_draw = options.debug_draw();
     let mut render_backend = RenderTarget::new(
         options.hi_res.unwrap_or(true),
@@ -93,7 +90,6 @@ pub fn d_doom_loop_sdl2(
             &mut cheats,
             &mut timestep,
         ) {
-            set_lookdirs_hires(user_config.hi_res);
             let prev_menu_state = menu.save_state();
             render_backend = render_backend.resize(
                 user_config.hi_res,
@@ -201,7 +197,6 @@ pub fn d_doom_loop_sdl2(
             }
 
             if old.renderer != user_config.renderer || old.hi_res != user_config.hi_res {
-                set_lookdirs_hires(user_config.hi_res);
                 let prev_menu_state = menu.save_state();
                 render_backend = render_backend.resize(
                     user_config.hi_res,

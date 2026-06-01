@@ -13,3 +13,6 @@ glam.workspace = true
 trig_lut = []
 fixed64 = []
 fixed64hd = []
+
+[lints]
+workspace = true

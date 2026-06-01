@@ -41,11 +41,7 @@ pub use player_sprite::PspDef;
 pub use sector_ext::SectorExt;
 pub use thing::{MapObjFlag, MapObject};
 
+/// Normalise an angle in radians into `[0, TAU)`, handling any magnitude.
 pub fn radian_range(rad: f32) -> f32 {
-    if rad < 0.0 {
-        return rad + TAU;
-    } else if rad >= TAU {
-        return rad - TAU;
-    }
-    rad
+    rad.rem_euclid(TAU)
 }

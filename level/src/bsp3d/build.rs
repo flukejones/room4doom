@@ -237,34 +237,17 @@ impl SurfacePolygon {
     }
 
     pub fn is_facing_point(&self, point: Vec3, vertex_positions: &[Vec3]) -> bool {
-        // Only recompute normal for moving walls — their shape changes as
-        // vertices shift vertically. Floor/ceiling normals are always ±Z and
-        // don't change with movement, and the cross product of the first two
-        // edges can disagree with the polygon winding for non-convex vertex
-        // orderings.
-        let computed_normal =
-            if self.moves && matches!(self.surface_kind, SurfaceKind::Vertical { .. }) {
-                unsafe {
-                    let p0 = vertex_positions.get_unchecked(self.vertices[0]);
-                    let p1 = vertex_positions.get_unchecked(self.vertices[1]);
-                    let p2 = vertex_positions.get_unchecked(self.vertices[2]);
-                    let edge1 = *p1 - *p0;
-                    let edge2 = *p2 - *p0;
-                    let cross = edge1.cross(edge2);
-                    if cross.length_squared() > f32::EPSILON {
-                        cross.normalize()
-                    } else {
-                        self.normal
-                    }
-                }
-            } else {
-                self.normal
-            };
-
+        // A wall's facing normal is horizontal and fixed by its seg; vertical
+        // movement never rotates it. The stored normal is computed once from
+        // the original quad winding — recomputing it at runtime is wrong
+        // because the mover vertex-linking pass reorders/shares vertices, so
+        // vertices[0..3] are no longer consecutive rectangle corners (a
+        // two-sided mover wall would otherwise get a flipped normal and Z-fight
+        // its opposite-facing twin).
         let first_vertex_idx = unsafe { *self.vertices.get_unchecked(0) };
         let first_vertex = vertex_positions[first_vertex_idx];
         let view_vector = (point - first_vertex).normalize_or_zero();
-        let dot_product = computed_normal.dot(view_vector);
+        let dot_product = self.normal.dot(view_vector);
         dot_product.is_sign_positive() || dot_product.is_nan()
     }
 }
@@ -354,8 +337,7 @@ impl BSP3D {
             bsp3d.subsector_leaves[ss_id].sector_id = subsector.sector.num as usize;
 
             if segments.get(start_seg..end_seg).is_some() {
-                for seg_idx in start_seg..end_seg {
-                    let segment = &segments[seg_idx];
+                for segment in &segments[start_seg..end_seg] {
                     let front_sector = &segment.frontsector;
                     let sv1 = segment.v1.pos;
                     let sv2 = segment.v2.pos;
@@ -492,6 +474,9 @@ impl BSP3D {
                 MovementType::Ceiling => &leaf.ceiling_polygons,
                 MovementType::None => return,
             };
+            // index loop: `indices` is &leaf.floor/ceiling_polygons; body needs
+            // leaf.polygons[polygon_idx] mutably — same leaf, borrow conflict with .iter()
+            #[allow(clippy::needless_range_loop)]
             for i in 0..indices.len() {
                 let polygon_idx = indices[i];
                 if let SurfaceKind::Horizontal {
@@ -650,9 +635,10 @@ impl BSP3D {
                 wall_type: wt,
                 ..
             } = &mut polygon.surface_kind
-                && *wt == wall_type {
-                    *texture = Some(new_texture);
-                }
+                && *wt == wall_type
+            {
+                *texture = Some(new_texture);
+            }
         }
     }
 
@@ -737,40 +723,42 @@ impl BSP3D {
         // when both sectors have sky ceilings.
         if !both_sky_ceil
             && let Some(texture) = segment.sidedef.toptexture
-                && back_sector.ceilingheight <= front_sector.ceilingheight {
-                    self.add_wall_quad(
-                        segment,
-                        back_sector.ceilingheight.to_f32(),
-                        front_sector.ceilingheight.to_f32(),
-                        WallType::Upper,
-                        texture,
-                        front_id,
-                        true,
-                        front_subsector_id,
-                        Some(back_id),
-                        vertex_map,
-                    );
-                }
+            && back_sector.ceilingheight <= front_sector.ceilingheight
+        {
+            self.add_wall_quad(
+                segment,
+                back_sector.ceilingheight.to_f32(),
+                front_sector.ceilingheight.to_f32(),
+                WallType::Upper,
+                texture,
+                front_id,
+                true,
+                front_subsector_id,
+                Some(back_id),
+                vertex_map,
+            );
+        }
 
         // Lower wall: create if bottomtexture exists and back floor is at or
         // above front floor (includes zero-height for movers). Suppressed
         // when both sectors have sky floors.
         if !both_sky_floor
             && let Some(texture) = segment.sidedef.bottomtexture
-                && back_sector.floorheight >= front_sector.floorheight {
-                    self.add_wall_quad(
-                        segment,
-                        front_sector.floorheight.to_f32(),
-                        back_sector.floorheight.to_f32(),
-                        WallType::Lower,
-                        texture,
-                        front_id,
-                        true,
-                        front_subsector_id,
-                        Some(back_id),
-                        vertex_map,
-                    );
-                }
+            && back_sector.floorheight >= front_sector.floorheight
+        {
+            self.add_wall_quad(
+                segment,
+                front_sector.floorheight.to_f32(),
+                back_sector.floorheight.to_f32(),
+                WallType::Lower,
+                texture,
+                front_id,
+                true,
+                front_subsector_id,
+                Some(back_id),
+                vertex_map,
+            );
+        }
 
         // Middle wall: create if midtexture exists.
         if let Some(texture) = segment.sidedef.midtexture {
@@ -917,18 +905,17 @@ impl BSP3D {
         let pi = self.subsector_leaves[subsector_id].polygons.len();
         self.subsector_leaves[subsector_id].polygons.push(quad);
 
-        if is_zero_height
-            && let Some(back_id) = back_sector_id {
-                self.zh_wall_records.push(ZhWallRecord {
-                    subsector_id,
-                    poly_index: pi,
-                    bottom: [bottom_start, bottom_end],
-                    top: [top_start, top_end],
-                    wall_type,
-                    front_sector: sector_id,
-                    back_sector: back_id,
-                });
-            }
+        if is_zero_height && let Some(back_id) = back_sector_id {
+            self.zh_wall_records.push(ZhWallRecord {
+                subsector_id,
+                poly_index: pi,
+                bottom: [bottom_start, bottom_end],
+                top: [top_start, top_end],
+                wall_type,
+                front_sector: sector_id,
+                back_sector: back_id,
+            });
+        }
     }
 
     /// Compute global sky bounds for the level.
@@ -1072,11 +1059,11 @@ impl BSP3D {
         sky_max_ceil: Option<&[f32]>,
         sky_min_floor: Option<&[f32]>,
     ) {
-        for ssid in 0..subsectors.len() {
+        for (ssid, subsector) in subsectors.iter().enumerate() {
             let polygon = self.carved_polygons[ssid].clone();
             self.create_floor_ceiling_polygons(
                 ssid,
-                &subsectors[ssid],
+                subsector,
                 &polygon,
                 vertex_map,
                 sky_num,
@@ -1283,7 +1270,6 @@ impl BSP3D {
         }
     }
 }
-
 
 impl Default for BSPLeaf3D {
     fn default() -> Self {

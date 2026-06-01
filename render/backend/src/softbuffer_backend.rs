@@ -6,7 +6,7 @@ use std::sync::Arc;
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
 use softbuffer::{Context, Pixel, Surface};
-use winit::window::Window;
+use winit::window::{Fullscreen, Window};
 
 use crate::DrawBuffer;
 
@@ -97,7 +97,6 @@ impl SoftbufferDisplay {
     }
 
     pub(crate) fn set_fullscreen(&mut self, mode: u8) {
-        use winit::window::Fullscreen;
         let fs = match mode {
             1 => Some(Fullscreen::Borderless(None)),
             2 => {

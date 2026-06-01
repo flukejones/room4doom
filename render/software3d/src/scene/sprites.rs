@@ -11,7 +11,7 @@ use pic_data::{PicData, VoxelSlices};
 use render_common::{DrawBuffer, RenderView};
 use std::f32::consts::{FRAC_PI_2, TAU};
 
-use crate::Software3D;
+use crate::{SCREEN_EDGE_SNAP, Software3D};
 
 const FF_FULLBRIGHT: u32 = 0x8000;
 const FF_FRAMEMASK: u32 = 0x7FFF;
@@ -20,9 +20,6 @@ const FRAME_ROT_SELECT: f32 = 8.0 / TAU;
 const VOXEL_BOB_RANGE: f32 = 6.0;
 const VOXEL_MAX_DIST: f32 = 666.0;
 const VOXEL_MAX_DIST_SQ: f32 = VOXEL_MAX_DIST * VOXEL_MAX_DIST;
-/// Tolerance for snapping projected screen coords to exact viewport edges.
-const SCREEN_EDGE_SNAP: f32 = 0.01;
-
 pub(crate) struct SpriteQuad {
     world_verts: [Vec3; 4],
     uvs: [Vec2; 4],
@@ -72,42 +69,43 @@ impl Software3D {
 
                 // Check for voxel replacement (within distance threshold)
                 if let Some(ref mgr) = voxel_mgr
-                    && let Some(vslices) = mgr.get(sprnum, frame) {
-                        let dx = player_pos.x - thing.x.to_f32();
-                        let dy = player_pos.y - thing.y.to_f32();
-                        let dist_sq = dx * dx + dy * dy;
+                    && let Some(vslices) = mgr.get(sprnum, frame)
+                {
+                    let dx = player_pos.x - thing.x.to_f32();
+                    let dy = player_pos.y - thing.y.to_f32();
+                    let dist_sq = dx * dx + dy * dy;
 
-                        if dist_sq <= VOXEL_MAX_DIST_SQ {
-                            self.stats.voxel_objects += 1;
-                            match Self::collect_voxel_slice_quads(
-                                thing,
-                                vslices,
-                                player_pos,
-                                &view_proj,
-                                light_level,
-                                view.extralight,
-                                view.frac,
-                                view.game_tic,
-                                &self.rasterizer.depth_buffer,
-                                self.rasterizer.width,
-                                self.view_height,
-                                &mut voxel_slices,
-                            ) {
-                                CollectResult::Behind => self.stats.voxel_behind += 1,
-                                CollectResult::HizCulled => self.stats.voxel_hiz_culled += 1,
-                                CollectResult::Collected(n, culled) => {
-                                    self.stats.voxel_slices_submitted += n;
-                                    self.stats.voxel_normal_culled += culled;
-                                }
+                    if dist_sq <= VOXEL_MAX_DIST_SQ {
+                        self.stats.voxel_objects += 1;
+                        match Self::collect_voxel_slice_quads(
+                            thing,
+                            vslices,
+                            player_pos,
+                            &view_proj,
+                            light_level,
+                            view.extralight,
+                            view.frac,
+                            view.game_tic,
+                            &self.rasterizer.depth_buffer,
+                            self.rasterizer.width,
+                            self.view_height,
+                            &mut voxel_slices,
+                        ) {
+                            CollectResult::Behind => self.stats.voxel_behind += 1,
+                            CollectResult::HizCulled => self.stats.voxel_hiz_culled += 1,
+                            CollectResult::Collected(n, culled) => {
+                                self.stats.voxel_slices_submitted += n;
+                                self.stats.voxel_normal_culled += culled;
                             }
-                            return true;
                         }
-
-                        #[cfg(feature = "render_stats")]
-                        {
-                            self.stats.voxel_distance_culled += 1;
-                        }
+                        return true;
                     }
+
+                    #[cfg(feature = "render_stats")]
+                    {
+                        self.stats.voxel_distance_culled += 1;
+                    }
+                }
 
                 if let Some(quad) = Self::build_sprite_quad(
                     thing,
@@ -150,9 +148,9 @@ impl Software3D {
     }
 
     /// Collect all visible voxel slice quads for a thing.
-    fn collect_voxel_slice_quads(
+    fn collect_voxel_slice_quads<'a>(
         thing: &MapObject,
-        vslices: &VoxelSlices,
+        vslices: &'a VoxelSlices,
         player_pos: Vec3,
         view_proj: &glam::Mat4,
         light_level: usize,
@@ -162,7 +160,7 @@ impl Software3D {
         depth_buffer: &crate::rasterizer::depth_buffer::DepthBuffer,
         screen_width: u32,
         screen_height: u32,
-        out: &mut Vec<VoxelSliceRef>,
+        out: &mut Vec<VoxelSliceRef<'a>>,
     ) -> CollectResult {
         #[cfg(feature = "hprof")]
         profile!("voxel_collect_slices");
@@ -457,12 +455,12 @@ impl Software3D {
         for vq in slices {
             if vq.brightness != cached_brightness {
                 cached_brightness = vq.brightness;
-                for band in 0..48 {
-                    colourmaps[band] = pic_data.base_colourmap(vq.brightness, band as f32);
+                for (band, colourmap) in colourmaps.iter_mut().enumerate() {
+                    *colourmap = pic_data.base_colourmap(vq.brightness, band as f32);
                 }
             }
 
-            let columns = unsafe { &*vq.columns };
+            let columns = vq.columns;
             let buf = buffer.buf_mut();
             if vq.is_shadow {
                 self.rasterizer.rasterize_voxel_fuzz(

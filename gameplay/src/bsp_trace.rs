@@ -9,7 +9,7 @@ use level::level_data::LevelData;
 use level::map_defs::{LineDef, Node, SlopeType, is_subsector, subsector_index};
 #[cfg(any(feature = "fixed64", feature = "fixed64hd"))]
 use math::fixed_point::{FRACBITS, WideInner};
-use math::{DivLineFixed, FixedT, intercept_vector_fixed, point_on_divline_side};
+use math::{DivLineFixed, FixedT, intercept_vector, point_on_divline_side};
 
 /// OG Doom `P_PointOnLineSide` — fixed-point side test.
 ///
@@ -412,18 +412,19 @@ pub fn traverse_intercepts(
     if intercepts.is_empty() {
         return true;
     }
-    let mut intercept: *mut Intercept = unsafe { intercepts.get_unchecked_mut(0) };
-    let mut intercepts = Vec::from(intercepts);
-    let mut count = intercepts.len();
 
-    while count != 0 {
-        count -= 1;
+    // OG `P_TraverseIntercepts`: selection scan for the nearest unvisited
+    // intercept (kept for demo determinism), mark it visited via `frac = MAX`,
+    // repeat. Tracks the nearest by index so it operates on the slice in place —
+    // no clone, no raw pointers.
+    for _ in 0..intercepts.len() {
         let mut dist = FixedT::MAX;
+        let mut nearest = None;
 
-        for i in intercepts.iter_mut() {
+        for (idx, i) in intercepts.iter().enumerate() {
             if i.frac < dist {
                 dist = i.frac;
-                intercept = i;
+                nearest = Some(idx);
             }
         }
 
@@ -431,13 +432,15 @@ pub fn traverse_intercepts(
             return true;
         }
 
-        unsafe {
-            if !trav(&mut *intercept) {
-                return false;
-            }
+        let idx = match nearest {
+            Some(idx) => idx,
+            None => return true,
+        };
 
-            (*intercept).frac = FixedT::MAX;
+        if !trav(&mut intercepts[idx]) {
+            return false;
         }
+        intercepts[idx].frac = FixedT::MAX;
     }
     true
 }
@@ -736,7 +739,7 @@ fn add_line_intercepts(
         dx: FixedT::from_fixed(line.delta_fp[0]),
         dy: FixedT::from_fixed(line.delta_fp[1]),
     };
-    let frac = intercept_vector_fixed(trace_fixed, &dl);
+    let frac = intercept_vector(trace_fixed, &dl);
 
     if frac < FixedT::ZERO {
         return true;
@@ -792,7 +795,7 @@ fn add_thing_intercept(
         dx: x2 - x1,
         dy: y2 - y1,
     };
-    let frac = intercept_vector_fixed(trace_fixed, &dl);
+    let frac = intercept_vector(trace_fixed, &dl);
 
     if frac < FixedT::ZERO {
         return true;

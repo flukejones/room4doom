@@ -138,10 +138,9 @@ fn test_eviternity_map04_no_sky_textured_ceiling_polygons() {
                 texture,
                 ..
             } = &poly.surface_kind
+                && *texture == sky_num
             {
-                if *texture == sky_num {
-                    violations.push((ss_id, poly.sector_id, *texture));
-                }
+                violations.push((ss_id, poly.sector_id, *texture));
             }
         }
     }
@@ -171,10 +170,9 @@ fn test_eviternity_map04_linedef1572_sky_wall() {
                 linedef_id,
                 ..
             } = &poly.surface_kind
+                && *linedef_id == 1572
             {
-                if *linedef_id == 1572 {
-                    found_wall = true;
-                }
+                found_wall = true;
             }
         }
     }
@@ -201,10 +199,10 @@ fn test_eviternity_map04_linedef1581_no_upper_wall() {
                 wall_type,
                 ..
             } = &poly.surface_kind
+                && *linedef_id == 1581
+                && *wall_type == WallType::Upper
             {
-                if *linedef_id == 1581 && *wall_type == WallType::Upper {
-                    upper_walls_for_1581.push(ss_id);
-                }
+                upper_walls_for_1581.push(ss_id);
             }
         }
     }
@@ -232,10 +230,10 @@ fn test_eviternity_map04_linedef1351_has_upper_wall() {
                 wall_type,
                 ..
             } = &poly.surface_kind
+                && *linedef_id == 1351
+                && *wall_type == WallType::Upper
             {
-                if *linedef_id == 1351 && *wall_type == WallType::Upper {
-                    found_upper = true;
-                }
+                found_upper = true;
             }
         }
     }
@@ -257,10 +255,11 @@ fn test_eviternity_map04_no_upper_walls_between_sky_sectors() {
     // Build set of linedefs where both sides have sky ceiling
     let mut both_sky_linedefs = HashSet::new();
     for (i, ld) in map.linedefs.iter().enumerate() {
-        if let Some(ref back) = ld.backsector {
-            if ld.frontsector.ceilingpic == sky_num && back.ceilingpic == sky_num {
-                both_sky_linedefs.insert(i);
-            }
+        if let Some(ref back) = ld.backsector
+            && ld.frontsector.ceilingpic == sky_num
+            && back.ceilingpic == sky_num
+        {
+            both_sky_linedefs.insert(i);
         }
     }
 
@@ -272,10 +271,10 @@ fn test_eviternity_map04_no_upper_walls_between_sky_sectors() {
                 wall_type,
                 ..
             } = &poly.surface_kind
+                && *wall_type == WallType::Upper
+                && both_sky_linedefs.contains(linedef_id)
             {
-                if *wall_type == WallType::Upper && both_sky_linedefs.contains(linedef_id) {
-                    violations.push((ss_id, *linedef_id));
-                }
+                violations.push((ss_id, *linedef_id));
             }
         }
     }

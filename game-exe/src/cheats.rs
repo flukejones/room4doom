@@ -170,9 +170,12 @@ impl Cheats {
                     self.mus.parameter_buf[0], self.mus.parameter_buf[1]
                 );
                 let s = format!("{}{}", self.mus.parameter_buf[0], self.mus.parameter_buf[1]);
-                if let Ok(track) = s.as_str().parse::<u8>().map_err(|_| ()).and_then(|n| {
-                    MusTrack::try_from(n).map_err(|_| ())
-                }) {
+                if let Ok(track) = s
+                    .as_str()
+                    .parse::<u8>()
+                    .map_err(|_| ())
+                    .and_then(|n| MusTrack::try_from(n).map_err(|_| ()))
+                {
                     game.change_music(track);
                     game.players[game.consoleplayer].message = Some(english::STSTR_MUS);
                 } else {
@@ -187,7 +190,7 @@ impl Cheats {
             } else if self.clev.check(key) {
                 let d0 = self.clev.parameter_buf[0] as u8;
                 let d1 = self.clev.parameter_buf[1] as u8;
-                if d0 >= b'0' && d0 <= b'9' && d1 >= b'0' && d1 <= b'9' {
+                if d0.is_ascii_digit() && d1.is_ascii_digit() {
                     let d0 = (d0 - b'0') as usize;
                     let d1 = (d1 - b'0') as usize;
                     let (episode, map, map_name) = if game.game_type.mode == GameMode::Commercial {

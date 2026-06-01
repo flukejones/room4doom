@@ -36,6 +36,25 @@ pub enum DoorKind {
     BlazeClose,
 }
 
+impl TryFrom<u8> for DoorKind {
+    /// The raw byte that failed to map to a variant.
+    type Error = u8;
+
+    fn try_from(v: u8) -> Result<Self, u8> {
+        match v {
+            0 => Ok(DoorKind::Normal),
+            1 => Ok(DoorKind::Close30ThenOpen),
+            2 => Ok(DoorKind::Close),
+            3 => Ok(DoorKind::Open),
+            4 => Ok(DoorKind::RaiseIn5Mins),
+            5 => Ok(DoorKind::BlazeRaise),
+            6 => Ok(DoorKind::BlazeOpen),
+            7 => Ok(DoorKind::BlazeClose),
+            _ => Err(v),
+        }
+    }
+}
+
 pub struct VerticalDoor {
     pub thinker: *mut Thinker,
     pub sector: MapPtr<Sector>,
@@ -198,14 +217,6 @@ impl Think for VerticalDoor {
         }
         unsafe { Thinker::from_erased(self.thinker) }
     }
-
-    fn thinker(&self) -> &Thinker {
-        #[cfg(feature = "null_check")]
-        if self.thinker.is_null() {
-            std::panic!("vdoor thinker was null");
-        }
-        unsafe { Thinker::from_erased_ref(self.thinker) }
-    }
 }
 
 /// EV_DoDoor
@@ -214,7 +225,7 @@ pub fn ev_do_door(line: MapPtr<LineDef>, kind: DoorKind, level: &mut LevelState)
     let mut ret = false;
     for sector in level
         .level_data
-        .sectors_mut()
+        .sectors
         .iter_mut()
         .filter(|s| s.tag == line.tag)
     {
@@ -343,9 +354,9 @@ pub fn ev_vertical_door(mut line: MapPtr<LineDef>, thing: &mut MapObject, level:
 
     // if the sector has an active thinker, use it
     if let Some(data) = sec.specialdata {
-        // TODO:
         let door = unsafe { &mut *(data as *mut Thinker) }.vdoor_mut();
         match line.special {
+            // ONLY FOR "RAISE" DOORS, NOT "OPEN"s
             1 | 26 | 27 | 28 | 117 => {
                 if door.direction == -1 {
                     door.direction = 1; // go back up
@@ -353,25 +364,9 @@ pub fn ev_vertical_door(mut line: MapPtr<LineDef>, thing: &mut MapObject, level:
                     if thing.player().is_none() {
                         return; // bad guys never close doors
                     }
-
-                    if matches!(
-                        <VerticalDoor as Think>::thinker(door).data(),
-                        ThinkerData::VerticalDoor(_)
-                    ) {
-                        door.direction = -1;
-                    } else if matches!(
-                        <VerticalDoor as Think>::thinker(door).data(),
-                        ThinkerData::VerticalDoor(_)
-                    ) { // TODO: PLATFORM
-                    } else {
-                        error!(
-                            "ev_vertical_door: tried to close something that is not a door or platform"
-                        );
-                        door.direction = -1;
-                    }
+                    door.direction = -1; // start going down immediately
                 }
                 return;
-                // dfsdf
             }
             _ => {}
         }

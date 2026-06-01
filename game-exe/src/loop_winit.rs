@@ -4,6 +4,10 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+// nanoseconds per millihertz (1e9 ns/s × 1000 mhz/hz) for refresh-rate →
+// frame-interval conversion
+const NANOS_PER_MILLIHERTZ: u64 = 1_000_000_000_000;
+
 use doom_ui::{Finale, GameMenu, Intermission, Messages, Statusbar};
 use gamestate::Game;
 use gamestate::subsystems::GameSubsystem;
@@ -21,9 +25,7 @@ use winit::window::{Window, WindowId};
 
 use crate::CLIOptions;
 use crate::cheats::Cheats;
-use crate::d_main::{
-    d_display, input_responder, load_voxels, run_game_tic, set_lookdirs, set_lookdirs_hires, update_sound
-};
+use crate::d_main::{d_display, input_responder, load_voxels, run_game_tic, update_sound};
 use crate::timestep::TimeStep;
 
 /// Create the appropriate display backend for the active feature.
@@ -120,7 +122,7 @@ impl ApplicationHandler for DoomApp {
                 attrs = attrs.with_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
             }
             crate::config::WindowMode::Exclusive => {
-                let req_hz = self.options.refresh_rate as u32 * 1000;
+                let req_hz = self.options.refresh_rate * 1000;
                 let monitor = event_loop
                     .primary_monitor()
                     .or_else(|| event_loop.available_monitors().next());
@@ -156,8 +158,7 @@ impl ApplicationHandler for DoomApp {
                             sz.height,
                             hz as f32 / 1000.0
                         );
-                        let mut by_res: BTreeMap<(u32, u32), Vec<u32>> =
-                            BTreeMap::new();
+                        let mut by_res: BTreeMap<(u32, u32), Vec<u32>> = BTreeMap::new();
                         for m in &modes {
                             let s = m.size();
                             let rates = by_res.entry((s.width, s.height)).or_default();
@@ -184,7 +185,7 @@ impl ApplicationHandler for DoomApp {
                     Some(best.clone())
                 });
                 let fullscreen = mode
-                    .map(|m| winit::window::Fullscreen::Exclusive(m))
+                    .map(winit::window::Fullscreen::Exclusive)
                     .unwrap_or(winit::window::Fullscreen::Borderless(None));
                 attrs = attrs.with_fullscreen(Some(fullscreen));
             }
@@ -214,7 +215,7 @@ impl ApplicationHandler for DoomApp {
             let refresh_mhz = monitor
                 .and_then(|m| m.video_modes().map(|v| v.refresh_rate_millihertz()).max())
                 .unwrap_or(60_000);
-            let interval = Duration::from_nanos(1_000_000_000_000 / refresh_mhz as u64);
+            let interval = Duration::from_nanos(NANOS_PER_MILLIHERTZ / refresh_mhz as u64);
             info!(
                 "vsync: frame interval {:.2}ms ({:.1}Hz)",
                 interval.as_secs_f64() * 1000.0,
@@ -232,7 +233,6 @@ impl ApplicationHandler for DoomApp {
 
         let display = new_display_backend(window.clone(), self.options.vsync.unwrap_or(true));
 
-        set_lookdirs(&self.options);
         let mut render_backend = RenderTarget::new(
             self.options.hi_res.unwrap_or(true),
             self.options.dev_parm,
@@ -283,29 +283,29 @@ impl ApplicationHandler for DoomApp {
                 event,
                 ..
             } => {
-                if let PhysicalKey::Code(wk) = event.physical_key {
-                    if let Some(kc) = input::winit_keycode_to_keycode(wk) {
-                        match event.state {
-                            ElementState::Pressed if !event.repeat => {
-                                let menu = self.menu.as_mut().expect("menu not initialized");
-                                let consumed = input_responder(
-                                    kc,
-                                    &mut self.game,
-                                    menu,
-                                    &mut self.machines,
-                                    &mut self.cheats,
-                                );
-                                if consumed {
-                                    self.input.events.unset_kb(kc);
-                                } else {
-                                    self.input.events.set_kb(kc);
-                                }
-                            }
-                            ElementState::Released => {
+                if let PhysicalKey::Code(wk) = event.physical_key
+                    && let Some(kc) = input::winit_keycode_to_keycode(wk)
+                {
+                    match event.state {
+                        ElementState::Pressed if !event.repeat => {
+                            let menu = self.menu.as_mut().expect("menu not initialized");
+                            let consumed = input_responder(
+                                kc,
+                                &mut self.game,
+                                menu,
+                                &mut self.machines,
+                                &mut self.cheats,
+                            );
+                            if consumed {
                                 self.input.events.unset_kb(kc);
+                            } else {
+                                self.input.events.set_kb(kc);
                             }
-                            _ => {}
                         }
+                        ElementState::Released => {
+                            self.input.events.unset_kb(kc);
+                        }
+                        _ => {}
                     }
                 }
             }
@@ -324,7 +324,6 @@ impl ApplicationHandler for DoomApp {
             WindowEvent::Resized(_) => {
                 if let Some(window) = &self.window {
                     let display = new_display_backend(window.clone(), self.user_config.vsync);
-                    set_lookdirs_hires(self.user_config.hi_res);
                     let prev_state = self.menu.as_ref().map(|m| m.save_state());
                     let mut rt = RenderTarget::new(
                         self.user_config.hi_res,
@@ -336,10 +335,10 @@ impl ApplicationHandler for DoomApp {
                     if self.user_config.hud_size == 1 {
                         rt.set_statusbar_height(STBAR_HEIGHT);
                     }
-                    if self.user_config.voxels {
-                        if let Some(ref vm) = self.voxel_manager {
-                            rt.set_voxel_manager(vm.clone());
-                        }
+                    if self.user_config.voxels
+                        && let Some(ref vm) = self.voxel_manager
+                    {
+                        rt.set_voxel_manager(vm.clone());
                     }
                     let mut menu = GameMenu::new(
                         self.game.game_type.mode,
@@ -396,12 +395,12 @@ impl ApplicationHandler for DoomApp {
                         self.game.pic_data.set_crt_gamma(self.user_config.crt_gamma);
                     }
 
-                    if old.window_mode != self.user_config.window_mode {
-                        if let Some(rt) = self.render_backend.as_mut() {
-                            let mode = self.game.config_snapshot()
-                                [gamestate_traits::ConfigKey::WindowMode as usize];
-                            rt.set_fullscreen(mode as u8);
-                        }
+                    if old.window_mode != self.user_config.window_mode
+                        && let Some(rt) = self.render_backend.as_mut()
+                    {
+                        let mode = self.game.config_snapshot()
+                            [gamestate_traits::ConfigKey::WindowMode as usize];
+                        rt.set_fullscreen(mode as u8);
                     }
 
                     if old.voxels != self.user_config.voxels {
@@ -414,10 +413,10 @@ impl ApplicationHandler for DoomApp {
                                     self.game.pic_data.pwad_sprite_overrides(),
                                 );
                             }
-                            if let Some(ref vm) = self.voxel_manager {
-                                if let Some(rt) = self.render_backend.as_mut() {
-                                    rt.set_voxel_manager(vm.clone());
-                                }
+                            if let Some(ref vm) = self.voxel_manager
+                                && let Some(rt) = self.render_backend.as_mut()
+                            {
+                                rt.set_voxel_manager(vm.clone());
                             }
                         } else if let Some(rt) = self.render_backend.as_mut() {
                             rt.clear_voxel_manager();
@@ -461,7 +460,6 @@ impl ApplicationHandler for DoomApp {
                     if old.renderer != self.user_config.renderer
                         || old.hi_res != self.user_config.hi_res
                     {
-                        set_lookdirs_hires(self.user_config.hi_res);
                         let prev_state = self.menu.as_ref().map(|m| m.save_state());
                         let old_rt = self.render_backend.take().unwrap();
                         let mut new_rt = old_rt.resize(
@@ -473,10 +471,10 @@ impl ApplicationHandler for DoomApp {
                         if self.user_config.hud_size == 1 {
                             new_rt.set_statusbar_height(STBAR_HEIGHT);
                         }
-                        if self.user_config.voxels {
-                            if let Some(ref vm) = self.voxel_manager {
-                                new_rt.set_voxel_manager(vm.clone());
-                            }
+                        if self.user_config.voxels
+                            && let Some(ref vm) = self.voxel_manager
+                        {
+                            new_rt.set_voxel_manager(vm.clone());
                         }
                         self.render_backend = Some(new_rt);
                         let mut new_menu = GameMenu::new(
@@ -548,15 +546,14 @@ impl ApplicationHandler for DoomApp {
     }
 
     fn new_events(&mut self, _event_loop: &ActiveEventLoop, cause: winit::event::StartCause) {
-        if self.frame_interval.is_some() {
-            if matches!(
+        if self.frame_interval.is_some()
+            && matches!(
                 cause,
                 winit::event::StartCause::ResumeTimeReached { .. } | winit::event::StartCause::Init
-            ) {
-                if let Some(window) = &self.window {
-                    window.request_redraw();
-                }
-            }
+            )
+            && let Some(window) = &self.window
+        {
+            window.request_redraw();
         }
     }
 }

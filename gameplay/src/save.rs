@@ -14,11 +14,11 @@ use math::{Angle, FixedT, get_prndindex, get_rndindex, set_prndindex, set_rndind
 use wad::types::WadThing;
 
 use crate::doom_def::MAXPLAYERS;
-use crate::env::ceiling::{CeilingMove, CeilKind};
+use crate::env::ceiling::{CeilKind, CeilingMove};
 use crate::env::doors::{DoorKind, VerticalDoor};
 use crate::env::floor::{FloorKind, FloorMove};
 use crate::env::lights::{FireFlicker, Glow, LightFlash, StrobeFlash};
-use crate::env::platforms::Platform;
+use crate::env::platforms::{PlatKind, PlatStatus, Platform};
 use crate::info::{MOBJINFO, MapObjKind, STATES, SpriteNum, StateNum};
 use crate::level::LevelState;
 use crate::pic::Button;
@@ -31,6 +31,10 @@ const SAVE_MAGIC: &[u8; 4] = b"R4DS";
 const SAVE_VERSION: u32 = 1;
 const HEADER_SIZE: usize = 64;
 const SAVE_DESCRIPTION_SIZE: usize = 24;
+// Wire record sizes for load_world skip-ahead (must match field read sequences)
+const SECTOR_SAVE_BYTES: usize = 4 + 4 + 4 + 4 + 4 + 2 + 2; // floor, ceil, floorpic, ceilpic, light, special, tag
+const LINEDEF_SAVE_BYTES: usize = 4 + 2 + 2; // flags, special, tag
+const SIDEDEF_SAVE_BYTES: usize = 4 + 4 + 4 + 4 + 4; // texoffset, rowoffset, top, bot, mid
 
 // Thinker tags
 const TAG_MOBJ: u8 = 1;
@@ -52,6 +56,7 @@ pub enum SaveError {
     InvalidThinkerTag(u8),
     InvalidStateNum(u16),
     InvalidSectorNum(u32),
+    InvalidEnum(&'static str, u32),
 }
 
 impl fmt::Display for SaveError {
@@ -64,6 +69,7 @@ impl fmt::Display for SaveError {
             SaveError::InvalidThinkerTag(t) => write!(f, "invalid thinker tag: {t}"),
             SaveError::InvalidStateNum(s) => write!(f, "invalid state num: {s}"),
             SaveError::InvalidSectorNum(s) => write!(f, "invalid sector num: {s}"),
+            SaveError::InvalidEnum(ty, v) => write!(f, "invalid {ty} discriminant: {v}"),
         }
     }
 }
@@ -329,9 +335,8 @@ fn read_header(r: &mut SaveReader) -> Result<SaveHeader, SaveError> {
 /// Serialize sector, linedef, and sidedef state (heights, textures, flags,
 /// specials).
 fn save_world(w: &mut SaveWriter, level_data: &LevelData) {
-    let sectors = level_data.sectors();
-    w.write_u32(sectors.len() as u32);
-    for s in sectors {
+    w.write_u32(level_data.sectors.len() as u32);
+    for s in level_data.sectors.iter() {
         w.write_i32(s.floorheight.to_fixed_raw());
         w.write_i32(s.ceilingheight.to_fixed_raw());
         w.write_u32(s.floorpic as u32);
@@ -341,17 +346,15 @@ fn save_world(w: &mut SaveWriter, level_data: &LevelData) {
         w.write_i16(s.tag);
     }
 
-    let linedefs = level_data.linedefs();
-    w.write_u32(linedefs.len() as u32);
-    for l in linedefs {
+    w.write_u32(level_data.linedefs.len() as u32);
+    for l in level_data.linedefs.iter() {
         w.write_u32(l.flags.bits());
         w.write_i16(l.special);
         w.write_i16(l.tag);
     }
 
-    let sidedefs = level_data.sidedefs();
-    w.write_u32(sidedefs.len() as u32);
-    for sd in sidedefs {
+    w.write_u32(level_data.sidedefs.len() as u32);
+    for sd in level_data.sidedefs.iter() {
         w.write_fixed(sd.textureoffset);
         w.write_fixed(sd.rowoffset);
         w.write_i32(sd.toptexture.map_or(-1, |v| v as i32));
@@ -364,7 +367,7 @@ fn save_world(w: &mut SaveWriter, level_data: &LevelData) {
 /// Tolerates count mismatches by loading the minimum and skipping extras.
 fn load_world(r: &mut SaveReader, level_data: &mut LevelData) -> Result<(), SaveError> {
     let n_sectors = r.read_u32()? as usize;
-    let sectors = level_data.sectors_mut();
+    let sectors = &mut level_data.sectors;
     if n_sectors != sectors.len() {
         warn!(
             "Sector count mismatch: save={}, map={}",
@@ -385,11 +388,11 @@ fn load_world(r: &mut SaveReader, level_data: &mut LevelData) -> Result<(), Save
     }
     // skip extra sectors in save if map has fewer
     for _ in count..n_sectors {
-        r.skip(4 + 4 + 4 + 4 + 4 + 2 + 2)?;
+        r.skip(SECTOR_SAVE_BYTES)?;
     }
 
     let n_linedefs = r.read_u32()? as usize;
-    let linedefs = level_data.linedefs_mut();
+    let linedefs = &mut level_data.linedefs;
     let count = n_linedefs.min(linedefs.len());
     for i in 0..count {
         linedefs[i].flags = LineDefFlags::from_bits_truncate(r.read_u32()?);
@@ -397,11 +400,11 @@ fn load_world(r: &mut SaveReader, level_data: &mut LevelData) -> Result<(), Save
         linedefs[i].tag = r.read_i16()?;
     }
     for _ in count..n_linedefs {
-        r.skip(4 + 2 + 2)?;
+        r.skip(LINEDEF_SAVE_BYTES)?;
     }
 
     let n_sidedefs = r.read_u32()? as usize;
-    let sidedefs = level_data.sidedefs_mut();
+    let sidedefs = &mut level_data.sidedefs;
     let count = n_sidedefs.min(sidedefs.len());
     for i in 0..count {
         sidedefs[i].textureoffset = r.read_fixed()?;
@@ -414,7 +417,7 @@ fn load_world(r: &mut SaveReader, level_data: &mut LevelData) -> Result<(), Save
         sidedefs[i].midtexture = if mid < 0 { None } else { Some(mid as usize) };
     }
     for _ in count..n_sidedefs {
-        r.skip(4 + 4 + 4 + 4 + 4)?;
+        r.skip(SIDEDEF_SAVE_BYTES)?;
     }
 
     Ok(())
@@ -464,12 +467,11 @@ fn resolve_sector(
     sector_num: u32,
     level_data: &mut LevelData,
 ) -> Result<MapPtr<Sector>, SaveError> {
-    let sectors = level_data.sectors_mut();
     let idx = sector_num as usize;
-    if idx >= sectors.len() {
+    if idx >= level_data.sectors.len() {
         return Err(SaveError::InvalidSectorNum(sector_num));
     }
-    Ok(MapPtr::new(&mut sectors[idx]))
+    Ok(MapPtr::new(&mut level_data.sectors[idx]))
 }
 
 /// Restore all thinkers (map objects, doors, floors, ceilings, platforms,
@@ -568,7 +570,7 @@ fn load_mobj(
         y,
         z,
         Angle::new(angle_rad),
-        unsafe { std::mem::transmute::<u16, SpriteNum>(sprite) },
+        SpriteNum::try_from(sprite).map_err(|v| SaveError::InvalidEnum("SpriteNum", v as u32))?,
         frame,
         floorz,
         ceilingz,
@@ -634,7 +636,7 @@ fn load_vdoor(r: &mut SaveReader, level: &mut LevelState) -> Result<(), SaveErro
     let door = VerticalDoor {
         thinker: null_mut(),
         sector: sector.clone(),
-        kind: unsafe { std::mem::transmute::<u8, DoorKind>(kind) },
+        kind: DoorKind::try_from(kind).map_err(|v| SaveError::InvalidEnum("DoorKind", v as u32))?,
         topheight,
         speed,
         direction,
@@ -670,7 +672,8 @@ fn load_floor(r: &mut SaveReader, level: &mut LevelState) -> Result<(), SaveErro
     let floor = FloorMove {
         thinker: null_mut(),
         sector: sector.clone(),
-        kind: unsafe { std::mem::transmute::<u8, FloorKind>(kind) },
+        kind: FloorKind::try_from(kind)
+            .map_err(|v| SaveError::InvalidEnum("FloorKind", v as u32))?,
         speed,
         crush,
         direction,
@@ -707,7 +710,7 @@ fn load_ceiling(r: &mut SaveReader, level: &mut LevelState) -> Result<(), SaveEr
     let ceil = CeilingMove {
         thinker: null_mut(),
         sector: sector.clone(),
-        kind: unsafe { std::mem::transmute::<u8, CeilKind>(kind) },
+        kind: CeilKind::try_from(kind).map_err(|v| SaveError::InvalidEnum("CeilKind", v as u32))?,
         bottomheight,
         topheight,
         speed,
@@ -730,8 +733,6 @@ fn load_ceiling(r: &mut SaveReader, level: &mut LevelState) -> Result<(), SaveEr
 
 /// Deserialize a platform thinker, attach to sector, and register as active.
 fn load_platform(r: &mut SaveReader, level: &mut LevelState) -> Result<(), SaveError> {
-    use crate::env::platforms::{PlatKind, PlatStatus};
-
     let sector_num = r.read_u32()?;
     let speed = SectorHeight::from_fixed(r.read_i32()?);
     let low = SectorHeight::from_fixed(r.read_i32()?);
@@ -754,11 +755,13 @@ fn load_platform(r: &mut SaveReader, level: &mut LevelState) -> Result<(), SaveE
         high,
         wait,
         count,
-        status: unsafe { std::mem::transmute::<u8, PlatStatus>(status) },
-        old_status: unsafe { std::mem::transmute::<u8, PlatStatus>(old_status) },
+        status: PlatStatus::try_from(status)
+            .map_err(|v| SaveError::InvalidEnum("PlatStatus", v as u32))?,
+        old_status: PlatStatus::try_from(old_status)
+            .map_err(|v| SaveError::InvalidEnum("PlatStatus", v as u32))?,
         crush,
         tag,
-        kind: unsafe { std::mem::transmute::<u8, PlatKind>(kind) },
+        kind: PlatKind::try_from(kind).map_err(|v| SaveError::InvalidEnum("PlatKind", v as u32))?,
     };
 
     let thinker = Platform::create_thinker(ThinkerData::Platform(plat), Platform::think);
@@ -980,7 +983,8 @@ fn load_players(
         let s = &mut p.status;
         s.attackdown = r.read_bool()?;
         s.usedown = r.read_bool()?;
-        s.readyweapon = unsafe { std::mem::transmute::<u8, WeaponType>(r.read_u8()?) };
+        s.readyweapon = WeaponType::try_from(r.read_u8()?)
+            .map_err(|v| SaveError::InvalidEnum("WeaponType", v as u32))?;
         s.health = r.read_i32()?;
         s.armorpoints = r.read_i32()?;
         s.armortype = r.read_i32()?;
@@ -1008,7 +1012,8 @@ fn load_players(
             *f = r.read_i32()?;
         }
 
-        p.pendingweapon = unsafe { std::mem::transmute::<u8, WeaponType>(r.read_u8()?) };
+        p.pendingweapon = WeaponType::try_from(r.read_u8()?)
+            .map_err(|v| SaveError::InvalidEnum("WeaponType", v as u32))?;
         p.refire = r.read_i32()?;
         p.total_kills = r.read_i32()?;
         p.items_collected = r.read_i32()?;
@@ -1059,9 +1064,8 @@ fn load_buttons(r: &mut SaveReader, level: &mut LevelState) -> Result<(), SaveEr
         let texture = r.read_u32()? as usize;
         let timer = r.read_u32()?;
 
-        let linedefs = level.level_data.linedefs_mut();
-        if line_num < linedefs.len() {
-            let line = MapPtr::new(&mut linedefs[line_num]);
+        if line_num < level.level_data.linedefs.len() {
+            let line = MapPtr::new(&mut level.level_data.linedefs[line_num]);
             level.button_list.push(Button {
                 line,
                 bwhere: match bwhere {
@@ -1187,8 +1191,8 @@ pub fn save_game_to_bytes(
             let player_idx: i8 = if let Some(player_ptr) = mobj.player() {
                 // Find which player this is by comparing pointers
                 let mut idx = -1i8;
-                for i in 0..MAXPLAYERS {
-                    if std::ptr::eq(player_ptr, &players[i]) {
+                for (i, player) in players.iter().enumerate() {
+                    if std::ptr::eq(player_ptr, player) {
                         idx = i as i8;
                         break;
                     }

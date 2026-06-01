@@ -15,3 +15,6 @@ winit = { workspace = true, optional = true }
 game-config.workspace = true
 gamestate-traits.workspace = true
 nanoserde.workspace = true
+
+[lints]
+workspace = true

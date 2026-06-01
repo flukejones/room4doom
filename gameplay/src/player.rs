@@ -107,7 +107,6 @@ pub struct PlayerStatus {
     pub health: i32,
     pub armorpoints: i32,
     /// Armor type is 0-2.
-    // TODO: make enum
     pub armortype: i32,
     pub cards: [bool; Card::NumCards as usize],
     pub weaponowned: [bool; WeaponType::NumWeapons as usize],
@@ -556,29 +555,28 @@ impl Player {
 
             match vanilla_type {
                 // HELLSLIME DAMAGE
-                5
-                    if self.status.powers[PowerType::IronFeet as usize] == 0
-                        && level.level_time & 0x1F == 0
-                    => {
-                        debug!("Hell-slime damage!");
-                        mobj.p_take_damage(None, None, 10);
-                    }
+                5 if self.status.powers[PowerType::IronFeet as usize] == 0
+                    && level.level_time & 0x1F == 0 =>
+                {
+                    debug!("Hell-slime damage!");
+                    mobj.p_take_damage(None, None, 10);
+                }
                 // NUKAGE DAMAGE
-                7
-                    if self.status.powers[PowerType::IronFeet as usize] == 0
-                        && level.level_time & 0x1F == 0
-                    => {
-                        debug!("Nukage damage!");
-                        mobj.p_take_damage(None, None, 5);
-                    }
+                7 if self.status.powers[PowerType::IronFeet as usize] == 0
+                    && level.level_time & 0x1F == 0 =>
+                {
+                    debug!("Nukage damage!");
+                    mobj.p_take_damage(None, None, 5);
+                }
                 // SUPER HELLSLIME DAMAGE | STROBE HURT
                 16 | 4
-                    if (self.status.powers[PowerType::IronFeet as usize] == 0 || p_random() < 5)
-                        && level.level_time & 0x1F == 0
-                    => {
-                        debug!("Super hell-slime damage!");
-                        mobj.p_take_damage(None, None, 20);
-                    }
+                    if (self.status.powers[PowerType::IronFeet as usize] == 0
+                        || p_random() < 5)
+                        && level.level_time & 0x1F == 0 =>
+                {
+                    debug!("Super hell-slime damage!");
+                    mobj.p_take_damage(None, None, 20);
+                }
                 // SECRET SECTOR
                 9 => {
                     self.secrets_found += 1;
@@ -604,20 +602,21 @@ impl Player {
                 && vanilla_type != 7
                 && vanilla_type != 4
                 && vanilla_type != 16
-                && level.level_time & 0x1F == 0 {
-                    let damage = match boom_damage {
-                        1 => 5,
-                        2 => 10,
-                        3 => 20,
-                        _ => 0,
-                    };
-                    if damage > 0
-                        && (self.status.powers[PowerType::IronFeet as usize] == 0
-                            || (boom_damage == 3 && p_random() < 5))
-                    {
-                        mobj.p_take_damage(None, None, damage);
-                    }
+                && level.level_time & 0x1F == 0
+            {
+                let damage = match boom_damage {
+                    1 => 5,
+                    2 => 10,
+                    3 => 20,
+                    _ => 0,
+                };
+                if damage > 0
+                    && (self.status.powers[PowerType::IronFeet as usize] == 0
+                        || (boom_damage == 3 && p_random() < 5))
+                {
+                    mobj.p_take_damage(None, None, damage);
                 }
+            }
 
             // BOOM secret (bit 7)
             if sector.special & 0x80 != 0 && vanilla_type != 9 {
@@ -663,34 +662,33 @@ impl Player {
         }
 
         match ammo {
-            AmmoType::Clip
-                if self.status.readyweapon == WeaponType::Fist => {
-                    if self.status.weaponowned[WeaponType::Chaingun as usize] {
-                        self.pendingweapon = WeaponType::Chaingun;
-                    } else {
-                        self.pendingweapon = WeaponType::Pistol;
-                    }
+            AmmoType::Clip if self.status.readyweapon == WeaponType::Fist => {
+                if self.status.weaponowned[WeaponType::Chaingun as usize] {
+                    self.pendingweapon = WeaponType::Chaingun;
+                } else {
+                    self.pendingweapon = WeaponType::Pistol;
                 }
+            }
             AmmoType::Shell
                 if (self.status.readyweapon == WeaponType::Fist
                     || self.status.readyweapon == WeaponType::Pistol)
-                    && self.status.weaponowned[WeaponType::Shotgun as usize]
-                => {
-                    self.pendingweapon = WeaponType::Shotgun;
-                }
+                    && self.status.weaponowned[WeaponType::Shotgun as usize] =>
+            {
+                self.pendingweapon = WeaponType::Shotgun;
+            }
             AmmoType::Cell
                 if (self.status.readyweapon == WeaponType::Fist
                     || self.status.readyweapon == WeaponType::Pistol)
-                    && self.status.weaponowned[WeaponType::Plasma as usize]
-                => {
-                    self.pendingweapon = WeaponType::Plasma;
-                }
+                    && self.status.weaponowned[WeaponType::Plasma as usize] =>
+            {
+                self.pendingweapon = WeaponType::Plasma;
+            }
             AmmoType::Missile
                 if self.status.readyweapon == WeaponType::Fist
-                    && self.status.weaponowned[WeaponType::Missile as usize]
-                => {
-                    self.pendingweapon = WeaponType::Missile;
-                }
+                    && self.status.weaponowned[WeaponType::Missile as usize] =>
+            {
+                self.pendingweapon = WeaponType::Missile;
+            }
             _ => {}
         }
         true
@@ -885,9 +883,9 @@ impl Player {
     }
 
     pub(crate) fn subtract_readyweapon_ammo(&mut self, num: u32) {
-        if self.status.ammo[WEAPON_INFO[self.status.readyweapon as usize].ammo as usize] != 0 {
-            self.status.ammo[WEAPON_INFO[self.status.readyweapon as usize].ammo as usize] -= num;
-        }
+        let idx = WEAPON_INFO[self.status.readyweapon as usize].ammo as usize;
+        // Cap at 0: never underflow if the shot costs more ammo than is held.
+        self.status.ammo[idx] = self.status.ammo[idx].saturating_sub(num);
     }
 
     /// P_DropWeapon
@@ -960,7 +958,9 @@ impl Player {
         if self.cmd.buttons & TIC_CMD_BUTTONS.bt_change != 0 {
             let new_weapon = (self.cmd.buttons & TIC_CMD_BUTTONS.bt_weaponmask)
                 >> TIC_CMD_BUTTONS.bt_weaponshift;
-            let mut new_weapon = WeaponType::from(new_weapon);
+            // 3-bit weapon-select field (0..=7) — always a valid variant.
+            let mut new_weapon = WeaponType::try_from(new_weapon)
+                .expect("weapon-select field is 3 bits, always a valid WeaponType");
 
             if new_weapon == WeaponType::Fist
                 && self.status.weaponowned[WeaponType::Chainsaw as usize]
@@ -1024,9 +1024,10 @@ impl Player {
         if self.status.powers[PowerType::Invisibility as usize] != 0 {
             self.status.powers[PowerType::Invisibility as usize] -= 1;
             if self.status.powers[PowerType::Invisibility as usize] == 0
-                && let Some(mobj) = self.mobj_mut() {
-                    mobj.flags.remove(MapObjFlag::Shadow);
-                }
+                && let Some(mobj) = self.mobj_mut()
+            {
+                mobj.flags.remove(MapObjFlag::Shadow);
+            }
         }
 
         // Screen flashing, red, damage etc

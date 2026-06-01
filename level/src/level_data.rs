@@ -5,11 +5,12 @@ use crate::map_defs::{
 use crate::MapPtr;
 use crate::bsp3d::BSP3D;
 use crate::flags::LineDefFlags;
+use crate::map_array::MapArray;
 use glam::Vec2;
 use log::{debug, info, warn};
 use math::{Angle, FixedT};
-use std::time::Instant;
 use rbsp::LineDefAccess;
+use std::time::Instant;
 
 const CELL_SIZE: f32 = 128.0;
 use wad::types::*;
@@ -44,16 +45,16 @@ pub struct LevelData {
     /// array may never be resized or it will invalidate references and
     /// pointers
     things: Vec<WadThing>,
-    pub vertexes: Vec<Vertex>,
-    pub linedefs: Vec<LineDef>,
-    pub sectors: Vec<Sector>,
-    sidedefs: Vec<SideDef>,
-    pub subsectors: Vec<SubSector>,
-    pub segments: Vec<Segment>,
+    pub vertexes: MapArray<Vertex>,
+    pub linedefs: MapArray<LineDef>,
+    pub sectors: MapArray<Sector>,
+    pub sidedefs: MapArray<SideDef>,
+    pub subsectors: MapArray<SubSector>,
+    pub segments: MapArray<Segment>,
     blockmap: Blockmap,
     reject: Vec<u8>,
     extents: MapExtents,
-    pub nodes: Vec<Node>,
+    pub nodes: MapArray<Node>,
     pub start_node: u32,
     pub bsp_3d: BSP3D,
 }
@@ -77,16 +78,16 @@ impl LevelData {
             }
         };
 
-        for line in &self.linedefs {
+        for line in self.linedefs.iter() {
             check(line.v1.pos);
             check(line.v2.pos);
         }
         self.extents.width = self.extents.max_vertex.x - self.extents.min_vertex.x;
         self.extents.height = self.extents.max_vertex.y - self.extents.min_vertex.y;
 
-        let mut min = self.sectors()[0].floorheight;
-        let mut max = self.sectors()[0].ceilingheight;
-        for sector in self.sectors() {
+        let mut min = self.sectors[0].floorheight;
+        let mut max = self.sectors[0].ceilingheight;
+        for sector in self.sectors.iter() {
             if sector.floorheight < min {
                 min = sector.floorheight;
             }
@@ -110,18 +111,6 @@ impl LevelData {
         &self.things
     }
 
-    pub fn linedefs(&self) -> &[LineDef] {
-        &self.linedefs
-    }
-
-    pub fn sectors(&self) -> &[Sector] {
-        &self.sectors
-    }
-
-    pub fn sectors_mut(&mut self) -> &mut [Sector] {
-        &mut self.sectors
-    }
-
     /// Apply interpolated sector heights to BSP3D vertices for smooth
     /// rendering. Must call `restore_render_interpolation()` after
     /// rendering.
@@ -133,34 +122,6 @@ impl LevelData {
     /// Restore true post-tic sector values and vertex Z after rendering.
     pub fn restore_render_interpolation(&mut self) {
         self.bsp_3d.restore_sector_state(&mut self.sectors);
-    }
-
-    pub fn sidedefs(&self) -> &[SideDef] {
-        &self.sidedefs
-    }
-
-    pub fn sidedefs_mut(&mut self) -> &mut [SideDef] {
-        &mut self.sidedefs
-    }
-
-    pub fn linedefs_mut(&mut self) -> &mut [LineDef] {
-        &mut self.linedefs
-    }
-
-    pub fn subsectors(&self) -> &[SubSector] {
-        &self.subsectors
-    }
-
-    pub fn subsectors_mut(&mut self) -> &mut [SubSector] {
-        &mut self.subsectors
-    }
-
-    pub fn segments(&self) -> &[Segment] {
-        &self.segments
-    }
-
-    pub fn segments_mut(&mut self) -> &mut [Segment] {
-        &mut self.segments
     }
 
     const fn set_scale(&mut self) {
@@ -242,16 +203,20 @@ impl LevelData {
             .map_iter::<WadLineDef>(map_name, MapLump::LineDefs)
             .collect();
 
-        // --- Vertices: direct from rbsp, exact capacity (MapPtr stability) ---
-        self.vertexes = Vec::with_capacity(bsp.vertices.len());
-        for hv in &bsp.vertices {
-            self.vertexes.push(Vertex::new(
-                hv.x as f32,
-                hv.y as f32,
-                FixedT::from_fixed((hv.x * 65536.0).round() as i32),
-                FixedT::from_fixed((hv.y * 65536.0).round() as i32),
-            ));
-        }
+        // --- Vertices: direct from rbsp. Frozen into a `MapArray` so the
+        // MapPtrs taken into it below can never be invalidated by a move. ---
+        self.vertexes = bsp
+            .vertices
+            .iter()
+            .map(|hv| {
+                Vertex::new(
+                    hv.x as f32,
+                    hv.y as f32,
+                    FixedT::from_fixed((hv.x * 65536.0).round() as i32),
+                    FixedT::from_fixed((hv.y * 65536.0).round() as i32),
+                )
+            })
+            .collect();
         info!("{}: Loaded {} vertexes", map_name, self.vertexes.len());
 
         // --- LineDefs: from WAD, with rbsp vertex remap ---
@@ -394,8 +359,8 @@ impl LevelData {
                 });
             }
 
-            self.segments = segments;
-            self.subsectors = subsectors;
+            self.segments = MapArray::from_vec(segments);
+            self.subsectors = MapArray::from_vec(subsectors);
         }
         info!(
             "{}: Loaded {} segments, {} subsectors",
@@ -459,7 +424,7 @@ impl LevelData {
         self.compute_sector_blockboxes();
         self.reject = vec![];
 
-        for sector in &mut self.sectors {
+        for sector in self.sectors.iter_mut() {
             set_sector_sound_origin(sector);
         }
 
@@ -593,7 +558,7 @@ impl LevelData {
         let mut min_y = f32::MAX;
         let mut max_x = f32::MIN;
         let mut max_y = f32::MIN;
-        for ld in &self.linedefs {
+        for ld in self.linedefs.iter() {
             for v in [&ld.v1, &ld.v2] {
                 min_x = min_x.min(v.x);
                 min_y = min_y.min(v.y);
