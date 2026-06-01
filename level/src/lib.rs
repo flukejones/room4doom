@@ -13,6 +13,7 @@ use std::ptr::null_mut;
 pub mod bsp3d;
 pub mod flags;
 pub mod level_data;
+pub mod map_array;
 pub mod map_defs;
 // Re-exports for convenience
 pub use bsp3d::movers::is_sector_mover;
@@ -153,12 +154,8 @@ impl<T: Debug> Debug for MapPtr<T> {
     }
 }
 
+/// Normalise an angle in radians into `[0, TAU)`, handling any magnitude.
 pub fn radian_range(rad: f32) -> f32 {
     use std::f32::consts::TAU;
-    if rad < 0.0 {
-        return rad + TAU;
-    } else if rad >= TAU {
-        return rad - TAU;
-    }
-    rad
+    rad.rem_euclid(TAU)
 }

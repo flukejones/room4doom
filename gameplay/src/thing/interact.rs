@@ -172,19 +172,20 @@ impl MapObject {
         self.reactiontime = 0; // AWAKE AND READY!
 
         if (self.threshold == 0 || self.kind == MapObjKind::MT_VILE)
-            && let Some(source) = source {
-                // TODO: gameversion <= exe_doom_1_2
-                if !ptr::eq(self, source) && source.kind != MapObjKind::MT_VILE {
-                    self.target = Some(source.thinker);
-                    self.threshold = BASETHRESHOLD;
+            && let Some(source) = source
+        {
+            // TODO: gameversion <= exe_doom_1_2
+            if !ptr::eq(self, source) && source.kind != MapObjKind::MT_VILE {
+                self.target = Some(source.thinker);
+                self.threshold = BASETHRESHOLD;
 
-                    if ptr::eq(self.state, &STATES[self.info.spawnstate as usize])
-                        && self.info.seestate != StateNum::None
-                    {
-                        self.set_state(self.info.seestate);
-                    }
+                if ptr::eq(self.state, &STATES[self.info.spawnstate as usize])
+                    && self.info.seestate != StateNum::None
+                {
+                    self.set_state(self.info.seestate);
                 }
             }
+        }
     }
 
     /// Doom function name `P_KillMobj`

@@ -27,20 +27,20 @@ fn test_door_vertex_sharing() {
             .iter()
             .position(|ld| std::ptr::eq(ld as *const _, linedef as *const _));
 
-        if let Some(ld_id) = linedef_id {
-            if [148, 150, 151, 152, 153].contains(&ld_id) {
-                tracked_linedefs
-                    .entry(ld_id)
-                    .or_insert_with(Vec::new)
-                    .push((seg_idx, segment));
-                println!(
-                    "Found linedef {} segment {}: front sector {}, back sector {:?}",
-                    ld_id,
-                    seg_idx,
-                    segment.frontsector.num,
-                    segment.backsector.as_ref().map(|s| s.num)
-                );
-            }
+        if let Some(ld_id) = linedef_id
+            && [148, 150, 151, 152, 153].contains(&ld_id)
+        {
+            tracked_linedefs
+                .entry(ld_id)
+                .or_insert_with(Vec::new)
+                .push((seg_idx, segment));
+            println!(
+                "Found linedef {} segment {}: front sector {}, back sector {:?}",
+                ld_id,
+                seg_idx,
+                segment.frontsector.num,
+                segment.backsector.as_ref().map(|s| s.num)
+            );
         }
     }
 
@@ -230,27 +230,27 @@ fn test_door_vertex_sharing() {
     println!("\n=== VALIDATING AFTER MOVEMENT ===");
 
     println!("\nChecking floor stability:");
-    for ((subsector_id, floor_poly_idx), _) in &floor_polygon_vertices {
-        if let Some(leaf) = bsp3d.get_subsector_leaf(*subsector_id) {
-            if let Some(polygon) = leaf.polygons.get(*floor_poly_idx) {
-                let mut floor_moved = false;
-                for &vertex_idx in &polygon.vertices {
-                    let original_pos = initial_vertex_positions[&vertex_idx];
-                    let current_pos = bsp3d.vertices[vertex_idx];
-                    if (original_pos.z - current_pos.z).abs() > 0.001 {
-                        println!(
-                            "  FLOOR MOVED: Subsector {} floor polygon {} vertex {} moved from {:?} to {:?}",
-                            subsector_id, floor_poly_idx, vertex_idx, original_pos, current_pos
-                        );
-                        floor_moved = true;
-                    }
-                }
-                if !floor_moved {
+    for (subsector_id, floor_poly_idx) in floor_polygon_vertices.keys() {
+        if let Some(leaf) = bsp3d.get_subsector_leaf(*subsector_id)
+            && let Some(polygon) = leaf.polygons.get(*floor_poly_idx)
+        {
+            let mut floor_moved = false;
+            for &vertex_idx in &polygon.vertices {
+                let original_pos = initial_vertex_positions[&vertex_idx];
+                let current_pos = bsp3d.vertices[vertex_idx];
+                if (original_pos.z - current_pos.z).abs() > 0.001 {
                     println!(
-                        "  Floor polygon {} in subsector {} remained stationary",
-                        floor_poly_idx, subsector_id
+                        "  FLOOR MOVED: Subsector {} floor polygon {} vertex {} moved from {:?} to {:?}",
+                        subsector_id, floor_poly_idx, vertex_idx, original_pos, current_pos
                     );
+                    floor_moved = true;
                 }
+            }
+            if !floor_moved {
+                println!(
+                    "  Floor polygon {} in subsector {} remained stationary",
+                    floor_poly_idx, subsector_id
+                );
             }
         }
     }
@@ -258,65 +258,65 @@ fn test_door_vertex_sharing() {
     println!(
         "\nChecking wall movement (148 should shrink, 150,151 should stay, 152,153 should move):"
     );
-    for ((linedef_id, subsector_id, poly_idx), _) in &wall_polygon_vertices {
-        if let Some(leaf) = bsp3d.get_subsector_leaf(*subsector_id) {
-            if let Some(polygon) = leaf.polygons.get(*poly_idx) {
-                let should_move = [148, 152, 153].contains(linedef_id);
-                let mut wall_moved = false;
-                let mut moved_vertices = Vec::new();
+    for (linedef_id, subsector_id, poly_idx) in wall_polygon_vertices.keys() {
+        if let Some(leaf) = bsp3d.get_subsector_leaf(*subsector_id)
+            && let Some(polygon) = leaf.polygons.get(*poly_idx)
+        {
+            let should_move = [148, 152, 153].contains(linedef_id);
+            let mut wall_moved = false;
+            let mut moved_vertices = Vec::new();
 
-                for &vertex_idx in &polygon.vertices {
-                    let original_pos = initial_vertex_positions[&vertex_idx];
-                    let current_pos = bsp3d.vertices[vertex_idx];
-                    if (original_pos - current_pos).length() > 0.001 {
-                        wall_moved = true;
-                        moved_vertices.push((vertex_idx, original_pos, current_pos));
-                    }
+            for &vertex_idx in &polygon.vertices {
+                let original_pos = initial_vertex_positions[&vertex_idx];
+                let current_pos = bsp3d.vertices[vertex_idx];
+                if (original_pos - current_pos).length() > 0.001 {
+                    wall_moved = true;
+                    moved_vertices.push((vertex_idx, original_pos, current_pos));
                 }
+            }
 
-                if should_move && wall_moved {
-                    let action = if *linedef_id == 148 {
-                        "shrunk"
-                    } else {
-                        "moved"
-                    };
-                    println!(
-                        "  Linedef {} wall polygon {} {} correctly",
-                        linedef_id, poly_idx, action
-                    );
-                    for (vertex_idx, orig, curr) in moved_vertices {
-                        println!(
-                            "    Vertex {} moved from {:?} to {:?}",
-                            vertex_idx, orig, curr
-                        );
-                    }
-                } else if should_move && !wall_moved {
-                    let action = if *linedef_id == 148 {
-                        "shrunk"
-                    } else {
-                        "moved"
-                    };
-                    println!(
-                        "  WALL SHOULD MOVE: Linedef {} wall polygon {} should have {} but didn't",
-                        linedef_id, poly_idx, action
-                    );
-                } else if !should_move && wall_moved {
-                    println!(
-                        "  WALL MOVED: Linedef {} wall polygon {} should be stationary but moved",
-                        linedef_id, poly_idx
-                    );
-                    for (vertex_idx, orig, curr) in moved_vertices {
-                        println!(
-                            "    Vertex {} moved from {:?} to {:?}",
-                            vertex_idx, orig, curr
-                        );
-                    }
+            if should_move && wall_moved {
+                let action = if *linedef_id == 148 {
+                    "shrunk"
                 } else {
+                    "moved"
+                };
+                println!(
+                    "  Linedef {} wall polygon {} {} correctly",
+                    linedef_id, poly_idx, action
+                );
+                for (vertex_idx, orig, curr) in moved_vertices {
                     println!(
-                        "  Linedef {} wall polygon {} remained stationary (correct)",
-                        linedef_id, poly_idx
+                        "    Vertex {} moved from {:?} to {:?}",
+                        vertex_idx, orig, curr
                     );
                 }
+            } else if should_move && !wall_moved {
+                let action = if *linedef_id == 148 {
+                    "shrunk"
+                } else {
+                    "moved"
+                };
+                println!(
+                    "  WALL SHOULD MOVE: Linedef {} wall polygon {} should have {} but didn't",
+                    linedef_id, poly_idx, action
+                );
+            } else if !should_move && wall_moved {
+                println!(
+                    "  WALL MOVED: Linedef {} wall polygon {} should be stationary but moved",
+                    linedef_id, poly_idx
+                );
+                for (vertex_idx, orig, curr) in moved_vertices {
+                    println!(
+                        "    Vertex {} moved from {:?} to {:?}",
+                        vertex_idx, orig, curr
+                    );
+                }
+            } else {
+                println!(
+                    "  Linedef {} wall polygon {} remained stationary (correct)",
+                    linedef_id, poly_idx
+                );
             }
         }
     }
@@ -358,7 +358,7 @@ fn test_wall_marking() {
     let _linedef_484 = &map.linedefs[484];
 
     let mut segment_484 = None;
-    for segment in &map.segments {
+    for segment in map.segments.iter() {
         if segment.linedef.num == 484 {
             segment_484 = Some(segment);
             break;

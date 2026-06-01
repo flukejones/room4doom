@@ -18,7 +18,6 @@
 //! playback state, options used to setup the world, players and their stats,
 //! and the overall gamestate.
 
-use game_config::tic_cmd::{BASELOOKDIRMAX, BASELOOKDIRMIN, LOOKDIRMAX, LOOKDIRMIN, LOOKDIRS};
 use gameplay::{MapObjFlag, MapObject, Player};
 use gamestate::Game;
 use gamestate::subsystems::GameSubsystem;
@@ -28,11 +27,11 @@ use input::InputState;
 use level::LevelData;
 use log::error;
 use math::{Angle, Bam, FixedT};
+use render_common::{DrawBuffer, GameRenderer, RenderPspDef, RenderView};
+use sound_common::SoundAction;
 use std::f32::consts::PI;
 use std::path::Path;
 use std::sync::Arc;
-use render_common::{DrawBuffer, GameRenderer, RenderPspDef, RenderView, draw_health_vignette};
-use sound_common::SoundAction;
 use wad::types::{BLACK, WadPalette, WadPatch};
 
 use crate::CLIOptions;
@@ -48,7 +47,7 @@ fn build_render_view(
 ) -> Option<RenderView> {
     let mobj = player.mobj()?;
     let subsector_id = level_data
-        .subsectors()
+        .subsectors
         .iter()
         .position(|ss| std::ptr::eq(ss, &*mobj.subsector))?;
     let prev = &player.prev_render;
@@ -93,7 +92,7 @@ fn build_render_view(
         is_shadow: mobj.flags.contains(MapObjFlag::Shadow),
         subsector_id,
         psprites,
-        sector_lightlevel: mobj.subsector.sector.lightlevel as usize,
+        sector_lightlevel: mobj.subsector.sector.lightlevel,
         player_mobj_id: mobj as *const _ as usize,
         frac,
         frac_fp,
@@ -155,22 +154,6 @@ pub(crate) fn load_voxels(
     Some(Arc::new(mgr))
 }
 
-pub(crate) const fn set_lookdirs(options: &CLIOptions) {
-    set_lookdirs_hires(matches!(options.hi_res, Some(true) | None));
-}
-
-pub(crate) const fn set_lookdirs_hires(hi_res: bool) {
-    unsafe {
-        LOOKDIRMIN = BASELOOKDIRMIN;
-        LOOKDIRMAX = BASELOOKDIRMAX;
-        if hi_res {
-            LOOKDIRMAX *= 2;
-            LOOKDIRMIN *= 2;
-        }
-        LOOKDIRS = 1 + LOOKDIRMIN + LOOKDIRMAX;
-    }
-}
-
 /// Handle key-down for menu/cheat consumption. Returns true if consumed.
 pub(crate) fn input_responder(
     sc: KeyCode,
@@ -197,6 +180,7 @@ pub(crate) fn input_responder(
     }
 
     if game.level.is_none() {
+        #[allow(clippy::collapsible_match)] // can't do this with &mut self methods
         match game.gamestate {
             GameState::Intermission => {
                 if machinations.intermission.responder(sc, game) {
@@ -256,14 +240,14 @@ pub(crate) fn run_game_tic(
 pub(crate) fn update_sound(game: &Game) {
     if let Some(mobj) = game.players[game.consoleplayer].mobj() {
         let uid = mobj as *const MapObject as usize;
-        game.sound_cmd
-            .send(SoundAction::UpdateListener {
-                uid,
-                x: mobj.x.to_f32(),
-                y: mobj.y.to_f32(),
-                angle: mobj.angle.rad(),
-            })
-            .unwrap();
+        if let Err(e) = game.sound_cmd.send(SoundAction::UpdateListener {
+            uid,
+            x: mobj.x.to_f32(),
+            y: mobj.y.to_f32(),
+            angle: mobj.angle.rad(),
+        }) {
+            error!("Could not send listener update, sound thread gone: {e}");
+        }
     }
 }
 
@@ -304,57 +288,34 @@ pub(crate) fn d_display<R: GameRenderer>(
 
     match game.gamestate {
         GameState::Level => {
-            if !automap_active {
-                match game.level {
-                    Some(ref mut level) => {
-                        if !game.players_in_game[game.consoleplayer] {
-                            return;
-                        }
-                        // Interpolate sector heights and light levels for smooth rendering
-                        level.level_data.apply_render_interpolation(frac);
-
-                        let player = &game.players[game.consoleplayer];
-                        if let Some(view) =
-                            build_render_view(player, &level.level_data, frac, game.game_tic)
-                        {
-                            game.pic_data.set_player_palette(
-                                player.status.damagecount,
-                                player.status.bonuscount,
-                                player.status.powers[gameplay::PowerType::Strength as usize],
-                                player.status.powers[gameplay::PowerType::IronFeet as usize],
-                            );
-                            render_backend.render_player_view(
-                                &view,
-                                &level.level_data,
-                                &mut game.pic_data,
-                            );
-                            if game.config_values
-                                [gamestate_traits::ConfigKey::HealthVignette as usize]
-                                != 0
-                            {
-                                let fb = render_backend.frame_buffer();
-                                let w = fb.size().width_usize();
-                                let vh = fb.size().view_height_usize();
-                                let pitch = fb.pitch();
-                                draw_health_vignette(
-                                    fb.buf_mut(),
-                                    pitch,
-                                    w,
-                                    vh,
-                                    player.status.health,
-                                );
-                            }
-                        } else {
-                            error!(
-                                "Active console player has no MapObject, can't render player view"
-                            );
-                        }
-
-                        // Restore true post-tic sector values
-                        level.level_data.restore_render_interpolation();
-                    }
-                    _ => {}
+            if !automap_active && let Some(ref mut level) = game.level {
+                if !game.players_in_game[game.consoleplayer] {
+                    return;
                 }
+                // Interpolate sector heights and light levels for smooth rendering
+                level.level_data.apply_render_interpolation(frac);
+
+                let player = &game.players[game.consoleplayer];
+                if let Some(view) =
+                    build_render_view(player, &level.level_data, frac, game.game_tic)
+                {
+                    game.pic_data.set_player_palette(
+                        player.status.damagecount,
+                        player.status.bonuscount,
+                        player.status.powers[gameplay::PowerType::Strength as usize],
+                        player.status.powers[gameplay::PowerType::IronFeet as usize],
+                    );
+                    render_backend.render_player_view(&view, &level.level_data, &mut game.pic_data);
+                    if game.config_values[gamestate_traits::ConfigKey::HealthVignette as usize] != 0
+                    {
+                        render_backend.draw_health_vignette(player.status.health);
+                    }
+                } else {
+                    error!("Active console player has no MapObject, can't render player view");
+                }
+
+                // Restore true post-tic sector values
+                level.level_data.restore_render_interpolation();
             }
             machines.statusbar.draw(render_backend.frame_buffer());
             machines.hud_msgs.draw(render_backend.frame_buffer());

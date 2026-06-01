@@ -15,6 +15,7 @@ const FRACUNIT: f32 = (1 << 16) as f32;
 /// in `self.wad_dirs` then combine this index with a `LumpIndex`
 /// variant to get a specific lump.
 #[allow(dead_code)]
+#[derive(Debug, Clone, Copy)]
 pub enum MapLump {
     /// Position and angle for all monster, powerup and spawn location
     Things = 1,
@@ -86,8 +87,9 @@ pub struct WadHeader {
 }
 
 impl WadHeader {
+    /// The 4-byte WAD identifier (`IWAD`/`PWAD`).
     pub fn wad_type(&self) -> &str {
-        unsafe { str::from_utf8_unchecked(&self.wad_type) }
+        str::from_utf8(&self.wad_type).unwrap_or("????")
     }
 }
 
@@ -96,7 +98,7 @@ impl fmt::Debug for WadHeader {
         write!(
             f,
             "\nWadHeader {{\n  wad_type: {},\n  dir_count: {},\n  dir_offset: {},\n}}",
-            str::from_utf8(&self.wad_type).unwrap(),
+            self.wad_type(),
             self.dir_count,
             self.dir_offset
         )
@@ -193,7 +195,10 @@ impl WadData {
         let mut file = File::open(file_path)
             .unwrap_or_else(|_| panic!("Could not open wad file: {:?}", &file_path));
 
-        let file_len = file.metadata().unwrap().len();
+        let file_len = file
+            .metadata()
+            .expect("failed to read WAD file metadata")
+            .len();
         let mut file_data = Vec::with_capacity(file_len as usize);
 
         let wad_len = file
@@ -214,7 +219,10 @@ impl WadData {
         let mut file =
             File::open(&file_path).unwrap_or_else(|_| panic!("Could not open {:?}", &file_path));
 
-        let file_len = file.metadata().unwrap().len();
+        let file_len = file
+            .metadata()
+            .expect("failed to read WAD file metadata")
+            .len();
         let mut file_data = Vec::with_capacity(file_len as usize);
 
         let wad_len = file
@@ -299,18 +307,22 @@ impl WadData {
     /// Find a map marker by name and return the lump at the given offset.
     /// Searches in reverse so the last loaded WAD wins.
     pub(super) fn find_lump_for_map_or_panic(&self, map_name: &str, lump: MapLump) -> &Lump {
+        let name = map_name.to_ascii_uppercase();
         for (idx, info) in self.lumps.iter().enumerate().rev() {
-            if info.name == map_name.to_ascii_uppercase() {
-                return &self.lumps[idx + lump as usize];
+            if info.name == name {
+                return self.lumps.get(idx + lump as usize).unwrap_or_else(|| {
+                    panic!("Map {map_name} is missing lump {lump:?} (truncated lump list)")
+                });
             }
         }
-        panic!("Could not find lump {}", map_name);
+        panic!("Could not find map marker {map_name}");
     }
 
     pub(super) fn find_lump_for_map(&self, map_name: &str, lump: MapLump) -> Option<&Lump> {
+        let name = map_name.to_ascii_uppercase();
         for (idx, info) in self.lumps.iter().enumerate().rev() {
-            if info.name == map_name.to_ascii_uppercase() {
-                return Some(&self.lumps[idx + lump as usize]);
+            if info.name == name {
+                return self.lumps.get(idx + lump as usize);
             }
         }
         None

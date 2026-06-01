@@ -30,3 +30,6 @@ criterion = { version = "0.8", features = ["html_reports"] }
 name = "render_bench"
 harness = false
 required-features = ["bench"]
+
+[lints]
+workspace = true

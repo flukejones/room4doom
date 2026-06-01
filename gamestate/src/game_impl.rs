@@ -2,9 +2,7 @@ use crate::Game;
 use game_config::{GameMode, Skill};
 use gameplay::{GameAction, PlayerStatus, WorldEndPlayerInfo, save};
 use gamestate_traits::{ConfigKey, ConfigTraits, GameState, GameTraits, WorldInfo};
-use sound_common::{
-    EPISODE4_MUS, MID_ID, MUS_ID, MusTrack, SfxName, SoundAction, read_mus_to_midi
-};
+use sound_common::{EPISODE4_MUS, MUS_ID, MusTrack, SfxName, SoundAction, read_mus_to_midi};
 use wad::WadData;
 
 impl GameTraits for Game {
@@ -74,7 +72,9 @@ impl GameTraits for Game {
             x: 0.0,
             y: 0.0,
         };
-        self.sound_cmd.send(sfx).unwrap();
+        if let Err(e) = self.sound_cmd.send(sfx) {
+            log::warn!("Could not send sfx, sound thread gone: {e}");
+        }
     }
 
     fn change_music(&self, mus: MusTrack) {
@@ -202,16 +202,15 @@ impl Game {
         if let Some(music) = map_entry.and_then(|e| e.music.as_deref()) {
             self.send_music_lump(music);
         } else {
-            use gamestate_traits::GameTraits;
             self.change_music(MusTrack::None);
         }
     }
 
     pub(crate) fn send_music_lump(&self, lump_name: &str) {
         if let Some(data) = self.music_data_for_lump(lump_name) {
-            self.sound_cmd
-                .send(SoundAction::ChangeMusic(data, true))
-                .unwrap();
+            if let Err(e) = self.sound_cmd.send(SoundAction::ChangeMusic(data, true)) {
+                log::warn!("Could not send music, sound thread gone: {e}");
+            }
         } else {
             log::warn!("Music lump '{}' not found or empty", lump_name);
         }
@@ -224,8 +223,6 @@ impl Game {
         }
         if lump.data[..4] == MUS_ID {
             read_mus_to_midi(&lump.data)
-        } else if lump.data[..4] == MID_ID {
-            Some(lump.data.clone())
         } else {
             Some(lump.data.clone())
         }

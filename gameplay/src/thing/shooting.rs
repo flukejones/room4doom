@@ -2,12 +2,12 @@
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
 use math::{
-    ANG90, ANG270, Bam, DivLineFixed, FixedT, intercept_vector_fixed, p_aprox_distance, p_random, r_point_to_angle
+    ANG90, ANG270, Bam, DivLineFixed, FixedT, intercept_vector, p_aprox_distance, p_random, r_point_to_angle
 };
 use sound_common::SfxName;
 
 use crate::bsp_trace::{BSPTrace, Intercept, PortalZ, p_divline_side_raw, path_traverse_blockmap};
-use crate::doom_def::{MAXRADIUS, MELEERANGE};
+use crate::doom_def::{MAXPLAYERS, MAXRADIUS, MELEERANGE};
 use crate::env::specials::shoot_special_line;
 use crate::info::{MOBJINFO, StateNum};
 use crate::{MapObjKind, MapObject};
@@ -354,51 +354,57 @@ impl MapObject {
     /// Iterate through the available live players and check if there is a LOS
     /// to one.
     pub(crate) fn look_for_players(&mut self, all_around: bool) -> bool {
-        let mut see = 0;
-        let stop = ((self.lastlook as i32 - 1) & 3) as usize;
+        // P_LookForPlayers — OG Doom examines up to two in-game players,
+        // starting from the actor's persistent `lastlook` and wrapping until it
+        // returns to `stop`. `count` bounds the scan to a full player sweep.
+        let stop = (self.lastlook + MAXPLAYERS - 1) & 3;
+        let mut seen = 0;
 
-        self.lastlook = stop;
-        for _ in 0..self.lastlook {
-            self.lastlook = (self.lastlook - 1) & 3;
-            if !self.level().players_in_game()[self.lastlook] {
-                continue;
-            }
-            see += 1;
-            if see == 2 || self.lastlook == stop {
-                return false;
-            }
+        // OG advances `lastlook` on the loop tail (every non-returning pass) but
+        // not when a target is found. `advance` defers that increment so the
+        // `return true` path leaves `lastlook` pointing at the found player.
+        for _ in 0..=MAXPLAYERS {
+            let current = self.lastlook;
+            let mut advance = true;
 
-            if self.level().players()[self.lastlook].status.health <= 0 {
-                continue;
-            }
-
-            if let Some(target) = self.level().players()[self.lastlook].mobj() {
-                let tx = target.x;
-                let ty = target.y;
-                let tz = target.z;
-                let th = target.height;
-
-                if !self.check_sight(tx, ty, tz, th) {
-                    continue;
+            if self.level().players_in_game()[current] {
+                // Two players examined, or wrapped back to the start — give up.
+                if seen == 2 || current == stop {
+                    return false;
                 }
+                seen += 1;
 
-                if !all_around {
-                    let an = r_point_to_angle(tx - self.x, ty - self.y)
-                        .wrapping_sub(self.angle.to_bam());
-                    if an > ANG90 && an < ANG270 {
-                        let dist = p_aprox_distance(tx - self.x, ty - self.y);
-                        if dist > MELEERANGE {
-                            continue;
+                if self.level().players()[current].status.health > 0
+                    && let Some(target) = self.level().players()[current].mobj()
+                {
+                    let tx = target.x;
+                    let ty = target.y;
+                    let tz = target.z;
+                    let th = target.height;
+
+                    let mut visible = self.check_sight(tx, ty, tz, th);
+                    if visible && !all_around {
+                        let an = r_point_to_angle(tx - self.x, ty - self.y)
+                            .wrapping_sub(self.angle.to_bam());
+                        if an > ANG90 && an < ANG270 {
+                            let dist = p_aprox_distance(tx - self.x, ty - self.y);
+                            visible = dist <= MELEERANGE;
                         }
                     }
-                }
 
-                let last_look = self.lastlook;
-                self.target = self.level_mut().players_mut()[last_look]
-                    .mobj_mut()
-                    .map(|m| m.thinker);
+                    if visible {
+                        self.target = self.level_mut().players_mut()[current]
+                            .mobj_mut()
+                            .map(|m| m.thinker);
+                        advance = false;
+                    }
+                }
+            }
+
+            if !advance {
                 return true;
             }
+            self.lastlook = (self.lastlook + 1) & 3;
         }
         false
     }
@@ -412,15 +418,16 @@ impl MapObject {
 
         let s1 = self.subsector.sector.num;
         let s2 = target.subsector.sector.num;
-        let sector_count = self.level().level_data.sectors().len() as i32;
+        let sector_count = self.level().level_data.sectors.len() as i32;
         let pnum = s1 * sector_count + s2;
         let bytenum = pnum >> 3;
         let bitnum = 1 << (pnum & 7);
 
         if !self.level().level_data.get_devils_rejects().is_empty()
-            && self.level().level_data.get_devils_rejects()[bytenum as usize] & bitnum != 0 {
-                return false;
-            }
+            && self.level().level_data.get_devils_rejects()[bytenum as usize] & bitnum != 0
+        {
+            return false;
+        }
 
         self.check_sight(target.x, target.y, target.z, target.height)
     }
@@ -671,9 +678,10 @@ impl ShootTraverse {
             }
             // OG: sky hack wall — backsector also has sky ceiling
             if let Some(back) = line.backsector.as_ref()
-                && back.ceilingpic == self.sky_num {
-                    return;
-                }
+                && back.ceilingpic == self.sky_num
+            {
+                return;
+            }
         }
 
         MapObject::spawn_puff(x, y, z, self.attack_range, unsafe { &mut *shooter.level });
@@ -847,8 +855,8 @@ fn cross_subsector(
     level_data: &LevelData,
     valid: usize,
 ) -> bool {
-    let ss = &level_data.subsectors()[ss_idx];
-    let segments = level_data.segments();
+    let ss = &level_data.subsectors[ss_idx];
+    let segments = &level_data.segments;
 
     for i in 0..ss.seg_count {
         let seg = &segments[(ss.start_seg + i) as usize];
@@ -918,7 +926,7 @@ fn cross_subsector(
             dx: ldx,
             dy: ldy,
         };
-        let frac = intercept_vector_fixed(strace, &divl);
+        let frac = intercept_vector(strace, &divl);
 
         if front_floor != back_floor {
             let slope = (openbottom - sightzstart).fixed_div(frac);

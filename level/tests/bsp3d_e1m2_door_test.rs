@@ -10,7 +10,7 @@ fn test_e1m2_sector129_door_ceiling_moves() {
     let mut map = load_map(&doom_wad_path(), "E1M2");
 
     let bsp3d = &mut map.bsp_3d;
-    let initial_positions: Vec<_> = bsp3d.vertices.iter().copied().collect();
+    let initial_positions: Vec<_> = bsp3d.vertices.to_vec();
 
     // Move sector 129 ceiling from 0 to 128
     bsp3d.move_surface(129, MovementType::Ceiling, 128.0, 0);
@@ -69,10 +69,8 @@ fn test_e1m2_all_mover_vertex_sharing() {
     let border_lds: HashSet<usize> = map
         .segments
         .iter()
-        .filter(|s| {
-            s.frontsector.num == 129 || s.backsector.as_ref().map_or(false, |b| b.num == 129)
-        })
-        .map(|s| s.linedef.num as usize)
+        .filter(|s| s.frontsector.num == 129 || s.backsector.as_ref().is_some_and(|b| b.num == 129))
+        .map(|s| s.linedef.num)
         .collect();
 
     // Upper-wall bottom vertices at ceil_h must share indices with sector
@@ -85,12 +83,12 @@ fn test_e1m2_all_mover_vertex_sharing() {
                 linedef_id,
                 ..
             } = &poly.surface_kind
+                && border_lds.contains(linedef_id)
+                && matches!(wall_type, WallType::Upper)
             {
-                if border_lds.contains(linedef_id) && matches!(wall_type, WallType::Upper) {
-                    for &vi in &poly.vertices {
-                        if (verts[vi].z - ceil_h).abs() < 1.0 && !ceil_verts.contains(&vi) {
-                            unshared.push(vi);
-                        }
+                for &vi in &poly.vertices {
+                    if (verts[vi].z - ceil_h).abs() < 1.0 && !ceil_verts.contains(&vi) {
+                        unshared.push(vi);
                     }
                 }
             }

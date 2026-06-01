@@ -182,12 +182,12 @@ impl Software3D {
                 }
 
                 let color_index = patch.data[tex_col][tex_row];
-                if color_index == usize::MAX {
+                if color_index == u16::MAX {
                     continue;
                 }
 
                 if let Some(colourmap) = colourmap {
-                    let lit_index = colourmap[color_index];
+                    let lit_index = colourmap[color_index as usize];
                     if let Some(&color) = pic_data.palette().get(lit_index) {
                         buffer.set_pixel(x, y, color);
                     }

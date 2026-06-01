@@ -368,7 +368,7 @@ mod tests {
         let expected_counts: [u32; NUM_SECTIONS] = [5, 2, 1, 1, 3, 2];
 
         let dir_start = HEADER_SIZE;
-        for i in 0..NUM_SECTIONS {
+        (0..NUM_SECTIONS).for_each(|i| {
             let off = dir_start + i * DIR_ENTRY_SIZE;
             let offset = u32::from_le_bytes(buf[off..off + 4].try_into().unwrap());
             let count = u32::from_le_bytes(buf[off + 4..off + 8].try_into().unwrap());
@@ -381,7 +381,7 @@ mod tests {
                 buf.len()
             );
             assert_eq!(count, expected_counts[i], "section {} count mismatch", i);
-        }
+        });
     }
 
     #[test]
@@ -392,8 +392,8 @@ mod tests {
         let expected = HEADER_SIZE + DIR_SIZE
             + 5 * VERTEX_SIZE
             + 2 * SEG_SIZE
-            + 1 * SUBSECTOR_SIZE
-            + 1 * NODE_SIZE
+            + SUBSECTOR_SIZE
+            + NODE_SIZE
             + 3 * 4  // poly_indices
             + 2 * 4; // seg_indices
         assert_eq!(buf.len(), expected);

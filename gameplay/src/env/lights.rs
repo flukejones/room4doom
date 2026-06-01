@@ -96,14 +96,6 @@ impl Think for FireFlicker {
         }
         unsafe { Thinker::from_erased(self.thinker) }
     }
-
-    fn thinker(&self) -> &Thinker {
-        #[cfg(feature = "null_check")]
-        if self.thinker.is_null() {
-            std::panic!("fire flicker thinker was null");
-        }
-        unsafe { Thinker::from_erased_ref(self.thinker) }
-    }
 }
 
 pub struct LightFlash {
@@ -172,14 +164,6 @@ impl Think for LightFlash {
             std::panic!("light flash thinker was null");
         }
         unsafe { Thinker::from_erased(self.thinker) }
-    }
-
-    fn thinker(&self) -> &Thinker {
-        #[cfg(feature = "null_check")]
-        if self.thinker.is_null() {
-            std::panic!("light flash thinker was null");
-        }
-        unsafe { Thinker::from_erased_ref(self.thinker) }
     }
 }
 
@@ -254,14 +238,6 @@ impl Think for StrobeFlash {
             std::panic!("strobe flash thinker was null");
         }
         unsafe { Thinker::from_erased(self.thinker) }
-    }
-
-    fn thinker(&self) -> &Thinker {
-        #[cfg(feature = "null_check")]
-        if self.thinker.is_null() {
-            std::panic!("strobe flash thinker was null");
-        }
-        unsafe { Thinker::from_erased_ref(self.thinker) }
     }
 }
 
@@ -339,21 +315,13 @@ impl Think for Glow {
         }
         unsafe { Thinker::from_erased(self.thinker) }
     }
-
-    fn thinker(&self) -> &Thinker {
-        #[cfg(feature = "null_check")]
-        if self.thinker.is_null() {
-            std::panic!("glow thinker was null");
-        }
-        unsafe { Thinker::from_erased_ref(self.thinker) }
-    }
 }
 
 /// Doom function name `EV_LightTurnOn`
 pub fn ev_turn_light_on(line: MapPtr<LineDef>, mut bright: usize, level: &mut LevelState) {
     for sector in level
         .level_data
-        .sectors_mut()
+        .sectors
         .iter_mut()
         .filter(|s| s.tag == line.tag)
     {
@@ -375,7 +343,7 @@ pub fn ev_turn_tag_lights_off(line: MapPtr<LineDef>, level: &mut LevelState) {
     let mut min;
     for sector in level
         .level_data
-        .sectors_mut()
+        .sectors
         .iter_mut()
         .filter(|s| s.tag == line.tag)
     {
@@ -385,9 +353,10 @@ pub fn ev_turn_tag_lights_off(line: MapPtr<LineDef>, level: &mut LevelState) {
         for line in sector.lines.iter_mut() {
             let tsec = get_next_sector(line.clone(), sec.clone());
             if let Some(tsec) = tsec
-                && tsec.lightlevel < min {
-                    min = tsec.lightlevel;
-                }
+                && tsec.lightlevel < min
+            {
+                min = tsec.lightlevel;
+            }
         }
 
         sector.lightlevel = min;
@@ -399,7 +368,7 @@ pub fn ev_start_light_strobing(line: MapPtr<LineDef>, level: &mut LevelState) {
     let level_ptr = unsafe { &mut *(level as *mut LevelState) };
     for sector in level
         .level_data
-        .sectors_mut()
+        .sectors
         .iter_mut()
         .filter(|s| s.tag == line.tag)
     {

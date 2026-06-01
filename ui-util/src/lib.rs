@@ -75,10 +75,10 @@ pub fn hud_scale(pixels: &impl DrawBuffer) -> (f32, f32) {
 }
 
 /// Returns (scale_x, scale_y) for full-screen 320x200 patches.
-/// Buffer height is always 200 (or 400 hi-res), so s = 1.0 (or 2.0).
+/// Identical scaling to [`hud_scale`] (buffer height / 200); kept as a
+/// distinct entry point for full-screen patch call sites.
 pub fn fullscreen_scale(pixels: &impl DrawBuffer) -> (f32, f32) {
-    let s = pixels.size().height_f32() / 200.0;
-    (s, s)
+    hud_scale(pixels)
 }
 
 /// Draw a WadPatch at (x, y) with separate X and Y pixel duplication scales.
@@ -105,7 +105,7 @@ pub fn draw_patch(
         let col_y = y + column.y_offset as f32 * sy;
 
         for (src_row, p) in column.pixels.iter().enumerate() {
-            let colour = palette.0[*p];
+            let colour = palette.0[*p as usize];
             let row_start = (col_y + src_row as f32 * sy).ceil() as i32;
             let row_end = (col_y + (src_row + 1) as f32 * sy).ceil() as i32;
             for row in row_start..row_end {
@@ -142,9 +142,9 @@ pub fn draw_patch_tinted(
     let buf_w = pixels.size().width();
     let buf_h = pixels.size().height();
     let x_base = x - patch.left_offset as f32 * sx;
-    let tr = (tint >> 16) & 0xFF ;
-    let tg = (tint >> 8) & 0xFF ;
-    let tb = tint & 0xFF ;
+    let tr = (tint >> 16) & 0xFF;
+    let tg = (tint >> 8) & 0xFF;
+    let tb = tint & 0xFF;
     let mut src_col: u32 = 0;
 
     for column in patch.columns.iter() {
@@ -153,7 +153,7 @@ pub fn draw_patch_tinted(
         let col_y = y + column.y_offset as f32 * sy;
 
         for (src_row, p) in column.pixels.iter().enumerate() {
-            let base = palette.0[*p];
+            let base = palette.0[*p as usize];
             let br = (base >> 16) & 0xFF;
             let bg = (base >> 8) & 0xFF;
             let bb = base & 0xFF;
@@ -324,9 +324,10 @@ impl HUDString {
     pub fn add_char(&mut self, c: char) {
         self.data.push(c);
         if let Some(p) = get_patch_for_char(c)
-            && p.height as i32 > self.line_height {
-                self.line_height = p.height as i32;
-            }
+            && p.height as i32 > self.line_height
+        {
+            self.line_height = p.height as i32;
+        }
     }
 
     pub fn inc_current_char(&mut self) {

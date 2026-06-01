@@ -31,6 +31,21 @@ pub enum PlatStatus {
     InStasis,
 }
 
+impl TryFrom<u8> for PlatStatus {
+    /// The raw byte that failed to map to a variant.
+    type Error = u8;
+
+    fn try_from(v: u8) -> Result<Self, u8> {
+        match v {
+            0 => Ok(PlatStatus::Up),
+            1 => Ok(PlatStatus::Down),
+            2 => Ok(PlatStatus::Waiting),
+            3 => Ok(PlatStatus::InStasis),
+            _ => Err(v),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum PlatKind {
     PerpetualRaise,
@@ -38,6 +53,22 @@ pub enum PlatKind {
     RaiseAndChange,
     RaiseToNearestAndChange,
     BlazeDWUS,
+}
+
+impl TryFrom<u8> for PlatKind {
+    /// The raw byte that failed to map to a variant.
+    type Error = u8;
+
+    fn try_from(v: u8) -> Result<Self, u8> {
+        match v {
+            0 => Ok(PlatKind::PerpetualRaise),
+            1 => Ok(PlatKind::DownWaitUpStay),
+            2 => Ok(PlatKind::RaiseAndChange),
+            3 => Ok(PlatKind::RaiseToNearestAndChange),
+            4 => Ok(PlatKind::BlazeDWUS),
+            _ => Err(v),
+        }
+    }
 }
 
 pub struct Platform {
@@ -75,7 +106,7 @@ pub fn ev_do_platform(
 
     for sector in level
         .level_data
-        .sectors_mut()
+        .sectors
         .iter_mut()
         .filter(|s| s.tag == line.tag)
     {
@@ -287,13 +318,5 @@ impl Think for Platform {
             std::panic!("platform thinker was null");
         }
         unsafe { Thinker::from_erased(self.thinker) }
-    }
-
-    fn thinker(&self) -> &Thinker {
-        #[cfg(feature = "null_check")]
-        if self.thinker.is_null() {
-            std::panic!("platform thinker was null");
-        }
-        unsafe { Thinker::from_erased_ref(self.thinker) }
     }
 }

@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use crate::types::{Float, Vertex, VERTEX_EPSILON};
+use crate::types::{Float, VERTEX_EPSILON, Vertex};
 
 const GRID_SCALE: Float = 1.0 / VERTEX_EPSILON;
 

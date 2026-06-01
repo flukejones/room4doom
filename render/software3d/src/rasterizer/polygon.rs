@@ -344,14 +344,14 @@ impl Software3D {
                 }
 
                 let color_index = patch.data[tex_col as usize][tex_row as usize];
-                if color_index == usize::MAX {
+                if color_index == u16::MAX {
                     interp_state.step_x();
                     edge_inv_w += span.edge_inv_w_dx;
                     continue;
                 }
 
                 let colourmap = pic_data.base_colourmap(quad.brightness, edge_inv_w * LIGHT_SCALE);
-                let lit_index = colourmap[color_index];
+                let lit_index = colourmap[color_index as usize];
                 let color = pic_data
                     .palette()
                     .get(lit_index)
@@ -418,7 +418,7 @@ impl Software3D {
                 }
 
                 let color_index = patch.data[tex_col as usize][tex_row as usize];
-                if color_index == usize::MAX {
+                if color_index == u16::MAX {
                     interp_state.step_x();
                     edge_inv_w += span.edge_inv_w_dx;
                     continue;

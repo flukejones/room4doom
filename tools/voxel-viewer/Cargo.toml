@@ -20,3 +20,6 @@ glam.workspace = true
 winit.workspace = true
 pixels.workspace = true
 coarse-prof = { workspace = true, optional = true }
+
+[lints]
+workspace = true

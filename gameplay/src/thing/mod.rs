@@ -505,13 +505,14 @@ impl MapObject {
         }
 
         // not playing?
-        if !active_players[(mthing.kind - 1) as usize] {
+        let player_idx = (mthing.kind - 1) as usize;
+        if !active_players[player_idx] {
             return;
         }
 
-        // TODO: Properly sort this out
-        let player = &mut players[0];
-        trace!("Spawing player 1");
+        // OG: p = &players[mthing->type - 1]
+        let player = &mut players[player_idx];
+        trace!("Spawning player {}", mthing.kind);
 
         if player.player_state == PlayerState::Reborn {
             player.reborn();
@@ -1174,7 +1175,6 @@ impl MapObject {
         }
 
         self.remove();
-        dbg!();
     }
 }
 
@@ -1250,32 +1250,4 @@ impl Think for MapObject {
         }
         unsafe { &mut *self.thinker }
     }
-
-    fn thinker(&self) -> &Thinker {
-        #[cfg(feature = "null_check")]
-        if self.thinker.is_null() {
-            std::panic!("MapObject thinker was null");
-        }
-        unsafe { &*self.thinker }
-    }
 }
-
-// pub(crate) fn kind_from_doomednum(mthing: &WadThing) -> MapObjKind {
-//     // find which type to spawn
-//     let mut i = 0;
-//     for n in 0..MapObjKind::Count as u16 {
-//         if mthing.kind == MOBJINFO[n as usize].doomednum as i16 {
-//             i = n;
-//             break;
-//         }
-//     }
-
-//     if i == MapObjKind::Count as u16 {
-//         error!(
-//             "P_SpawnMapThing: Unknown type {} at ({}, {})",
-//             mthing.kind, mthing.x, mthing.y
-//         );
-//     }
-
-//     MapObjKind::from(i)
-// }

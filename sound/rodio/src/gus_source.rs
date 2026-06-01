@@ -6,8 +6,7 @@
 use std::fs::File;
 use std::io::Cursor;
 use std::path::Path;
-use std::sync::Arc as StdArc;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc as StdArc, Arc, Mutex};
 
 use log::warn;
 use rustysynth::{MidiFile, MidiFileSequencer, SoundFont, Synthesizer, SynthesizerSettings};

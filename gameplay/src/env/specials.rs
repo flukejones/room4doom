@@ -53,9 +53,10 @@ pub fn find_min_light_surrounding(sec: MapPtr<Sector>, max: usize) -> usize {
     let mut min = max;
     for line in &sec.lines {
         if let Some(other) = get_next_sector(line.clone(), sec.clone())
-            && other.lightlevel < min {
-                min = other.lightlevel;
-            }
+            && other.lightlevel < min
+        {
+            min = other.lightlevel;
+        }
     }
     trace!("find_min_light_surrounding: {min}");
     min
@@ -64,9 +65,10 @@ pub fn find_min_light_surrounding(sec: MapPtr<Sector>, max: usize) -> usize {
 pub fn find_max_light_surrounding(sec: MapPtr<Sector>, mut max: usize) -> usize {
     for line in &sec.lines {
         if let Some(other) = get_next_sector(line.clone(), sec.clone())
-            && other.lightlevel > max {
-                max = other.lightlevel;
-            }
+            && other.lightlevel > max
+        {
+            max = other.lightlevel;
+        }
     }
     debug!("find_max_light_surrounding: {max}");
     max
@@ -77,9 +79,10 @@ pub fn find_lowest_ceiling_surrounding(sec: MapPtr<Sector>) -> SectorHeight {
     let mut height = SectorHeight::MAX;
     for line in &sec.lines {
         if let Some(other) = get_next_sector(line.clone(), sec.clone())
-            && other.ceilingheight < height {
-                height = other.ceilingheight;
-            }
+            && other.ceilingheight < height
+        {
+            height = other.ceilingheight;
+        }
     }
     debug!("find_lowest_ceiling_surrounding: {height}");
     height
@@ -90,9 +93,10 @@ pub fn find_highest_ceiling_surrounding(sec: MapPtr<Sector>) -> SectorHeight {
     let mut height = SectorHeight::ZERO;
     for line in &sec.lines {
         if let Some(other) = get_next_sector(line.clone(), sec.clone())
-            && other.ceilingheight > height {
-                height = other.ceilingheight;
-            }
+            && other.ceilingheight > height
+        {
+            height = other.ceilingheight;
+        }
     }
     debug!("find_highest_ceiling_surrounding: {height}");
     height
@@ -103,9 +107,10 @@ pub fn find_lowest_floor_surrounding(sec: MapPtr<Sector>) -> SectorHeight {
     let mut floor = sec.floorheight;
     for line in &sec.lines {
         if let Some(other) = get_next_sector(line.clone(), sec.clone())
-            && other.floorheight < floor {
-                floor = other.floorheight;
-            }
+            && other.floorheight < floor
+        {
+            floor = other.floorheight;
+        }
     }
     debug!("find_lowest_floor_surrounding: {floor}");
     floor
@@ -116,9 +121,10 @@ pub fn find_highest_floor_surrounding(sec: MapPtr<Sector>) -> SectorHeight {
     let mut floor = -SectorHeight::MAX;
     for line in &sec.lines {
         if let Some(other) = get_next_sector(line.clone(), sec.clone())
-            && other.floorheight > floor {
-                floor = other.floorheight;
-            }
+            && other.floorheight > floor
+        {
+            floor = other.floorheight;
+        }
     }
     debug!("find_highest_floor_surrounding: {floor}");
     floor
@@ -889,7 +895,7 @@ pub fn spawn_specials(level: &mut LevelState) {
     let level_iter = unsafe { &mut *(level as *mut LevelState) };
     for sector in level_iter
         .level_data
-        .sectors_mut()
+        .sectors
         .iter_mut()
         .filter(|s| s.special != 0)
     {

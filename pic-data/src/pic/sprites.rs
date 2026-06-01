@@ -29,7 +29,6 @@ pub struct SpriteDef {
 
 /// Initialise the sprite definitions based on the names and appended bits
 pub fn init_spritedefs(names: &[&str], patches: &[SpritePic]) -> Vec<SpriteDef> {
-    // Sure, we can function without sprites
     if names.is_empty() {
         panic!("No sprites used, sprite name list is empty");
     }
@@ -43,7 +42,10 @@ pub fn init_spritedefs(names: &[&str], patches: &[SpritePic]) -> Vec<SpriteDef> 
 
         // scan the patches. Each patch has the lump name stored.
         for (pindex, patch) in patches.iter().enumerate() {
-            if patch.name.starts_with(name) {
+            // A valid sprite lump is `NAME(4) + frame + rotation` (>=6 chars),
+            // optionally with a second `frame + rotation` pair (8 chars). Skip
+            // anything shorter so the byte indexing below cannot panic.
+            if patch.name.starts_with(name) && patch.name.len() >= 6 {
                 let frame = patch.name.as_bytes()[4] - b'A';
                 let rotation = patch.name.as_bytes()[5] - b'0';
 
@@ -62,7 +64,7 @@ pub fn init_spritedefs(names: &[&str], patches: &[SpritePic]) -> Vec<SpriteDef> 
                     name,
                 );
 
-                if patch.name.len() >= 7 {
+                if patch.name.len() >= 8 {
                     let frame = patch.name.as_bytes()[6] - b'A';
                     let rotation = patch.name.as_bytes()[7] - b'0';
                     debug!(

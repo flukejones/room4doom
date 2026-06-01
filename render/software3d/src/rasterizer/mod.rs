@@ -9,6 +9,8 @@ pub mod voxel;
 use depth_buffer::DepthBuffer;
 use glam::{Vec2, Vec3, Vec4};
 
+use crate::SCREEN_EDGE_SNAP;
+
 /// Represents a 2D polygon in screen space
 #[derive(Debug, Clone)]
 pub struct ScreenPoly<'a>(pub &'a [Vec2]);
@@ -37,11 +39,6 @@ const LIGHT_MIN_Z: f32 = 0.001;
 const LIGHT_MAX_Z: f32 = 0.055;
 const LIGHT_RANGE: f32 = 1.0 / (LIGHT_MAX_Z - LIGHT_MIN_Z);
 pub const LIGHT_SCALE: f32 = LIGHT_RANGE * 8.0 * 16.0;
-
-/// Tolerance for snapping projected screen coords to exact viewport edges.
-/// The perspective divide reintroduces sub-pixel drift that the scanline
-/// fill rule rejects, leaving 1px gaps at screen edges.
-const SCREEN_EDGE_SNAP: f32 = 0.01;
 
 pub struct Rasterizer {
     pub(crate) screen_vertices_buffer: [Vec2; MAX_CLIPPED_VERTICES],

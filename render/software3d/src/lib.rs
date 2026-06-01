@@ -31,7 +31,7 @@ const MAX_PITCH: f32 = 89.0 * PI / 180.0;
 /// Frustum clipping puts vertices on boundary planes, but the perspective
 /// divide reintroduces sub-pixel drift; without snapping the scanline fill
 /// rule misses the boundary row/column and produces 1px gaps at screen edges.
-const SCREEN_EDGE_SNAP: f32 = 0.01;
+pub(crate) const SCREEN_EDGE_SNAP: f32 = 0.01;
 
 enum BBoxCull {
     Outside,
@@ -326,6 +326,7 @@ pub struct Software3D {
     view_matrix: Mat4,
     camera_pos: Vec3,
     projection_matrix: Mat4,
+    view_projection: Mat4,
     rasterizer: Rasterizer,
     near_z: f32,
     far_z: f32,
@@ -357,6 +358,7 @@ impl Software3D {
             view_matrix: Mat4::IDENTITY,
             camera_pos: Vec3::ZERO,
             projection_matrix: Mat4::IDENTITY,
+            view_projection: Mat4::IDENTITY,
             rasterizer: Rasterizer::new(width as u32, height as u32),
             near_z: NEAR_Z,
             far_z: FAR_Z,
@@ -520,6 +522,7 @@ impl Software3D {
         // when large world coords are baked into the matrix.
         self.camera_pos = pos;
         self.view_matrix = Mat4::look_at_rh(Vec3::ZERO, forward, up);
+        self.view_projection = self.projection_matrix * self.view_matrix;
     }
 
     // ==========================================
@@ -570,7 +573,7 @@ impl Software3D {
     /// Returns `Outside` if fully outside frustum, `Occluded` if inside
     /// frustum but fully behind existing depth, `Visible` otherwise.
     fn cull_bbox(&self, bbox: &AABB) -> BBoxCull {
-        let view_projection = self.projection_matrix * self.view_matrix;
+        let view_projection = self.view_projection;
         let cp = self.camera_pos;
         let clip_corners = [
             view_projection
@@ -939,7 +942,7 @@ impl Software3D {
             let tip = center + polygon.normal * normal_len;
 
             // Project both points to screen (camera-relative)
-            let vp = self.projection_matrix * self.view_matrix;
+            let vp = self.view_projection;
             let cp = self.camera_pos;
             let c_rel = center - cp;
             let t_rel = tip - cp;
@@ -1197,6 +1200,7 @@ impl Software3D {
         );
         self.camera_pos = pos;
         self.view_matrix = Mat4::look_at_rh(Vec3::ZERO, forward, Vec3::Z);
+        self.view_projection = self.projection_matrix * self.view_matrix;
 
         self.stats.reset();
         self.rasterizer.depth_buffer.reset();
@@ -1270,17 +1274,18 @@ impl Software3D {
 
             for poly_surface in &leaf.polygons {
                 if poly_surface.is_facing_point(player_pos, &bsp3d.vertices)
-                    && self.cull_polygon_bounds(poly_surface, bsp3d).is_some() {
-                        self.stats.polygons_submitted += 1;
-                        self.render_surface_polygon(
-                            poly_surface,
-                            bsp3d,
-                            sectors,
-                            pic_data,
-                            player_light,
-                            buffer,
-                        );
-                    }
+                    && self.cull_polygon_bounds(poly_surface, bsp3d).is_some()
+                {
+                    self.stats.polygons_submitted += 1;
+                    self.render_surface_polygon(
+                        poly_surface,
+                        bsp3d,
+                        sectors,
+                        pic_data,
+                        player_light,
+                        buffer,
+                    );
+                }
             }
             return;
         }

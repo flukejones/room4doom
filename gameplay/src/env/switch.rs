@@ -61,13 +61,14 @@ pub fn start_button(
 /// Start a sound using the lines front sector sound origin
 pub(crate) fn start_sector_sound(line: &LineDef, sfx: SfxName, snd: &SndServerTx) {
     let sfx_origin = line.front_sidedef.sector.sound_origin;
-    snd.send(sound_common::SoundAction::StartSfx {
+    if let Err(e) = snd.send(sound_common::SoundAction::StartSfx {
         uid: line as *const LineDef as usize,
         sfx,
         x: sfx_origin.x,
         y: sfx_origin.y,
-    })
-    .unwrap();
+    }) {
+        log::warn!("Could not send sector sfx, sound thread gone: {e}");
+    }
 }
 
 /// Doom function name `P_ChangeSwitchTexture`
@@ -88,56 +89,59 @@ pub fn change_switch_texture(
     for i in 0..switch_list.len() {
         let sw = switch_list[i];
         if let Some(tex_top) = line.front_sidedef.toptexture
-            && sw == tex_top {
-                start_sector_sound(&line, sfx, snd);
-                let new_tex = switch_list[i ^ 1];
-                line.front_sidedef.toptexture = Some(new_tex);
-                bsp3d.update_wall_texture(line.num, WallType::Upper, new_tex);
-                if use_again {
-                    start_button(
-                        line,
-                        ButtonWhere::Top,
-                        switch_list[i],
-                        BUTTONTIME,
-                        button_list,
-                    );
-                }
-                return;
+            && sw == tex_top
+        {
+            start_sector_sound(&line, sfx, snd);
+            let new_tex = switch_list[i ^ 1];
+            line.front_sidedef.toptexture = Some(new_tex);
+            bsp3d.update_wall_texture(line.num, WallType::Upper, new_tex);
+            if use_again {
+                start_button(
+                    line,
+                    ButtonWhere::Top,
+                    switch_list[i],
+                    BUTTONTIME,
+                    button_list,
+                );
             }
+            return;
+        }
         if let Some(tex_mid) = line.front_sidedef.midtexture
-            && sw == tex_mid {
-                start_sector_sound(&line, sfx, snd);
-                let new_tex = switch_list[i ^ 1];
-                line.front_sidedef.midtexture = Some(new_tex);
-                bsp3d.update_wall_texture(line.num, WallType::Middle, new_tex);
-                if use_again {
-                    start_button(
-                        line,
-                        ButtonWhere::Middle,
-                        switch_list[i],
-                        BUTTONTIME,
-                        button_list,
-                    );
-                }
-                return;
+            && sw == tex_mid
+        {
+            start_sector_sound(&line, sfx, snd);
+            let new_tex = switch_list[i ^ 1];
+            line.front_sidedef.midtexture = Some(new_tex);
+            bsp3d.update_wall_texture(line.num, WallType::Middle, new_tex);
+            if use_again {
+                start_button(
+                    line,
+                    ButtonWhere::Middle,
+                    switch_list[i],
+                    BUTTONTIME,
+                    button_list,
+                );
             }
+            return;
+        }
         if let Some(tex_low) = line.front_sidedef.bottomtexture
-            && sw == tex_low {
-                start_sector_sound(&line, sfx, snd);
-                let new_tex = switch_list[i ^ 1];
-                line.front_sidedef.bottomtexture = Some(new_tex);
-                bsp3d.update_wall_texture(line.num, WallType::Lower, new_tex);
-                if use_again {
-                    start_button(
-                        line,
-                        ButtonWhere::Bottom,
-                        switch_list[i],
-                        BUTTONTIME,
-                        button_list,
-                    );
-                }
-                return;
+            && sw == tex_low
+        {
+            start_sector_sound(&line, sfx, snd);
+            let new_tex = switch_list[i ^ 1];
+            line.front_sidedef.bottomtexture = Some(new_tex);
+            bsp3d.update_wall_texture(line.num, WallType::Lower, new_tex);
+            if use_again {
+                start_button(
+                    line,
+                    ButtonWhere::Bottom,
+                    switch_list[i],
+                    BUTTONTIME,
+                    button_list,
+                );
             }
+            return;
+        }
     }
 }
 

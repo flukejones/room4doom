@@ -24,3 +24,6 @@ wad.workspace = true
 [[bench]]
 name = "build_bsp"
 harness = false
+
+[lints]
+workspace = true

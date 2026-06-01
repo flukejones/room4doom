@@ -262,13 +262,13 @@ impl LevelState {
     }
 
     pub(super) fn start_sound(&self, sfx: SfxName, x: f32, y: f32, uid: usize) {
-        self.snd_command
-            .send(SoundAction::StartSfx {
-                uid,
-                sfx,
-                x,
-                y,
-            })
-            .unwrap();
+        if let Err(e) = self.snd_command.send(SoundAction::StartSfx {
+            uid,
+            sfx,
+            x,
+            y,
+        }) {
+            log::warn!("Could not send sfx, sound thread gone: {e}");
+        }
     }
 }

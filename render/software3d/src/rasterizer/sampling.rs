@@ -101,7 +101,9 @@ impl<'a> TextureSampler<'a> {
                     TextureSampler::Sky
                 } else {
                     let texture = pic_data.get_flat(*texture);
-                    TextureSampler::Horizontal { texture }
+                    TextureSampler::Horizontal {
+                        texture,
+                    }
                 }
             }
             SurfaceKind::Vertical {
@@ -134,17 +136,19 @@ impl<'a> TextureSampler<'a> {
                     let tex_y = (v_wrapped * height) as u32 as usize % (*height_mask);
 
                     let color_index = *texture.data.get_unchecked(tex_x * texture.height + tex_y);
-                    if color_index == usize::MAX {
+                    if color_index == u16::MAX {
                         return 0;
                     }
-                    let lit_color_index = *colourmap.get_unchecked(color_index);
+                    let lit_color_index = *colourmap.get_unchecked(color_index as usize);
                     *pic_data.palette().get_unchecked(lit_color_index)
                 }
-                TextureSampler::Horizontal { texture } => {
+                TextureSampler::Horizontal {
+                    texture,
+                } => {
                     let tex_x = ((u.abs() * FLAT_DIM_F32) as usize) & FLAT_MASK;
                     let tex_y = ((v.abs() * FLAT_DIM_F32) as usize) & FLAT_MASK;
                     let color_index = *texture.data.get_unchecked(tex_x * FLAT_DIM + tex_y);
-                    let lit_color_index = *colourmap.get_unchecked(color_index);
+                    let lit_color_index = *colourmap.get_unchecked(color_index as usize);
                     *pic_data.palette().get_unchecked(lit_color_index)
                 }
                 TextureSampler::Sky => 0xFF202020,

@@ -8,9 +8,34 @@ pub const SLOWTURNTICS: i32 = 6;
 
 pub const BASELOOKDIRMIN: i16 = 110;
 pub const BASELOOKDIRMAX: i16 = 90;
-pub static mut LOOKDIRMIN: i16 = BASELOOKDIRMIN;
-pub static mut LOOKDIRMAX: i16 = BASELOOKDIRMAX;
-pub static mut LOOKDIRS: i16 = unsafe { 1 + LOOKDIRMIN + LOOKDIRMAX };
+
+/// Vertical look (pitch) range, in pixel units. Derived once per renderer
+/// build from the hi-res flag and held as construction data — never global
+/// mutable state.
+#[derive(Copy, Clone, Debug)]
+pub struct LookDirs {
+    /// Max downward pitch.
+    pub min: i16,
+    /// Max upward pitch; also the pitch-zero centre offset.
+    pub max: i16,
+    /// Total number of look directions (`1 + min + max`).
+    pub count: i16,
+}
+
+impl LookDirs {
+    pub const fn new(hi_res: bool) -> Self {
+        let (min, max) = if hi_res {
+            (BASELOOKDIRMIN * 2, BASELOOKDIRMAX * 2)
+        } else {
+            (BASELOOKDIRMIN, BASELOOKDIRMAX)
+        };
+        Self {
+            min,
+            max,
+            count: 1 + min + max,
+        }
+    }
+}
 
 pub struct ButtonCode {
     // Press "Fire".

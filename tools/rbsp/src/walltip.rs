@@ -4,7 +4,7 @@
 //! adjoin the vertex at each angle. Used to assign sectors to seg-less
 //! subsectors by querying "what sector is at angle θ from vertex V".
 
-use crate::types::{Vertex, LineDefAccess, SideDefAccess, WadLineDef, WadSideDef, WallTip};
+use crate::types::{LineDefAccess, SideDefAccess, Vertex, WadLineDef, WadSideDef, WallTip};
 
 /// Build wall-tip lists for all vertices. Returns one Vec<WallTip> per vertex,
 /// sorted by angle ascending.

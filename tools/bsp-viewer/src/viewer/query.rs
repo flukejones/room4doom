@@ -1,3 +1,5 @@
+use std::fmt::Write;
+
 use glam::Vec2;
 
 use super::MapViewerApp;
@@ -20,7 +22,6 @@ impl MapViewerApp {
     }
 
     pub fn query_line(&self, a: Vec2, b: Vec2) -> String {
-        use std::fmt::Write;
         let mut buf = String::new();
         let _ = writeln!(buf, "--- LINE_PROBE ---");
         let _ = writeln!(
@@ -88,7 +89,6 @@ impl MapViewerApp {
     }
 
     pub fn query_rect(&self, lo: Vec2, hi: Vec2) -> String {
-        use std::fmt::Write;
         let mut buf = String::new();
         let _ = writeln!(buf, "--- RECT_SELECT ---");
         let _ = writeln!(
@@ -194,7 +194,6 @@ impl MapViewerApp {
     }
 
     pub fn query_sector(&self, sector_id: usize) -> String {
-        use std::fmt::Write;
         let mut buf = String::new();
         let _ = writeln!(buf, "--- SECTOR_QUERY ---");
         let s = &self.data.sectors[sector_id];

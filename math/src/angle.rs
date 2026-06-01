@@ -7,6 +7,7 @@ use glam::Vec2;
 use crate::bam::{Bam, bam_to_radian, radian_to_bam};
 use crate::doom_trig::{fine_cos, fine_sin};
 use crate::fixed_point::FixedT;
+#[cfg(feature = "trig_lut")]
 use crate::trig::{COS_TABLE, SIN_TABLE, TAN_TABLE};
 
 /// Angle representation trait. Implemented for `f32` (radians) and `Bam` (u32).
@@ -50,41 +51,49 @@ impl AngleInner for f32 {
         radian_to_bam(self)
     }
 
+    #[cfg(not(feature = "trig_lut"))]
     #[inline]
     fn sin_f32(self) -> f32 {
-        if cfg!(not(feature = "trig_lut")) {
-            self.sin()
-        } else {
-            SIN_TABLE[rad_to_table(self)]
-        }
+        self.sin()
+    }
+    #[cfg(feature = "trig_lut")]
+    #[inline]
+    fn sin_f32(self) -> f32 {
+        SIN_TABLE[rad_to_table(self)]
     }
 
+    #[cfg(not(feature = "trig_lut"))]
     #[inline]
     fn cos_f32(self) -> f32 {
-        if cfg!(not(feature = "trig_lut")) {
-            self.cos()
-        } else {
-            COS_TABLE[rad_to_table(self)]
-        }
+        self.cos()
+    }
+    #[cfg(feature = "trig_lut")]
+    #[inline]
+    fn cos_f32(self) -> f32 {
+        COS_TABLE[rad_to_table(self)]
     }
 
+    #[cfg(not(feature = "trig_lut"))]
     #[inline]
     fn tan_f32(self) -> f32 {
-        if cfg!(not(feature = "trig_lut")) {
-            self.tan()
-        } else {
-            TAN_TABLE[rad_to_table(self)]
-        }
+        self.tan()
+    }
+    #[cfg(feature = "trig_lut")]
+    #[inline]
+    fn tan_f32(self) -> f32 {
+        TAN_TABLE[rad_to_table(self)]
     }
 
+    #[cfg(not(feature = "trig_lut"))]
     #[inline]
     fn sin_cos_f32(self) -> (f32, f32) {
-        if cfg!(not(feature = "trig_lut")) {
-            self.sin_cos()
-        } else {
-            let idx = rad_to_table(self);
-            (SIN_TABLE[idx], COS_TABLE[idx])
-        }
+        self.sin_cos()
+    }
+    #[cfg(feature = "trig_lut")]
+    #[inline]
+    fn sin_cos_f32(self) -> (f32, f32) {
+        let idx = rad_to_table(self);
+        (SIN_TABLE[idx], COS_TABLE[idx])
     }
 
     #[inline]
@@ -409,6 +418,7 @@ pub fn point_to_angle_2<A: AngleInner>(point1: (f32, f32), point2: (f32, f32)) -
 
 // --- Helpers ---
 
+#[cfg(feature = "trig_lut")]
 #[inline]
 fn rad_to_table(rad: f32) -> usize {
     let mut idx = (rad.to_degrees() * 22.755_556) as i32;

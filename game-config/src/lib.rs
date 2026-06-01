@@ -8,7 +8,8 @@ pub mod tic_cmd;
 
 pub use doom_def::{GameMission, GameMode, WeaponType};
 pub use tic_cmd::{
-    ANGLETURN, BASELOOKDIRMAX, BASELOOKDIRMIN, ButtonCode, FORWARDMOVE, MAXPLMOVE, SIDEMOVE, SLOWTURNTICS, TIC_CMD_BUTTONS, TicCmd
+    ANGLETURN, BASELOOKDIRMAX, BASELOOKDIRMIN, ButtonCode, FORWARDMOVE, MAXPLMOVE, SIDEMOVE,
+    SLOWTURNTICS, TIC_CMD_BUTTONS, TicCmd,
 };
 
 use std::error::Error;

@@ -463,17 +463,18 @@ impl Statusbar {
 
         // ARMS background patch
         if self.mode != GameMode::Commercial
-            && let Some(patch) = self.patches.get("STARMS") {
-                draw_patch(
-                    patch,
-                    x + ST_ARMSBGX * sx,
-                    ST_ARMSBGY * sy,
-                    sx,
-                    sy,
-                    &self.palette,
-                    buffer,
-                );
-            }
+            && let Some(patch) = self.patches.get("STARMS")
+        {
+            draw_patch(
+                patch,
+                x + ST_ARMSBGX * sx,
+                ST_ARMSBGY * sy,
+                sx,
+                sy,
+                &self.palette,
+                buffer,
+            );
+        }
 
         // Face
         let face = self.faces.get_face();
@@ -676,7 +677,7 @@ fn decode_patch_to_rgba(patch: &WadPatch, palette: &WadPalette) -> Vec<u32> {
         for (row, &pal_idx) in column.pixels.iter().enumerate() {
             let y = column.y_offset as usize + row;
             if y < h {
-                buf[y * w + col_idx] = palette.0[pal_idx];
+                buf[y * w + col_idx] = palette.0[pal_idx as usize];
             }
         }
     }

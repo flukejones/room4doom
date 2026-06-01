@@ -5,7 +5,7 @@
 //! - SEGS, SSECTORS, NODES: same count, all node partition lines identical
 //! - BLOCKMAP: headers match, allows minor float-rounding differences
 
-#![allow(dead_code)]
+#![allow(dead_code)] // shared harness; not all helpers are used by every test file
 
 use std::collections::HashMap;
 use std::process::Command;

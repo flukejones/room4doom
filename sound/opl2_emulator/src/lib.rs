@@ -65,6 +65,7 @@ static TREMOLO_DATA: OnceLock<[u8; TREMOLO_TABLE_LEN]> = OnceLock::new();
 pub fn init_tables() {
     MUL_TABLE.get_or_init(|| {
         let mut t = [0u16; 384];
+        #[allow(clippy::needless_range_loop)] // i used in arithmetic (i as i32 * 8) and as index
         for i in 0..384 {
             let s = i as i32 * 8;
             t[i] = (0.5 + 2.0_f64.powf(-1.0 + (255 - s) as f64 / 256.0) * (1u32 << MUL_SH) as f64)
@@ -846,6 +847,8 @@ impl Chip {
         self.tremolo_index = 0;
 
         let freq_scale = (0.5 + scale * (1u64 << (WAVE_SH - 1 - 10)) as f64) as u32;
+        #[allow(clippy::needless_range_loop)]
+        // dual-array mutation: self.freq_mul[i] and FREQ_CREATE[i]
         for i in 0..16 {
             self.freq_mul[i] = freq_scale * FREQ_CREATE[i] as u32;
         }

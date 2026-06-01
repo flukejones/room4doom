@@ -94,13 +94,70 @@ nanoserde = { git = "https://github.com/not-fl3/nanoserde.git", default-features
 #default-features = false
 #features = ["user-hooks"]
 
+# 915fps | codegen-units=1 -> 930fps, no other change
+# 9.30s buildtime
+# 2.6MB binary
 [profile.release]
-lto = true
-debug = false
-opt-level = 3
-panic = "abort"
-strip = true
 codegen-units = 1
+opt-level = 3
+lto = "thin"
+panic = "abort"
+debug = false
+strip = true
+
+# 880fps | codegen-units=1 -> no changes
+# 9.22s buildtime
+# 2.4MB binary
+[profile.release-mid]
+inherits = "release"
+opt-level = 2
+
+# 880fps | codegen-units=1 -> no changes
+# 8.85s buildtime
+# 2.1MB binary
+[profile.release-small]
+inherits = "release"
+opt-level = "s"
+
+# 412fps | codegen-units=1 -> 420fps, no other change
+# 14.82s buildtime
+# 1.4MB binary
+# with RUSTFLAGS="-C llvm-args=-force-vector-width=4"
+# 460fps
+# 2.1MB binary
+[profile.release-tiny]
+inherits = "release"
+opt-level = "z"
+
+########### LTO Full Profiles ###########
+
+# 900fps | codegen-units=1 -> 915fps, no other change
+# 19.15s buildtime
+# 2.1MB binary
+[profile.release-lto]
+inherits = "release"
+lto = "fat"
+
+# 840fps | codegen-units=1 -> no changes
+# 17.92s buildtime
+# 1.9MB binary
+[profile.release-lto-mid]
+inherits = "release-lto"
+opt-level = 2
+
+# 815fps | codegen-units=1 -> no changes
+# 15.55s buildtime
+# 1.6MB binary
+[profile.release-lto-small]
+inherits = "release-lto"
+opt-level = "s"
+
+# 400fps | codegen-units=1 -> 421fps, 14s buildtime, no other changes
+# 16.9s buildtime
+# 1.4MB binary
+[profile.release-lto-tiny]
+inherits = "release-lto"
+opt-level = "z"
 
 [profile.dev]
 debug = true
@@ -112,3 +169,7 @@ lto = true
 debug = true
 opt-level = 3
 codegen-units = 1
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+too_many_arguments = "allow"

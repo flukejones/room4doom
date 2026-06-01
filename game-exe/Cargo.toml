@@ -12,7 +12,7 @@ name = "room4doom"
 path = "src/main.rs"
 
 [features]
-default = ["trig_lut", "display-pixels"]
+default = ["trig_lut", "display-softbuffer"]
 
 hprof = ["render-backend/hprof", "gameplay/hprof"]
 render_stats = ["render-backend/render_stats"]
@@ -60,3 +60,6 @@ coarse-prof.workspace = true
 
 #[dev-dependencies]
 #cargo-husky.workspace = true
+
+[lints]
+workspace = true

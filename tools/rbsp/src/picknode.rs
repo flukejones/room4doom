@@ -6,9 +6,9 @@ use std::collections::hash_map::Entry;
 use crate::superblock::{SuperBlock, box_on_line_side};
 use crate::types::*;
 
-/// Convexity tolerance. Generous (~2 map units) because map geometry is authored
-/// at integer coordinates and adjacent walls from different linedefs may not
-/// align precisely. Matches BSP 5.2's 2-unit snap in DoLinesIntersect.
+/// Convexity tolerance. Generous (~2 map units) because map geometry is
+/// authored at integer coordinates and adjacent walls from different linedefs
+/// may not align precisely. Matches BSP 5.2's 2-unit snap in DoLinesIntersect.
 const CONVEX_EPSILON: Float = 2.0;
 
 /// Classify a point relative to a partition line.
@@ -16,8 +16,7 @@ const CONVEX_EPSILON: Float = 2.0;
 pub fn classify_point(partition: &Seg, point: &Vertex, vertices: &[Vertex]) -> PointSide {
     let px = vertices[partition.linedef_v1].x;
     let py = vertices[partition.linedef_v1].y;
-    let cross = partition.dx * (point.y - py)
-        - partition.dy * (point.x - px);
+    let cross = partition.dx * (point.y - py) - partition.dy * (point.x - px);
     let dist = cross / partition.dir_len;
 
     if dist.abs() < EPSILON {
@@ -163,9 +162,10 @@ fn score_superblock(
     // Recurse into children.
     for child in &block.children {
         if let Some(c) = child
-            && score_superblock(c, partition, segs, vertices, state) {
-                return true;
-            }
+            && score_superblock(c, partition, segs, vertices, state)
+        {
+            return true;
+        }
     }
 
     false
@@ -277,8 +277,6 @@ pub fn is_convex(seg_indices: &[usize], segs: &[Seg], vertices: &[Vertex]) -> bo
             }
         }
     }
-
-
 
     for &idx_a in seg_indices {
         let seg_a = &segs[idx_a];

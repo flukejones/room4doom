@@ -11,3 +11,6 @@ gameplay.workspace = true
 render-common.workspace = true
 sound-common.workspace = true
 wad.workspace = true
+
+[lints]
+workspace = true

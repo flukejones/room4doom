@@ -507,7 +507,7 @@ fn test_debug_subsectors() {
                 let front_sec = ld.front_sidedef.sector.num as usize;
                 let back_sec = ld.back_sidedef.as_ref().map(|sd| sd.sector.num as usize);
                 let touches_target = target_sectors.contains(&front_sec)
-                    || back_sec.map_or(false, |bs| target_sectors.contains(&bs));
+                    || back_sec.is_some_and(|bs| target_sectors.contains(&bs));
                 if touches_target {
                     let positions: Vec<_> = poly
                         .vertices

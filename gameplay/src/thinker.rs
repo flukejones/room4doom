@@ -36,10 +36,6 @@ impl Think for TestObject {
     fn thinker_mut(&mut self) -> &mut Thinker {
         unsafe { &mut *self.thinker }
     }
-
-    fn thinker(&self) -> &Thinker {
-        unsafe { &*self.thinker }
-    }
 }
 
 /// A custom allocation for `Thinker` objects. This intends to keep them in a
@@ -714,8 +710,6 @@ pub(crate) trait Think {
     fn set_thinker_ptr(&mut self, ptr: *mut Thinker);
 
     fn thinker_mut(&mut self) -> &mut Thinker;
-
-    fn thinker(&self) -> &Thinker;
 }
 
 #[cfg(test)]

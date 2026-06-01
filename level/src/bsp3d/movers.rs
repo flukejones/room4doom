@@ -103,25 +103,27 @@ pub fn classify_sector_mover(
     let mut result: Option<MoverKind> = None;
 
     if sector.tag != 0
-        && let Some(indices) = tag_linedefs.get(&sector.tag) {
-            for &li in indices {
-                if let Some(kind) = classify_special(linedefs[li].special) {
-                    result = Some(match result {
-                        Some(prev) => prev.combine(kind),
-                        None => kind,
-                    });
-                }
+        && let Some(indices) = tag_linedefs.get(&sector.tag)
+    {
+        for &li in indices {
+            if let Some(kind) = classify_special(linedefs[li].special) {
+                result = Some(match result {
+                    Some(prev) => prev.combine(kind),
+                    None => kind,
+                });
             }
         }
+    }
     for line in &sector.lines {
         if let Some(ref back) = line.backsector
             && back.num == sector.num
-                && let Some(kind) = classify_special(line.special) {
-                    result = Some(match result {
-                        Some(prev) => prev.combine(kind),
-                        None => kind,
-                    });
-                }
+            && let Some(kind) = classify_special(line.special)
+        {
+            result = Some(match result {
+                Some(prev) => prev.combine(kind),
+                None => kind,
+            });
+        }
     }
     result
 }
@@ -395,7 +397,8 @@ impl BSP3D {
                 || in_upper
                 || matches!(mover_kind, Some(MoverKind::Ceiling | MoverKind::Both));
             for pt in &boundary_pts {
-                for ss_id in self.sector_subsectors[sector_id].clone() {
+                for i in 0..self.sector_subsectors[sector_id].len() {
+                    let ss_id = self.sector_subsectors[sector_id][i];
                     if do_floor {
                         self.insert_boundary_vertex(ss_id, *pt, floor_h, true, &mut pos_map);
                     }
@@ -410,9 +413,10 @@ impl BSP3D {
         for &sector_id in &zh_sectors {
             let floor_vis = self.collect_sector_poly_vertices(sector_id, true);
             let mut replaced: HashMap<usize, usize> = HashMap::new();
-            for &ss_id in &self.sector_subsectors[sector_id].clone() {
-                let ceil_indices = self.subsector_leaves[ss_id].ceiling_polygons.clone();
-                for pi in ceil_indices {
+            for si in 0..self.sector_subsectors[sector_id].len() {
+                let ss_id = self.sector_subsectors[sector_id][si];
+                for ci in 0..self.subsector_leaves[ss_id].ceiling_polygons.len() {
+                    let pi = self.subsector_leaves[ss_id].ceiling_polygons[ci];
                     for vi in &mut self.subsector_leaves[ss_id].polygons[pi].vertices {
                         if floor_vis.contains(vi) {
                             let new_vi = *replaced.entry(*vi).or_insert_with(|| {
@@ -522,12 +526,24 @@ impl BSP3D {
     }
 
     /// Expand node AABBs to cover the full vertical range of mover sectors.
+    ///
+    /// A mover's vertical travel is propagated to its own subsector leaves
+    /// **and** to the leaves of two-sided neighbours: the opposite-facing
+    /// upper/lower wall of a shared linedef lives in the neighbour's
+    /// subsector and tracks this sector's floor/ceiling as it moves.
+    /// Without the neighbour expansion that wall's leaf AABB stays at the
+    /// static opening and gets frustum-culled once the mover travels past
+    /// it (e.g. E1M5 ld808: s48 floor drops, lower wall in s50's leaf
+    /// vanishes when looking into the pit).
     pub(super) fn expand_node_aabbs_for_movers(
         &mut self,
         sectors: &[Sector],
         linedefs: &[LineDef],
     ) {
         let tag_linedefs = build_tag_linedef_index(linedefs);
+        // Accumulated (min_z, max_z) expansion per subsector leaf.
+        let mut expand: Vec<(f32, f32)> = vec![(f32::MAX, f32::MIN); self.subsector_leaves.len()];
+
         for (sector_id, sector) in sectors.iter().enumerate() {
             let is_mover = classify_sector_mover(sector, linedefs, &tag_linedefs).is_some();
             let is_zero_height = (sector.ceilingheight.to_f32() - sector.floorheight.to_f32())
@@ -540,6 +556,7 @@ impl BSP3D {
 
             let mut min_floor = sector.floorheight.to_f32();
             let mut max_ceil = sector.ceilingheight.to_f32();
+            let mut neighbours: Vec<usize> = Vec::new();
 
             for line in &sector.lines {
                 if !line.flags.contains(LineDefFlags::TwoSided) {
@@ -551,23 +568,34 @@ impl BSP3D {
                     Some(&line.frontsector)
                 };
                 if let Some(other) = neighbor {
-                    if other.floorheight.to_f32() < min_floor {
-                        min_floor = other.floorheight.to_f32();
-                    }
-                    if other.ceilingheight.to_f32() > max_ceil {
-                        max_ceil = other.ceilingheight.to_f32();
-                    }
+                    min_floor = min_floor.min(other.floorheight.to_f32());
+                    max_ceil = max_ceil.max(other.ceilingheight.to_f32());
+                    neighbours.push(other.num as usize);
                 }
             }
 
-            for &subsector_id in &self.sector_subsectors[sector_id] {
-                let leaf = &mut self.subsector_leaves[subsector_id];
-                if min_floor < leaf.aabb.min.z {
-                    leaf.aabb.min.z = min_floor;
+            // Own leaves plus every two-sided neighbour's leaves: the shared
+            // wall driven by this mover lives in the neighbour's subsector.
+            let targets = std::iter::once(sector_id).chain(neighbours);
+            for tid in targets {
+                if tid >= self.sector_subsectors.len() {
+                    continue;
                 }
-                if max_ceil > leaf.aabb.max.z {
-                    leaf.aabb.max.z = max_ceil;
+                for &subsector_id in &self.sector_subsectors[tid] {
+                    let e = &mut expand[subsector_id];
+                    e.0 = e.0.min(min_floor);
+                    e.1 = e.1.max(max_ceil);
                 }
+            }
+        }
+
+        for (subsector_id, &(min_z, max_z)) in expand.iter().enumerate() {
+            let leaf = &mut self.subsector_leaves[subsector_id];
+            if min_z < leaf.aabb.min.z {
+                leaf.aabb.min.z = min_z;
+            }
+            if max_z > leaf.aabb.max.z {
+                leaf.aabb.max.z = max_z;
             }
         }
 
@@ -602,20 +630,21 @@ impl BSP3D {
             // Also collect vertices from adjacent back-sector subsectors.
             let front_id = seg.frontsector.num as usize;
             if front_id == sector_id
-                && let Some(back) = &seg.backsector {
-                    let back_num = back.num as usize;
-                    for &ss_id in &self.sector_subsectors[back_num] {
-                        let ss = &subsectors[ss_id];
-                        let start = ss.start_seg as usize;
-                        let end = start + ss.seg_count as usize;
-                        for gi in start..end {
-                            if let Some(gs) = segments.get(gi) {
-                                add(gs.v1.pos, &mut seen, &mut pts);
-                                add(gs.v2.pos, &mut seen, &mut pts);
-                            }
+                && let Some(back) = &seg.backsector
+            {
+                let back_num = back.num as usize;
+                for &ss_id in &self.sector_subsectors[back_num] {
+                    let ss = &subsectors[ss_id];
+                    let start = ss.start_seg as usize;
+                    let end = start + ss.seg_count as usize;
+                    for gi in start..end {
+                        if let Some(gs) = segments.get(gi) {
+                            add(gs.v1.pos, &mut seen, &mut pts);
+                            add(gs.v2.pos, &mut seen, &mut pts);
                         }
                     }
                 }
+            }
         }
         pts
     }
@@ -846,7 +875,8 @@ impl BSP3D {
             } else {
                 sectors[sector_id].ceilingheight.to_f32()
             };
-            for ss_id in self.sector_subsectors[sector_id].clone() {
+            for i in 0..self.sector_subsectors[sector_id].len() {
+                let ss_id = self.sector_subsectors[sector_id][i];
                 let leaf = &self.subsector_leaves[ss_id];
                 let indices = if is_floor {
                     &leaf.floor_polygons
@@ -877,17 +907,18 @@ impl BSP3D {
         lower_vertex_map: &VertexMap,
         upper_vertex_map: &VertexMap,
     ) {
-        for rec in &self.zh_wall_records.clone() {
-            let leaf = &mut self.subsector_leaves[rec.subsector_id];
+        for ri in 0..self.zh_wall_records.len() {
+            let rec = &self.zh_wall_records[ri];
+            let (subsector_id, poly_index) = (rec.subsector_id, rec.poly_index);
 
-            let pairs: Vec<(usize, usize, &VertexMap)> = match rec.wall_type {
-                WallType::Lower => vec![
+            let pairs: [(usize, usize, &VertexMap); 4] = match rec.wall_type {
+                WallType::Lower => [
                     (rec.bottom[0], rec.front_sector, lower_vertex_map),
                     (rec.bottom[1], rec.front_sector, lower_vertex_map),
                     (rec.top[0], rec.back_sector, lower_vertex_map),
                     (rec.top[1], rec.back_sector, lower_vertex_map),
                 ],
-                WallType::Upper => vec![
+                WallType::Upper => [
                     (rec.bottom[0], rec.back_sector, upper_vertex_map),
                     (rec.bottom[1], rec.back_sector, upper_vertex_map),
                     (rec.top[0], rec.front_sector, upper_vertex_map),
@@ -895,7 +926,7 @@ impl BSP3D {
                 ],
                 WallType::Middle => {
                     if rec.front_sector == rec.back_sector {
-                        vec![
+                        [
                             (rec.bottom[0], rec.front_sector, lower_vertex_map),
                             (rec.bottom[1], rec.front_sector, lower_vertex_map),
                             (rec.top[0], rec.front_sector, upper_vertex_map),
@@ -911,7 +942,8 @@ impl BSP3D {
                 let pos = self.vertices[wall_vi];
                 let qp = QuantizedVec2::from_vec2(Vec2::new(pos.x, pos.y), QUANT_PRECISION);
                 if let Some(target_vi) = qp.lookup(vmap, sector_id) {
-                    for vi in &mut leaf.polygons[rec.poly_index].vertices {
+                    for vi in &mut self.subsector_leaves[subsector_id].polygons[poly_index].vertices
+                    {
                         if *vi == wall_vi {
                             *vi = target_vi;
                         }
@@ -963,8 +995,7 @@ impl BSP3D {
                     ld_front
                 };
 
-                for vi_idx in 0..verts.len() {
-                    let vi = verts[vi_idx];
+                for (vi_idx, &vi) in verts.iter().enumerate() {
                     let v = self.vertices[vi];
                     let qp = QuantizedVec2::from_vec2(Vec2::new(v.x, v.y), QUANT_PRECISION);
 
@@ -1040,9 +1071,10 @@ impl BSP3D {
     ) {
         if (vertex_z - sector_height).abs() < HEIGHT_EPSILON
             && let Some(target_vi) = qp.lookup(vertex_map, sector_id)
-                && vi != target_vi {
-                    self.subsector_leaves[ss_id].polygons[pi].vertices[vi_idx] = target_vi;
-                }
+            && vi != target_vi
+        {
+            self.subsector_leaves[ss_id].polygons[pi].vertices[vi_idx] = target_vi;
+        }
     }
 
     /// Step 7: set `moves` flag on all polygons in mover sectors.
@@ -1068,25 +1100,30 @@ impl BSP3D {
             .collect();
 
         for &sector_id in &floor_movers {
-            for &ss_id in &self.sector_subsectors[sector_id].clone() {
-                let leaf = &mut self.subsector_leaves[ss_id];
-                for &fi in &leaf.floor_polygons.clone() {
-                    leaf.polygons[fi].moves = true;
+            for i in 0..self.sector_subsectors[sector_id].len() {
+                let ss_id = self.sector_subsectors[sector_id][i];
+                for fi in 0..self.subsector_leaves[ss_id].floor_polygons.len() {
+                    let pi = self.subsector_leaves[ss_id].floor_polygons[fi];
+                    self.subsector_leaves[ss_id].polygons[pi].moves = true;
                 }
             }
         }
         for &sector_id in &ceil_movers {
-            for &ss_id in &self.sector_subsectors[sector_id].clone() {
-                let leaf = &mut self.subsector_leaves[ss_id];
-                for &ci in &leaf.ceiling_polygons.clone() {
-                    leaf.polygons[ci].moves = true;
+            for i in 0..self.sector_subsectors[sector_id].len() {
+                let ss_id = self.sector_subsectors[sector_id][i];
+                for ci in 0..self.subsector_leaves[ss_id].ceiling_polygons.len() {
+                    let pi = self.subsector_leaves[ss_id].ceiling_polygons[ci];
+                    self.subsector_leaves[ss_id].polygons[pi].moves = true;
                 }
             }
         }
         // Zh wall polygons.
-        for rec in &self.zh_wall_records.clone() {
-            let leaf = &mut self.subsector_leaves[rec.subsector_id];
-            leaf.polygons[rec.poly_index].moves = true;
+        for ri in 0..self.zh_wall_records.len() {
+            let (subsector_id, poly_index) = (
+                self.zh_wall_records[ri].subsector_id,
+                self.zh_wall_records[ri].poly_index,
+            );
+            self.subsector_leaves[subsector_id].polygons[poly_index].moves = true;
         }
         // Non-zh wall polygons at mover boundaries.
         for ss_id in 0..self.subsector_leaves.len() {
@@ -1096,9 +1133,9 @@ impl BSP3D {
                 let linedef_id = match &poly.surface_kind {
                     SurfaceKind::Vertical {
                         linedef_id,
-                        wall_type,
+                        wall_type: WallType::Lower | WallType::Upper,
                         ..
-                    } if matches!(wall_type, WallType::Lower | WallType::Upper) => *linedef_id,
+                    } => *linedef_id,
                     _ => continue,
                 };
                 if poly.moves {
@@ -1267,15 +1304,20 @@ impl BSP3D {
         is_floor: bool,
     ) {
         let height = self.vertices[old_vi].z;
-        for &ss_id in &self.sector_subsectors[sector_id].clone() {
-            let leaf = &mut self.subsector_leaves[ss_id];
-            let fc_indices = if is_floor {
-                leaf.floor_polygons.clone()
+        for i in 0..self.sector_subsectors[sector_id].len() {
+            let ss_id = self.sector_subsectors[sector_id][i];
+            let fc_len = if is_floor {
+                self.subsector_leaves[ss_id].floor_polygons.len()
             } else {
-                leaf.ceiling_polygons.clone()
+                self.subsector_leaves[ss_id].ceiling_polygons.len()
             };
-            for pi in fc_indices {
-                for vi in &mut leaf.polygons[pi].vertices {
+            for fi in 0..fc_len {
+                let pi = if is_floor {
+                    self.subsector_leaves[ss_id].floor_polygons[fi]
+                } else {
+                    self.subsector_leaves[ss_id].ceiling_polygons[fi]
+                };
+                for vi in &mut self.subsector_leaves[ss_id].polygons[pi].vertices {
                     if *vi == old_vi {
                         let v = self.vertices[*vi];
                         if (v.x - pos.x).abs() < DEDUP_EPSILON
@@ -1286,15 +1328,16 @@ impl BSP3D {
                     }
                 }
             }
-            let poly_count = leaf.polygons.len();
+            let poly_count = self.subsector_leaves[ss_id].polygons.len();
             for pi in 0..poly_count {
-                if !matches!(leaf.polygons[pi].surface_kind, SurfaceKind::Vertical { .. }) {
+                let poly = &self.subsector_leaves[ss_id].polygons[pi];
+                if !matches!(poly.surface_kind, SurfaceKind::Vertical { .. }) {
                     continue;
                 }
-                if leaf.polygons[pi].sector_id != sector_id {
+                if poly.sector_id != sector_id {
                     continue;
                 }
-                for vi in &mut leaf.polygons[pi].vertices {
+                for vi in &mut self.subsector_leaves[ss_id].polygons[pi].vertices {
                     if *vi == old_vi {
                         let v = self.vertices[*vi];
                         if (v.x - pos.x).abs() < DEDUP_EPSILON

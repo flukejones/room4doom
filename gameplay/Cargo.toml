@@ -28,3 +28,6 @@ bitflags.workspace = true
 
 [dev-dependencies]
 test-utils.workspace = true
+
+[lints]
+workspace = true

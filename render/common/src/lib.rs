@@ -42,6 +42,10 @@ const VIG_GLOW_START: f32 = 0.6;
 const VIG_GLOW_R: u32 = 0xFF;
 const VIG_GLOW_G: u32 = 0xD0;
 const VIG_GLOW_B: u32 = 0x40;
+/// Max radial distance (view corner) for the vignette LUT.
+const VIG_DIST_MAX: f32 = 1.414;
+/// Distance→alpha-table index scale: maps `[0, VIG_DIST_MAX]` onto `[0, 255]`.
+const VIG_DIST_QUANT: f32 = 255.0 / VIG_DIST_MAX;
 
 // =============================================================================
 // Traits
@@ -73,6 +77,202 @@ pub trait GameRenderer {
     fn is_wiping(&self) -> bool;
 
     fn buffer_size(&self) -> &BufferSize;
+
+    /// Return the cached radial-distance LUT for the health vignette,
+    /// rebuilding it (via [`GameRenderer::build_vignette_lut`]) when the view
+    /// size changes. Impls own the cache storage.
+    fn vignette_lut(&mut self) -> &[f32];
+
+    /// Draw the cached health vignette for the current view. Impls hoist their
+    /// disjoint framebuffer / LUT field borrows and call
+    /// [`Self::blend_vignette`].
+    fn draw_health_vignette(&mut self, health: i32);
+
+    /// Build the per-pixel radial-distance LUT for the health vignette, sized
+    /// to the current view. `lut[y * width + x]` is the normalised distance
+    /// from the view centre — geometry only, so impls cache it and rebuild
+    /// only when the view size changes.
+    fn build_vignette_lut(&self) -> Vec<f32> {
+        let size = self.buffer_size();
+        let width = size.width_usize();
+        let view_height = size.view_height_usize();
+        let half_w = width as f32 * 0.5;
+        let half_h = view_height as f32 * 0.5;
+        let inv_half_w = 1.0 / half_w;
+        let inv_half_h = 1.0 / half_h;
+
+        let mut lut = vec![0.0f32; width * view_height];
+        for y in 0..view_height {
+            let dy = (y as f32 - half_h) * inv_half_h;
+            let dy2 = dy * dy;
+            let row = y * width;
+            for x in 0..width {
+                let dx = (x as f32 - half_w) * inv_half_w;
+                lut[row + x] = (dx * dx + dy2).sqrt();
+            }
+        }
+        lut
+    }
+
+    /// Apply a health-based vignette to the view area using a pre-built
+    /// radial-distance `lut` (from [`GameRenderer::build_vignette_lut`], sized
+    /// `width * view_height`).
+    /// - 100 HP: no effect
+    /// - 0–99 HP: dark red vignette creeping inward (stronger at lower health)
+    /// - 101–200 HP: subtle gold glow at edges (stronger at higher overhealth)
+    ///
+    /// `self`-free so the caller can hoist disjoint `&mut buf` / `&lut`
+    /// borrows from its own fields without the borrow checker conflating them.
+    fn blend_vignette(
+        buf: &mut [u32],
+        dist_lut: &[f32],
+        alpha_lut: &[u32; 256],
+        pitch: usize,
+        width: usize,
+        view_height: usize,
+        glow: bool,
+    ) {
+        if glow {
+            for y in 0..view_height {
+                let row = y * pitch;
+                let lut_row = y * width;
+                for x in 0..width {
+                    let idx = (dist_lut[lut_row + x] * VIG_DIST_QUANT) as usize;
+                    let a256 = alpha_lut[idx.min(255)];
+                    if a256 == 0 {
+                        continue;
+                    }
+                    let inv = 256 - a256;
+                    let pixel = buf[row + x];
+                    let new = glow_blend_pixel(pixel, inv, a256);
+                    buf[row + x] = new;
+                }
+            }
+        } else {
+            // Tint is a convex blend (inv + a256 == 256, no per-channel
+            // saturation), so R+B and G can be blended two-at-a-time via SWAR:
+            // products stay within their byte lanes and never overflow u32.
+            for y in 0..view_height {
+                let row = y * pitch;
+                let lut_row = y * width;
+                for x in 0..width {
+                    let idx = (dist_lut[lut_row + x] * VIG_DIST_QUANT) as usize;
+                    let a256 = alpha_lut[idx.min(255)];
+                    if a256 == 0 {
+                        continue;
+                    }
+                    let inv = 256 - a256;
+                    buf[row + x] = tint_blend_pixel(buf[row + x], inv, a256);
+                }
+            }
+        }
+    }
+
+    /// Compute the `(start, max_alpha)` blend parameters for `health`, or
+    /// `None` at 100 HP (no vignette).
+    fn vignette_params(health: i32) -> Option<(f32, f32)> {
+        if health == 100 {
+            None
+        } else if health < 100 {
+            let t = health.max(0) as f32 / 100.0;
+            Some((
+                VIG_START_DEATH + VIG_START_FULL * t * t,
+                VIG_ALPHA_MIN + (VIG_ALPHA_MAX - VIG_ALPHA_MIN) * (1.0 - t),
+            ))
+        } else {
+            let excess = ((health - 100) as f32 / 100.0).min(1.0);
+            Some((
+                VIG_GLOW_START + (VIG_START_FULL - VIG_GLOW_START) * (1.0 - excess),
+                VIG_GLOW_ALPHA * excess,
+            ))
+        }
+    }
+}
+
+/// Convex damage-tint blend of one `0x00RRGGBB` pixel (R+B and G blended
+/// two-at-a-time via SWAR; the red tint is added into R's slot). No per-channel
+/// saturation is needed — `inv + a256 == 256`, so each channel stays ≤ 255 and
+/// the byte-lane products never overflow `u32`. Output is `0xFFRRGGBB`.
+#[inline]
+fn tint_blend_pixel(pixel: u32, inv: u32, a256: u32) -> u32 {
+    let rb = pixel & 0x00FF_00FF;
+    let g = pixel & 0x0000_FF00;
+    let rb = ((rb * inv + ((VIG_TINT_R * a256) << 16)) >> 8) & 0x00FF_00FF;
+    let g = ((g * inv) >> 8) & 0x0000_FF00;
+    0xFF00_0000 | rb | g
+}
+
+/// Additive overhealth-glow blend of one `0x00RRGGBB` pixel. `inv = 256 -
+/// a256`. Per-channel `.min(255)` saturation (the glow is additive, not
+/// convex) makes SWAR more costly than it saves, so this stays scalar. Output
+/// is `0xFFRRGGBB`.
+#[inline]
+fn glow_blend_pixel(pixel: u32, inv: u32, a256: u32) -> u32 {
+    let nr = (((pixel >> 16) & 0xFF) * inv + VIG_GLOW_R * a256) >> 8;
+    let ng = (((pixel >> 8) & 0xFF) * inv + VIG_GLOW_G * a256) >> 8;
+    let nb = ((pixel & 0xFF) * inv + VIG_GLOW_B * a256) >> 8;
+    0xFF00_0000 | (nr.min(255) << 16) | (ng.min(255) << 8) | nb.min(255)
+}
+
+/// Build the 256-entry blend-weight (`a256`, 0..=256) table indexed by
+/// quantised radial distance (`d * VIG_DIST_QUANT`). Entries at or below
+/// `start` are 0 so those pixels are skipped by the caller.
+pub fn build_vignette_alpha_lut(start: f32, max_alpha: f32) -> [u32; 256] {
+    let inv_span = 1.0 / (VIG_DIST_MAX - start);
+    let mut lut = [0u32; 256];
+    for (idx, a) in lut.iter_mut().enumerate() {
+        let d = idx as f32 / VIG_DIST_QUANT;
+        if d <= start {
+            continue;
+        }
+        let raw = ((d - start) * inv_span).clamp(0.0, 1.0);
+        *a = (raw * max_alpha * 256.0) as u32;
+    }
+    lut
+}
+
+#[cfg(test)]
+mod vignette_tests {
+    /// `tint_blend_pixel` (SWAR convex blend) must match the scalar
+    /// per-channel reference for every channel value and blend weight.
+    #[test]
+    fn tint_swar_matches_scalar() {
+        for a256 in 0u32..=256 {
+            let inv = 256 - a256;
+            for pixel in (0u32..=0x00FF_FFFF).step_by(0x4321) {
+                let pr = (pixel >> 16) & 0xFF;
+                let pg = (pixel >> 8) & 0xFF;
+                let pb = pixel & 0xFF;
+                let nr = (pr * inv + super::VIG_TINT_R * a256) >> 8;
+                let ng = (pg * inv) >> 8;
+                let nb = (pb * inv) >> 8;
+                let scalar = 0xFF00_0000 | (nr << 16) | (ng << 8) | nb;
+                let swar = super::tint_blend_pixel(pixel, inv, a256);
+                assert_eq!(swar, scalar, "pixel {pixel:#010X}, a256 {a256}");
+            }
+        }
+    }
+
+    /// `glow_blend_pixel` (u64 SWAR + per-lane saturation) must match the
+    /// scalar `.min(255)` reference for every channel value and blend weight,
+    /// including overflowing channels.
+    #[test]
+    fn glow_swar_matches_scalar() {
+        for a256 in 0u32..=256 {
+            let inv = 256 - a256;
+            for pixel in (0u32..=0x00FF_FFFF).step_by(0x4321) {
+                let pr = (pixel >> 16) & 0xFF;
+                let pg = (pixel >> 8) & 0xFF;
+                let pb = pixel & 0xFF;
+                let nr = ((pr * inv + super::VIG_GLOW_R * a256) >> 8).min(255);
+                let ng = ((pg * inv + super::VIG_GLOW_G * a256) >> 8).min(255);
+                let nb = ((pb * inv + super::VIG_GLOW_B * a256) >> 8).min(255);
+                let scalar = 0xFF00_0000 | (nr << 16) | (ng << 8) | nb;
+                let swar = super::glow_blend_pixel(pixel, inv, a256);
+                assert_eq!(swar, scalar, "pixel {pixel:#010X}, a256 {a256}");
+            }
+        }
+    }
 }
 
 pub trait DrawBuffer {
@@ -286,87 +486,5 @@ pub fn fuzz_span(
         let darkened = fuzz_darken(buf[src_idx]);
         buf[row_base + x] = darkened;
         *fuzz_pos += 1;
-    }
-}
-
-/// Apply a health-based vignette to the view area of the framebuffer.
-/// - 100 HP: no effect
-/// - 0–99 HP: dark red vignette creeping inward (stronger at lower health)
-/// - 101–200 HP: subtle gold glow at edges (stronger at higher overhealth)
-pub fn draw_health_vignette(
-    buf: &mut [u32],
-    pitch: usize,
-    width: usize,
-    view_height: usize,
-    health: i32,
-) {
-    if health == 100 {
-        return;
-    }
-
-    let half_w = width as f32 * 0.5;
-    let half_h = view_height as f32 * 0.5;
-    let inv_half_w = 1.0 / half_w;
-    let inv_half_h = 1.0 / half_h;
-
-    if health < 100 {
-        let t = health.max(0) as f32 / 100.0;
-        let intensity = 1.0 - t;
-        let max_alpha = VIG_ALPHA_MIN + (VIG_ALPHA_MAX - VIG_ALPHA_MIN) * intensity;
-        let start = VIG_START_DEATH + VIG_START_FULL * t * t;
-
-        for y in 0..view_height {
-            let dy = (y as f32 - half_h) * inv_half_h;
-            let dy2 = dy * dy;
-            let row = y * pitch;
-            for x in 0..width {
-                let dx = (x as f32 - half_w) * inv_half_w;
-                let d = (dx * dx + dy2).sqrt();
-                if d <= start {
-                    continue;
-                }
-                let raw = ((d - start) / (1.414 - start)).min(1.0);
-                let alpha = raw * max_alpha;
-                let a256 = (alpha * 256.0) as u32;
-                let inv = 256 - a256;
-                let pixel = buf[row + x];
-                let pr = (pixel >> 16) & 0xFF;
-                let pg = (pixel >> 8) & 0xFF;
-                let pb = pixel & 0xFF;
-                let nr = (pr * inv + VIG_TINT_R * a256) >> 8;
-                let ng = (pg * inv) >> 8;
-                let nb = (pb * inv) >> 8;
-                buf[row + x] = 0xFF000000 | (nr << 16) | (ng << 8) | nb;
-            }
-        }
-    } else {
-        let excess = ((health - 100) as f32 / 100.0).min(1.0);
-        let max_alpha = VIG_GLOW_ALPHA * excess;
-        let start = VIG_GLOW_START + (VIG_START_FULL - VIG_GLOW_START) * (1.0 - excess);
-
-        for y in 0..view_height {
-            let dy = (y as f32 - half_h) * inv_half_h;
-            let dy2 = dy * dy;
-            let row = y * pitch;
-            for x in 0..width {
-                let dx = (x as f32 - half_w) * inv_half_w;
-                let d = (dx * dx + dy2).sqrt();
-                if d <= start {
-                    continue;
-                }
-                let raw = ((d - start) / (1.414 - start)).min(1.0);
-                let alpha = raw * max_alpha;
-                let a256 = (alpha * 256.0) as u32;
-                let inv = 256 - a256;
-                let pixel = buf[row + x];
-                let pr = (pixel >> 16) & 0xFF;
-                let pg = (pixel >> 8) & 0xFF;
-                let pb = pixel & 0xFF;
-                let nr = ((pr * inv + VIG_GLOW_R * a256) >> 8).min(255);
-                let ng = ((pg * inv + VIG_GLOW_G * a256) >> 8).min(255);
-                let nb = ((pb * inv + VIG_GLOW_B * a256) >> 8).min(255);
-                buf[row + x] = 0xFF000000 | (nr << 16) | (ng << 8) | nb;
-            }
-        }
     }
 }

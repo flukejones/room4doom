@@ -81,9 +81,11 @@ impl MapObject {
     /// - Clips to ceiling (reverses skull momentum, explodes missiles)
     /// - Applies gravity when airborne and not `Nogravity`
     pub(crate) fn p_z_movement(&mut self) {
-        if self.player.is_some() && self.z < self.floorz {
+        if let Some(player) = self.player
+            && self.z < self.floorz
+        {
             unsafe {
-                let player = &mut *(self.player.unwrap());
+                let player = &mut *player;
                 player.viewheight -= self.floorz - self.z;
                 player.deltaviewheight = (VIEWHEIGHT - player.viewheight).shr(3);
             }
@@ -93,29 +95,30 @@ impl MapObject {
         self.z += self.momz;
 
         if self.flags.contains(MapObjFlag::Float)
-            && let Some(target) = self.target {
-                let target = unsafe { (*target).mobj() };
+            && let Some(target) = self.target
+        {
+            let target = unsafe { (*target).mobj() };
 
-                // float down towards target if too close
-                if !self.flags.contains(MapObjFlag::Skullfly)
-                    && !self.flags.contains(MapObjFlag::Infloat)
-                {
-                    let dx = (self.x - target.x).doom_abs();
-                    let dy = (self.y - target.y).doom_abs();
-                    let dist = if dx < dy {
-                        dx + dy - dx.shr(1)
-                    } else {
-                        dx + dy - dy.shr(1)
-                    };
-                    let delta = target.z + self.height.shr(1) - self.z;
+            // float down towards target if too close
+            if !self.flags.contains(MapObjFlag::Skullfly)
+                && !self.flags.contains(MapObjFlag::Infloat)
+            {
+                let dx = (self.x - target.x).doom_abs();
+                let dy = (self.y - target.y).doom_abs();
+                let dist = if dx < dy {
+                    dx + dy - dx.shr(1)
+                } else {
+                    dx + dy - dy.shr(1)
+                };
+                let delta = target.z + self.height.shr(1) - self.z;
 
-                    if delta.is_negative() && dist < -(delta * 3) {
-                        self.z -= FLOATSPEED;
-                    } else if !delta.is_negative() && !delta.is_zero() && dist < delta * 3 {
-                        self.z += FLOATSPEED;
-                    }
+                if delta.is_negative() && dist < -(delta * 3) {
+                    self.z -= FLOATSPEED;
+                } else if !delta.is_negative() && !delta.is_zero() && dist < delta * 3 {
+                    self.z += FLOATSPEED;
                 }
             }
+        }
 
         // clip movement
 
@@ -128,13 +131,15 @@ impl MapObject {
             }
 
             if self.momz.is_negative() {
-                if self.player.is_some() && self.momz < -8 {
+                if let Some(player) = self.player
+                    && self.momz < -8
+                {
                     // Squat down.
                     // Decrease viewheight for a moment
                     // after hitting the ground (hard),
                     // and utter appropriate sound.
                     unsafe {
-                        let player = &mut *(self.player.unwrap());
+                        let player = &mut *player;
                         player.deltaviewheight = self.momz.shr(3);
                     }
                 }
@@ -240,10 +245,11 @@ impl MapObject {
                 } else if self.flags.contains(MapObjFlag::Missile) {
                     if let Some(line) = ctrl.sky_line
                         && let Some(back) = line.backsector.as_ref()
-                            && back.ceilingpic == self.level().sky_num {
-                                self.remove();
-                                return;
-                            }
+                        && back.ceilingpic == self.level().sky_num
+                    {
+                        self.remove();
+                        return;
+                    }
                     self.p_explode_missile(); //
                 } else {
                     self.momx = FixedT::ZERO;

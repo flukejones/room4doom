@@ -404,15 +404,13 @@ fn read_mus_event(
         MusEventType::PitchBend => MusEvent::read_pitch_bend(buf, marker),
         MusEventType::SystemEvent => MusEvent::read_system_event(buf, marker),
         MusEventType::Controller => MusEvent::read_controller(buf, marker, channels),
-        MusEventType::EndOfMeasure | MusEventType::ScoreEnd => {
-            MusEvent::read_generic(buf, marker)
-        }
+        MusEventType::EndOfMeasure | MusEventType::ScoreEnd => MusEvent::read_generic(buf, marker),
     }
 }
 
 fn read_track(buf: &[u8], header: &MusHeader) -> Result<Vec<MusEvent>, MusError> {
     let mut track = Vec::new();
-    let track_end = (header.length + header.offset) as usize;
+    let track_end = header.length as usize + header.offset as usize;
     let mut marker = (header.offset as usize).saturating_sub(1);
     let mut channels = [0u8; 16];
 

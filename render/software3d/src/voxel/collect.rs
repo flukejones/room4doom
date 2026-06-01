@@ -22,7 +22,7 @@ pub struct VoxelCollectParams<'a> {
     pub is_shadow: bool,
 }
 
-pub struct VoxelSliceRef {
+pub struct VoxelSliceRef<'a> {
     pub origin: Vec3,
     pub u_vec: Vec3,
     pub v_vec: Vec3,
@@ -30,14 +30,12 @@ pub struct VoxelSliceRef {
     pub width: u16,
     pub height: u16,
     pub axis: u8,
-    pub columns: *const [VoxelColumn],
+    /// Borrowed from the source `VoxelSlices`, which outlives the per-frame
+    /// collect → sort → rasterise sequence.
+    pub columns: &'a [VoxelColumn],
     pub depth: f32,
     pub is_shadow: bool,
 }
-
-// SAFETY: VoxelSliceRef borrows data from VoxelSlices which lives
-// for the duration of the frame (game) or the app lifetime (viewer).
-unsafe impl Send for VoxelSliceRef {}
 
 pub enum CollectResult {
     Behind,
@@ -46,11 +44,11 @@ pub enum CollectResult {
     Collected(u32, u32),
 }
 
-pub fn collect_visible_slices(
-    vslices: &VoxelSlices,
+pub fn collect_visible_slices<'a>(
+    vslices: &'a VoxelSlices,
     params: &VoxelCollectParams,
     depth_buffer: &DepthBuffer,
-    out: &mut Vec<VoxelSliceRef>,
+    out: &mut Vec<VoxelSliceRef<'a>>,
 ) -> CollectResult {
     let base_x = params.base_pos.x;
     let base_y = params.base_pos.y;
@@ -279,7 +277,7 @@ pub fn collect_visible_slices(
                 width: quad.width,
                 height: quad.height,
                 axis: axis as u8,
-                columns: &columns[..] as *const [VoxelColumn],
+                columns,
                 depth: slice_depth,
                 is_shadow: params.is_shadow,
             });

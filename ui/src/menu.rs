@@ -8,7 +8,8 @@ use game_config::{GameMode, Skill};
 use gameplay::english as lang;
 use gamestate_traits::{ConfigKey, ConfigTraits, GameState, GameTraits, KeyCode, SubsystemTrait};
 use hud_util::{
-    draw_patch, draw_text_line, draw_text_line_tinted, fullscreen_scale, hud_scale, measure_text_line
+    draw_patch, draw_text_line, draw_text_line_tinted, fullscreen_scale, hud_scale,
+    measure_text_line,
 };
 use render_common::DrawBuffer;
 use sound_common::SfxName;
@@ -545,9 +546,10 @@ impl GameMenu {
             }
             for item in &menu.items {
                 if !item.patch.is_empty()
-                    && let Some(lump) = wad.get_lump(&item.patch) {
-                        patches.insert(item.patch.to_string(), WadPatch::from_lump(lump));
-                    }
+                    && let Some(lump) = wad.get_lump(&item.patch)
+                {
+                    patches.insert(item.patch.to_string(), WadPatch::from_lump(lump));
+                }
             }
         }
 

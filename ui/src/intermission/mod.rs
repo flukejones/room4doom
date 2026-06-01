@@ -5,7 +5,7 @@ use game_config::GameMode;
 use gameplay::{TICRATE, WorldEndPlayerInfo};
 use gamestate_traits::{ConfigTraits, GameTraits, KeyCode, SubsystemTrait, WorldInfo};
 use hud_util::{
-    HUD_STRING, HUDString, draw_patch, draw_text_line, fullscreen_scale, measure_text_line
+    HUD_STRING, HUDString, draw_patch, draw_text_line, fullscreen_scale, measure_text_line,
 };
 use log::warn;
 use math::m_random;
@@ -167,27 +167,15 @@ impl Intermission {
             }
         }
 
-        // TODO: TMP TESTING STUFF HERE
-        let font_start = b'!';
-        let font_end = b'_';
-        let font_count = font_end - font_start + 1;
-        for i in 0..font_count {
-            let i = i + font_start;
-            if let Some(lump) = wad.get_lump(&format!("STCFN{i:0>3}")) {
-                WadPatch::from_lump(lump);
-            } else if mode != GameMode::Commercial {
-                warn!("Missing STCFN{i:0>3}");
-            }
-        }
-
         let mut umapinfo_patches = HashMap::new();
         let mut umapinfo_names = HashMap::new();
         if let Some(info) = umapinfo {
             for entry in info.entries() {
                 if let Some(ref pic) = entry.level_pic
-                    && let Some(lump) = wad.get_lump(pic) {
-                        umapinfo_patches.insert(entry.map_name.clone(), WadPatch::from_lump(lump));
-                    }
+                    && let Some(lump) = wad.get_lump(pic)
+                {
+                    umapinfo_patches.insert(entry.map_name.clone(), WadPatch::from_lump(lump));
+                }
                 if let Some(ref name) = entry.level_name {
                     umapinfo_names.insert(entry.map_name.clone(), name.clone());
                 }
@@ -271,9 +259,10 @@ impl Intermission {
         let ep = self.level_info.episode.min(self.level_names.len() - 1);
         let idx = self.level_info.last - 1;
         if let Some(names) = self.level_names.get(ep)
-            && let Some(patch) = names.get(idx) {
-                return LevelDisplay::Patch(patch);
-            }
+            && let Some(patch) = names.get(idx)
+        {
+            return LevelDisplay::Patch(patch);
+        }
         LevelDisplay::Patch(&self.level_names[0][0])
     }
 
@@ -287,9 +276,10 @@ impl Intermission {
         }
         let ep = self.level_info.episode.min(self.level_names.len() - 1);
         if let Some(names) = self.level_names.get(ep)
-            && let Some(patch) = names.get(self.level_info.next) {
-                return LevelDisplay::Patch(patch);
-            }
+            && let Some(patch) = names.get(self.level_info.next)
+        {
+            return LevelDisplay::Patch(patch);
+        }
         LevelDisplay::Patch(&self.level_names[0][0])
     }
 
@@ -408,16 +398,17 @@ impl SubsystemTrait for Intermission {
         // Pre-load intertext backdrop from UMAPINFO
         let map_name = self.map_name_for(self.level_info.episode, self.level_info.last);
         if let Some(entry) = self.umapinfo.as_ref().and_then(|u| u.get(&map_name))
-            && entry.inter_text.is_some() {
-                let backdrop = entry.inter_backdrop.as_deref().unwrap_or("FLOOR4_8");
-                let wad = game.get_wad_data();
-                if let Some(lump) = wad.get_lump(backdrop) {
-                    self.inter_text_bg = Some(WadFlat {
-                        name: backdrop.to_string(),
-                        data: lump.data.clone(),
-                    });
-                }
+            && entry.inter_text.is_some()
+        {
+            let backdrop = entry.inter_backdrop.as_deref().unwrap_or("FLOOR4_8");
+            let wad = game.get_wad_data();
+            if let Some(lump) = wad.get_lump(backdrop) {
+                self.inter_text_bg = Some(WadFlat {
+                    name: backdrop.to_string(),
+                    data: lump.data.clone(),
+                });
             }
+        }
 
         self.init_stats();
     }

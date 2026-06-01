@@ -23,11 +23,14 @@
 pub mod game_impl;
 pub mod subsystems;
 
+const SHUTDOWN_DRAIN_DELAY: Duration = Duration::from_millis(500);
+
 use crate::subsystems::GameSubsystem;
 use game_config::tic_cmd::{TIC_CMD_BUTTONS, TicCmd};
 use game_config::{GameMission, GameMode, GameOptions, Skill};
 use gameplay::{
-    GameAction, LevelState, MAXPLAYERS, MapObject, Player, PlayerState, respawn_specials, save, spawn_specials, update_specials
+    GameAction, LevelState, MAXPLAYERS, MapObject, Player, PlayerState, respawn_specials, save,
+    spawn_specials, update_specials,
 };
 use gamestate_traits::{ConfigKey, GameState, GameTraits, SubsystemTrait, WorldInfo};
 use log::{debug, error, info, trace, warn};
@@ -197,10 +200,20 @@ pub struct Game {
 
 impl Drop for Game {
     fn drop(&mut self) {
-        self.sound_cmd.send(SoundAction::Shutdown).unwrap();
-        let thread = self.snd_thread.take();
-        thread.unwrap().join().unwrap();
-        std::thread::sleep(Duration::from_millis(500));
+        // Best-effort shutdown: never panic in `drop` (a panic here during
+        // unwinding aborts the process). Log and continue instead.
+        if let Err(e) = self.sound_cmd.send(SoundAction::Shutdown) {
+            warn!("Sound channel closed before shutdown: {e}");
+        }
+        match self.snd_thread.take() {
+            Some(thread) => {
+                if let Err(e) = thread.join() {
+                    warn!("Sound thread panicked during shutdown: {e:?}");
+                }
+            }
+            None => warn!("Sound thread already gone at shutdown"),
+        }
+        std::thread::sleep(SHUTDOWN_DRAIN_DELAY);
     }
 }
 
@@ -678,7 +691,7 @@ impl Game {
             // Clear all thinkers spawned by do_load_level
             level.thinkers.clear();
             // Clear sector thinglists and specialdata
-            for sector in level.level_data.sectors_mut() {
+            for sector in level.level_data.sectors.iter_mut() {
                 sector.thinglist = None;
                 sector.specialdata = None;
                 sector.sound_target = None;
@@ -797,10 +810,11 @@ impl Game {
     /// G_ReadDemoTicCmd
     fn read_demo_tic_cmd(&mut self, cmd: &mut TicCmd) {
         if let Some(byte) = self.demo.buffer.peek()
-            && *byte == DEMO_MARKER {
-                self.check_demo_status();
-                return;
-            }
+            && *byte == DEMO_MARKER
+        {
+            self.check_demo_status();
+            return;
+        }
 
         if let Some(byte) = self.demo.buffer.next() {
             cmd.forwardmove = byte as i8;
@@ -904,10 +918,11 @@ impl Game {
             self.demo.buffer = demo.data.clone().into_iter().peekable();
 
             if let Some(byte) = self.demo.buffer.next()
-                && byte != 109 {
-                    self.pending_action = GameAction::None;
-                    return;
-                }
+                && byte != 109
+            {
+                self.pending_action = GameAction::None;
+                return;
+            }
 
             if let Some(byte) = self.demo.buffer.next() {
                 self.options.skill = Skill::from(byte);
@@ -928,9 +943,10 @@ impl Game {
                 self.options.fast_parm = byte == 1;
             }
             if let Some(byte) = self.demo.buffer.next()
-                && !self.options.no_monsters {
-                    self.options.no_monsters = byte == 1;
-                }
+                && !self.options.no_monsters
+            {
+                self.options.no_monsters = byte == 1;
+            }
             if let Some(byte) = self.demo.buffer.next() {
                 self.consoleplayer = byte as usize;
             }
@@ -982,7 +998,19 @@ impl Game {
 
         let map_name = self.current_map_name();
         let map_entry = self.umapinfo.as_ref().and_then(|u| u.get(&map_name));
-        let secret = self.level.as_ref().unwrap().secret_exit;
+
+        // Read all level-derived values once; bail consistently if the level
+        // is gone rather than unwrapping at scattered call sites.
+        let Some(level) = self.level.as_ref() else {
+            error!("do_completed called with no active level");
+            self.gamestate = GameState::Intermission;
+            return;
+        };
+        let secret = level.secret_exit;
+        let max_kills = level.total_level_kills;
+        let max_items = level.total_level_items;
+        let max_secrets = level.total_level_secrets;
+        let level_time = level.level_time;
 
         // UMAPINFO end-game checks (endgame, endpic, endbunny, endcast)
         if let Some(entry) = map_entry
@@ -990,10 +1018,10 @@ impl Game {
                 || entry.end_pic.is_some()
                 || entry.end_bunny
                 || entry.end_cast)
-            {
-                self.pending_action = GameAction::Victory;
-                return;
-            }
+        {
+            self.pending_action = GameAction::Victory;
+            return;
+        }
 
         // Default end-game: E*M8 triggers victory unless UMAPINFO overrides
         let default_victory =
@@ -1066,9 +1094,9 @@ impl Game {
             }
         }
 
-        self.world_info.maxkills = self.level.as_ref().unwrap().total_level_kills;
-        self.world_info.maxitems = self.level.as_ref().unwrap().total_level_items;
-        self.world_info.maxsecret = self.level.as_ref().unwrap().total_level_secrets;
+        self.world_info.maxkills = max_kills;
+        self.world_info.maxitems = max_items;
+        self.world_info.maxsecret = max_secrets;
         self.world_info.maxfrags = 0;
 
         for (i, in_game) in self.players_in_game.iter().enumerate() {
@@ -1076,11 +1104,7 @@ impl Game {
             self.world_info.plyr[i].total_kills = self.players[i].total_kills;
             self.world_info.plyr[i].items_collected = self.players[i].items_collected;
             self.world_info.plyr[i].secrets_found = self.players[i].secrets_found;
-            self.world_info.plyr[i].level_time = if let Some(level) = &self.level {
-                level.level_time
-            } else {
-                0
-            };
+            self.world_info.plyr[i].level_time = level_time;
             self.world_info.plyr[i]
                 .frags
                 .copy_from_slice(&self.players[i].frags);
@@ -1122,10 +1146,11 @@ impl Game {
         }
 
         if let Some(level) = &mut self.level
-            && let Some(action) = level.game_action.take() {
-                self.pending_action = action;
-                info!("Game state changed: {:?}", self.pending_action);
-            }
+            && let Some(action) = level.game_action.take()
+        {
+            self.pending_action = action;
+            info!("Game state changed: {:?}", self.pending_action);
+        }
 
         // do things to change the game-exe state
         match self.pending_action {
@@ -1247,7 +1272,7 @@ impl Game {
 
         if let Some(ref mut level) = self.level {
             // Save sector state for rendering interpolation (before any gameplay)
-            for sector in level.level_data.sectors_mut() {
+            for sector in level.level_data.sectors.iter_mut() {
                 sector.prev_floorheight = sector.floorheight;
                 sector.prev_ceilingheight = sector.ceilingheight;
                 sector.prev_lightlevel = sector.lightlevel;

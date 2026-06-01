@@ -5,9 +5,16 @@
 //! `box_on_line_side`, avoiding per-seg classification for blocks that
 //! don't straddle the partition line. Based on the technique from glbsp.
 
-use crate::types::{EPSILON, Float, Vertex, Seg};
+use crate::types::{EPSILON, Float, Seg, Vertex};
 
 const LEAF_SIZE: Float = 256.0;
+
+/// Box inflation applied before bulk side classification (`IFFY_LEN * 1.5` in
+/// glbsp, where `IFFY_LEN = 4.0`). A block edge lying exactly on the partition
+/// line must classify as a straddle (0) so its segs are tested individually;
+/// without the margin a box touching the line from one side is reported fully
+/// on that side, hiding collinear front/back segs that need to split.
+const BOX_SIDE_MARGIN: Float = 6.0;
 
 pub struct SuperBlock {
     pub x1: Float,
@@ -163,10 +170,10 @@ pub fn box_on_line_side(block: &SuperBlock, part: &Seg, vertices: &[Vertex]) -> 
     let pdx = part.dx;
     let pdy = part.dy;
 
-    let x1 = block.x1;
-    let y1 = block.y1;
-    let x2 = block.x2;
-    let y2 = block.y2;
+    let x1 = block.x1 - BOX_SIDE_MARGIN;
+    let y1 = block.y1 - BOX_SIDE_MARGIN;
+    let x2 = block.x2 + BOX_SIDE_MARGIN;
+    let y2 = block.y2 + BOX_SIDE_MARGIN;
 
     let (p1, p2) = if pdx.abs() < EPSILON {
         // Vertical partition.

@@ -151,7 +151,7 @@ pub fn build_node(
 /// Called once after the full tree is built so all vertices exist.
 pub fn share_all_boundary_vertices(
     nodes: &[Node],
-    subsectors: &mut Vec<SubSector>,
+    subsectors: &mut [SubSector],
     poly_indices: &mut Vec<u32>,
     edges: &mut Vec<Edge>,
     pool: &VertexPool,
@@ -355,7 +355,7 @@ fn collect_boundary_inner(
 fn insert_boundary_verts(
     verts_to_insert: &[u32],
     target_leaves: &[usize],
-    subsectors: &mut Vec<SubSector>,
+    subsectors: &mut [SubSector],
     poly_indices: &mut Vec<u32>,
     edges: &mut Vec<Edge>,
     vertices: &[Vertex],

@@ -27,6 +27,23 @@ pub enum CeilKind {
     SilentCrushAndRaise,
 }
 
+impl TryFrom<u8> for CeilKind {
+    /// The raw byte that failed to map to a variant.
+    type Error = u8;
+
+    fn try_from(v: u8) -> Result<Self, u8> {
+        match v {
+            0 => Ok(CeilKind::LowerToFloor),
+            1 => Ok(CeilKind::RaiseToHighest),
+            2 => Ok(CeilKind::LowerAndCrush),
+            3 => Ok(CeilKind::CrushAndRaise),
+            4 => Ok(CeilKind::FastCrushAndRaise),
+            5 => Ok(CeilKind::SilentCrushAndRaise),
+            _ => Err(v),
+        }
+    }
+}
+
 pub struct CeilingMove {
     pub thinker: *mut Thinker,
     pub sector: MapPtr<Sector>,
@@ -57,7 +74,7 @@ pub fn ev_do_ceiling(line: MapPtr<LineDef>, kind: CeilKind, level: &mut LevelSta
 
     for sector in level
         .level_data
-        .sectors_mut()
+        .sectors
         .iter_mut()
         .filter(|s| s.tag == line.tag)
     {
@@ -231,13 +248,5 @@ impl Think for CeilingMove {
             std::panic!("ceiling thinker was null");
         }
         unsafe { Thinker::from_erased(self.thinker) }
-    }
-
-    fn thinker(&self) -> &Thinker {
-        #[cfg(feature = "null_check")]
-        if self.thinker.is_null() {
-            std::panic!("ceiling thinker was null");
-        }
-        unsafe { Thinker::from_erased_ref(self.thinker) }
     }
 }

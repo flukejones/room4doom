@@ -45,10 +45,9 @@ fn test_e1m3_stair_sectors_have_lower_walls_between_steps() {
                     wall_type,
                     ..
                 } = &poly.surface_kind
+                    && matches!(wall_type, WallType::Lower)
                 {
-                    if matches!(wall_type, WallType::Lower) {
-                        lower_wall_count += 1;
-                    }
+                    lower_wall_count += 1;
                 }
             }
         }
