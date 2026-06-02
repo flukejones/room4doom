@@ -10,7 +10,8 @@ fn test_e5m1_sector24_has_lower_walls() {
     let mut lower_wall_count = 0;
     for &ssid in &bsp3d.sector_subsectors[24] {
         let leaf = &bsp3d.subsector_leaves[ssid];
-        for poly in &leaf.polygons {
+        for &gi in &leaf.polygon_indices {
+            let poly = &bsp3d.polygons[gi];
             if let SurfaceKind::Vertical {
                 wall_type,
                 ..
@@ -33,7 +34,8 @@ fn test_e5m1_sector24_has_lower_walls() {
         let front_sector_num = seg.frontsector.num as usize;
         for &ssid in &bsp3d.sector_subsectors[front_sector_num] {
             let leaf = &bsp3d.subsector_leaves[ssid];
-            for poly in &leaf.polygons {
+            for &gi in &leaf.polygon_indices {
+                let poly = &bsp3d.polygons[gi];
                 if let SurfaceKind::Vertical {
                     wall_type,
                     ..
@@ -64,7 +66,8 @@ fn test_e5m1_sector24_wall_properties() {
     let mut total_lower_walls = 0;
     for &ssid in &bsp3d.sector_subsectors[24] {
         let leaf = &bsp3d.subsector_leaves[ssid];
-        for poly in &leaf.polygons {
+        for &gi in &leaf.polygon_indices {
+            let poly = &bsp3d.polygons[gi];
             if let SurfaceKind::Vertical {
                 wall_type,
                 ..

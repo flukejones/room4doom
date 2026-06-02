@@ -18,7 +18,7 @@ pub mod map_defs;
 // Re-exports for convenience
 pub use bsp3d::movers::is_sector_mover;
 pub use bsp3d::{
-    AABB, BSP3D, BSPLeaf3D, MovementType, Node3D, OcclusionSeg, SurfaceKind, SurfacePolygon, WallTexPin, WallType
+    AABB, BSP3D, BSPLeaf3D, MovementType, Node3D, OcclusionSeg, SurfaceKind, SurfacePolygon, WallFace, WallTexPin, WallType
 };
 pub use flags::LineDefFlags;
 pub use level_data::LevelData;

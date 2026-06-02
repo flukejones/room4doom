@@ -57,7 +57,7 @@ fn test_door_vertex_sharing() {
         if let Some(leaf) = bsp3d.get_subsector_leaf(subsector_id) {
             println!("\nSubsector {} (Sector 25) polygons:", subsector_id);
             for &floor_poly_idx in &leaf.floor_polygons {
-                if let Some(polygon) = leaf.polygons.get(floor_poly_idx) {
+                if let Some(polygon) = bsp3d.polygons.get(floor_poly_idx) {
                     println!(
                         "  Floor polygon {} vertices: {:?}",
                         floor_poly_idx, polygon.vertices
@@ -79,7 +79,7 @@ fn test_door_vertex_sharing() {
         if let Some(leaf) = bsp3d.get_subsector_leaf(subsector_id) {
             println!("\nSubsector {} (Sector 26) polygons:", subsector_id);
             for &floor_poly_idx in &leaf.floor_polygons {
-                if let Some(polygon) = leaf.polygons.get(floor_poly_idx) {
+                if let Some(polygon) = bsp3d.polygons.get(floor_poly_idx) {
                     println!(
                         "  Floor polygon {} vertices: {:?}",
                         floor_poly_idx, polygon.vertices
@@ -119,17 +119,18 @@ fn test_door_vertex_sharing() {
                                 "\nLinedef {} walls in subsector {} (should {}):",
                                 linedef_id, subsector_id, behavior
                             );
-                            for (poly_idx, polygon) in leaf.polygons.iter().enumerate() {
+                            for &gi in &leaf.polygon_indices {
+                                let polygon = &bsp3d.polygons[gi];
                                 if let SurfaceKind::Vertical {
                                     ..
                                 } = &polygon.surface_kind
                                 {
                                     println!(
                                         "  Wall polygon {} vertices: {:?}",
-                                        poly_idx, polygon.vertices
+                                        gi, polygon.vertices
                                     );
                                     wall_polygon_vertices.insert(
-                                        (linedef_id, subsector_id, poly_idx),
+                                        (linedef_id, subsector_id, gi),
                                         polygon.vertices.clone(),
                                     );
                                     for &vertex_idx in &polygon.vertices {
@@ -172,7 +173,7 @@ fn test_door_vertex_sharing() {
     for &subsector_id in &sector_25_subsectors {
         if let Some(leaf) = bsp3d.get_subsector_leaf(subsector_id) {
             for &floor_poly_idx in &leaf.floor_polygons {
-                if let Some(polygon) = leaf.polygons.get(floor_poly_idx) {
+                if let Some(polygon) = bsp3d.polygons.get(floor_poly_idx) {
                     let mut has_moved_vertex = false;
                     for &vertex_idx in &polygon.vertices {
                         if moved_vertices.iter().any(|(idx, ..)| *idx == vertex_idx) {
@@ -201,7 +202,7 @@ fn test_door_vertex_sharing() {
     for &subsector_id in &sector_26_subsectors {
         if let Some(leaf) = bsp3d.get_subsector_leaf(subsector_id) {
             for &floor_poly_idx in &leaf.floor_polygons {
-                if let Some(polygon) = leaf.polygons.get(floor_poly_idx) {
+                if let Some(polygon) = bsp3d.polygons.get(floor_poly_idx) {
                     let mut has_moved_vertex = false;
                     for &vertex_idx in &polygon.vertices {
                         if moved_vertices.iter().any(|(idx, ..)| *idx == vertex_idx) {
@@ -231,8 +232,8 @@ fn test_door_vertex_sharing() {
 
     println!("\nChecking floor stability:");
     for (subsector_id, floor_poly_idx) in floor_polygon_vertices.keys() {
-        if let Some(leaf) = bsp3d.get_subsector_leaf(*subsector_id)
-            && let Some(polygon) = leaf.polygons.get(*floor_poly_idx)
+        if let Some(_leaf) = bsp3d.get_subsector_leaf(*subsector_id)
+            && let Some(polygon) = bsp3d.polygons.get(*floor_poly_idx)
         {
             let mut floor_moved = false;
             for &vertex_idx in &polygon.vertices {
@@ -259,8 +260,8 @@ fn test_door_vertex_sharing() {
         "\nChecking wall movement (148 should shrink, 150,151 should stay, 152,153 should move):"
     );
     for (linedef_id, subsector_id, poly_idx) in wall_polygon_vertices.keys() {
-        if let Some(leaf) = bsp3d.get_subsector_leaf(*subsector_id)
-            && let Some(polygon) = leaf.polygons.get(*poly_idx)
+        if let Some(_leaf) = bsp3d.get_subsector_leaf(*subsector_id)
+            && let Some(polygon) = bsp3d.polygons.get(*poly_idx)
         {
             let should_move = [148, 152, 153].contains(linedef_id);
             let mut wall_moved = false;
@@ -325,7 +326,7 @@ fn test_door_vertex_sharing() {
     for &subsector_id in &sector_26_subsectors {
         if let Some(leaf) = bsp3d.get_subsector_leaf(subsector_id) {
             for &ceiling_poly_idx in &leaf.ceiling_polygons {
-                if let Some(polygon) = leaf.polygons.get(ceiling_poly_idx) {
+                if let Some(polygon) = bsp3d.polygons.get(ceiling_poly_idx) {
                     for &vertex_idx in &polygon.vertices {
                         let original_pos = initial_vertex_positions[&vertex_idx];
                         let current_pos = bsp3d.vertices[vertex_idx];
@@ -423,7 +424,7 @@ fn test_e1m1_floor_ceiling_polygon_normals() {
     let mut failures = Vec::new();
 
     for (ssid, leaf) in bsp3d.subsector_leaves.iter().enumerate() {
-        if leaf.polygons.is_empty() {
+        if leaf.polygon_indices.is_empty() {
             continue;
         }
 
@@ -452,8 +453,8 @@ fn test_e1m1_floor_ceiling_polygon_normals() {
             continue;
         }
 
-        let floor_poly = &leaf.polygons[leaf.floor_polygons[0]];
-        let ceil_poly = &leaf.polygons[leaf.ceiling_polygons[0]];
+        let floor_poly = &bsp3d.polygons[leaf.floor_polygons[0]];
+        let ceil_poly = &bsp3d.polygons[leaf.ceiling_polygons[0]];
 
         // Normals.
         assert_eq!(floor_poly.normal, Vec3::new(0.0, 0.0, 1.0), "ss={}", ssid);
@@ -549,7 +550,7 @@ fn test_e1m1_no_degenerate_polygons() {
             ("ceil", &leaf.ceiling_polygons),
         ] {
             for &pi in indices {
-                let poly = &leaf.polygons[pi];
+                let poly = &bsp3d.polygons[pi];
                 let n = poly.vertices.len();
 
                 for i in 0..n {

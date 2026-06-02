@@ -69,19 +69,22 @@ impl<'a> TextureSampler<'a> {
     #[inline(always)]
     pub(crate) fn new(
         surface_kind: &SurfaceKind,
+        wall_tex: Option<usize>,
         pic_data: &'a PicData,
         sky_pic: usize,
         sky_num: usize,
     ) -> Self {
         match surface_kind {
             SurfaceKind::Vertical {
-                texture: Some(tex_id),
                 ..
             } => {
-                if *tex_id == sky_pic {
+                let Some(tex_id) = wall_tex else {
+                    return TextureSampler::Untextured;
+                };
+                if tex_id == sky_pic {
                     TextureSampler::Sky
                 } else {
-                    let texture = pic_data.wall_pic(*tex_id);
+                    let texture = pic_data.wall_pic(tex_id);
                     let width_f32 = texture.width as f32;
                     let height_f32 = texture.height as f32;
                     TextureSampler::Vertical {
@@ -106,10 +109,6 @@ impl<'a> TextureSampler<'a> {
                     }
                 }
             }
-            SurfaceKind::Vertical {
-                texture: None,
-                ..
-            } => TextureSampler::Untextured,
         }
     }
 

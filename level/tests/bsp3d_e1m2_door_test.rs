@@ -21,7 +21,7 @@ fn test_e1m2_sector129_door_ceiling_moves() {
     for &ssid in &ss_ids {
         let leaf = &bsp3d.subsector_leaves[ssid];
         for &ceil_idx in &leaf.ceiling_polygons {
-            let poly = &leaf.polygons[ceil_idx];
+            let poly = &bsp3d.polygons[ceil_idx];
             for &vidx in &poly.vertices {
                 let orig = initial_positions[vidx];
                 let curr = bsp3d.vertices[vidx];
@@ -57,14 +57,14 @@ fn test_e1m2_all_mover_vertex_sharing() {
             let leaf = &bsp3d.subsector_leaves[ssid];
             leaf.ceiling_polygons
                 .iter()
-                .flat_map(|&cpi| leaf.polygons[cpi].vertices.iter().copied())
+                .flat_map(|&cpi| bsp3d.polygons[cpi].vertices.iter().copied())
                 .collect::<Vec<_>>()
         })
         .collect();
 
     let ssid = bsp3d.sector_subsectors[129][0];
     let leaf = &bsp3d.subsector_leaves[ssid];
-    let ceil_h = verts[leaf.polygons[leaf.ceiling_polygons[0]].vertices[0]].z;
+    let ceil_h = verts[bsp3d.polygons[leaf.ceiling_polygons[0]].vertices[0]].z;
 
     let border_lds: HashSet<usize> = map
         .segments
@@ -77,7 +77,8 @@ fn test_e1m2_all_mover_vertex_sharing() {
     // 129's ceiling polygons so move_surface propagates to those walls.
     let mut unshared = Vec::new();
     for leaf in &bsp3d.subsector_leaves {
-        for poly in &leaf.polygons {
+        for &gi in &leaf.polygon_indices {
+            let poly = &bsp3d.polygons[gi];
             if let SurfaceKind::Vertical {
                 wall_type,
                 linedef_id,

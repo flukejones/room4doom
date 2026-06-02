@@ -47,7 +47,7 @@ fn e1m5_ld808_lower_wall_aabb_covers_pit() {
     for sid in [48usize, 50usize] {
         for &ss in &bsp3d.sector_subsectors[sid] {
             let leaf = bsp3d.get_subsector_leaf(ss).expect("leaf exists");
-            for poly in &leaf.polygons {
+            for poly in bsp3d.leaf_polygons(ss) {
                 if let SurfaceKind::Vertical {
                     linedef_id,
                     wall_type,

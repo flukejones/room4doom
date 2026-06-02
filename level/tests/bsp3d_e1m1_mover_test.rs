@@ -16,7 +16,8 @@ fn test_e1m1_linedef373_vertex_sharing() {
 
     let mut wall_vertex_indices = Vec::new();
     for (ssid, leaf) in bsp3d.subsector_leaves.iter().enumerate() {
-        for poly in &leaf.polygons {
+        for &gi in &leaf.polygon_indices {
+            let poly = &bsp3d.polygons[gi];
             if let SurfaceKind::Vertical {
                 wall_type,
                 linedef_id,
@@ -44,7 +45,7 @@ fn test_e1m1_linedef373_vertex_sharing() {
     for &ssid in sector_14_subsectors {
         let leaf = &bsp3d.subsector_leaves[ssid];
         for &fp_idx in &leaf.floor_polygons {
-            let poly = &leaf.polygons[fp_idx];
+            let poly = &bsp3d.polygons[fp_idx];
             for &vi in &poly.vertices {
                 floor_vertex_indices.insert(vi);
             }
@@ -92,7 +93,7 @@ fn test_e1m1_linedef373_vertex_sharing() {
     for &ssid in sector_14_subsectors {
         let leaf = &bsp3d.subsector_leaves[ssid];
         for &fp_idx in &leaf.floor_polygons {
-            let poly = &leaf.polygons[fp_idx];
+            let poly = &bsp3d.polygons[fp_idx];
             println!(
                 "  ss={} fp={}: {:?}",
                 ssid,
@@ -158,14 +159,14 @@ fn test_e1m1_all_mover_vertex_sharing() {
                 let leaf = &bsp3d.subsector_leaves[ssid];
                 leaf.floor_polygons
                     .iter()
-                    .flat_map(|&fpi| leaf.polygons[fpi].vertices.iter().copied())
+                    .flat_map(|&fpi| bsp3d.polygons[fpi].vertices.iter().copied())
                     .collect::<Vec<_>>()
             })
             .collect();
 
         let ssid = bsp3d.sector_subsectors[14][0];
         let leaf = &bsp3d.subsector_leaves[ssid];
-        let floor_h = verts[leaf.polygons[leaf.floor_polygons[0]].vertices[0]].z;
+        let floor_h = verts[bsp3d.polygons[leaf.floor_polygons[0]].vertices[0]].z;
 
         let border_lds: HashSet<usize> = map
             .segments
@@ -178,7 +179,8 @@ fn test_e1m1_all_mover_vertex_sharing() {
 
         let mut unshared = Vec::new();
         for leaf in &bsp3d.subsector_leaves {
-            for poly in &leaf.polygons {
+            for &gi in &leaf.polygon_indices {
+                let poly = &bsp3d.polygons[gi];
                 if let SurfaceKind::Vertical {
                     wall_type,
                     linedef_id,
@@ -218,14 +220,14 @@ fn test_e1m1_all_mover_vertex_sharing() {
                 let leaf = &bsp3d.subsector_leaves[ssid];
                 leaf.ceiling_polygons
                     .iter()
-                    .flat_map(|&cpi| leaf.polygons[cpi].vertices.iter().copied())
+                    .flat_map(|&cpi| bsp3d.polygons[cpi].vertices.iter().copied())
                     .collect::<Vec<_>>()
             })
             .collect();
 
         let ssid = bsp3d.sector_subsectors[26][0];
         let leaf = &bsp3d.subsector_leaves[ssid];
-        let ceil_h = verts[leaf.polygons[leaf.ceiling_polygons[0]].vertices[0]].z;
+        let ceil_h = verts[bsp3d.polygons[leaf.ceiling_polygons[0]].vertices[0]].z;
 
         let border_lds: HashSet<usize> = map
             .segments
@@ -238,7 +240,8 @@ fn test_e1m1_all_mover_vertex_sharing() {
 
         let mut unshared = Vec::new();
         for leaf in &bsp3d.subsector_leaves {
-            for poly in &leaf.polygons {
+            for &gi in &leaf.polygon_indices {
+                let poly = &bsp3d.polygons[gi];
                 if let SurfaceKind::Vertical {
                     wall_type,
                     linedef_id,

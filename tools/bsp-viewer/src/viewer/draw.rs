@@ -142,6 +142,29 @@ impl MapViewerApp {
             }
         }
 
+        if self.state.show_segments {
+            // Inset each seg toward its front side so the two segs of a
+            // two-sided line are drawn as distinct parallel lines.
+            for seg in &self.data.segments {
+                let dir = (seg.v2 - seg.v1).normalize_or_zero();
+                let normal = Vec2::new(-dir.y, dir.x); // points to the seg's left/front
+                let inset = normal * 2.0;
+                let p1 = self.map_to_screen(seg.v1 + inset, vc);
+                let p2 = self.map_to_screen(seg.v2 + inset, vc);
+                let color = if seg.back_sector_id.is_some() {
+                    Color32::from_rgb(80, 200, 255)
+                } else {
+                    Color32::from_rgb(120, 255, 120)
+                };
+                painter.line_segment([p1, p2], Stroke::new(1.5, color));
+                // Arrowhead at v2 showing seg direction.
+                let back = (p1 - p2).normalized();
+                let perp = egui::Vec2::new(-back.y, back.x);
+                painter.line_segment([p2, p2 + (back + perp) * 6.0], Stroke::new(1.5, color));
+                painter.line_segment([p2, p2 + (back - perp) * 6.0], Stroke::new(1.5, color));
+            }
+        }
+
         if self.state.show_vertices {
             for vx in &self.data.vertices {
                 let sp = self.map_to_screen(vx.pos, vc);
@@ -265,6 +288,7 @@ impl MapViewerApp {
 
         ui.heading("Layers");
         ui.checkbox(&mut self.state.show_linedefs, "Linedefs");
+        ui.checkbox(&mut self.state.show_segments, "Segments");
         ui.checkbox(&mut self.state.show_sectors, "Sector colours");
         ui.checkbox(&mut self.state.show_aabb, "Subsector AABBs");
         ui.checkbox(&mut self.state.show_divlines, "Divlines (hover)");

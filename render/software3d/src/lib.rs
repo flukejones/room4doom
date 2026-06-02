@@ -2,7 +2,7 @@
 use coarse_prof::profile;
 use glam::{Mat4, Vec2, Vec3, Vec4};
 use level::{
-    AABB, BSP3D, LevelData, Sector, SurfaceKind, SurfacePolygon, WallTexPin, WallType, is_subsector, subsector_index
+    AABB, BSP3D, LevelData, Sector, SurfaceKind, SurfacePolygon, WallFace, WallTexPin, WallType, is_subsector, subsector_index
 };
 #[cfg(feature = "bench")]
 use math::Angle;
@@ -752,6 +752,22 @@ impl Software3D {
         self.rasterizer.inv_w_len = 0;
         self.rasterizer.clipped_vertices_len = 0;
 
+        // A vertical wall renders its viewer-facing side; an untextured side
+        // renders nothing. Horizontals have no WallFace.
+        let wall_face = match &polygon.surface_kind {
+            SurfaceKind::Vertical {
+                ..
+            } => {
+                let Some(face) = polygon.visible_face(&bsp3d.vertices) else {
+                    return;
+                };
+                Some(face)
+            }
+            SurfaceKind::Horizontal {
+                ..
+            } => None,
+        };
+
         // Transform vertices to clip space and setup for clipping
         let vert_count = polygon.vertices.len();
         assert!(vert_count <= MAX_CLIPPED_VERTICES);
@@ -760,24 +776,29 @@ impl Software3D {
 
         // Pre-compute wall z-range once — used by all vertices in
         // calculate_tex_coords
-        let wall_z_range = match &polygon.surface_kind {
-            SurfaceKind::Vertical {
-                texture: Some(_),
-                ..
-            } => polygon.vertices.iter().fold(
+        let wall_z_range = if wall_face.is_some() {
+            polygon.vertices.iter().fold(
                 (f32::INFINITY, f32::NEG_INFINITY),
                 |(min_z, max_z), &v| {
                     let z = bsp3d.vertex_get(v).z;
                     (min_z.min(z), max_z.max(z))
                 },
-            ),
-            _ => (0.0, 0.0),
+            )
+        } else {
+            (0.0, 0.0)
         };
 
         for (i, &vertex_idx) in polygon.vertices.iter().enumerate() {
             let (_, clip_pos) = self.get_transformed_vertex(vertex_idx, bsp3d);
             let vertex = bsp3d.vertex_get(vertex_idx);
-            let (u, v) = self.calculate_tex_coords(vertex, polygon, bsp3d, pic_data, wall_z_range);
+            let (u, v) = self.calculate_tex_coords(
+                vertex,
+                polygon,
+                wall_face,
+                bsp3d,
+                pic_data,
+                wall_z_range,
+            );
 
             input_vertices[i] = clip_pos;
             input_tex_coords[i] = Vec3::new(u, v, clip_pos.w);
@@ -910,12 +931,13 @@ impl Software3D {
         // Render the polygon: dispatch to debug path only when debug options
         // are active. The fast path has zero debug branches in the inner loop.
         // Wireframe mode skips fill entirely — outlines are drawn as a post-pass.
+        let wall_tex = wall_face.and_then(|f| f.texture);
         if self.debug.options.wireframe {
             // no fill — outline only
         } else if self.debug.has_active {
-            self.draw_polygon_debug(polygon, brightness, bounds, pic_data, buffer);
+            self.draw_polygon_debug(polygon, wall_tex, brightness, bounds, pic_data, buffer);
         } else {
-            self.draw_polygon(polygon, brightness, bounds, pic_data, buffer);
+            self.draw_polygon(polygon, wall_tex, brightness, bounds, pic_data, buffer);
         }
 
         if self.debug.options.outline || self.debug.options.wireframe {
@@ -970,6 +992,7 @@ impl Software3D {
         &self,
         world_pos: Vec3,
         surface: &SurfacePolygon,
+        wall_face: Option<&WallFace>,
         bsp3d: &BSP3D,
         pic_data: &PicData,
         wall_z_range: (f32, f32),
@@ -980,15 +1003,20 @@ impl Software3D {
 
         match &surface.surface_kind {
             SurfaceKind::Vertical {
-                texture: Some(tex_id),
-                tex_x_offset,
-                tex_y_offset,
-                texture_direction,
                 wall_tex_pin,
                 wall_type,
-                front_ceiling_z,
                 ..
             } => {
+                let WallFace {
+                    texture: Some(tex_id),
+                    tex_x_offset,
+                    tex_y_offset,
+                    texture_direction,
+                    ceiling_z: front_ceiling_z,
+                } = wall_face.expect("vertical surface reaches here only with a visible face")
+                else {
+                    return (0.0, 0.0);
+                };
                 let texture = pic_data.get_texture(*tex_id);
                 let tex_width = texture.width as f32;
                 let tex_height = texture.height as f32;
@@ -1055,11 +1083,6 @@ impl Software3D {
 
                 (final_u / tex_width, final_v / tex_height)
             }
-
-            SurfaceKind::Vertical {
-                texture: None,
-                ..
-            } => (0.0, 0.0),
         }
     }
 
@@ -1263,7 +1286,8 @@ impl Software3D {
             // Mark all sectors in this leaf as visible for sprite/voxel
             // rendering BEFORE per-polygon culling. A sector's geometry may
             // be fully occluded while its sprites are still visible.
-            for poly_surface in &leaf.polygons {
+            for &gi in &leaf.polygon_indices {
+                let poly_surface = &bsp3d.polygons[gi];
                 let sid = poly_surface.sector_id;
                 if !self.seen_sectors[sid] {
                     self.seen_sectors[sid] = true;
@@ -1272,7 +1296,8 @@ impl Software3D {
                 }
             }
 
-            for poly_surface in &leaf.polygons {
+            for &gi in &leaf.polygon_indices {
+                let poly_surface = &bsp3d.polygons[gi];
                 if poly_surface.is_facing_point(player_pos, &bsp3d.vertices)
                     && self.cull_polygon_bounds(poly_surface, bsp3d).is_some()
                 {

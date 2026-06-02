@@ -29,7 +29,7 @@ fn floor_at(map: &level::LevelData, p: Vec2) -> (usize, usize, f32) {
     for ss in 0..bsp3d.subsector_leaves.len() {
         let leaf = bsp3d.get_subsector_leaf(ss).unwrap();
         for &fi in &leaf.floor_polygons {
-            let poly = &leaf.polygons[fi];
+            let poly = &bsp3d.polygons[fi];
             let verts: Vec<Vec2> = poly
                 .vertices
                 .iter()
@@ -96,7 +96,7 @@ fn map03_stairs_do_not_overrun_sector_90() {
     for ss in 0..bsp3d.subsector_leaves.len() {
         let leaf = bsp3d.get_subsector_leaf(ss).unwrap();
         for &fi in &leaf.floor_polygons {
-            let poly = &leaf.polygons[fi];
+            let poly = &bsp3d.polygons[fi];
             let z0 = bsp3d.vertices[poly.vertices[0]].z;
             for &v in &poly.vertices {
                 assert!(

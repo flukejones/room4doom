@@ -15,7 +15,7 @@ fn test_e1m3_stair_sectors_have_moving_floors() {
         for &ssid in subsector_ids {
             let leaf = &bsp3d.subsector_leaves[ssid];
             for &pidx in &leaf.floor_polygons {
-                if leaf.polygons[pidx].moves {
+                if bsp3d.polygons[pidx].moves {
                     has_moving_floor = true;
                 }
             }
@@ -40,7 +40,8 @@ fn test_e1m3_stair_sectors_have_lower_walls_between_steps() {
         let mut lower_wall_count = 0;
         for &ssid in subsector_ids {
             let leaf = &bsp3d.subsector_leaves[ssid];
-            for poly in &leaf.polygons {
+            for &gi in &leaf.polygon_indices {
+                let poly = &bsp3d.polygons[gi];
                 if let SurfaceKind::Vertical {
                     wall_type,
                     ..
@@ -71,7 +72,7 @@ fn test_e1m3_stair_wall_vertex_sharing() {
             let leaf = &bsp3d.subsector_leaves[ssid];
             leaf.floor_polygons
                 .iter()
-                .flat_map(|&pidx| leaf.polygons[pidx].vertices.clone())
+                .flat_map(|&pidx| bsp3d.polygons[pidx].vertices.clone())
                 .collect::<Vec<_>>()
         })
         .collect();
@@ -82,7 +83,7 @@ fn test_e1m3_stair_wall_vertex_sharing() {
             let leaf = &bsp3d.subsector_leaves[ssid];
             leaf.floor_polygons
                 .iter()
-                .flat_map(|&pidx| leaf.polygons[pidx].vertices.clone())
+                .flat_map(|&pidx| bsp3d.polygons[pidx].vertices.clone())
                 .collect::<Vec<_>>()
         })
         .collect();
@@ -93,7 +94,8 @@ fn test_e1m3_stair_wall_vertex_sharing() {
 
     for &ssid in &bsp3d.sector_subsectors[16] {
         let leaf = &bsp3d.subsector_leaves[ssid];
-        for poly in &leaf.polygons {
+        for &gi in &leaf.polygon_indices {
+            let poly = &bsp3d.polygons[gi];
             if let SurfaceKind::Vertical {
                 wall_type,
                 ..

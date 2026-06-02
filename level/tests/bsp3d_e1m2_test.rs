@@ -29,7 +29,7 @@ fn test_e1m2_no_degenerate_polygons() {
             ("ceil", &leaf.ceiling_polygons),
         ] {
             for &pi in indices {
-                let poly = &leaf.polygons[pi];
+                let poly = &bsp3d.polygons[pi];
                 let n = poly.vertices.len();
 
                 if n < 3 {
@@ -94,7 +94,7 @@ fn test_e1m2_floor_ceiling_polygon_normals() {
     let mut failures = Vec::new();
 
     for (ssid, leaf) in bsp3d.subsector_leaves.iter().enumerate() {
-        if leaf.polygons.is_empty() {
+        if leaf.polygon_indices.is_empty() {
             continue;
         }
 
@@ -121,8 +121,8 @@ fn test_e1m2_floor_ceiling_polygon_normals() {
             continue;
         }
 
-        let floor_poly = &leaf.polygons[leaf.floor_polygons[0]];
-        let ceil_poly = &leaf.polygons[leaf.ceiling_polygons[0]];
+        let floor_poly = &bsp3d.polygons[leaf.floor_polygons[0]];
+        let ceil_poly = &bsp3d.polygons[leaf.ceiling_polygons[0]];
 
         // Normals.
         if floor_poly.normal != Vec3::new(0.0, 0.0, 1.0) {
@@ -224,7 +224,7 @@ fn test_e1m2_flat_polygon_coplanarity() {
             ("ceil", &leaf.ceiling_polygons),
         ] {
             for &pi in indices {
-                let poly = &leaf.polygons[pi];
+                let poly = &bsp3d.polygons[pi];
                 if poly.vertices.is_empty() {
                     continue;
                 }
@@ -262,7 +262,7 @@ fn test_e1m2_ss267_platform_vertex_sharing() {
     let verts = &bsp3d.vertices;
 
     let leaf267 = &bsp3d.subsector_leaves[267];
-    let sector_id = leaf267.polygons[leaf267.floor_polygons[0]].sector_id;
+    let sector_id = bsp3d.polygons[leaf267.floor_polygons[0]].sector_id;
 
     let floor_verts: HashSet<usize> = bsp3d.sector_subsectors[sector_id]
         .iter()
@@ -270,18 +270,19 @@ fn test_e1m2_ss267_platform_vertex_sharing() {
             let leaf = &bsp3d.subsector_leaves[ssid];
             leaf.floor_polygons
                 .iter()
-                .flat_map(|&fpi| leaf.polygons[fpi].vertices.iter().copied())
+                .flat_map(|&fpi| bsp3d.polygons[fpi].vertices.iter().copied())
                 .collect::<Vec<_>>()
         })
         .collect();
 
-    let floor_h = verts[leaf267.polygons[leaf267.floor_polygons[0]].vertices[0]].z;
+    let floor_h = verts[bsp3d.polygons[leaf267.floor_polygons[0]].vertices[0]].z;
 
     // Collect wall bottom vertices at floor height on linedefs 375/376.
     let target_lds: HashSet<usize> = [375, 376].into_iter().collect();
     let mut unshared = Vec::new();
     for leaf in &bsp3d.subsector_leaves {
-        for poly in &leaf.polygons {
+        for &gi in &leaf.polygon_indices {
+            let poly = &bsp3d.polygons[gi];
             if let SurfaceKind::Vertical {
                 linedef_id,
                 ..
@@ -341,7 +342,7 @@ fn test_debug_subsectors() {
             "  floor_polygons: {}, ceiling_polygons: {}, total polygons: {}",
             leaf.floor_polygons.len(),
             leaf.ceiling_polygons.len(),
-            leaf.polygons.len()
+            leaf.polygon_indices.len()
         );
 
         // Identify wall polygons (not in floor or ceiling lists)
@@ -352,7 +353,7 @@ fn test_debug_subsectors() {
 
         // Floor polygons
         for &pi in &leaf.floor_polygons {
-            let poly = &leaf.polygons[pi];
+            let poly = &bsp3d.polygons[pi];
             let positions: Vec<_> = poly
                 .vertices
                 .iter()
@@ -374,7 +375,7 @@ fn test_debug_subsectors() {
 
         // Ceiling polygons
         for &pi in &leaf.ceiling_polygons {
-            let poly = &leaf.polygons[pi];
+            let poly = &bsp3d.polygons[pi];
             let positions: Vec<_> = poly
                 .vertices
                 .iter()
@@ -395,10 +396,11 @@ fn test_debug_subsectors() {
         }
 
         // Wall polygons
-        for (pi, poly) in leaf.polygons.iter().enumerate() {
-            if floor_set.contains(&pi) || ceil_set.contains(&pi) {
+        for &gi in &leaf.polygon_indices {
+            if floor_set.contains(&gi) || ceil_set.contains(&gi) {
                 continue;
             }
+            let poly = &bsp3d.polygons[gi];
             let positions: Vec<_> = poly
                 .vertices
                 .iter()
@@ -410,20 +412,20 @@ fn test_debug_subsectors() {
             match &poly.surface_kind {
                 SurfaceKind::Vertical {
                     wall_type,
-                    texture,
+                    front,
                     linedef_id,
                     two_sided,
                     ..
                 } => {
                     println!(
                         "  WALL  poly[{}]: {} verts, normal=({:.3},{:.3},{:.3}), type={:?}, tex={:?}, linedef={}, two_sided={}",
-                        pi,
+                        gi,
                         poly.vertices.len(),
                         poly.normal.x,
                         poly.normal.y,
                         poly.normal.z,
                         wall_type,
-                        texture,
+                        front.texture,
                         linedef_id,
                         two_sided
                     );
@@ -433,7 +435,7 @@ fn test_debug_subsectors() {
                 } => {
                     println!(
                         "  WALL? poly[{}]: {} verts, normal={:?} (horizontal surface_kind in wall slot?)",
-                        pi,
+                        gi,
                         poly.vertices.len(),
                         poly.normal
                     );
@@ -494,7 +496,8 @@ fn test_debug_subsectors() {
             continue;
         }
         let sec = ss_to_sector[ssid];
-        for (pi, poly) in leaf.polygons.iter().enumerate() {
+        for &gi in &leaf.polygon_indices {
+            let poly = &bsp3d.polygons[gi];
             if let SurfaceKind::Vertical {
                 wall_type,
                 linedef_id,
@@ -521,7 +524,7 @@ fn test_debug_subsectors() {
                         "  SS{} (sec {}): poly[{}] {:?} linedef={} front_sec={} back_sec={:?} two_sided={} normal=({:.3},{:.3},{:.3})",
                         ssid,
                         sec,
-                        pi,
+                        gi,
                         wall_type,
                         linedef_id,
                         front_sec,
