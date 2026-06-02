@@ -1,61 +1,56 @@
-use glam::Vec3;
-use level::SurfaceKind;
+use level::{SurfaceKind, WallType};
 use test_utils::{doom2_wad_path, load_map};
 
-/// MAP29 ld10 is two-sided with lower+upper textures on both sides. Each side's
-/// wall lives in its own subsector with an opposite-facing normal, so only the
-/// side facing the viewer should draw. A prior runtime normal recompute in
-/// `is_facing_point` derived the normal from `vertices[0..3]`, but the mover
-/// vertex-linking pass reorders those vertices, flipping the back wall's normal
-/// once the floor moved — both sides then faced the viewer and Z-fought.
-///
-/// Assert that for the lower walls of ld10, the two opposite-facing copies are
-/// never both visible from the same point, even after the floor travels down.
+/// MAP29 ld10 is two-sided with upper+lower textures on both sides. The lower
+/// wall is ONE polygon carrying a `front` and `back` face, shared by the leaves
+/// either side of the line (no coplanar twin to Z-fight).
 #[test]
-fn map29_ld10_lower_walls_face_opposite() {
-    let mut map = load_map(&doom2_wad_path(), "MAP29");
+fn map29_ld10_single_shared_lower_wall() {
+    let map = load_map(&doom2_wad_path(), "MAP29");
+    let bsp3d = &map.bsp_3d;
 
-    // Drop sector 58's floor to simulate the lift/floor travelling down, so the
-    // lower-wall quads open up and the mover-linked winding is exercised.
-    let bsp3d = &mut map.bsp_3d;
-    bsp3d.move_surface(58, level::MovementType::Floor, 500.0, 0);
-
-    // Collect ld10 lower-wall quads with their stored normals.
-    let mut walls = Vec::new();
-    for ss in 0..bsp3d.subsector_leaves.len() {
-        let leaf = bsp3d.get_subsector_leaf(ss).unwrap();
-        for poly in &leaf.polygons {
-            if let SurfaceKind::Vertical {
-                linedef_id,
-                wall_type: level::WallType::Lower,
-                ..
-            } = poly.surface_kind
-                && linedef_id == 10
-            {
-                walls.push(poly.clone());
-            }
+    let mut found = None;
+    for (gi, poly) in bsp3d.polygons.iter().enumerate() {
+        if let SurfaceKind::Vertical {
+            linedef_id: 10,
+            wall_type: WallType::Lower,
+            front,
+            back,
+            ..
+        } = &poly.surface_kind
+        {
+            assert!(found.is_none(), "ld10 lower must be a single polygon");
+            found = Some((
+                gi,
+                poly,
+                front.texture,
+                back.as_ref().and_then(|f| f.texture),
+            ));
         }
     }
+    let (gi, poly, front_tex, back_tex) = found.expect("ld10 lower wall exists");
     assert!(
-        walls.len() >= 2,
-        "expected >=2 ld10 lower walls, got {}",
-        walls.len()
+        front_tex.is_some() && back_tex.is_some(),
+        "both sidedefs textured; both faces should carry a texture"
     );
 
-    // From a viewpoint on either side of the wall plane (ld10 runs along x at
-    // some y; normals are ±y), at most one of the opposite-facing copies may
-    // face the viewer.
-    for &probe in &[Vec3::new(0.0, -1e6, 600.0), Vec3::new(0.0, 1e6, 600.0)] {
-        let facing = walls
-            .iter()
-            .filter(|w| w.is_facing_point(probe, &bsp3d.vertices))
-            .count();
-        // Some copies are coplanar duplicates per side; the invariant is that
-        // not ALL of them face the viewer (the opposite side must be culled).
-        assert!(
-            facing < walls.len(),
-            "from {probe:?}, all {} ld10 lower walls face the viewer (back side not culled)",
-            walls.len()
-        );
-    }
+    let refs = (0..bsp3d.subsector_leaves.len())
+        .filter(|&ss| {
+            bsp3d
+                .get_subsector_leaf(ss)
+                .unwrap()
+                .polygon_indices
+                .contains(&gi)
+        })
+        .count();
+    assert!(
+        refs >= 2,
+        "shared wall must be referenced by both sides, got {refs}"
+    );
+
+    // At rest the quad is not flipped, so visible_face is the front face.
+    assert_eq!(
+        poly.visible_face(&bsp3d.vertices).map(|f| f.texture),
+        Some(front_tex)
+    );
 }

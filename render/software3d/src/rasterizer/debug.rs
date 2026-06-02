@@ -50,6 +50,7 @@ impl Software3D {
     pub(crate) fn draw_polygon_debug(
         &mut self,
         polygon: &SurfacePolygon,
+        wall_tex: Option<usize>,
         brightness: usize,
         bounds: (Vec2, Vec2),
         pic_data: &mut PicData,
@@ -74,7 +75,7 @@ impl Software3D {
         let sky_pic = pic_data.sky_pic();
         let sky_num = pic_data.sky_num();
         let texture_sampler =
-            TextureSampler::new(&polygon.surface_kind, pic_data, sky_pic, sky_num);
+            TextureSampler::new(&polygon.surface_kind, wall_tex, pic_data, sky_pic, sky_num);
         let is_masked = matches!(
             &polygon.surface_kind,
             SurfaceKind::Vertical {

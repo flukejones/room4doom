@@ -120,7 +120,7 @@ fn cmd_stats(args: &Args) {
         .bsp_3d
         .subsector_leaves
         .iter()
-        .map(|l| l.polygons.len())
+        .map(|l| l.polygon_indices.len())
         .sum();
 
     let output = StatsOutput {

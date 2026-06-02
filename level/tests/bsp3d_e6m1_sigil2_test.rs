@@ -18,7 +18,7 @@ fn test_e6m1_subsector_2587_polygon() {
     let vertices = &bsp3d.vertices;
 
     for &fp_idx in &leaf.floor_polygons {
-        let poly = &leaf.polygons[fp_idx];
+        let poly = &bsp3d.polygons[fp_idx];
         assert!(
             poly.vertices.len() >= 3,
             "Floor polygon must have >= 3 vertices, got {}",
@@ -65,7 +65,7 @@ fn test_e6m1_floor_ceiling_normals() {
 
     for (ssid, leaf) in bsp3d.subsector_leaves.iter().enumerate() {
         for &pi in &leaf.floor_polygons {
-            let poly = &leaf.polygons[pi];
+            let poly = &bsp3d.polygons[pi];
             if poly.vertices.len() < 3 {
                 continue;
             }
@@ -92,7 +92,7 @@ fn test_e6m1_floor_ceiling_normals() {
         }
 
         for &pi in &leaf.ceiling_polygons {
-            let poly = &leaf.polygons[pi];
+            let poly = &bsp3d.polygons[pi];
             if poly.vertices.len() < 3 {
                 continue;
             }
@@ -136,7 +136,7 @@ fn test_e6m1_floor_ceiling_normals() {
         let leaf = &bsp3d.subsector_leaves[ssid];
         println!("\n--- SS {} sector {} ---", ssid, leaf.sector_id);
         for &pi in &leaf.floor_polygons {
-            let poly = &leaf.polygons[pi];
+            let poly = &bsp3d.polygons[pi];
             let positions: Vec<_> = poly
                 .vertices
                 .iter()
@@ -148,7 +148,7 @@ fn test_e6m1_floor_ceiling_normals() {
             println!("  floor[{}]: {}", pi, positions.join(", "));
         }
         for &pi in &leaf.ceiling_polygons {
-            let poly = &leaf.polygons[pi];
+            let poly = &bsp3d.polygons[pi];
             let positions: Vec<_> = poly
                 .vertices
                 .iter()
@@ -200,7 +200,8 @@ fn test_e6m1_mover_wall_cross_product_normals() {
     let mut failures = Vec::new();
 
     for (ssid, leaf) in bsp3d.subsector_leaves.iter().enumerate() {
-        for (pi, poly) in leaf.polygons.iter().enumerate() {
+        for (local_pi, &gi) in leaf.polygon_indices.iter().enumerate() {
+            let poly = &bsp3d.polygons[gi];
             if !poly.moves || poly.vertices.len() < 3 {
                 continue;
             }
@@ -223,7 +224,7 @@ fn test_e6m1_mover_wall_cross_product_normals() {
             if dot < 0.0 {
                 failures.push(format!(
                     "ss={} wall poly={}: cross_normal=({:.3},{:.3},{:.3}) stored=({:.3},{:.3},{:.3}) dot={:.3}",
-                    ssid, pi,
+                    ssid, local_pi,
                     computed.x, computed.y, computed.z,
                     poly.normal.x, poly.normal.y, poly.normal.z,
                     dot
@@ -262,12 +263,12 @@ fn test_e6m1_sector76_floor_ceil_separation() {
     for &ssid in ss_ids {
         let leaf = &bsp3d.subsector_leaves[ssid];
         for &pi in &leaf.floor_polygons {
-            for &vi in &leaf.polygons[pi].vertices {
+            for &vi in &bsp3d.polygons[pi].vertices {
                 floor_vis.insert(vi);
             }
         }
         for &pi in &leaf.ceiling_polygons {
-            for &vi in &leaf.polygons[pi].vertices {
+            for &vi in &bsp3d.polygons[pi].vertices {
                 ceil_vis.insert(vi);
             }
         }
@@ -283,7 +284,8 @@ fn test_e6m1_sector76_floor_ceil_separation() {
     let mut wall_at_ceil_unshared = Vec::new();
     for &ssid in ss_ids {
         let leaf = &bsp3d.subsector_leaves[ssid];
-        for poly in &leaf.polygons {
+        for &gi in &leaf.polygon_indices {
+            let poly = &bsp3d.polygons[gi];
             if let level::SurfaceKind::Vertical {
                 ..
             } = &poly.surface_kind
@@ -313,7 +315,7 @@ fn test_e6m1_sector76_floor_ceil_separation() {
         let leaf = &bsp3d.subsector_leaves[ssid];
         println!("\n--- SS {} ---", ssid);
         for &pi in &leaf.floor_polygons {
-            let poly = &leaf.polygons[pi];
+            let poly = &bsp3d.polygons[pi];
             let positions: Vec<_> = poly
                 .vertices
                 .iter()
@@ -325,7 +327,7 @@ fn test_e6m1_sector76_floor_ceil_separation() {
             println!("  floor[{}]: {}", pi, positions.join(", "));
         }
         for &pi in &leaf.ceiling_polygons {
-            let poly = &leaf.polygons[pi];
+            let poly = &bsp3d.polygons[pi];
             let positions: Vec<_> = poly
                 .vertices
                 .iter()
@@ -361,7 +363,8 @@ fn test_e6m1_sector76_floor_ceil_separation() {
 
     let mut wall_unshared = Vec::new();
     for leaf in &bsp3d.subsector_leaves {
-        for poly in &leaf.polygons {
+        for &gi in &leaf.polygon_indices {
+            let poly = &bsp3d.polygons[gi];
             if let level::SurfaceKind::Vertical {
                 linedef_id,
                 wall_type,
@@ -420,7 +423,7 @@ fn test_e6m1_no_degenerate_floor_polygons() {
 
     for (ssid, leaf) in bsp3d.subsector_leaves.iter().enumerate() {
         for &fp_idx in &leaf.floor_polygons {
-            let poly = &leaf.polygons[fp_idx];
+            let poly = &bsp3d.polygons[fp_idx];
 
             if poly.vertices.len() < 3 {
                 failures.push((ssid, fp_idx, "fewer than 3 vertices"));

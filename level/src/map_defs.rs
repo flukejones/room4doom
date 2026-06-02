@@ -283,6 +283,12 @@ pub struct Segment {
 
     pub frontsector: MapPtr<Sector>,
     pub backsector: Option<MapPtr<Sector>>,
+
+    /// Index of the subsector this segment encloses.
+    pub subsector: usize,
+    /// Subsector indices across this segment (other side, overlapping span).
+    /// Empty for one-sided segments; more than one where sides split unevenly.
+    pub back_subsectors: Vec<usize>,
 }
 
 impl Segment {

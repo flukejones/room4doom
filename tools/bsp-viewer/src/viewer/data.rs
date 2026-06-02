@@ -14,6 +14,7 @@ pub struct ViewerData {
     pub min: Vec2,
     pub max: Vec2,
     pub linedefs: Vec<ViewLinedef>,
+    pub segments: Vec<ViewSegment>,
     pub sectors: Vec<ViewSector>,
     pub subsectors: Vec<ViewSubsector>,
     pub divlines: Vec<ViewDivline>,
@@ -32,6 +33,16 @@ pub struct ViewLinedef {
     pub back_sector_id: Option<usize>,
     pub special: i16,
     pub tag: i16,
+}
+
+pub struct ViewSegment {
+    pub index: usize,
+    pub v1: Vec2,
+    pub v2: Vec2,
+    pub linedef_id: usize,
+    pub front_sector_id: usize,
+    pub back_sector_id: Option<usize>,
+    pub subsector: usize,
 }
 
 pub struct ViewSector {
@@ -86,6 +97,21 @@ pub fn extract_viewer_data(map_name: &str, level_data: &LevelData, wad: &WadData
             back_sector_id: ld.backsector.as_ref().map(|bs| bs.num as usize),
             special: ld.special,
             tag: ld.tag,
+        })
+        .collect();
+
+    let segments: Vec<ViewSegment> = level_data
+        .segments
+        .iter()
+        .enumerate()
+        .map(|(i, seg)| ViewSegment {
+            index: i,
+            v1: seg.v1.pos,
+            v2: seg.v2.pos,
+            linedef_id: seg.linedef.num,
+            front_sector_id: seg.frontsector.num as usize,
+            back_sector_id: seg.backsector.as_ref().map(|s| s.num as usize),
+            subsector: seg.subsector,
         })
         .collect();
 
@@ -189,9 +215,9 @@ pub fn extract_viewer_data(map_name: &str, level_data: &LevelData, wad: &WadData
                 validate_polygon(i, sector_id, verts);
             }
             let mut wall_linedef_ids: Vec<usize> = leaf
-                .polygons
+                .polygon_indices
                 .iter()
-                .filter_map(|p| match &p.surface_kind {
+                .filter_map(|&gi| match &bsp.polygons[gi].surface_kind {
                     SurfaceKind::Vertical {
                         linedef_id,
                         ..
@@ -202,9 +228,10 @@ pub fn extract_viewer_data(map_name: &str, level_data: &LevelData, wad: &WadData
             wall_linedef_ids.sort_unstable();
             wall_linedef_ids.dedup();
             let view_polys: Vec<ViewPolygon> = leaf
-                .polygons
+                .polygon_indices
                 .iter()
-                .map(|p| {
+                .map(|&gi| {
+                    let p = &bsp.polygons[gi];
                     let kind = match &p.surface_kind {
                         SurfaceKind::Vertical {
                             wall_type,
@@ -216,11 +243,7 @@ pub fn extract_viewer_data(map_name: &str, level_data: &LevelData, wad: &WadData
                         SurfaceKind::Horizontal {
                             ..
                         } => {
-                            if leaf
-                                .floor_polygons
-                                .iter()
-                                .any(|&fi| std::ptr::eq(&leaf.polygons[fi], p))
-                            {
+                            if leaf.floor_polygons.contains(&gi) {
                                 "floor".into()
                             } else {
                                 "ceiling".into()
@@ -262,6 +285,7 @@ pub fn extract_viewer_data(map_name: &str, level_data: &LevelData, wad: &WadData
         min: extents.min_vertex,
         max: extents.max_vertex,
         linedefs,
+        segments,
         sectors,
         subsectors,
         divlines,

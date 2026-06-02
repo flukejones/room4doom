@@ -65,6 +65,25 @@ impl MapViewerApp {
             }
         }
 
+        let _ = writeln!(buf, "# segments");
+        for seg in &self.data.segments {
+            if segments_intersect(a, b, seg.v1, seg.v2) {
+                let _ = writeln!(
+                    buf,
+                    "seg={} ld={} v1=({:.1},{:.1}) v2=({:.1},{:.1}) front_sector={} back_sector={:?} subsector={}",
+                    seg.index,
+                    seg.linedef_id,
+                    seg.v1.x,
+                    seg.v1.y,
+                    seg.v2.x,
+                    seg.v2.y,
+                    seg.front_sector_id,
+                    seg.back_sector_id,
+                    seg.subsector
+                );
+            }
+        }
+
         let _ = writeln!(buf, "# divlines");
         for dl in &self.data.divlines {
             let len = dl.dir.length();

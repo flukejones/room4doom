@@ -59,6 +59,15 @@ pub struct LevelData {
     pub bsp_3d: BSP3D,
 }
 
+/// A two-sided segment's owner, side, and 1D span along its linedef.
+struct SegSpan {
+    seg: usize,
+    owner: usize,
+    side: i32,
+    t0: f32,
+    t1: f32,
+}
+
 impl LevelData {
     pub fn set_extents(&mut self) {
         // set the min/max to first vertex so we have a baseline
@@ -302,6 +311,7 @@ impl LevelData {
 
             for ss in &bsp.subsectors {
                 let start = segments.len() as u32;
+                let owner = subsectors.len();
 
                 // Use seg_indices directly — NOT polygon edges.
                 // Polygon edges may miss segs that didn't match (interior segs).
@@ -342,6 +352,8 @@ impl LevelData {
                         linedef,
                         frontsector,
                         backsector,
+                        subsector: owner,
+                        back_subsectors: Vec::new(),
                     });
                 }
 
@@ -361,6 +373,7 @@ impl LevelData {
 
             self.segments = MapArray::from_vec(segments);
             self.subsectors = MapArray::from_vec(subsectors);
+            self.link_back_subsectors();
         }
         info!(
             "{}: Loaded {} segments, {} subsectors",
@@ -453,6 +466,41 @@ impl LevelData {
             map_name,
             t.elapsed().as_secs_f64()
         );
+    }
+
+    /// For each two-sided segment, find the subsectors across it: segments on
+    /// the same linedef, other side, with an overlapping span.
+    fn link_back_subsectors(&mut self) {
+        // Group two-sided segments by linedef with owner, side (front sector),
+        // and 1D span along the line.
+        let mut by_linedef: std::collections::HashMap<usize, Vec<SegSpan>> =
+            std::collections::HashMap::new();
+        for (si, seg) in self.segments.iter().enumerate() {
+            if seg.backsector.is_none() {
+                continue;
+            }
+            let ld = &seg.linedef;
+            let axis = ld.v2.pos - ld.v1.pos;
+            let proj = |p: Vec2| (p - ld.v1.pos).dot(axis);
+            let (a, b) = (proj(seg.v1.pos), proj(seg.v2.pos));
+            by_linedef.entry(ld.num).or_default().push(SegSpan {
+                seg: si,
+                owner: seg.subsector,
+                side: seg.frontsector.num,
+                t0: a.min(b),
+                t1: a.max(b),
+            });
+        }
+
+        for group in by_linedef.values() {
+            for s in group {
+                self.segments[s.seg].back_subsectors = group
+                    .iter()
+                    .filter(|o| o.side != s.side && o.t0 < s.t1 && s.t0 < o.t1)
+                    .map(|o| o.owner)
+                    .collect();
+            }
+        }
     }
 
     fn build_bsp(&self, map_name: &str, wad: &WadData) -> rbsp::BspOutput {

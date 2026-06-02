@@ -177,7 +177,7 @@ impl BSP3D {
     /// Seven logical steps:
     /// 1. Identify mover sectors and zh boundaries
     /// 2. Insert missing boundary vertices into floor/ceiling N-gons
-    /// 3. Internal zh sector separation (floor vs ceiling)
+    /// 3. Internal zh sector separation (clone the moving surface)
     /// 4. Cross-sector boundary separation (+ residual + vertex map population)
     /// 5. Zh wall vertex connection via ZhWallRecords
     /// 6. Non-zh wall vertex connection via linedef lookup
@@ -409,25 +409,20 @@ impl BSP3D {
             }
         }
 
-        // Step 3: internal zh sector separation (floor vs ceiling).
+        // Step 3: internal zh sector separation. Clone the moving surface's
+        // vertices off the still surface so displacing it drags nothing (a door
+        // moves its ceiling, a floor mover its floor; Both clones each).
         for &sector_id in &zh_sectors {
-            let floor_vis = self.collect_sector_poly_vertices(sector_id, true);
-            let mut replaced: HashMap<usize, usize> = HashMap::new();
-            for si in 0..self.sector_subsectors[sector_id].len() {
-                let ss_id = self.sector_subsectors[sector_id][si];
-                for ci in 0..self.subsector_leaves[ss_id].ceiling_polygons.len() {
-                    let pi = self.subsector_leaves[ss_id].ceiling_polygons[ci];
-                    for vi in &mut self.subsector_leaves[ss_id].polygons[pi].vertices {
-                        if floor_vis.contains(vi) {
-                            let new_vi = *replaced.entry(*vi).or_insert_with(|| {
-                                let idx = self.vertices.len();
-                                self.vertices.push(self.vertices[*vi]);
-                                idx
-                            });
-                            *vi = new_vi;
-                        }
-                    }
-                }
+            let clone_floor = matches!(
+                mover_sectors.get(&sector_id),
+                Some(MoverKind::Floor | MoverKind::Both)
+            );
+            let clone_ceiling = !matches!(mover_sectors.get(&sector_id), Some(MoverKind::Floor));
+            if clone_ceiling {
+                self.separate_zh_surface(sector_id, false);
+            }
+            if clone_floor {
+                self.separate_zh_surface(sector_id, true);
             }
         }
 
@@ -649,6 +644,44 @@ impl BSP3D {
         pts
     }
 
+    /// Clone the `is_floor` surface's vertices wherever they are shared with
+    /// the opposite surface or with another sector's geometry, giving the
+    /// moving surface its own indices so displacing it cannot drag the
+    /// still surface or a neighbour wall deduped to the same point.
+    /// Vertices shared only within `sector_id` (e.g. a wall that travels
+    /// with this surface) are left alone.
+    fn separate_zh_surface(&mut self, sector_id: usize, is_floor: bool) {
+        let mut other_vis = self.collect_sector_poly_vertices(sector_id, !is_floor);
+        for ss_id in 0..self.subsector_leaves.len() {
+            for gi in self.subsector_leaves[ss_id].polygon_indices.clone() {
+                if self.polygons[gi].sector_id != sector_id {
+                    other_vis.extend(self.polygons[gi].vertices.iter().copied());
+                }
+            }
+        }
+        let mut replaced: HashMap<usize, usize> = HashMap::new();
+        for si in 0..self.sector_subsectors[sector_id].len() {
+            let ss_id = self.sector_subsectors[sector_id][si];
+            let polys = if is_floor {
+                self.subsector_leaves[ss_id].floor_polygons.clone()
+            } else {
+                self.subsector_leaves[ss_id].ceiling_polygons.clone()
+            };
+            for gi in polys {
+                for vi in &mut self.polygons[gi].vertices {
+                    if other_vis.contains(vi) {
+                        let new_vi = *replaced.entry(*vi).or_insert_with(|| {
+                            let idx = self.vertices.len();
+                            self.vertices.push(self.vertices[*vi]);
+                            idx
+                        });
+                        *vi = new_vi;
+                    }
+                }
+            }
+        }
+    }
+
     /// Collect all vertex indices from a sector's floor or ceiling polygons.
     fn collect_sector_poly_vertices(&self, sector_id: usize, is_floor: bool) -> HashSet<usize> {
         self.sector_subsectors[sector_id]
@@ -662,7 +695,7 @@ impl BSP3D {
                 };
                 indices
                     .iter()
-                    .flat_map(|&pi| leaf.polygons[pi].vertices.iter().copied())
+                    .flat_map(|&gi| self.polygons[gi].vertices.iter().copied())
                     .collect::<Vec<_>>()
             })
             .collect()
@@ -736,8 +769,8 @@ impl BSP3D {
     ) {
         for &ss_id in &self.sector_subsectors[sector_id] {
             let leaf = &self.subsector_leaves[ss_id];
-            for &pi in &leaf.floor_polygons {
-                for &vi in &leaf.polygons[pi].vertices {
+            for &gi in &leaf.floor_polygons {
+                for &vi in &self.polygons[gi].vertices {
                     let v = self.vertices[vi];
                     if (v.z - height).abs() < HEIGHT_EPSILON {
                         let qp = QuantizedVec2::from_vec2(Vec2::new(v.x, v.y), QUANT_PRECISION);
@@ -749,8 +782,8 @@ impl BSP3D {
                     }
                 }
             }
-            for &pi in &leaf.ceiling_polygons {
-                for &vi in &leaf.polygons[pi].vertices {
+            for &gi in &leaf.ceiling_polygons {
+                for &vi in &self.polygons[gi].vertices {
                     let v = self.vertices[vi];
                     if (v.z - height).abs() < HEIGHT_EPSILON {
                         let qp = QuantizedVec2::from_vec2(Vec2::new(v.x, v.y), QUANT_PRECISION);
@@ -883,8 +916,8 @@ impl BSP3D {
                 } else {
                     &leaf.ceiling_polygons
                 };
-                for &pi in indices {
-                    for &vi in &leaf.polygons[pi].vertices {
+                for &gi in indices {
+                    for &vi in &self.polygons[gi].vertices {
                         let v = self.vertices[vi];
                         if (v.z - height).abs() < HEIGHT_EPSILON {
                             let qp = QuantizedVec2::from_vec2(Vec2::new(v.x, v.y), QUANT_PRECISION);
@@ -909,7 +942,7 @@ impl BSP3D {
     ) {
         for ri in 0..self.zh_wall_records.len() {
             let rec = &self.zh_wall_records[ri];
-            let (subsector_id, poly_index) = (rec.subsector_id, rec.poly_index);
+            let poly_index = rec.poly_index;
 
             let pairs: [(usize, usize, &VertexMap); 4] = match rec.wall_type {
                 WallType::Lower => [
@@ -942,8 +975,7 @@ impl BSP3D {
                 let pos = self.vertices[wall_vi];
                 let qp = QuantizedVec2::from_vec2(Vec2::new(pos.x, pos.y), QUANT_PRECISION);
                 if let Some(target_vi) = qp.lookup(vmap, sector_id) {
-                    for vi in &mut self.subsector_leaves[subsector_id].polygons[poly_index].vertices
-                    {
+                    for vi in &mut self.polygons[poly_index].vertices {
                         if *vi == wall_vi {
                             *vi = target_vi;
                         }
@@ -963,9 +995,8 @@ impl BSP3D {
         upper_vertex_map: &VertexMap,
     ) {
         for ss_id in 0..self.subsector_leaves.len() {
-            let polys_len = self.subsector_leaves[ss_id].polygons.len();
-            for pi in 0..polys_len {
-                let poly = &self.subsector_leaves[ss_id].polygons[pi];
+            for gi in self.subsector_leaves[ss_id].polygon_indices.clone() {
+                let poly = &self.polygons[gi];
                 let (wall_type, linedef_id) = match &poly.surface_kind {
                     SurfaceKind::Vertical {
                         wall_type,
@@ -1002,8 +1033,7 @@ impl BSP3D {
                     match wall_type {
                         WallType::Lower => {
                             self.try_link_wall_vertex(
-                                ss_id,
-                                pi,
+                                gi,
                                 vi_idx,
                                 vi,
                                 &qp,
@@ -1013,8 +1043,7 @@ impl BSP3D {
                                 lower_vertex_map,
                             );
                             self.try_link_wall_vertex(
-                                ss_id,
-                                pi,
+                                gi,
                                 vi_idx,
                                 vi,
                                 &qp,
@@ -1026,8 +1055,7 @@ impl BSP3D {
                         }
                         WallType::Upper => {
                             self.try_link_wall_vertex(
-                                ss_id,
-                                pi,
+                                gi,
                                 vi_idx,
                                 vi,
                                 &qp,
@@ -1037,8 +1065,7 @@ impl BSP3D {
                                 upper_vertex_map,
                             );
                             self.try_link_wall_vertex(
-                                ss_id,
-                                pi,
+                                gi,
                                 vi_idx,
                                 vi,
                                 &qp,
@@ -1059,8 +1086,7 @@ impl BSP3D {
     /// polygon vertex from `vertex_map` if the vertex height matches.
     fn try_link_wall_vertex(
         &mut self,
-        ss_id: usize,
-        pi: usize,
+        gi: usize,
         vi_idx: usize,
         vi: usize,
         qp: &QuantizedVec2,
@@ -1073,7 +1099,7 @@ impl BSP3D {
             && let Some(target_vi) = qp.lookup(vertex_map, sector_id)
             && vi != target_vi
         {
-            self.subsector_leaves[ss_id].polygons[pi].vertices[vi_idx] = target_vi;
+            self.polygons[gi].vertices[vi_idx] = target_vi;
         }
     }
 
@@ -1102,34 +1128,28 @@ impl BSP3D {
         for &sector_id in &floor_movers {
             for i in 0..self.sector_subsectors[sector_id].len() {
                 let ss_id = self.sector_subsectors[sector_id][i];
-                for fi in 0..self.subsector_leaves[ss_id].floor_polygons.len() {
-                    let pi = self.subsector_leaves[ss_id].floor_polygons[fi];
-                    self.subsector_leaves[ss_id].polygons[pi].moves = true;
+                for gi in self.subsector_leaves[ss_id].floor_polygons.clone() {
+                    self.polygons[gi].moves = true;
                 }
             }
         }
         for &sector_id in &ceil_movers {
             for i in 0..self.sector_subsectors[sector_id].len() {
                 let ss_id = self.sector_subsectors[sector_id][i];
-                for ci in 0..self.subsector_leaves[ss_id].ceiling_polygons.len() {
-                    let pi = self.subsector_leaves[ss_id].ceiling_polygons[ci];
-                    self.subsector_leaves[ss_id].polygons[pi].moves = true;
+                for gi in self.subsector_leaves[ss_id].ceiling_polygons.clone() {
+                    self.polygons[gi].moves = true;
                 }
             }
         }
         // Zh wall polygons.
         for ri in 0..self.zh_wall_records.len() {
-            let (subsector_id, poly_index) = (
-                self.zh_wall_records[ri].subsector_id,
-                self.zh_wall_records[ri].poly_index,
-            );
-            self.subsector_leaves[subsector_id].polygons[poly_index].moves = true;
+            let poly_index = self.zh_wall_records[ri].poly_index;
+            self.polygons[poly_index].moves = true;
         }
         // Non-zh wall polygons at mover boundaries.
         for ss_id in 0..self.subsector_leaves.len() {
-            let polys_len = self.subsector_leaves[ss_id].polygons.len();
-            for pi in 0..polys_len {
-                let poly = &self.subsector_leaves[ss_id].polygons[pi];
+            for gi in self.subsector_leaves[ss_id].polygon_indices.clone() {
+                let poly = &self.polygons[gi];
                 let linedef_id = match &poly.surface_kind {
                     SurfaceKind::Vertical {
                         linedef_id,
@@ -1148,7 +1168,7 @@ impl BSP3D {
                 };
                 let ld_back = ld_back_sector.num as usize;
                 if mover_sectors.contains_key(&ld_front) || mover_sectors.contains_key(&ld_back) {
-                    self.subsector_leaves[ss_id].polygons[pi].moves = true;
+                    self.polygons[gi].moves = true;
                 }
             }
         }
@@ -1174,8 +1194,8 @@ impl BSP3D {
             } else {
                 &leaf.ceiling_polygons
             };
-            for &pi in indices {
-                for &vi in &leaf.polygons[pi].vertices {
+            for &gi in indices {
+                for &vi in &self.polygons[gi].vertices {
                     let v = self.vertices[vi];
                     if (v.x - pos.x).abs() < DEDUP_EPSILON
                         && (v.y - pos.y).abs() < DEDUP_EPSILON
@@ -1199,8 +1219,8 @@ impl BSP3D {
             } else {
                 &leaf.ceiling_polygons
             };
-            for &pi in indices {
-                if leaf.polygons[pi].vertices.contains(&vi) {
+            for &gi in indices {
+                if self.polygons[gi].vertices.contains(&vi) {
                     return true;
                 }
             }
@@ -1229,8 +1249,8 @@ impl BSP3D {
         if poly_indices.is_empty() {
             return;
         }
-        let pi = poly_indices[0];
-        let verts = &self.subsector_leaves[ss_id].polygons[pi].vertices;
+        let gi = poly_indices[0];
+        let verts = &self.polygons[gi].vertices;
         let n = verts.len();
 
         // Already a vertex at this position?
@@ -1242,7 +1262,7 @@ impl BSP3D {
         }
 
         // Find the edge this point lies on via projection.
-        let verts = self.subsector_leaves[ss_id].polygons[pi].vertices.clone();
+        let verts = self.polygons[gi].vertices.clone();
         for i in 0..n {
             let j = (i + 1) % n;
             let a = self.vertices[verts[i]];
@@ -1276,19 +1296,14 @@ impl BSP3D {
                 }
             };
             // Guard against inserting a vertex index already in the polygon.
-            if self.subsector_leaves[ss_id].polygons[pi]
-                .vertices
-                .contains(&ins_vi)
-            {
+            if self.polygons[gi].vertices.contains(&ins_vi) {
                 return;
             }
             // When the edge wraps (last→first), append rather than
             // prepend so the vertex sits between the last and first.
-            let cur_len = self.subsector_leaves[ss_id].polygons[pi].vertices.len();
+            let cur_len = self.polygons[gi].vertices.len();
             let insert_pos = if j == 0 { cur_len } else { j };
-            self.subsector_leaves[ss_id].polygons[pi]
-                .vertices
-                .insert(insert_pos, ins_vi);
+            self.polygons[gi].vertices.insert(insert_pos, ins_vi);
             return;
         }
     }
@@ -1306,18 +1321,13 @@ impl BSP3D {
         let height = self.vertices[old_vi].z;
         for i in 0..self.sector_subsectors[sector_id].len() {
             let ss_id = self.sector_subsectors[sector_id][i];
-            let fc_len = if is_floor {
-                self.subsector_leaves[ss_id].floor_polygons.len()
+            let fc_indices = if is_floor {
+                self.subsector_leaves[ss_id].floor_polygons.clone()
             } else {
-                self.subsector_leaves[ss_id].ceiling_polygons.len()
+                self.subsector_leaves[ss_id].ceiling_polygons.clone()
             };
-            for fi in 0..fc_len {
-                let pi = if is_floor {
-                    self.subsector_leaves[ss_id].floor_polygons[fi]
-                } else {
-                    self.subsector_leaves[ss_id].ceiling_polygons[fi]
-                };
-                for vi in &mut self.subsector_leaves[ss_id].polygons[pi].vertices {
+            for gi in fc_indices {
+                for vi in &mut self.polygons[gi].vertices {
                     if *vi == old_vi {
                         let v = self.vertices[*vi];
                         if (v.x - pos.x).abs() < DEDUP_EPSILON
@@ -1328,16 +1338,15 @@ impl BSP3D {
                     }
                 }
             }
-            let poly_count = self.subsector_leaves[ss_id].polygons.len();
-            for pi in 0..poly_count {
-                let poly = &self.subsector_leaves[ss_id].polygons[pi];
+            for gi in self.subsector_leaves[ss_id].polygon_indices.clone() {
+                let poly = &self.polygons[gi];
                 if !matches!(poly.surface_kind, SurfaceKind::Vertical { .. }) {
                     continue;
                 }
                 if poly.sector_id != sector_id {
                     continue;
                 }
-                for vi in &mut self.subsector_leaves[ss_id].polygons[pi].vertices {
+                for vi in &mut self.polygons[gi].vertices {
                     if *vi == old_vi {
                         let v = self.vertices[*vi];
                         if (v.x - pos.x).abs() < DEDUP_EPSILON

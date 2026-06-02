@@ -37,7 +37,7 @@ fn test_eviternity_map04_no_sky_ceiling_polygons() {
     let mut violations = Vec::new();
     for (ss_id, leaf) in bsp3d.subsector_leaves.iter().enumerate() {
         for &ci in &leaf.ceiling_polygons {
-            let poly = &leaf.polygons[ci];
+            let poly = &bsp3d.polygons[ci];
             if sky_sector_ids.contains(&poly.sector_id) {
                 let tex = match &poly.surface_kind {
                     SurfaceKind::Horizontal {
@@ -79,7 +79,7 @@ fn test_eviternity_map04_sky_sectors_have_floors() {
     let mut sky_sectors_with_floors = 0;
     for leaf in &bsp3d.subsector_leaves {
         for &fi in &leaf.floor_polygons {
-            let poly = &leaf.polygons[fi];
+            let poly = &bsp3d.polygons[fi];
             if sky_sector_ids.contains(&poly.sector_id) {
                 sky_sectors_with_floors += 1;
             }
@@ -133,7 +133,7 @@ fn test_eviternity_map04_no_sky_textured_ceiling_polygons() {
     let mut violations = Vec::new();
     for (ss_id, leaf) in bsp3d.subsector_leaves.iter().enumerate() {
         for &ci in &leaf.ceiling_polygons {
-            let poly = &leaf.polygons[ci];
+            let poly = &bsp3d.polygons[ci];
             if let SurfaceKind::Horizontal {
                 texture,
                 ..
@@ -165,7 +165,8 @@ fn test_eviternity_map04_linedef1572_sky_wall() {
 
     let mut found_wall = false;
     for leaf in &bsp3d.subsector_leaves {
-        for poly in &leaf.polygons {
+        for &gi in &leaf.polygon_indices {
+            let poly = &bsp3d.polygons[gi];
             if let SurfaceKind::Vertical {
                 linedef_id,
                 ..
@@ -193,7 +194,8 @@ fn test_eviternity_map04_linedef1581_no_upper_wall() {
 
     let mut upper_walls_for_1581 = Vec::new();
     for (ss_id, leaf) in bsp3d.subsector_leaves.iter().enumerate() {
-        for poly in &leaf.polygons {
+        for &gi in &leaf.polygon_indices {
+            let poly = &bsp3d.polygons[gi];
             if let SurfaceKind::Vertical {
                 linedef_id,
                 wall_type,
@@ -224,7 +226,8 @@ fn test_eviternity_map04_linedef1351_has_upper_wall() {
 
     let mut found_upper = false;
     for leaf in &bsp3d.subsector_leaves {
-        for poly in &leaf.polygons {
+        for &gi in &leaf.polygon_indices {
+            let poly = &bsp3d.polygons[gi];
             if let SurfaceKind::Vertical {
                 linedef_id,
                 wall_type,
@@ -265,7 +268,8 @@ fn test_eviternity_map04_no_upper_walls_between_sky_sectors() {
 
     let mut violations = Vec::new();
     for (ss_id, leaf) in bsp3d.subsector_leaves.iter().enumerate() {
-        for poly in &leaf.polygons {
+        for &gi in &leaf.polygon_indices {
+            let poly = &bsp3d.polygons[gi];
             if let SurfaceKind::Vertical {
                 linedef_id,
                 wall_type,

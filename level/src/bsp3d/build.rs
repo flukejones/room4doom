@@ -2,7 +2,9 @@
 use coarse_prof::profile;
 
 use crate::flags::LineDefFlags;
-use crate::map_defs::{LineDef, Node, Sector, Segment, SubSector, is_subsector, subsector_index};
+use crate::map_defs::{
+    LineDef, Node, Sector, Segment, SideDef, SubSector, is_subsector, subsector_index
+};
 use glam::{Vec2, Vec3};
 use std::collections::HashMap;
 use std::f32::consts::FRAC_PI_2;
@@ -23,9 +25,7 @@ const HORIZONTAL_TEX_DIRECTION: f32 = FRAC_PI_2;
 /// which vertices are bottom (front sector) vs top (back sector).
 #[derive(Clone)]
 pub(crate) struct ZhWallRecord {
-    /// Subsector leaf containing the wall polygons.
-    pub(crate) subsector_id: usize,
-    /// Polygon index within the subsector leaf (single quad).
+    /// Global index into [`BSP3D::polygons`].
     pub(crate) poly_index: usize,
     /// Vertex indices for the bottom edge [start, end].
     pub(crate) bottom: [usize; 2],
@@ -169,7 +169,9 @@ pub struct OcclusionSeg {
 
 #[derive(Clone)]
 pub struct BSPLeaf3D {
-    pub polygons: Vec<SurfacePolygon>,
+    /// Indices into [`BSP3D::polygons`]; a two-sided wall index is in both
+    /// leaves.
+    pub polygon_indices: Vec<usize>,
     pub aabb: AABB,
     pub floor_polygons: Vec<usize>,
     pub ceiling_polygons: Vec<usize>,
@@ -177,20 +179,27 @@ pub struct BSPLeaf3D {
     pub occlusion_segs: Vec<OcclusionSeg>,
 }
 
+/// Per-side texturing for a vertical wall. `texture` is `None` when that
+/// sidedef is untextured.
+#[derive(Debug, Clone)]
+pub struct WallFace {
+    pub texture: Option<usize>,
+    pub tex_x_offset: f32,
+    pub tex_y_offset: f32,
+    pub texture_direction: Vec3,
+    pub ceiling_z: f32,
+}
+
 #[derive(Debug, Clone)]
 pub enum SurfaceKind {
     Vertical {
-        texture: Option<usize>,
-        tex_x_offset: f32,
-        tex_y_offset: f32,
-        texture_direction: Vec3,
+        /// Side the build-time normal faces.
+        front: WallFace,
+        /// Opposite side. `Some` only for two-sided Upper/Lower walls.
+        back: Option<WallFace>,
         wall_type: WallType,
         wall_tex_pin: WallTexPin,
-        /// For texture alignment.
-        front_ceiling_z: f32,
         two_sided: bool,
-        /// Index of the linedef this wall was created from; used to update the
-        /// texture when a switch fires.
         linedef_id: usize,
         /// BOOM linedef special 260: translucent middle texture
         translucent: bool,
@@ -237,18 +246,51 @@ impl SurfacePolygon {
     }
 
     pub fn is_facing_point(&self, point: Vec3, vertex_positions: &[Vec3]) -> bool {
-        // A wall's facing normal is horizontal and fixed by its seg; vertical
-        // movement never rotates it. The stored normal is computed once from
-        // the original quad winding — recomputing it at runtime is wrong
-        // because the mover vertex-linking pass reorders/shares vertices, so
-        // vertices[0..3] are no longer consecutive rectangle corners (a
-        // two-sided mover wall would otherwise get a flipped normal and Z-fight
-        // its opposite-facing twin).
-        let first_vertex_idx = unsafe { *self.vertices.get_unchecked(0) };
-        let first_vertex = vertex_positions[first_vertex_idx];
-        let view_vector = (point - first_vertex).normalize_or_zero();
-        let dot_product = self.normal.dot(view_vector);
-        dot_product.is_sign_positive() || dot_product.is_nan()
+        let normal = if self.is_flipped(vertex_positions) {
+            -self.normal
+        } else {
+            self.normal
+        };
+        let first_vertex = vertex_positions[unsafe { *self.vertices.get_unchecked(0) }];
+        let dot = normal.dot((point - first_vertex).normalize_or_zero());
+        dot.is_sign_positive() || dot.is_nan()
+    }
+
+    /// A moving wall inverts when its floor crosses its ceiling, flipping the
+    /// geometric normal against the build-time default. The decision is a dot,
+    /// not a winding, so it survives the mover pass replacing vertex indices.
+    fn is_flipped(&self, vertex_positions: &[Vec3]) -> bool {
+        if !(self.moves && matches!(self.surface_kind, SurfaceKind::Vertical { .. })) {
+            return false;
+        }
+        unsafe {
+            let p0 = vertex_positions.get_unchecked(self.vertices[0]);
+            let p1 = vertex_positions.get_unchecked(self.vertices[1]);
+            let p2 = vertex_positions.get_unchecked(self.vertices[2]);
+            (*p1 - *p0)
+                .cross(*p2 - *p0)
+                .dot(self.normal)
+                .is_sign_negative()
+        }
+    }
+
+    /// The textured wall face facing the viewer, or `None` if that side is
+    /// untextured. A flipped (inverted) wall shows its `back` sidedef.
+    pub fn visible_face(&self, vertex_positions: &[Vec3]) -> Option<&WallFace> {
+        let SurfaceKind::Vertical {
+            front,
+            back,
+            ..
+        } = &self.surface_kind
+        else {
+            return None;
+        };
+        let face = if self.is_flipped(vertex_positions) {
+            back.as_ref().unwrap_or(front)
+        } else {
+            front
+        };
+        face.texture.map(|_| face)
     }
 }
 
@@ -275,15 +317,16 @@ impl QuantizedVec3 {
 pub struct BSP3D {
     nodes: Vec<Node3D>,
     pub subsector_leaves: Vec<BSPLeaf3D>,
+    /// All surface polygons; leaves reference these by index.
+    pub polygons: Vec<SurfacePolygon>,
     pub(crate) root_node: u32,
     pub vertices: Vec<Vec3>,
     pub sector_subsectors: Vec<Vec<usize>>,
     /// Carved 2D convex polygon for each subsector, indexed by subsector ID.
     /// Empty vec for degenerate subsectors that produce no valid polygon.
     pub carved_polygons: Vec<Vec<Vec2>>,
-    /// Maps linedef_id → [(subsector_id, polygon_idx)] for wall texture
-    /// updates.
-    linedef_wall_polygons: HashMap<usize, Vec<(usize, usize)>>,
+    /// Maps linedef_id → global polygon indices, for wall texture updates.
+    linedef_wall_polygons: HashMap<usize, Vec<usize>>,
     /// Temporary: zh wall records used during construction only.
     pub(crate) zh_wall_records: Vec<ZhWallRecord>,
 }
@@ -313,6 +356,7 @@ impl BSP3D {
         let mut bsp3d = Self {
             nodes: Vec::new(),
             subsector_leaves: Vec::new(),
+            polygons: Vec::new(),
             root_node,
             vertices: Vec::new(),
             sector_subsectors: vec![Vec::new(); sectors.len()],
@@ -415,6 +459,14 @@ impl BSP3D {
         self.subsector_leaves.get(subsector_id)
     }
 
+    /// Polygons referenced by a leaf, resolved through [`Self::polygons`].
+    pub fn leaf_polygons(&self, subsector_id: usize) -> impl Iterator<Item = &SurfacePolygon> {
+        self.subsector_leaves[subsector_id]
+            .polygon_indices
+            .iter()
+            .map(move |&i| &self.polygons[i])
+    }
+
     pub fn root_node(&self) -> u32 {
         self.root_node
     }
@@ -450,39 +502,21 @@ impl BSP3D {
         new_height: f32,
         texture: usize,
     ) {
-        for i in 0..self.sector_subsectors[sector_id].len() {
-            let subsector_id = self.sector_subsectors[sector_id][i];
-            let leaf = &self.subsector_leaves[subsector_id];
-            let polygon_indices = match movement_type {
-                MovementType::Floor => &leaf.floor_polygons,
-                MovementType::Ceiling => &leaf.ceiling_polygons,
-                MovementType::None => return,
-            };
-
-            for &polygon_idx in polygon_indices {
-                let polygon = &leaf.polygons[polygon_idx];
-                for &vertex_idx in &polygon.vertices {
+        if movement_type == MovementType::None {
+            return;
+        }
+        for si in 0..self.sector_subsectors[sector_id].len() {
+            let ss = self.sector_subsectors[sector_id][si];
+            for pi in 0..self.surface_polygons(ss, movement_type).len() {
+                let gi = self.surface_polygons(ss, movement_type)[pi];
+                for vi in 0..self.polygons[gi].vertices.len() {
+                    let vertex_idx = self.polygons[gi].vertices[vi];
                     self.vertices[vertex_idx].z = new_height;
                 }
-            }
-        }
-
-        for &subsector_id in &self.sector_subsectors[sector_id] {
-            let leaf = &mut self.subsector_leaves[subsector_id];
-            let indices = match movement_type {
-                MovementType::Floor => &leaf.floor_polygons,
-                MovementType::Ceiling => &leaf.ceiling_polygons,
-                MovementType::None => return,
-            };
-            // index loop: `indices` is &leaf.floor/ceiling_polygons; body needs
-            // leaf.polygons[polygon_idx] mutably — same leaf, borrow conflict with .iter()
-            #[allow(clippy::needless_range_loop)]
-            for i in 0..indices.len() {
-                let polygon_idx = indices[i];
                 if let SurfaceKind::Horizontal {
-                    texture: ref mut tex,
+                    texture: tex,
                     ..
-                } = leaf.polygons[polygon_idx].surface_kind
+                } = &mut self.polygons[gi].surface_kind
                 {
                     *tex = texture;
                 }
@@ -490,6 +524,15 @@ impl BSP3D {
         }
 
         self.update_affected_aabbs(sector_id);
+    }
+
+    /// A leaf's floor or ceiling polygon indices for a movement type.
+    fn surface_polygons(&self, subsector_id: usize, movement: MovementType) -> &[usize] {
+        match movement {
+            MovementType::Floor => &self.subsector_leaves[subsector_id].floor_polygons,
+            MovementType::Ceiling => &self.subsector_leaves[subsector_id].ceiling_polygons,
+            MovementType::None => &[],
+        }
     }
 
     /// Apply interpolated sector heights to BSP3D vertices for smooth
@@ -562,18 +605,13 @@ impl BSP3D {
 
     /// Set vertex Z for all polygons of a surface type in a sector (no texture
     /// update).
-    fn set_surface_height(&mut self, sector_id: usize, movement_type: MovementType, height: f32) {
-        for i in 0..self.sector_subsectors[sector_id].len() {
-            let subsector_id = self.sector_subsectors[sector_id][i];
-            let leaf = &self.subsector_leaves[subsector_id];
-            let polygon_indices = match movement_type {
-                MovementType::Floor => &leaf.floor_polygons,
-                MovementType::Ceiling => &leaf.ceiling_polygons,
-                MovementType::None => return,
-            };
-            for &polygon_idx in polygon_indices {
-                let polygon = &leaf.polygons[polygon_idx];
-                for &vertex_idx in &polygon.vertices {
+    fn set_surface_height(&mut self, sector_id: usize, movement: MovementType, height: f32) {
+        for si in 0..self.sector_subsectors[sector_id].len() {
+            let ss = self.sector_subsectors[sector_id][si];
+            for pi in 0..self.surface_polygons(ss, movement).len() {
+                let gi = self.surface_polygons(ss, movement)[pi];
+                for vi in 0..self.polygons[gi].vertices.len() {
+                    let vertex_idx = self.polygons[gi].vertices[vi];
                     self.vertices[vertex_idx].z = height;
                 }
             }
@@ -583,13 +621,11 @@ impl BSP3D {
     /// Replace the floor texture for all subsector polygons in a sector.
     pub fn update_floor_texture(&mut self, sector_id: usize, new_texture: usize) {
         for &subsector_id in &self.sector_subsectors[sector_id] {
-            let leaf = &mut self.subsector_leaves[subsector_id];
-            for i in 0..leaf.floor_polygons.len() {
-                let polygon_idx = leaf.floor_polygons[i];
+            for &gi in &self.subsector_leaves[subsector_id].floor_polygons {
                 if let SurfaceKind::Horizontal {
                     texture,
                     ..
-                } = &mut leaf.polygons[polygon_idx].surface_kind
+                } = &mut self.polygons[gi].surface_kind
                 {
                     *texture = new_texture;
                 }
@@ -599,45 +635,42 @@ impl BSP3D {
 
     /// Index all wall polygons by linedef ID for O(1) texture update lookups.
     fn build_linedef_wall_map(&mut self) {
-        for (subsector_id, leaf) in self.subsector_leaves.iter().enumerate() {
-            for (poly_idx, polygon) in leaf.polygons.iter().enumerate() {
-                if let SurfaceKind::Vertical {
-                    linedef_id,
-                    ..
-                } = polygon.surface_kind
-                {
-                    self.linedef_wall_polygons
-                        .entry(linedef_id)
-                        .or_default()
-                        .push((subsector_id, poly_idx));
-                }
+        for (gi, polygon) in self.polygons.iter().enumerate() {
+            if let SurfaceKind::Vertical {
+                linedef_id,
+                ..
+            } = polygon.surface_kind
+            {
+                self.linedef_wall_polygons
+                    .entry(linedef_id)
+                    .or_default()
+                    .push(gi);
             }
         }
     }
 
     /// Update the texture of all wall polygons belonging to `linedef_id` that
     /// match `wall_type`.  Called by the switch system after a sidedef texture
-    /// change so the 3D scene stays in sync.
+    /// change so the 3D scene stays in sync. Switches always fire on the front
+    /// sidedef, so the front face is updated.
     pub fn update_wall_texture(
         &mut self,
         linedef_id: usize,
         wall_type: WallType,
         new_texture: usize,
     ) {
-        let Some(n) = self.linedef_wall_polygons.get(&linedef_id).map(|e| e.len()) else {
+        let Some(indices) = self.linedef_wall_polygons.get(&linedef_id).cloned() else {
             return;
         };
-        for i in 0..n {
-            let (subsector_id, poly_idx) = self.linedef_wall_polygons[&linedef_id][i];
-            let polygon = &mut self.subsector_leaves[subsector_id].polygons[poly_idx];
+        for gi in indices {
             if let SurfaceKind::Vertical {
-                texture,
+                front,
                 wall_type: wt,
                 ..
-            } = &mut polygon.surface_kind
+            } = &mut self.polygons[gi].surface_kind
                 && *wt == wall_type
             {
-                *texture = Some(new_texture);
+                front.texture = Some(new_texture);
             }
         }
     }
@@ -696,7 +729,7 @@ impl BSP3D {
     }
 
     /// Create upper, lower, and middle wall quads for a two-sided segment.
-    /// Suppresses walls between matching sky surfaces (Doom sky hack).
+    /// Upper/Lower are a single quad carrying both sidedefs' [`WallFace`]s.
     fn create_two_sided_walls(
         &mut self,
         segment: &Segment,
@@ -718,50 +751,55 @@ impl BSP3D {
         let both_sky_floor =
             sky_num.is_some_and(|sky| front_sector.floorpic == sky && back_sector.floorpic == sky);
 
-        // Upper wall: create if toptexture exists and back ceiling is at or
-        // below front ceiling (includes zero-height for movers). Suppressed
-        // when both sectors have sky ceilings.
-        if !both_sky_ceil
-            && let Some(texture) = segment.sidedef.toptexture
-            && back_sector.ceilingheight <= front_sector.ceilingheight
-        {
-            self.add_wall_quad(
+        // Build from the segment whose side shows the wall (its sector is the
+        // taller/lower one). At equal heights (a mover at rest) both segments
+        // qualify, so the linedef-front segment builds it.
+        let is_linedef_front = segment.frontsector.num == segment.linedef.frontsector.num;
+        let other_sidedef = if is_linedef_front {
+            segment.linedef.back_sidedef.as_deref()
+        } else {
+            Some(&*segment.linedef.front_sidedef)
+        };
+
+        let build_upper = if back_sector.ceilingheight == front_sector.ceilingheight {
+            is_linedef_front
+        } else {
+            back_sector.ceilingheight < front_sector.ceilingheight
+        };
+        if build_upper && !both_sky_ceil {
+            self.add_two_sided_wall(
                 segment,
+                WallType::Upper,
                 back_sector.ceilingheight.to_f32(),
                 front_sector.ceilingheight.to_f32(),
-                WallType::Upper,
-                texture,
-                front_id,
-                true,
+                front_sector,
+                back_sector,
+                other_sidedef,
                 front_subsector_id,
-                Some(back_id),
                 vertex_map,
             );
         }
 
-        // Lower wall: create if bottomtexture exists and back floor is at or
-        // above front floor (includes zero-height for movers). Suppressed
-        // when both sectors have sky floors.
-        if !both_sky_floor
-            && let Some(texture) = segment.sidedef.bottomtexture
-            && back_sector.floorheight >= front_sector.floorheight
-        {
-            self.add_wall_quad(
+        let build_lower = if back_sector.floorheight == front_sector.floorheight {
+            is_linedef_front
+        } else {
+            back_sector.floorheight > front_sector.floorheight
+        };
+        if build_lower && !both_sky_floor {
+            self.add_two_sided_wall(
                 segment,
+                WallType::Lower,
                 front_sector.floorheight.to_f32(),
                 back_sector.floorheight.to_f32(),
-                WallType::Lower,
-                texture,
-                front_id,
-                true,
+                front_sector,
+                back_sector,
+                other_sidedef,
                 front_subsector_id,
-                Some(back_id),
                 vertex_map,
             );
         }
 
-        // Middle wall: create if midtexture exists.
-        if let Some(texture) = segment.sidedef.midtexture {
+        if segment.sidedef.midtexture.is_some() {
             let bottom = front_sector
                 .floorheight
                 .to_f32()
@@ -770,18 +808,118 @@ impl BSP3D {
                 .ceilingheight
                 .to_f32()
                 .min(back_sector.ceilingheight.to_f32());
+            let front_face = self.wall_face_for_side(
+                segment,
+                false,
+                segment.sidedef.midtexture,
+                &segment.sidedef,
+                front_sector.ceilingheight.to_f32(),
+            );
             self.add_wall_quad(
                 segment,
                 bottom,
                 top,
                 WallType::Middle,
-                texture,
+                front_face,
+                None,
                 front_id,
                 true,
                 front_subsector_id,
                 Some(back_id),
                 vertex_map,
             );
+        }
+    }
+
+    /// Build a two-sided Upper/Lower wall quad spanning `bottom_h`..`top_h`,
+    /// carrying this seg's `front` face and the opposite side's `back` face.
+    /// Skips construction when neither side has the relevant texture.
+    #[allow(clippy::too_many_arguments)]
+    fn add_two_sided_wall(
+        &mut self,
+        segment: &Segment,
+        wall_type: WallType,
+        bottom_h: f32,
+        top_h: f32,
+        front_sector: &Sector,
+        back_sector: &Sector,
+        other_sidedef: Option<&SideDef>,
+        subsector_id: usize,
+        vertex_map: &mut HashMap<QuantizedVec3, usize>,
+    ) {
+        let tex = |sd: &SideDef| match wall_type {
+            WallType::Upper => sd.toptexture,
+            _ => sd.bottomtexture,
+        };
+        let front_tex = tex(&segment.sidedef);
+        let back_tex = other_sidedef.and_then(tex);
+        if front_tex.is_none() && back_tex.is_none() {
+            return;
+        }
+        let front = self.wall_face_for_side(
+            segment,
+            false,
+            front_tex,
+            &segment.sidedef,
+            front_sector.ceilingheight.to_f32(),
+        );
+        let back = other_sidedef.map(|sd| {
+            self.wall_face_for_side(
+                segment,
+                true,
+                back_tex,
+                sd,
+                back_sector.ceilingheight.to_f32(),
+            )
+        });
+        self.add_wall_quad(
+            segment,
+            bottom_h,
+            top_h,
+            wall_type,
+            front,
+            back,
+            front_sector.num as usize,
+            true,
+            subsector_id,
+            Some(back_sector.num as usize),
+            vertex_map,
+        );
+        // Share into the subsectors across this segment so a mover that inverts
+        // the wall can render it from the other side.
+        let gi = self.polygons.len() - 1;
+        for &back in &segment.back_subsectors {
+            self.subsector_leaves[back].polygon_indices.push(gi);
+        }
+    }
+
+    /// Build a [`WallFace`] for one side of `segment`. The back side traverses
+    /// the linedef reversed, so its direction and seg offset come from the
+    /// opposite endpoints.
+    fn wall_face_for_side(
+        &self,
+        segment: &Segment,
+        is_back: bool,
+        texture: Option<usize>,
+        sidedef: &SideDef,
+        ceiling_z: f32,
+    ) -> WallFace {
+        let start = segment.v1.pos;
+        let end = segment.v2.pos;
+        let (dir, seg_offset) = if is_back {
+            let ld_v2 = Vec2::new(segment.linedef.v2.x, segment.linedef.v2.y);
+            (start - end, (ld_v2 - end).length())
+        } else {
+            (end - start, segment.offset.into())
+        };
+        let dir = dir.normalize();
+        let angle = dir.y.atan2(dir.x);
+        WallFace {
+            texture,
+            tex_x_offset: f32::from(sidedef.textureoffset) + seg_offset,
+            tex_y_offset: sidedef.rowoffset.into(),
+            texture_direction: Vec3::new(angle.cos(), angle.sin(), 0.0),
+            ceiling_z,
         }
     }
 
@@ -794,7 +932,7 @@ impl BSP3D {
         front_subsector_id: usize,
         vertex_map: &mut HashMap<QuantizedVec3, usize>,
     ) {
-        if let Some(texture) = segment.sidedef.midtexture {
+        if segment.sidedef.midtexture.is_some() {
             let front_id = front_sector.num as usize;
             let is_zh = (front_sector.ceilingheight.to_f32() - front_sector.floorheight.to_f32())
                 .abs()
@@ -803,12 +941,20 @@ impl BSP3D {
             // creates fresh vertices and a ZhWallRecord. The mover pass
             // connects bottom → floor vertex, top → ceiling vertex.
             let back_sector_id = if is_zh { Some(front_id) } else { None };
+            let front_face = self.wall_face_for_side(
+                segment,
+                false,
+                segment.sidedef.midtexture,
+                &segment.sidedef,
+                front_sector.ceilingheight.to_f32(),
+            );
             self.add_wall_quad(
                 segment,
                 front_sector.floorheight.to_f32(),
                 front_sector.ceilingheight.to_f32(),
                 WallType::Middle,
-                texture,
+                front_face,
+                None,
                 front_id,
                 false,
                 front_subsector_id,
@@ -822,13 +968,15 @@ impl BSP3D {
     /// subsector leaf. For zero-height walls with a back sector, creates
     /// fresh (non-dedup'd) vertices so bottom and top have distinct indices,
     /// and records a `ZhWallRecord` for the post-pass.
+    #[allow(clippy::too_many_arguments)]
     fn add_wall_quad(
         &mut self,
         segment: &Segment,
         bottom_height: f32,
         top_height: f32,
         wall_type: WallType,
-        texture: usize,
+        front: WallFace,
+        back: Option<WallFace>,
         sector_id: usize,
         two_sided: bool,
         subsector_id: usize,
@@ -878,17 +1026,11 @@ impl BSP3D {
             (v1 - v0).cross(v2 - v0).normalize()
         };
 
-        let angle = wall_direction.y.atan2(wall_direction.x);
-        let texture_direction = Vec3::new(angle.cos(), angle.sin(), 0.0);
-
         let surface_kind = SurfaceKind::Vertical {
-            texture: Some(texture),
-            tex_x_offset: (segment.sidedef.textureoffset + segment.offset).into(),
-            tex_y_offset: segment.sidedef.rowoffset.into(),
-            texture_direction,
+            front,
+            back,
             wall_type,
             wall_tex_pin: WallTexPin::from(segment.linedef.flags),
-            front_ceiling_z: segment.frontsector.ceilingheight.to_f32(),
             two_sided,
             linedef_id: segment.linedef.num,
             translucent: segment.linedef.special == 260,
@@ -902,13 +1044,13 @@ impl BSP3D {
             &self.vertices,
             false,
         );
-        let pi = self.subsector_leaves[subsector_id].polygons.len();
-        self.subsector_leaves[subsector_id].polygons.push(quad);
+        let gi = self.polygons.len();
+        self.polygons.push(quad);
+        self.subsector_leaves[subsector_id].polygon_indices.push(gi);
 
         if is_zero_height && let Some(back_id) = back_sector_id {
             self.zh_wall_records.push(ZhWallRecord {
-                subsector_id,
-                poly_index: pi,
+                poly_index: gi,
                 bottom: [bottom_start, bottom_end],
                 top: [top_start, top_end],
                 wall_type,
@@ -1013,12 +1155,20 @@ impl BSP3D {
 
                     // Skip if the existing wall already reaches the target.
                     if needs_ceil_filler && is_perimeter_ceil && sky_ceil < max_h {
+                        let face = self.wall_face_for_side(
+                            seg,
+                            false,
+                            Some(sky_pic),
+                            &seg.sidedef,
+                            seg.frontsector.ceilingheight.to_f32(),
+                        );
                         self.add_wall_quad(
                             seg,
                             sky_ceil,
                             max_h,
                             WallType::Upper,
-                            sky_pic,
+                            face,
+                            None,
                             sector_id,
                             seg.backsector.is_some(),
                             ss_id,
@@ -1027,12 +1177,20 @@ impl BSP3D {
                         );
                     }
                     if needs_floor_filler && is_perimeter_floor && min_h < sky_floor {
+                        let face = self.wall_face_for_side(
+                            seg,
+                            false,
+                            Some(sky_pic),
+                            &seg.sidedef,
+                            seg.frontsector.ceilingheight.to_f32(),
+                        );
                         self.add_wall_quad(
                             seg,
                             min_h,
                             sky_floor,
                             WallType::Lower,
-                            sky_pic,
+                            face,
+                            None,
                             sector_id,
                             seg.backsector.is_some(),
                             ss_id,
@@ -1151,8 +1309,9 @@ impl BSP3D {
                     &self.vertices,
                     false,
                 );
-                let fi = self.subsector_leaves[subsector_id].polygons.len();
-                self.subsector_leaves[subsector_id].polygons.push(fp);
+                let fi = self.polygons.len();
+                self.polygons.push(fp);
+                self.subsector_leaves[subsector_id].polygon_indices.push(fi);
                 self.subsector_leaves[subsector_id].floor_polygons.push(fi);
             }
         }
@@ -1180,8 +1339,9 @@ impl BSP3D {
                 &self.vertices,
                 false,
             );
-            let ci = self.subsector_leaves[subsector_id].polygons.len();
-            self.subsector_leaves[subsector_id].polygons.push(cp);
+            let ci = self.polygons.len();
+            self.polygons.push(cp);
+            self.subsector_leaves[subsector_id].polygon_indices.push(ci);
             self.subsector_leaves[subsector_id]
                 .ceiling_polygons
                 .push(ci);
@@ -1189,12 +1349,10 @@ impl BSP3D {
     }
 
     /// Compute the AABB for a single subsector leaf from its polygon vertices.
-    /// Floor/ceiling polygon indices point into the same `polygons` vec, so
-    /// iterating `polygons` once covers all surfaces.
     fn compute_leaf_aabb(&self, subsector_id: usize) -> AABB {
         let mut aabb = AABB::new();
-        for polygon in &self.subsector_leaves[subsector_id].polygons {
-            for &vertex_idx in &polygon.vertices {
+        for &gi in &self.subsector_leaves[subsector_id].polygon_indices {
+            for &vertex_idx in &self.polygons[gi].vertices {
                 aabb.expand_to_include_point(self.vertices[vertex_idx]);
             }
         }
@@ -1274,7 +1432,7 @@ impl BSP3D {
 impl Default for BSPLeaf3D {
     fn default() -> Self {
         Self {
-            polygons: Vec::new(),
+            polygon_indices: Vec::new(),
             aabb: AABB::new(),
             floor_polygons: Vec::new(),
             ceiling_polygons: Vec::new(),
