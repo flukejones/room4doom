@@ -1,0 +1,48 @@
+name: demo-regression
+
+# Plays the stock doom1.wad demos headless and compares a per-tic gameplay
+# fingerprint to committed golden hashes. Guards against gameplay/physics/RNG
+# changes that break demo determinism.
+#
+# doom1.wad is not redistributable, so it is provided via the DOOM1_WAD_BASE64
+# repository secret (base64 of the shareware WAD). When the secret is absent the
+# regression step skips (the script exits 0), so forks without the WAD still
+# build.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  demo-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install SDL2 build deps
+        run: sudo apt-get update && sudo apt-get install -y libsdl2-dev libasound2-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build room4doom (release)
+        run: cargo build --release -p room4doom
+
+      - name: Restore doom1.wad from secret
+        env:
+          DOOM1_WAD_BASE64: ${{ secrets.DOOM1_WAD_BASE64 }}
+        run: |
+          if [ -n "$DOOM1_WAD_BASE64" ]; then
+            mkdir -p "$HOME/DOOM"
+            echo "$DOOM1_WAD_BASE64" | base64 -d > "$HOME/DOOM/doom1.wad"
+            echo "doom1.wad restored ($(stat -c%s "$HOME/DOOM/doom1.wad") bytes)"
+          else
+            echo "DOOM1_WAD_BASE64 secret not set; regression will skip."
+          fi
+
+      - name: Demo determinism regression
+        # The script defaults IWAD to $HOME/DOOM/doom1.wad (where the secret is
+        # restored) and skips cleanly when the WAD is absent.
+        run: bash tools/demo-regression.sh

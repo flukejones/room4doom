@@ -1293,6 +1293,8 @@ impl Game {
 
             update_specials(level, &mut self.pic_data);
             respawn_specials(level);
+
+            gameplay::demo_trace::trace_tic(level);
         }
     }
 }
