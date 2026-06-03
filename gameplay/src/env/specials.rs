@@ -10,7 +10,8 @@ use crate::env::doors::{DoorKind, ev_do_door};
 use crate::env::floor::{FloorKind, StairKind, ev_build_stairs, ev_do_floor};
 use crate::env::generalized;
 use crate::env::lights::{
-    FASTDARK, FireFlicker, Glow, LightFlash, SLOWDARK, StrobeFlash, ev_start_light_strobing, ev_turn_light_on, ev_turn_tag_lights_off
+    FASTDARK, FireFlicker, Glow, LightFlash, SLOWDARK, StrobeFlash, ev_start_light_strobing,
+    ev_turn_light_on, ev_turn_tag_lights_off,
 };
 use crate::env::platforms::{PlatKind, ev_do_platform, ev_stop_platform};
 use crate::env::switch::{change_switch_texture, start_sector_sound};
@@ -20,7 +21,6 @@ use crate::level::LevelState;
 use crate::pic::ButtonWhere;
 use crate::thing::MapObject;
 use crate::{MapObjFlag, TICRATE};
-use level::flags::LineDefFlags;
 use level::map_defs::{LineDef, Sector, SectorHeight};
 use level::{BSP3D, MapPtr, MovementType, WallType};
 use log::{debug, error, trace};
@@ -30,134 +30,18 @@ use sound_common::SfxName;
 
 // BOOM generalized sector type bit masks
 #[allow(dead_code)]
-const BOOM_DAMAGE_MASK: i16 = 0x60;
+const BOOM_DAMAGE_MASK: u32 = 0x60;
 #[allow(dead_code)]
-const BOOM_DAMAGE_SHIFT: i16 = 5;
-const BOOM_SECRET_MASK: i16 = 0x80;
-use std::ptr;
+const BOOM_DAMAGE_SHIFT: u32 = 5;
+const BOOM_SECRET_MASK: u32 = 0x80;
 
-pub fn get_next_sector(line: MapPtr<LineDef>, sector: MapPtr<Sector>) -> Option<MapPtr<Sector>> {
-    if !line.flags.contains(LineDefFlags::TwoSided) {
-        return None;
-    }
-
-    if ptr::eq(line.frontsector.as_ref(), sector.as_ref()) {
-        return line.backsector.clone();
-    }
-
-    Some(line.frontsector.clone())
-}
-
-/// P_FindMinSurroundingLight
-pub fn find_min_light_surrounding(sec: MapPtr<Sector>, max: usize) -> usize {
-    let mut min = max;
-    for line in &sec.lines {
-        if let Some(other) = get_next_sector(line.clone(), sec.clone())
-            && other.lightlevel < min
-        {
-            min = other.lightlevel;
-        }
-    }
-    trace!("find_min_light_surrounding: {min}");
-    min
-}
-
-pub fn find_max_light_surrounding(sec: MapPtr<Sector>, mut max: usize) -> usize {
-    for line in &sec.lines {
-        if let Some(other) = get_next_sector(line.clone(), sec.clone())
-            && other.lightlevel > max
-        {
-            max = other.lightlevel;
-        }
-    }
-    debug!("find_max_light_surrounding: {max}");
-    max
-}
-
-/// P_FindLowestCeilingSurrounding
-pub fn find_lowest_ceiling_surrounding(sec: MapPtr<Sector>) -> SectorHeight {
-    let mut height = SectorHeight::MAX;
-    for line in &sec.lines {
-        if let Some(other) = get_next_sector(line.clone(), sec.clone())
-            && other.ceilingheight < height
-        {
-            height = other.ceilingheight;
-        }
-    }
-    debug!("find_lowest_ceiling_surrounding: {height}");
-    height
-}
-
-/// P_FindHighestCeilingSurrounding
-pub fn find_highest_ceiling_surrounding(sec: MapPtr<Sector>) -> SectorHeight {
-    let mut height = SectorHeight::ZERO;
-    for line in &sec.lines {
-        if let Some(other) = get_next_sector(line.clone(), sec.clone())
-            && other.ceilingheight > height
-        {
-            height = other.ceilingheight;
-        }
-    }
-    debug!("find_highest_ceiling_surrounding: {height}");
-    height
-}
-
-/// P_FindLowestFloorSurrounding
-pub fn find_lowest_floor_surrounding(sec: MapPtr<Sector>) -> SectorHeight {
-    let mut floor = sec.floorheight;
-    for line in &sec.lines {
-        if let Some(other) = get_next_sector(line.clone(), sec.clone())
-            && other.floorheight < floor
-        {
-            floor = other.floorheight;
-        }
-    }
-    debug!("find_lowest_floor_surrounding: {floor}");
-    floor
-}
-
-/// P_FindHighestFloorSurrounding
-pub fn find_highest_floor_surrounding(sec: MapPtr<Sector>) -> SectorHeight {
-    let mut floor = -SectorHeight::MAX;
-    for line in &sec.lines {
-        if let Some(other) = get_next_sector(line.clone(), sec.clone())
-            && other.floorheight > floor
-        {
-            floor = other.floorheight;
-        }
-    }
-    debug!("find_highest_floor_surrounding: {floor}");
-    floor
-}
-
-/// OG `P_FindNextHighestFloor` — find lowest floor ABOVE current among
-/// neighbours.
-pub fn find_next_highest_floor(sec: MapPtr<Sector>, current: SectorHeight) -> SectorHeight {
-    let mut height_list = Vec::new();
-
-    for line in &sec.lines {
-        if let Some(other) = get_next_sector(line.clone(), sec.clone()) {
-            // OG: only include floors ABOVE current
-            if other.floorheight > current {
-                height_list.push(other.floorheight);
-            }
-        }
-    }
-
-    if height_list.is_empty() {
-        return current;
-    }
-
-    // Find lowest in the filtered list (the next step up)
-    let mut min = height_list[0];
-    for h in &height_list[1..] {
-        if *h < min {
-            min = *h;
-        }
-    }
-
-    min
-}
+// The neighbour-sector geometry queries moved to `level::env_query` (pure
+// geometry, shared with tooling); re-exported here for existing call sites.
+pub use level::env_query::{
+    find_highest_ceiling_surrounding, find_highest_floor_surrounding,
+    find_lowest_ceiling_surrounding, find_lowest_floor_surrounding, find_max_light_surrounding,
+    find_min_light_surrounding, find_next_highest_floor, get_next_sector,
+};
 
 /// OG `P_ChangeSector` -- iterate blockmap cells in sector's bounding box.
 fn change_sector(sector: &Sector, crunch: bool, level: &mut LevelState) -> bool {
@@ -442,16 +326,17 @@ pub fn cross_special_line(side: usize, mut line: MapPtr<LineDef>, thing: &mut Ma
             _ => {}
         }
 
+        // Teleports stay vanilla; the monster-openable door/lift movers
+        // (vanilla 4/10/88) are now generalized and carry the BOOM monster bit,
+        // so defer to handle_generalized_cross -> gen_allows_monster for those.
         if matches!(
             line.special,
             39    // TELEPORT TRIGGER
             | 97  // TELEPORT RETRIGGER
             | 125 // TELEPORT MONSTERONLY TRIGGER
             | 126 // TELEPORT MONSTERONLY RETRIGGER
-            | 4   // RAISE DOOR
-            | 10  // PLAT DOWN-WAIT-UP-STAY TRIGGER
-            | 88 // PLAT DOWN-WAIT-UP-STAY RETRIGGER
-        ) {
+        ) || generalized::is_generalized(line.special)
+        {
             ok = true;
         }
 
@@ -831,7 +716,9 @@ pub fn shoot_special_line(line: MapPtr<LineDef>, thing: &mut MapObject) {
     let level: &mut LevelState = unsafe { &mut *thing.level };
 
     if thing.player().is_none() {
-        if line.special == 46 {
+        // Only the gun-open door (vanilla 46) is monster-shootable; the
+        // original number is preserved in default_special after normalisation.
+        if line.default_special == 46 {
             ok = true;
         }
         if !ok {

@@ -65,7 +65,7 @@ pub struct Sector {
     /// Is a tag or index to patch
     pub ceilingpic: usize,
     pub lightlevel: usize,
-    pub special: i16,
+    pub special: u32,
     pub tag: i16,
     /// Saved special for reference
     pub default_special: i16,
@@ -136,7 +136,7 @@ impl Sector {
             floorpic,
             ceilingpic,
             lightlevel,
-            special,
+            special: special as u32,
             tag,
             default_special: special,
             default_tag: tag,
@@ -213,7 +213,7 @@ pub struct LineDef {
     pub delta_fp: [i32; 2],
     // Animation related.
     pub flags: LineDefFlags,
-    pub special: i16,
+    pub special: u32,
     pub tag: i16,
 
     /// Saved special for reference

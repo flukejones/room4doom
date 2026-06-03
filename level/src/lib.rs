@@ -11,10 +11,14 @@ use std::ops::{Deref, DerefMut};
 use std::ptr::null_mut;
 
 pub mod bsp3d;
+pub mod env_kinds;
+pub mod env_query;
+pub mod env_target;
 pub mod flags;
 pub mod level_data;
 pub mod map_array;
 pub mod map_defs;
+pub mod special_encode;
 // Re-exports for convenience
 pub use bsp3d::movers::is_sector_mover;
 pub use bsp3d::{

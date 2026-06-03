@@ -21,3 +21,7 @@ serde_json.workspace = true
 glam.workspace = true
 eframe.workspace = true
 egui.workspace = true
+software3d.workspace = true
+pic-data.workspace = true
+render-common.workspace = true
+math.workspace = true

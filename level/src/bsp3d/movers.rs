@@ -5,6 +5,7 @@
 use super::build::{BSP3D, HEIGHT_EPSILON, QUANT_PRECISION, QuantizedVec3, SurfaceKind, WallType};
 use crate::flags::LineDefFlags;
 use crate::map_defs::{LineDef, Sector, Segment, SubSector};
+use crate::special_encode::{self, Category as SpecialCategory};
 use glam::{Vec2, Vec3};
 use std::collections::{HashMap, HashSet};
 
@@ -38,43 +39,24 @@ impl MoverKind {
     }
 }
 
-/// Classify a linedef special as floor, ceiling, or both.
-fn classify_special(special: i16) -> Option<MoverKind> {
-    match special {
-        // Floor: ev_do_floor
-        5 | 19 | 23 | 24 | 30 | 36 | 37 | 38 | 56 | 58 | 59 | 60 | 82 | 83 | 84 | 91 | 92 | 93
-        | 94 | 96 | 98 | 102 | 119 | 128 | 129 | 130 => Some(MoverKind::Floor),
-        // Floor: ev_do_platform
-        10 | 14 | 15 | 20 | 21 | 22 | 47 | 53 | 54 | 62 | 66 | 67 | 68 | 87 | 88 | 89 | 95
-        | 120 | 121 | 122 | 123 => Some(MoverKind::Floor),
-        // Floor: ev_build_stairs
-        8 | 100 | 127 => Some(MoverKind::Floor),
-        // Ceiling: ev_do_door
-        1 | 2 | 3 | 4 | 16 | 26 | 27 | 28 | 29 | 31 | 32 | 33 | 34 | 42 | 46 | 50 | 61 | 63
-        | 75 | 76 | 86 | 90 | 99 | 105 | 106 | 107 | 108 | 109 | 110 | 111 | 114 | 115 | 116
-        | 117 | 118 => Some(MoverKind::Ceiling),
-        // Ceiling: ev_do_ceiling
-        6 | 25 | 44 | 49 | 57 | 72 | 73 | 77 | 141 => Some(MoverKind::Ceiling),
-        // Both: ceiling + floor simultaneously
-        40 => Some(MoverKind::Both),
-        _ => {
-            // BOOM generalized specials (>= 0x2F80)
-            if special >= 0x2F80 {
-                // Bits 13-15 encode the type: 0=floor, 1=ceiling, 2=door, 3=locked door,
-                // 4=lift, 5=stairs, 6=crusher
-                let gen_type = ((special as u16) >> 13) & 0x7;
-                match gen_type {
-                    0 | 4 | 5 => Some(MoverKind::Floor),       // floor, lift, stairs
-                    1 | 2 | 3 | 6 => Some(MoverKind::Ceiling), // ceiling, door, locked, crusher
-                    _ => Some(MoverKind::Both),
-                }
-            } else if special != 0 {
-                Some(MoverKind::Both)
-            } else {
-                None
-            }
-        }
+/// Classify a (generalized) linedef special as floor, ceiling, or both.
+///
+/// Specials are normalised to generalized form at load (see
+/// [`crate::special_encode`]), so this decodes the generalized special and
+/// maps its category to which surface(s) move: floors/lifts/stairs raise the
+/// floor, ceilings/doors/crushers move the ceiling, and the composite vanilla-40
+/// moves both.
+fn classify_special(special: u32) -> Option<MoverKind> {
+    let spec = special_encode::decode(special)?;
+    if spec.composite {
+        return Some(MoverKind::Both);
     }
+    Some(match spec.category {
+        SpecialCategory::Floor | SpecialCategory::Lift | SpecialCategory::Stairs => {
+            MoverKind::Floor
+        }
+        SpecialCategory::Ceiling | SpecialCategory::Door => MoverKind::Ceiling,
+    })
 }
 
 /// Check if a sector participates in any line-special-triggered movement.

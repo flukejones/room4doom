@@ -3,6 +3,7 @@ mod viewer;
 use argh::FromArgs;
 use level::LevelData;
 use log::info;
+use math::FixedT;
 use serde::Serialize;
 use std::path::PathBuf;
 use wad::WadData;
@@ -109,7 +110,7 @@ struct SectorOutput {
     ceiling_height: f32,
     light_level: usize,
     tag: i16,
-    kind: i16,
+    kind: u32,
 }
 
 fn cmd_stats(args: &Args) {
@@ -305,7 +306,7 @@ struct DumpSector {
     ceiling_height: f32,
     light_level: usize,
     tag: i16,
-    special: i16,
+    special: u32,
 }
 
 #[derive(Serialize)]
@@ -322,7 +323,7 @@ struct DumpLinedef {
     v1: usize,
     v2: usize,
     flags: u32,
-    special: i16,
+    special: u32,
     tag: i16,
     front_sector: usize,
     back_sector: Option<usize>,
@@ -454,9 +455,34 @@ fn cmd_dump(args: &Args, cmd: &DumpCmd) {
 
 fn cmd_view(args: &Args) {
     let wad = load_wad(args);
-    let level_data = load_map(args, &wad);
+    let mut level_data = load_map(args, &wad);
     let data = viewer::extract_viewer_data(&args.map, &level_data, &wad);
-    viewer::run(data);
+    let renderer3d = viewer::Renderer3D::new(&wad, viewer::Render3DMode::Textured, 1280, 760);
+    let spawn = player_spawn_camera(&mut level_data);
+    viewer::run(data, level_data, renderer3d, spawn);
+}
+
+/// Camera at the player-1 start (thing kind 1), at eye height above its floor.
+fn player_spawn_camera(level: &mut std::pin::Pin<Box<LevelData>>) -> viewer::Camera3D {
+    const VIEWHEIGHT: f32 = 41.0;
+    let lvl = unsafe { level.as_mut().get_unchecked_mut() };
+    let start = lvl.things().iter().find(|t| t.kind == 1).copied();
+    match start {
+        Some(t) => {
+            let (x, y) = (t.x as f32, t.y as f32);
+            let floor = lvl
+                .point_in_subsector(FixedT::from_f32(x), FixedT::from_f32(y))
+                .sector
+                .floorheight
+                .to_f32();
+            viewer::Camera3D {
+                pos: glam::Vec3::new(x, y, floor + VIEWHEIGHT),
+                yaw: (t.angle as f32).to_radians(),
+                pitch: 0.0,
+            }
+        }
+        None => viewer::Camera3D::default(),
+    }
 }
 
 fn main() {

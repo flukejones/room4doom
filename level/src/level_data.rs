@@ -1,11 +1,13 @@
 use crate::map_defs::{
-    BBox, Blockmap, LineDef, Node, Sector, Segment, SideDef, SlopeType, SubSector, Vertex, is_subsector, subsector_index
+    BBox, Blockmap, LineDef, Node, Sector, Segment, SideDef, SlopeType, SubSector, Vertex,
+    is_subsector, subsector_index,
 };
 
 use crate::MapPtr;
 use crate::bsp3d::BSP3D;
 use crate::flags::LineDefFlags;
 use crate::map_array::MapArray;
+use crate::special_encode;
 use glam::Vec2;
 use log::{debug, info, warn};
 use math::{Angle, FixedT};
@@ -276,7 +278,7 @@ impl LevelData {
                     delta: Vec2::new(dx, dy),
                     delta_fp,
                     flags: LineDefFlags::from_bits_truncate(l.flags as u32),
-                    special: l.special,
+                    special: l.special as u32,
                     tag: l.sector_tag,
                     default_special: l.special,
                     default_tag: l.sector_tag,
@@ -293,6 +295,14 @@ impl LevelData {
             })
             .collect();
         info!("{}: Loaded {} linedefs", map_name, self.linedefs.len());
+
+        // Normalise vanilla mover specials to generalized form so the engine
+        // has one decode path. `default_special` keeps the original number.
+        for line in self.linedefs.iter_mut() {
+            if let Some(generalized) = special_encode::encode_vanilla(line.special) {
+                line.special = generalized;
+            }
+        }
 
         // Map sectors to lines
         for line in self.linedefs.iter_mut() {

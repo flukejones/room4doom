@@ -629,9 +629,13 @@ dependencies = [
  "glam",
  "level",
  "log",
+ "math",
+ "pic-data",
+ "render-common",
  "serde",
  "serde_json",
  "simplelog",
+ "software3d",
  "wad",
 ]
 

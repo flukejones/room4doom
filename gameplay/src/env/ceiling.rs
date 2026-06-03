@@ -16,33 +16,7 @@ use level::map_defs::{LineDef, Sector, SectorHeight};
 
 const CEILSPEED: SectorHeight = SectorHeight::ONE;
 
-#[derive(Debug, Clone, Copy)]
-#[repr(u8)]
-pub enum CeilKind {
-    LowerToFloor,
-    RaiseToHighest,
-    LowerAndCrush,
-    CrushAndRaise,
-    FastCrushAndRaise,
-    SilentCrushAndRaise,
-}
-
-impl TryFrom<u8> for CeilKind {
-    /// The raw byte that failed to map to a variant.
-    type Error = u8;
-
-    fn try_from(v: u8) -> Result<Self, u8> {
-        match v {
-            0 => Ok(CeilKind::LowerToFloor),
-            1 => Ok(CeilKind::RaiseToHighest),
-            2 => Ok(CeilKind::LowerAndCrush),
-            3 => Ok(CeilKind::CrushAndRaise),
-            4 => Ok(CeilKind::FastCrushAndRaise),
-            5 => Ok(CeilKind::SilentCrushAndRaise),
-            _ => Err(v),
-        }
-    }
-}
+pub use level::env_kinds::CeilKind;
 
 pub struct CeilingMove {
     pub thinker: *mut Thinker,
