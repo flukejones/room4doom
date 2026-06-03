@@ -443,9 +443,9 @@ impl LevelData {
 
         // --- Finalize ---
         let t = Instant::now();
-        self.build_blockmap(map_name);
+        self.load_blockmap(map_name, wad);
         self.compute_sector_blockboxes();
-        self.reject = vec![];
+        self.load_devils_rejects(map_name, wad);
 
         for sector in self.sectors.iter_mut() {
             set_sector_sound_origin(sector);
@@ -604,6 +604,73 @@ impl LevelData {
             })
             .collect();
         info!("{}: Loaded {} sidedefs", map_name, self.sidedefs.len());
+    }
+
+    /// Load the WAD REJECT lump (sector-to-sector visibility matrix). OG
+    /// `P_CheckSight` consults REJECT as a fast "definitely can't see" reject
+    /// before the BSP sight trace. An empty REJECT skips that reject, so a
+    /// monster gains sight where vanilla denies it — flipping attack decisions
+    /// and desyncing demos. Empty when the lump is absent (matches OG, which
+    /// then always does the full trace).
+    fn load_devils_rejects(&mut self, map_name: &str, wad: &WadData) {
+        if let Some(rejects) = wad.read_rejects(map_name) {
+            info!("{}: Loaded {} reject bytes", map_name, rejects.len());
+            self.reject = rejects;
+        } else {
+            self.reject = vec![];
+        }
+    }
+
+    /// Load the WAD's pre-built BLOCKMAP lump when present, falling back to
+    /// `build_blockmap`. The WAD blockmap's origin and per-cell line grid are
+    /// demo-critical: hitscan and movement walk this grid, and a rebuilt grid
+    /// with a different origin shifts every cell lookup, desyncing demos. OG
+    /// always uses the WAD blockmap, so we must too whenever it exists.
+    pub fn load_blockmap(&mut self, map_name: &str, wad: &WadData) {
+        let Some(wadblock) = wad.read_blockmap(map_name) else {
+            self.build_blockmap(map_name);
+            return;
+        };
+
+        let cols = wadblock.columns as i32;
+        let rows = wadblock.rows as i32;
+        let num_blocks = (cols * rows) as usize;
+
+        let mut block_offsets = Vec::with_capacity(num_blocks + 1);
+        let mut block_lines = Vec::new();
+
+        // line_indexes is flat: [block0_line, ..., -1, block1_line, ..., -1, ...]
+        let mut idx = 0;
+        let indexes = &wadblock.line_indexes;
+        for _ in 0..num_blocks {
+            block_offsets.push(block_lines.len());
+            while idx < indexes.len() {
+                let l = indexes[idx];
+                idx += 1;
+                if l == -1 {
+                    break;
+                }
+                if (l as usize) < self.linedefs.len() {
+                    block_lines.push(MapPtr::new(&mut self.linedefs[l as usize]));
+                }
+            }
+        }
+        block_offsets.push(block_lines.len());
+
+        self.blockmap = Blockmap {
+            x_origin: (wadblock.x_origin as i32) << 16,
+            y_origin: (wadblock.y_origin as i32) << 16,
+            columns: cols,
+            rows,
+            block_offsets,
+            block_lines,
+        };
+        info!(
+            "{}: Loaded WAD blockmap, {} blocks, {} line refs",
+            map_name,
+            num_blocks,
+            self.blockmap.block_lines.len()
+        );
     }
 
     pub fn build_blockmap(&mut self, map_name: &str) {

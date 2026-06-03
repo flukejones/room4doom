@@ -100,6 +100,18 @@ pub fn point_on_divline_side(x: FixedT, y: FixedT, line: &DivLineFixed) -> usize
     let dx = x - line.x;
     let dy = y - line.y;
 
+    // OG fast sign-bit decision (`p_maputl.c:P_PointOnDivlineSide`). This is NOT
+    // equivalent to the FixedMul comparison for all inputs — it is the exact OG
+    // path and demos depend on it. Omitting it flips the side for some mixed-sign
+    // deltas, which silently changes hitscan bbox crossings and desyncs demos.
+    let ldy = line.dy.to_fixed_raw();
+    let ldx = line.dx.to_fixed_raw();
+    let pdx = dx.to_fixed_raw();
+    let pdy = dy.to_fixed_raw();
+    if (ldy ^ ldx ^ pdx ^ pdy) < 0 {
+        return if (ldy ^ pdx) < 0 { 1 } else { 0 };
+    }
+
     // OG: left = FixedMul(line->dy >> 8, dx >> 8)
     //     right = FixedMul(dy >> 8, line->dx >> 8)
     #[cfg(not(any(feature = "fixed64", feature = "fixed64hd")))]
