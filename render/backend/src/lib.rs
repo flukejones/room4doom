@@ -6,7 +6,7 @@ use level::LevelData;
 use pic_data::{PicData, VoxelManager};
 use render_common::wipe::Wipe;
 use render_common::{
-    BufferSize, DrawBuffer as DrawBufferTrait, GameRenderer, RenderView, build_vignette_alpha_lut
+    BufferSize, DrawBuffer as DrawBufferTrait, GameRenderer, RenderView, build_vignette_alpha_lut,
 };
 use software3d::{DebugDrawOptions, Software3D};
 use software25d::Software25D;

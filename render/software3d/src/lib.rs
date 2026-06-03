@@ -2,7 +2,8 @@
 use coarse_prof::profile;
 use glam::{Mat4, Vec2, Vec3, Vec4};
 use level::{
-    AABB, BSP3D, LevelData, Sector, SurfaceKind, SurfacePolygon, WallFace, WallTexPin, WallType, is_subsector, subsector_index
+    AABB, BSP3D, LevelData, Sector, SurfaceKind, SurfacePolygon, WallFace, WallTexPin, WallType,
+    is_subsector, subsector_index,
 };
 #[cfg(feature = "bench")]
 use math::Angle;

@@ -22,12 +22,14 @@ pub mod special_encode;
 // Re-exports for convenience
 pub use bsp3d::movers::is_sector_mover;
 pub use bsp3d::{
-    AABB, BSP3D, BSPLeaf3D, MovementType, Node3D, OcclusionSeg, SurfaceKind, SurfacePolygon, WallFace, WallTexPin, WallType
+    AABB, BSP3D, BSPLeaf3D, MovementType, Node3D, OcclusionSeg, SurfaceKind, SurfacePolygon,
+    WallFace, WallTexPin, WallType,
 };
 pub use flags::LineDefFlags;
 pub use level_data::LevelData;
 pub use map_defs::{
-    BBox, Blockmap, IS_SSECTOR_MASK, LineDef, Node, Sector, SectorHeight, Segment, SideDef, SlopeType, SubSector, Vertex, is_subsector, mark_subsector, subsector_index
+    BBox, Blockmap, IS_SSECTOR_MASK, LineDef, Node, Sector, SectorHeight, Segment, SideDef,
+    SlopeType, SubSector, Vertex, is_subsector, mark_subsector, subsector_index,
 };
 /// This exists to allow breaking the rules of borrows and in some cases
 /// lifetimes.

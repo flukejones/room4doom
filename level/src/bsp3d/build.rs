@@ -3,7 +3,7 @@ use coarse_prof::profile;
 
 use crate::flags::LineDefFlags;
 use crate::map_defs::{
-    LineDef, Node, Sector, Segment, SideDef, SubSector, is_subsector, subsector_index
+    LineDef, Node, Sector, Segment, SideDef, SubSector, is_subsector, subsector_index,
 };
 use glam::{Vec2, Vec3};
 use std::collections::HashMap;

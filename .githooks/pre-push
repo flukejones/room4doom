@@ -1,0 +1,15 @@
+#!/bin/sh
+# Pre-push gate for room4doom:
+#   1. cargo clippy --workspace --all-targets -- -D warnings
+#   2. demo determinism regression (headless playback vs golden hashes)
+#
+# Skip with: git push --no-verify
+
+set -e
+
+echo '+ cargo clippy --workspace --all-targets -- -D warnings'
+cargo clippy --workspace --all-targets -- -D warnings
+
+echo '+ demo determinism regression'
+cargo build --release -p room4doom
+bash tools/demo-regression.sh

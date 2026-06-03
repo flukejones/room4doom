@@ -3,11 +3,10 @@ use crate::map_defs::{
     is_subsector, subsector_index,
 };
 
-use crate::MapPtr;
 use crate::bsp3d::BSP3D;
 use crate::flags::LineDefFlags;
 use crate::map_array::MapArray;
-use crate::special_encode;
+use crate::{MapPtr, special_encode};
 use glam::Vec2;
 use log::{debug, info, warn};
 use math::{Angle, FixedT};

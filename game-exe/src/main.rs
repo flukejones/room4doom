@@ -204,10 +204,10 @@ fn run_winit(
     not(feature = "display-sdl2")
 ))]
 fn run_headless(mut game: Game, mut input: input::InputState, options: CLIOptions) {
+    use crate::d_main::run_game_tic;
     use doom_ui::{Finale, GameMenu, Intermission, Messages, Statusbar};
     use gamestate::subsystems::GameSubsystem;
     use gamestate_traits::SubsystemTrait;
-    use crate::d_main::run_game_tic;
 
     const HEADLESS_WIDTH: i32 = 320;
 

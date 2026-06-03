@@ -89,11 +89,6 @@ nanoserde = { git = "https://github.com/not-fl3/nanoserde.git", default-features
     "ron",
 ] }
 
-#[workspace.dependencies.cargo-husky]
-#version = "1"
-#default-features = false
-#features = ["user-hooks"]
-
 # 915fps | codegen-units=1 -> 930fps, no other change
 # 9.30s buildtime
 # 2.6MB binary

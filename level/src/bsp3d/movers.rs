@@ -44,8 +44,8 @@ impl MoverKind {
 /// Specials are normalised to generalized form at load (see
 /// [`crate::special_encode`]), so this decodes the generalized special and
 /// maps its category to which surface(s) move: floors/lifts/stairs raise the
-/// floor, ceilings/doors/crushers move the ceiling, and the composite vanilla-40
-/// moves both.
+/// floor, ceilings/doors/crushers move the ceiling, and the composite
+/// vanilla-40 moves both.
 fn classify_special(special: u32) -> Option<MoverKind> {
     let spec = special_encode::decode(special)?;
     if spec.composite {

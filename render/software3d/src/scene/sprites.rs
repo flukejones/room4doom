@@ -1,5 +1,5 @@
 use crate::voxel::collect::{
-    CollectResult, VoxelCollectParams, VoxelSliceRef, collect_visible_slices
+    CollectResult, VoxelCollectParams, VoxelSliceRef, collect_visible_slices,
 };
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;

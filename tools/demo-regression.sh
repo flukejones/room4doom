@@ -10,7 +10,14 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-IWAD="${IWAD:-$HOME/DOOM/doom1.wad}"
+# Prefer the in-repo WAD, then ~/DOOM. Override with IWAD=...
+if [[ -z "${IWAD:-}" ]]; then
+    if [[ -f "$ROOT/data/doom1.wad" ]]; then
+        IWAD="$ROOT/data/doom1.wad"
+    else
+        IWAD="$HOME/DOOM/doom1.wad"
+    fi
+fi
 BIN="${BIN:-$ROOT/target/release/room4doom}"
 GOLDEN_DIR="$ROOT/data/test_files/demo_golden"
 # Per-demo wall-clock budget (seconds). Headless playback runs roughly real-time

@@ -10,6 +10,7 @@ pub mod movers;
 pub mod node;
 
 pub use build::{
-    AABB, BSP3D, BSPLeaf3D, MovementType, Node3D, OcclusionSeg, SurfaceKind, SurfacePolygon, WallFace, WallTexPin, WallType
+    AABB, BSP3D, BSPLeaf3D, MovementType, Node3D, OcclusionSeg, SurfaceKind, SurfacePolygon,
+    WallFace, WallTexPin, WallType,
 };
 pub use movers::is_sector_mover;

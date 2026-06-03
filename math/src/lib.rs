@@ -11,7 +11,8 @@ mod trig;
 pub use angle::*;
 pub use bam::{ANG45, ANG90, ANG180, ANG270, Bam, bam_to_radian, radian_to_bam};
 pub use doom_trig::{
-    ANGLETOFINESHIFT, fine_cos, fine_sin, fine_tan, finecosine, finesine, r_point_to_angle, r_point_to_dist
+    ANGLETOFINESHIFT, fine_cos, fine_sin, fine_tan, finecosine, finesine, r_point_to_angle,
+    r_point_to_dist,
 };
 pub use fixed_point::{FRACBITS, FRACUNIT, FixedT, Inner, p_aprox_distance};
 pub use intercept::*;

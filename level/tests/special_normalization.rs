@@ -55,7 +55,11 @@ fn manual_door_decodes_manual() {
             found = true;
             let spec = decode(line.special).expect("manual door decodes");
             assert_eq!(spec.category, Category::Door);
-            assert!(spec.manual, "door {} not flagged manual", line.default_special);
+            assert!(
+                spec.manual,
+                "door {} not flagged manual",
+                line.default_special
+            );
         }
     }
     assert!(found, "E1M5 should contain at least one manual door");
