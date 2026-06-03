@@ -7,7 +7,8 @@ use sound_common::SfxName;
 
 use crate::SectorExt;
 use crate::env::specials::{
-    PlaneResult, find_highest_floor_surrounding, find_lowest_ceiling_surrounding, find_lowest_floor_surrounding, find_next_highest_floor, get_next_sector, move_plane
+    PlaneResult, find_highest_floor_surrounding, find_lowest_ceiling_surrounding,
+    find_lowest_floor_surrounding, find_next_highest_floor, get_next_sector, move_plane,
 };
 use crate::env::switch::start_sector_sound;
 use crate::level::LevelState;
@@ -19,70 +20,7 @@ use level::map_defs::{LineDef, Sector, SectorHeight};
 
 const FLOORSPEED: SectorHeight = SectorHeight::ONE;
 
-#[derive(Debug, Clone, Copy)]
-#[repr(u8)]
-pub enum FloorKind {
-    /// lower floor to highest surrounding floor
-    LowerFloor,
-    /// lower floor to lowest surrounding floor
-    LowerFloorToLowest,
-    /// lower floor to highest surrounding floor VERY FAST
-    TurboLower,
-    /// raise floor to lowest surrounding CEILING
-    RaiseFloor,
-    /// raise floor to next highest surrounding floor
-    RaiseFloorToNearest,
-    /// raise floor to shortest height with same texture around it
-    RaiseToTexture,
-    /// lower floor to lowest surrounding floor and change floorpic
-    LowerAndChange,
-    /// Raise floor 24 units from start
-    RaiseFloor24,
-    /// Raise floor 24 units from start and change texture
-    RaiseFloor24andChange,
-    /// Raise floor and crush all entities on it
-    RaiseFloorCrush,
-    /// raise to next highest floor, turbo-speed
-    RaiseFloorTurbo,
-    /// Do donuts
-    DonutRaise,
-    /// Raise floor 512 units from start
-    RaiseFloor512,
-}
-
-impl TryFrom<u8> for FloorKind {
-    /// The raw byte that failed to map to a variant.
-    type Error = u8;
-
-    fn try_from(v: u8) -> Result<Self, u8> {
-        match v {
-            0 => Ok(FloorKind::LowerFloor),
-            1 => Ok(FloorKind::LowerFloorToLowest),
-            2 => Ok(FloorKind::TurboLower),
-            3 => Ok(FloorKind::RaiseFloor),
-            4 => Ok(FloorKind::RaiseFloorToNearest),
-            5 => Ok(FloorKind::RaiseToTexture),
-            6 => Ok(FloorKind::LowerAndChange),
-            7 => Ok(FloorKind::RaiseFloor24),
-            8 => Ok(FloorKind::RaiseFloor24andChange),
-            9 => Ok(FloorKind::RaiseFloorCrush),
-            10 => Ok(FloorKind::RaiseFloorTurbo),
-            11 => Ok(FloorKind::DonutRaise),
-            12 => Ok(FloorKind::RaiseFloor512),
-            _ => Err(v),
-        }
-    }
-}
-
-/// Very special kind of thinker used specifically for building a set of stairs
-/// that raises one-by-one.
-#[derive(Debug, Clone, Copy)]
-pub enum StairKind {
-    /// slowly build by 8
-    Build8,
-    /// quickly build by 16
-    Turbo16,
-}
+pub use level::env_kinds::{FloorKind, StairKind};
 
 pub struct FloorMove {
     pub thinker: *mut Thinker,
@@ -91,7 +29,7 @@ pub struct FloorMove {
     pub speed: SectorHeight,
     pub crush: bool,
     pub direction: i32,
-    pub newspecial: i16,
+    pub newspecial: u32,
     pub texture: usize,
     pub destheight: SectorHeight,
 }
@@ -154,8 +92,7 @@ pub fn ev_do_floor(line: MapPtr<LineDef>, kind: FloorKind, level: &mut LevelStat
             }
             FloorKind::RaiseFloorToNearest => {
                 floor.direction = 1;
-                // TODO: should use find_next_highest_floor once fixed
-                floor.destheight = find_highest_floor_surrounding(sec.clone());
+                floor.destheight = find_next_highest_floor(sec.clone(), sec.floorheight);
             }
             FloorKind::RaiseToTexture => {
                 // TODO: int minsize = INT_MAX;

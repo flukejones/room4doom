@@ -23,37 +23,7 @@ const VDOOR: SectorHeight = FixedT::from_fixed(2 << 16);
 const VDOORWAIT: i32 = 150;
 const VDOORSPEED: SectorHeight = FixedT::from_fixed(2 << 16);
 
-#[derive(Debug, Clone, Copy)]
-#[repr(u8)]
-pub enum DoorKind {
-    Normal,
-    Close30ThenOpen,
-    Close,
-    Open,
-    RaiseIn5Mins,
-    BlazeRaise,
-    BlazeOpen,
-    BlazeClose,
-}
-
-impl TryFrom<u8> for DoorKind {
-    /// The raw byte that failed to map to a variant.
-    type Error = u8;
-
-    fn try_from(v: u8) -> Result<Self, u8> {
-        match v {
-            0 => Ok(DoorKind::Normal),
-            1 => Ok(DoorKind::Close30ThenOpen),
-            2 => Ok(DoorKind::Close),
-            3 => Ok(DoorKind::Open),
-            4 => Ok(DoorKind::RaiseIn5Mins),
-            5 => Ok(DoorKind::BlazeRaise),
-            6 => Ok(DoorKind::BlazeOpen),
-            7 => Ok(DoorKind::BlazeClose),
-            _ => Err(v),
-        }
-    }
-}
+pub use level::env_kinds::DoorKind;
 
 pub struct VerticalDoor {
     pub thinker: *mut Thinker,
@@ -300,7 +270,10 @@ pub fn ev_do_door(line: MapPtr<LineDef>, kind: DoorKind, level: &mut LevelState)
 }
 
 pub fn ev_vertical_door(mut line: MapPtr<LineDef>, thing: &mut MapObject, level: &mut LevelState) {
-    match line.special {
+    // Manual doors are normalised at load; the original vanilla number (which
+    // carries the lock colour and door kind) is preserved in default_special.
+    let special = line.default_special;
+    match special {
         26 | 32 => {
             let player = match thing.player_mut() {
                 Some(p) => p,
@@ -355,7 +328,7 @@ pub fn ev_vertical_door(mut line: MapPtr<LineDef>, thing: &mut MapObject, level:
     // if the sector has an active thinker, use it
     if let Some(data) = sec.specialdata {
         let door = unsafe { &mut *(data as *mut Thinker) }.vdoor_mut();
-        match line.special {
+        match special {
             // ONLY FOR "RAISE" DOORS, NOT "OPEN"s
             1 | 26 | 27 | 28 | 117 => {
                 if door.direction == -1 {
@@ -383,7 +356,7 @@ pub fn ev_vertical_door(mut line: MapPtr<LineDef>, thing: &mut MapObject, level:
         topcountdown: 0,
     };
 
-    match line.special {
+    match special {
         1 | 26 | 27 | 28 => {
             door.kind = DoorKind::Normal;
             start_sector_sound(&line, SfxName::Doropn, &level.snd_command);

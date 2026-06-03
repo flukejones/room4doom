@@ -342,14 +342,14 @@ fn save_world(w: &mut SaveWriter, level_data: &LevelData) {
         w.write_u32(s.floorpic as u32);
         w.write_u32(s.ceilingpic as u32);
         w.write_u32(s.lightlevel as u32);
-        w.write_i16(s.special);
+        w.write_u32(s.special);
         w.write_i16(s.tag);
     }
 
     w.write_u32(level_data.linedefs.len() as u32);
     for l in level_data.linedefs.iter() {
         w.write_u32(l.flags.bits());
-        w.write_i16(l.special);
+        w.write_u32(l.special);
         w.write_i16(l.tag);
     }
 
@@ -383,7 +383,7 @@ fn load_world(r: &mut SaveReader, level_data: &mut LevelData) -> Result<(), Save
         sectors[i].floorpic = r.read_u32()? as usize;
         sectors[i].ceilingpic = r.read_u32()? as usize;
         sectors[i].lightlevel = r.read_u32()? as usize;
-        sectors[i].special = r.read_i16()?;
+        sectors[i].special = r.read_u32()?;
         sectors[i].tag = r.read_i16()?;
     }
     // skip extra sectors in save if map has fewer
@@ -396,7 +396,7 @@ fn load_world(r: &mut SaveReader, level_data: &mut LevelData) -> Result<(), Save
     let count = n_linedefs.min(linedefs.len());
     for i in 0..count {
         linedefs[i].flags = LineDefFlags::from_bits_truncate(r.read_u32()?);
-        linedefs[i].special = r.read_i16()?;
+        linedefs[i].special = r.read_u32()?;
         linedefs[i].tag = r.read_i16()?;
     }
     for _ in count..n_linedefs {
@@ -663,7 +663,7 @@ fn load_floor(r: &mut SaveReader, level: &mut LevelState) -> Result<(), SaveErro
     let speed = SectorHeight::from_fixed(r.read_i32()?);
     let crush = r.read_bool()?;
     let direction = r.read_i32()?;
-    let newspecial = r.read_i16()?;
+    let newspecial = r.read_u32()?;
     let texture = r.read_u32()? as usize;
     let destheight = SectorHeight::from_fixed(r.read_i32()?);
 
@@ -1220,7 +1220,7 @@ pub fn save_game_to_bytes(
             w.write_i32(f.speed.to_fixed_raw());
             w.write_bool(f.crush);
             w.write_i32(f.direction);
-            w.write_i16(f.newspecial);
+            w.write_u32(f.newspecial);
             w.write_u32(f.texture as u32);
             w.write_i32(f.destheight.to_fixed_raw());
         }

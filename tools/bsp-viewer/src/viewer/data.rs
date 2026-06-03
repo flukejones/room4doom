@@ -31,7 +31,7 @@ pub struct ViewLinedef {
     pub is_two_sided: bool,
     pub front_sector_id: usize,
     pub back_sector_id: Option<usize>,
-    pub special: i16,
+    pub special: u32,
     pub tag: i16,
 }
 
@@ -49,7 +49,7 @@ pub struct ViewSector {
     pub floor_height: f32,
     pub ceiling_height: f32,
     pub light_level: usize,
-    pub special: i16,
+    pub special: u32,
     pub tag: i16,
 }
 

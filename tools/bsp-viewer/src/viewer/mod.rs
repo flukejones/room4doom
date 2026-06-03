@@ -1,15 +1,20 @@
 mod draw;
 mod geom;
+mod movers;
+mod pick;
 mod query;
+mod render3d;
 
 pub mod data;
 
 pub use data::{ViewerData, extract_viewer_data};
 use geom::*;
 use query::DragTool;
+pub use render3d::{Camera3D, Render3DMode, Renderer3D};
 
 use egui::{Color32, Pos2, Vec2 as EVec2};
-use glam::Vec2;
+use glam::{Vec2, Vec3};
+use level::LevelData;
 
 pub(crate) struct ViewState {
     offset: EVec2,
@@ -31,6 +36,9 @@ pub(crate) struct ViewState {
     pinned: bool,
     is_dragging: bool,
     drag_tool: DragTool,
+    mode_3d: bool,
+    render3d_mode: Render3DMode,
+    cam: Camera3D,
 }
 
 impl Default for ViewState {
@@ -54,6 +62,9 @@ impl Default for ViewState {
             pinned: false,
             is_dragging: false,
             drag_tool: DragTool::None,
+            mode_3d: false,
+            render3d_mode: Render3DMode::Textured,
+            cam: Camera3D::default(),
         }
     }
 }
@@ -62,16 +73,144 @@ pub(crate) struct MapViewerApp {
     pub data: ViewerData,
     pub state: ViewState,
     pub map_center: Vec2,
+    /// Pinned level + 3D renderer, present only in the windowed `view` command.
+    level: Option<std::pin::Pin<Box<LevelData>>>,
+    renderer3d: Option<Renderer3D>,
+    movers: movers::MoverState,
 }
 
 impl MapViewerApp {
-    fn new(data: ViewerData) -> Self {
+    fn new(
+        data: ViewerData,
+        level: Option<std::pin::Pin<Box<LevelData>>>,
+        renderer3d: Option<Renderer3D>,
+        cam: Camera3D,
+    ) -> Self {
         let map_center = (data.min + data.max) * 0.5;
+        let state = ViewState {
+            cam,
+            ..ViewState::default()
+        };
         Self {
             data,
-            state: ViewState::default(),
+            state,
             map_center,
+            level,
+            renderer3d,
+            movers: movers::MoverState::default(),
         }
+    }
+
+    /// Render the 3D view into the central panel: handle free-fly input, drive
+    /// the software renderer, blit its framebuffer as a texture.
+    fn draw_3d(&mut self, ctx: &egui::Context, response: &egui::Response, painter: &egui::Painter) {
+        let rect = response.rect;
+        let (w, h) = (rect.width() as usize, rect.height() as usize);
+        if w == 0 || h == 0 {
+            return;
+        }
+        let (Some(level), Some(renderer)) = (&mut self.level, &mut self.renderer3d) else {
+            return;
+        };
+        let level: &mut LevelData = unsafe { level.as_mut().get_unchecked_mut() };
+
+        if response.dragged_by(egui::PointerButton::Primary) {
+            let d = response.drag_delta();
+            self.state.cam.yaw -= d.x * 0.005;
+            self.state.cam.pitch = (self.state.cam.pitch - d.y * 0.005).clamp(-1.5, 1.5);
+        }
+
+        // Click (not drag) picks a surface; toggling a mover sector animates it.
+        if response.clicked()
+            && let Some(cursor) = response.interact_pointer_pos()
+        {
+            let px = cursor.x - rect.min.x;
+            let py = cursor.y - rect.min.y;
+            if let Some(hit) = pick::pick_sector(&level.bsp_3d, &self.state.cam, px, py, w, h) {
+                // A door/lift's moving sector is the one *behind* the wall we
+                // clicked, so prefer the wall's back/other sector, then front,
+                // then the polygon's own sector.
+                // The clicked sector carries the mover tag. For a floor/ceiling
+                // poly that is the poly's own sector; for a wall the moving
+                // sector is the one behind it (its back sector), so try that
+                // first, then front, then the poly's sector.
+                let mut candidates = Vec::new();
+                if let Some(ld) = hit.linedef_id {
+                    let line = &level.linedefs[ld];
+                    if let Some(b) = line.backsector.as_ref().map(|s| s.num as usize) {
+                        candidates.push(b);
+                    }
+                    candidates.push(line.frontsector.num as usize);
+                }
+                candidates.push(hit.sector_id);
+                let mut tried = Vec::new();
+                for sid in candidates {
+                    if tried.contains(&sid) {
+                        continue;
+                    }
+                    tried.push(sid);
+                    if self.movers.toggle(sid, level) {
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Advance any active mover lerps.
+        if self.movers.has_groups() {
+            let tick_dt = ctx.input(|i| i.stable_dt).min(0.1);
+            if self.movers.tick(level, tick_dt) {
+                ctx.request_repaint();
+            }
+        }
+
+        let dt = ctx.input(|i| i.stable_dt).min(0.1);
+        let speed = if ctx.input(|i| i.modifiers.shift) {
+            1200.0
+        } else {
+            400.0
+        } * dt;
+        let fwd = self.state.cam.forward();
+        let right = self.state.cam.right();
+        let mut mv = Vec3::ZERO;
+        ctx.input(|i| {
+            if i.key_down(egui::Key::W) {
+                mv += fwd;
+            }
+            if i.key_down(egui::Key::S) {
+                mv -= fwd;
+            }
+            if i.key_down(egui::Key::D) {
+                mv += right;
+            }
+            if i.key_down(egui::Key::A) {
+                mv -= right;
+            }
+            if i.key_down(egui::Key::E) {
+                mv.z += 1.0;
+            }
+            if i.key_down(egui::Key::Q) {
+                mv.z -= 1.0;
+            }
+        });
+        if mv.length_squared() > 0.0 {
+            self.state.cam.pos += mv.normalize() * speed;
+        }
+
+        let tex = renderer.render(
+            ctx,
+            level,
+            &self.state.cam,
+            self.state.render3d_mode,
+            (w, h),
+        );
+        painter.image(
+            tex.id(),
+            rect,
+            egui::Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)),
+            Color32::WHITE,
+        );
+        ctx.request_repaint();
     }
 
     #[inline]
@@ -279,17 +418,25 @@ impl eframe::App for MapViewerApp {
             .show(ctx, |ui| {
                 let (response, painter) =
                     ui.allocate_painter(ui.available_size(), egui::Sense::click_and_drag());
-                let vc = response.rect.center();
-
-                self.update_hover(vc, response.hover_pos());
-                self.handle_input(&response);
-                self.draw_layers(&painter, vc);
-                self.draw_hover_overlay(&painter, response.rect);
+                if self.state.mode_3d {
+                    self.draw_3d(ctx, &response, &painter);
+                } else {
+                    let vc = response.rect.center();
+                    self.update_hover(vc, response.hover_pos());
+                    self.handle_input(&response);
+                    self.draw_layers(&painter, vc);
+                    self.draw_hover_overlay(&painter, response.rect);
+                }
             });
     }
 }
 
-pub fn run(data: ViewerData) {
+pub fn run(
+    data: ViewerData,
+    level: std::pin::Pin<Box<LevelData>>,
+    renderer3d: Renderer3D,
+    cam: Camera3D,
+) {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([1280.0, 800.0])
@@ -299,7 +446,14 @@ pub fn run(data: ViewerData) {
     eframe::run_native(
         "bsp-viewer",
         options,
-        Box::new(|_cc| Ok(Box::new(MapViewerApp::new(data)))),
+        Box::new(move |_cc| {
+            Ok(Box::new(MapViewerApp::new(
+                data,
+                Some(level),
+                Some(renderer3d),
+                cam,
+            )))
+        }),
     )
     .unwrap();
 }

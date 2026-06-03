@@ -1139,10 +1139,9 @@ impl Software3D {
             // Draw sprites after all geometry
             self.draw_sprites(sectors, view, pic_data, buffer);
 
-            // Fill remaining empty/sky pixels with the sky backdrop. Any pixel
-            // at depth <= SKY_DEPTH (written by sky-textured walls or left at
-            // -1.0) gets the sky texture sampled at screen coordinates.
-            self.draw_sky_fill(pic_data, buffer);
+            if self.debug.options.clear_colour.is_none() {
+                self.draw_sky_fill(pic_data, buffer);
+            }
 
             // Draw player weapon overlay on top of everything
             self.draw_player_weapons(view, pic_data, buffer);

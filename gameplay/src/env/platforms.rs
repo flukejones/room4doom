@@ -10,7 +10,7 @@ use sound_common::SfxName;
 use crate::SectorExt;
 use crate::doom_def::TICRATE;
 use crate::env::specials::{
-    PlaneResult, find_highest_floor_surrounding, find_lowest_floor_surrounding, move_plane
+    PlaneResult, find_highest_floor_surrounding, find_lowest_floor_surrounding, find_next_highest_floor, move_plane
 };
 use crate::env::switch::start_sector_sound;
 use crate::level::LevelState;
@@ -46,30 +46,7 @@ impl TryFrom<u8> for PlatStatus {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum PlatKind {
-    PerpetualRaise,
-    DownWaitUpStay,
-    RaiseAndChange,
-    RaiseToNearestAndChange,
-    BlazeDWUS,
-}
-
-impl TryFrom<u8> for PlatKind {
-    /// The raw byte that failed to map to a variant.
-    type Error = u8;
-
-    fn try_from(v: u8) -> Result<Self, u8> {
-        match v {
-            0 => Ok(PlatKind::PerpetualRaise),
-            1 => Ok(PlatKind::DownWaitUpStay),
-            2 => Ok(PlatKind::RaiseAndChange),
-            3 => Ok(PlatKind::RaiseToNearestAndChange),
-            4 => Ok(PlatKind::BlazeDWUS),
-            _ => Err(v),
-        }
-    }
-}
+pub use level::env_kinds::PlatKind;
 
 pub struct Platform {
     pub thinker: *mut Thinker,
@@ -136,8 +113,7 @@ pub fn ev_do_platform(
         match kind {
             PlatKind::RaiseToNearestAndChange => {
                 platform.speed = platform.speed / 2;
-                // TODO: should use find_next_highest_floor once fixed
-                platform.high = find_highest_floor_surrounding(sec.clone());
+                platform.high = find_next_highest_floor(sec.clone(), sec.floorheight);
                 platform.wait = 0;
                 platform.status = PlatStatus::Up;
                 sec.special = 0;

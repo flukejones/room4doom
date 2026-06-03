@@ -149,13 +149,15 @@ pub fn change_switch_texture(
 /// Called when a thing uses a special line.
 /// Only the front sides of lines are usable.
 pub fn p_use_special_line(_side: i32, line: MapPtr<LineDef>, thing: &mut MapObject) -> bool {
-    // Monsters can only activate manual doors; reject everything else
+    // Monsters can only activate manual doors (vanilla 1/32/33/34); reject the
+    // rest. Specials are normalised at load, so check the preserved original
+    // number in `default_special`.
     if thing.player().is_none() {
         if line.flags.contains(LineDefFlags::Secret) {
             return false;
         }
 
-        match line.special {
+        match line.default_special {
             1 | 32 | 33 | 34 => {}
             _ => return false,
         }

@@ -286,6 +286,29 @@ impl MapViewerApp {
         ui.label(format!("Subsectors: {}", self.data.subsectors.len()));
         ui.separator();
 
+        ui.heading("3D View");
+        ui.checkbox(&mut self.state.mode_3d, "3D view");
+        if self.state.mode_3d {
+            use super::Render3DMode;
+            ui.radio_value(
+                &mut self.state.render3d_mode,
+                Render3DMode::Textured,
+                "Textured",
+            );
+            ui.radio_value(
+                &mut self.state.render3d_mode,
+                Render3DMode::SolidSectors,
+                "Solid sectors",
+            );
+            ui.radio_value(
+                &mut self.state.render3d_mode,
+                Render3DMode::Wireframe,
+                "Wireframe",
+            );
+            ui.label("Drag: look  WASD: move  QE: up/down  Shift: fast");
+        }
+        ui.separator();
+
         ui.heading("Layers");
         ui.checkbox(&mut self.state.show_linedefs, "Linedefs");
         ui.checkbox(&mut self.state.show_segments, "Segments");
