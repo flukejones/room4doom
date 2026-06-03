@@ -3,7 +3,7 @@
 use std::ptr::null_mut;
 
 use crate::env::specials::{
-    find_max_light_surrounding, find_min_light_surrounding, get_next_sector
+    find_max_light_surrounding, find_min_light_surrounding, get_next_sector,
 };
 use crate::level::LevelState;
 use crate::thing::MapObject;

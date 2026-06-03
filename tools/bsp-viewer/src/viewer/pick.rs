@@ -41,8 +41,13 @@ pub fn pick_sector(
         if let Some(t) = ray_hits_polygon(origin, dir, &verts, poly.normal) {
             if best.is_none_or(|(bt, ..)| t < bt) {
                 let linedef_id = match &poly.surface_kind {
-                    SurfaceKind::Vertical { linedef_id, .. } => Some(*linedef_id),
-                    SurfaceKind::Horizontal { .. } => None,
+                    SurfaceKind::Vertical {
+                        linedef_id,
+                        ..
+                    } => Some(*linedef_id),
+                    SurfaceKind::Horizontal {
+                        ..
+                    } => None,
                 };
                 best = Some((t, poly.sector_id, linedef_id));
             }

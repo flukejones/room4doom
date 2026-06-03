@@ -1,0 +1,43 @@
+#!/bin/sh
+# Pre-commit gate for room4doom.
+#
+# 1. rustfmt (nightly) the staged Rust files in place and fold the result into
+#    the commit. Partial stages are handled by stashing the unstaged portion.
+# 2. cargo test --workspace.
+# 3. If gameplay/, level/, or math/ changed, run the demo determinism
+#    regression (headless playback vs golden hashes).
+#
+# Skip everything with: git commit --no-verify
+
+set -e
+
+STAGED=$(git diff --cached --name-only --diff-filter=ACMR)
+STAGED_RUST=$(printf '%s\n' "$STAGED" | grep '\.rs$' || true)
+
+# --- rustfmt staged-only, partial-stage safe ---
+if [ -n "$STAGED_RUST" ]; then
+	HAVE_UNSTAGED=0
+	git diff --quiet || HAVE_UNSTAGED=1
+	if [ "$HAVE_UNSTAGED" -eq 1 ]; then
+		git stash push --keep-index --include-untracked -m "pre-commit-autostash" >/dev/null
+		# shellcheck disable=SC2317
+		restore_stash() { git stash pop --quiet 2>/dev/null || true; }
+		trap restore_stash EXIT
+	fi
+
+	# info.rs is in rustfmt's ignore list; skip it explicitly too.
+	echo "$STAGED_RUST" | grep -v 'gameplay/src/info.rs' \
+		| xargs -r rustfmt
+	echo "$STAGED_RUST" | xargs -r git add
+fi
+
+# --- tests ---
+echo '+ cargo test --workspace'
+cargo test --workspace
+
+# --- demo determinism (only when gameplay logic changed) ---
+if printf '%s\n' "$STAGED" | grep -Eq '^(gameplay|level|math)/'; then
+	echo '+ demo determinism regression'
+	cargo build --release -p room4doom
+	bash tools/demo-regression.sh
+fi

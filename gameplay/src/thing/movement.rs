@@ -8,7 +8,7 @@ use std::ptr;
 use log::{debug, error};
 
 use crate::bsp_trace::{
-    BestSlide, Intercept, PortalZ, box_on_line_side, path_traverse_blockmap, point_on_line_side
+    BestSlide, Intercept, PortalZ, box_on_line_side, path_traverse_blockmap, point_on_line_side,
 };
 use crate::doom_def::{FLOATSPEED, USERANGE, VIEWHEIGHT};
 use crate::env::specials::cross_special_line;

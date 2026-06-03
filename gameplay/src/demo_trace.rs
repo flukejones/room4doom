@@ -22,8 +22,8 @@ use crate::LevelState;
 use crate::info::STATES;
 use crate::thinker::{Thinker, ThinkerData};
 
-const FNV_OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
-const FNV_PRIME: u64 = 0x0000_0100_0000_01b3;
+const FNV_OFFSET: u64 = 0xCBF2_9CE4_8422_2325;
+const FNV_PRIME: u64 = 0x0000_0100_0000_01B3;
 
 struct Fnv(u64);
 
@@ -117,7 +117,9 @@ pub fn trace_tic(level: &LevelState) {
     let active = INIT.with(|i| {
         if !*i.borrow() {
             *i.borrow_mut() = true;
-            let line = std::env::var("DEMO_TRACE").ok().and_then(|p| open_append(&p));
+            let line = std::env::var("DEMO_TRACE")
+                .ok()
+                .and_then(|p| open_append(&p));
             let dump = std::env::var("DEMO_TRACE_DUMP")
                 .ok()
                 .and_then(|p| open_append(&p));

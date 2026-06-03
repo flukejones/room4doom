@@ -6,9 +6,8 @@
 
 use std::collections::HashMap;
 
-use level::LevelData;
-use level::MovementType;
 use level::env_target::mover_targets_for_sector;
+use level::{LevelData, MovementType};
 
 /// Travel speed of a lerping surface, in map units per second.
 const LERP_SPEED: f32 = 200.0;

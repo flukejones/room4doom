@@ -22,7 +22,6 @@ const GEN_DOOR_BASE: u32 = 0x3C00;
 const GEN_CEILING_BASE: u32 = 0x4000;
 const GEN_FLOOR_BASE: u32 = 0x6000;
 
-
 pub fn is_generalized(special: u32) -> bool {
     special_encode::is_generalized(special)
 }

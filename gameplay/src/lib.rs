@@ -29,7 +29,7 @@ mod thing;
 mod thinker;
 
 pub use doom_def::{
-    AmmoType, Card, DOOM_VERSION, GameAction, MAXPLAYERS, PowerType, TICRATE, WEAPON_INFO
+    AmmoType, Card, DOOM_VERSION, GameAction, MAXPLAYERS, PowerType, TICRATE, WEAPON_INFO,
 };
 pub use env::specials::{respawn_specials, spawn_specials, update_specials};
 pub use env::teleport::teleport_move;

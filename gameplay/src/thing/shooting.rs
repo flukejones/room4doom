@@ -2,7 +2,8 @@
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
 use math::{
-    ANG90, ANG270, Bam, DivLineFixed, FixedT, intercept_vector, p_aprox_distance, p_random, r_point_to_angle
+    ANG90, ANG270, Bam, DivLineFixed, FixedT, intercept_vector, p_aprox_distance, p_random,
+    r_point_to_angle,
 };
 use sound_common::SfxName;
 
@@ -355,11 +356,12 @@ impl MapObject {
     /// to one.
     ///
     /// OG `P_LookForPlayers`. The persistent `lastlook` cursor advances at the
-    /// bottom of every iteration (matching OG's `for(;; lastlook=(lastlook+1)&3)`
-    /// where the increment runs on `continue` too) but NOT on either `return`.
-    /// Getting that increment placement wrong drifts `lastlook` so the
-    /// `lastlook == stop` guard short-circuits before the sight check, and
-    /// monsters that should wake never do — a demo-desync source.
+    /// bottom of every iteration (matching OG's `for(;;
+    /// lastlook=(lastlook+1)&3)` where the increment runs on `continue`
+    /// too) but NOT on either `return`. Getting that increment placement
+    /// wrong drifts `lastlook` so the `lastlook == stop` guard
+    /// short-circuits before the sight check, and monsters that should wake
+    /// never do — a demo-desync source.
     pub(crate) fn look_for_players(&mut self, all_around: bool) -> bool {
         let stop = (self.lastlook + MAXPLAYERS - 1) & 3;
         let mut count = 0;

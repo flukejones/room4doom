@@ -10,7 +10,8 @@ use sound_common::SfxName;
 use crate::SectorExt;
 use crate::doom_def::TICRATE;
 use crate::env::specials::{
-    PlaneResult, find_highest_floor_surrounding, find_lowest_floor_surrounding, find_next_highest_floor, move_plane
+    PlaneResult, find_highest_floor_surrounding, find_lowest_floor_surrounding,
+    find_next_highest_floor, move_plane,
 };
 use crate::env::switch::start_sector_sound;
 use crate::level::LevelState;

@@ -4,8 +4,6 @@
 //! Each `*_target` fn mirrors the corresponding `ev_do_*` arm's destheight
 //! math, but as a pure function of the sector and its neighbours.
 
-use crate::MapPtr;
-use crate::MovementType;
 use crate::env_kinds::{CeilKind, DoorKind, FloorKind, PlatKind};
 use crate::env_query::{
     find_highest_ceiling_surrounding, find_highest_floor_surrounding,
@@ -15,6 +13,7 @@ use crate::flags::LineDefFlags;
 use crate::level_data::LevelData;
 use crate::map_defs::{Sector, SectorHeight};
 use crate::special_encode::{self, Category};
+use crate::{MapPtr, MovementType};
 
 /// Floor mover destination height. `tex_min` is the shortest surrounding lower
 /// texture height (only consulted for `RaiseToTexture`; pass 0 otherwise).
@@ -50,13 +49,16 @@ pub fn floor_target(sec: MapPtr<Sector>, kind: FloorKind, tex_min: SectorHeight)
     }
 }
 
-/// Ceiling mover (top, bottom) heights and travel direction (`1` up, `-1` down).
+/// Ceiling mover (top, bottom) heights and travel direction (`1` up, `-1`
+/// down).
 pub fn ceiling_target(sec: MapPtr<Sector>, kind: CeilKind) -> (SectorHeight, SectorHeight, i32) {
     match kind {
         CeilKind::LowerToFloor => (sec.ceilingheight, sec.floorheight, -1),
-        CeilKind::RaiseToHighest => {
-            (find_highest_ceiling_surrounding(sec.clone()), sec.floorheight, 1)
-        }
+        CeilKind::RaiseToHighest => (
+            find_highest_ceiling_surrounding(sec.clone()),
+            sec.floorheight,
+            1,
+        ),
         CeilKind::LowerAndCrush
         | CeilKind::CrushAndRaise
         | CeilKind::FastCrushAndRaise
@@ -75,7 +77,11 @@ pub fn door_target(sec: MapPtr<Sector>, kind: DoorKind) -> SectorHeight {
 
 /// Platform/lift `(low, high)` travel bounds. `amount` is the RaiseAndChange
 /// height delta (24 or 32).
-pub fn plat_target(sec: MapPtr<Sector>, kind: PlatKind, amount: i32) -> (SectorHeight, SectorHeight) {
+pub fn plat_target(
+    sec: MapPtr<Sector>,
+    kind: PlatKind,
+    amount: i32,
+) -> (SectorHeight, SectorHeight) {
     match kind {
         PlatKind::DownWaitUpStay | PlatKind::BlazeDWUS => {
             let mut low = find_lowest_floor_surrounding(sec.clone());
@@ -96,9 +102,10 @@ pub fn plat_target(sec: MapPtr<Sector>, kind: PlatKind, amount: i32) -> (SectorH
             (low, high)
         }
         PlatKind::RaiseAndChange => (sec.floorheight, sec.floorheight + amount),
-        PlatKind::RaiseToNearestAndChange => {
-            (sec.floorheight, find_next_highest_floor(sec.clone(), sec.floorheight))
-        }
+        PlatKind::RaiseToNearestAndChange => (
+            sec.floorheight,
+            find_next_highest_floor(sec.clone(), sec.floorheight),
+        ),
     }
 }
 
@@ -196,7 +203,7 @@ pub fn mover_targets_for_sector(
             Category::Floor => {
                 if spec.composite {
                     // vanilla 40: ceiling raises to highest, floor lowers to lowest.
-                    let (top, _, _) = ceiling_target(sec.clone(), CeilKind::RaiseToHighest);
+                    let (top, ..) = ceiling_target(sec.clone(), CeilKind::RaiseToHighest);
                     out.push(MoverTarget {
                         sector_id: sid,
                         movement: MovementType::Ceiling,

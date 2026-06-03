@@ -338,10 +338,10 @@ fn decode_floor_kind(v: u32) -> u8 {
             return FK_RAISE_CRUSH;
         }
         match (target, change, fast) {
-            (FTO_LNC, _, _) => FK_RAISE,
-            (FBY_ST, _, _) => FK_TO_TEXTURE,
+            (FTO_LNC, ..) => FK_RAISE,
+            (FBY_ST, ..) => FK_TO_TEXTURE,
             (FBY_24, CHG_TXT, _) => FK_RAISE24_CHANGE,
-            (FBY_24, _, _) => FK_RAISE24,
+            (FBY_24, ..) => FK_RAISE24,
             (FTO_NNF, _, true) => FK_RAISE_TURBO,
             (FTO_NNF, _, false) => FK_RAISE_NEAREST,
             _ => FK_RAISE,
@@ -644,13 +644,11 @@ mod tests {
     const ALL_MOVERS: &[u32] = &[
         // floors
         5, 18, 19, 23, 24, 30, 36, 37, 38, 45, 55, 56, 59, 60, 64, 65, 69, 70, 71, 82, 83, 84, 91,
-        92, 93, 94, 96, 98, 101, 102, 119, 128, 129, 130, 131, 132, 140, 9, 40,
-        // ceilings
+        92, 93, 94, 96, 98, 101, 102, 119, 128, 129, 130, 131, 132, 140, 9, 40, // ceilings
         6, 25, 41, 43, 44, 49, 72, 73, 77, 141,
         // doors (key switch-doors 99,133-137 keep their vanilla switch.rs arms)
         1, 2, 3, 4, 16, 26, 27, 28, 29, 31, 32, 33, 34, 42, 46, 50, 61, 63, 75, 76, 86, 90, 103,
-        105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118,
-        // lifts
+        105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, // lifts
         10, 14, 15, 20, 21, 22, 47, 53, 62, 66, 67, 68, 87, 88, 95, 120, 121, 122, 123,
         // stairs
         7, 8, 100, 127,
@@ -668,8 +666,14 @@ mod tests {
         assert_eq!(encode_vanilla(GEN_MIN), None);
         assert_eq!(encode_vanilla(0x4000), None);
         let e = encode_vanilla(5).unwrap();
-        assert_eq!(encode_vanilla(e), None, "re-encoding generalized must be None");
-        for n in [0, 11, 12, 39, 51, 52, 54, 89, 97, 104, 124, 125, 126, 138, 139] {
+        assert_eq!(
+            encode_vanilla(e),
+            None,
+            "re-encoding generalized must be None"
+        );
+        for n in [
+            0, 11, 12, 39, 51, 52, 54, 89, 97, 104, 124, 125, 126, 138, 139,
+        ] {
             assert_eq!(encode_vanilla(n), None, "non-mover {n} must not encode");
         }
     }
@@ -687,7 +691,10 @@ mod tests {
                 }
                 seen.insert(e, n);
             } else {
-                assert!(is_extended(e), "special {n} -> {e:#x} neither BOOM nor extended");
+                assert!(
+                    is_extended(e),
+                    "special {n} -> {e:#x} neither BOOM nor extended"
+                );
             }
         }
     }
@@ -711,36 +718,93 @@ mod tests {
         // (special, category, room4doom kind discriminant)
         let cases: &[(u32, Category, u8)] = &[
             // floors
-            (19, Floor, 0), (83, Floor, 0), (102, Floor, 0), (45, Floor, 0),
-            (38, Floor, 1), (82, Floor, 1), (23, Floor, 1), (60, Floor, 1),
-            (5, Floor, 3), (91, Floor, 3), (101, Floor, 3), (64, Floor, 3), (24, Floor, 3),
-            (30, Floor, 5), (96, Floor, 5),
+            (19, Floor, 0),
+            (83, Floor, 0),
+            (102, Floor, 0),
+            (45, Floor, 0),
+            (38, Floor, 1),
+            (82, Floor, 1),
+            (23, Floor, 1),
+            (60, Floor, 1),
+            (5, Floor, 3),
+            (91, Floor, 3),
+            (101, Floor, 3),
+            (64, Floor, 3),
+            (24, Floor, 3),
+            (30, Floor, 5),
+            (96, Floor, 5),
             (92, Floor, 7),
-            (59, Floor, 8), (93, Floor, 8),
-            (37, Floor, 6), (84, Floor, 6),
-            (36, Floor, 2), (98, Floor, 2), (71, Floor, 2), (70, Floor, 2),
-            (56, Floor, 9), (94, Floor, 9), (55, Floor, 9), (65, Floor, 9),
-            (119, Floor, 4), (128, Floor, 4), (18, Floor, 4), (69, Floor, 4),
-            (130, Floor, 10), (129, Floor, 10), (131, Floor, 10), (132, Floor, 10),
+            (59, Floor, 8),
+            (93, Floor, 8),
+            (37, Floor, 6),
+            (84, Floor, 6),
+            (36, Floor, 2),
+            (98, Floor, 2),
+            (71, Floor, 2),
+            (70, Floor, 2),
+            (56, Floor, 9),
+            (94, Floor, 9),
+            (55, Floor, 9),
+            (65, Floor, 9),
+            (119, Floor, 4),
+            (128, Floor, 4),
+            (18, Floor, 4),
+            (69, Floor, 4),
+            (130, Floor, 10),
+            (129, Floor, 10),
+            (131, Floor, 10),
+            (132, Floor, 10),
             // ceilings
-            (41, Ceiling, 0), (43, Ceiling, 0),
-            (25, Ceiling, 3), (49, Ceiling, 3), (73, Ceiling, 3),
-            (6, Ceiling, 4), (77, Ceiling, 4),
+            (41, Ceiling, 0),
+            (43, Ceiling, 0),
+            (25, Ceiling, 3),
+            (49, Ceiling, 3),
+            (73, Ceiling, 3),
+            (6, Ceiling, 4),
+            (77, Ceiling, 4),
             (141, Ceiling, 5),
             // doors (BOOM-exact only; manual/key are extended)
-            (4, Door, 0), (90, Door, 0), (29, Door, 0), (63, Door, 0),
-            (2, Door, 3), (86, Door, 3), (103, Door, 3), (61, Door, 3), (46, Door, 3),
-            (3, Door, 2), (75, Door, 2), (50, Door, 2), (42, Door, 2),
-            (108, Door, 5), (105, Door, 5), (111, Door, 5), (114, Door, 5),
-            (109, Door, 6), (106, Door, 6), (112, Door, 6), (115, Door, 6),
-            (110, Door, 7), (107, Door, 7), (113, Door, 7), (116, Door, 7),
+            (4, Door, 0),
+            (90, Door, 0),
+            (29, Door, 0),
+            (63, Door, 0),
+            (2, Door, 3),
+            (86, Door, 3),
+            (103, Door, 3),
+            (61, Door, 3),
+            (46, Door, 3),
+            (3, Door, 2),
+            (75, Door, 2),
+            (50, Door, 2),
+            (42, Door, 2),
+            (108, Door, 5),
+            (105, Door, 5),
+            (111, Door, 5),
+            (114, Door, 5),
+            (109, Door, 6),
+            (106, Door, 6),
+            (112, Door, 6),
+            (115, Door, 6),
+            (110, Door, 7),
+            (107, Door, 7),
+            (113, Door, 7),
+            (116, Door, 7),
             // lifts
-            (10, Lift, 1), (88, Lift, 1), (21, Lift, 1), (62, Lift, 1),
-            (53, Lift, 0), (87, Lift, 0),
-            (121, Lift, 4), (120, Lift, 4), (122, Lift, 4), (123, Lift, 4),
+            (10, Lift, 1),
+            (88, Lift, 1),
+            (21, Lift, 1),
+            (62, Lift, 1),
+            (53, Lift, 0),
+            (87, Lift, 0),
+            (121, Lift, 4),
+            (120, Lift, 4),
+            (122, Lift, 4),
+            (123, Lift, 4),
             // stairs
-            (8, Stairs, 0), (7, Stairs, 0),
-            (100, Stairs, 1), (127, Stairs, 1),
+            (8, Stairs, 0),
+            (7, Stairs, 0),
+            (100, Stairs, 1),
+            (127, Stairs, 1),
         ];
         for &(n, cat, kind) in cases {
             let e = encode_vanilla(n).unwrap();
@@ -755,14 +819,14 @@ mod tests {
     fn decode_round_trip_extended() {
         use Category::*;
         let cases: &[(u32, Category, u8)] = &[
-            (140, Floor, 12),  // RaiseFloor512
-            (9, Floor, 11),    // DonutRaise
-            (44, Ceiling, 2),  // LowerAndCrush
+            (140, Floor, 12), // RaiseFloor512
+            (9, Floor, 11),   // DonutRaise
+            (44, Ceiling, 2), // LowerAndCrush
             (72, Ceiling, 2),
-            (1, Door, 0),      // manual Normal
-            (31, Door, 3),     // manual Open
-            (22, Lift, 3),     // RaiseToNearestAndChange
-            (14, Lift, 2),     // RaiseAndChange
+            (1, Door, 0),  // manual Normal
+            (31, Door, 3), // manual Open
+            (22, Lift, 3), // RaiseToNearestAndChange
+            (14, Lift, 2), // RaiseAndChange
         ];
         for &(n, cat, kind) in cases {
             let spec = decode(encode_vanilla(n).unwrap()).unwrap();
@@ -778,24 +842,70 @@ mod tests {
     fn boom_hex_matches_audit() {
         let cases: &[(u32, u32)] = &[
             // floors
-            (5, 0x6240), (19, 0x6080), (30, 0x62C0), (36, 0x6090), (37, 0x6900),
-            (38, 0x6100), (56, 0x7240), (59, 0x6B40), (82, 0x6101), (83, 0x6081),
-            (84, 0x6901), (91, 0x6241), (92, 0x6341), (93, 0x6B41), (94, 0x7241),
-            (96, 0x62C1), (98, 0x6091), (119, 0x61C0), (128, 0x61C1), (129, 0x61D1),
-            (130, 0x61D0), (24, 0x6244),
+            (5, 0x6240),
+            (19, 0x6080),
+            (30, 0x62C0),
+            (36, 0x6090),
+            (37, 0x6900),
+            (38, 0x6100),
+            (56, 0x7240),
+            (59, 0x6B40),
+            (82, 0x6101),
+            (83, 0x6081),
+            (84, 0x6901),
+            (91, 0x6241),
+            (92, 0x6341),
+            (93, 0x6B41),
+            (94, 0x7241),
+            (96, 0x62C1),
+            (98, 0x6091),
+            (119, 0x61C0),
+            (128, 0x61C1),
+            (129, 0x61D1),
+            (130, 0x61D0),
+            (24, 0x6244),
             // doors
             // 4 carries the BOOM door monster bit (bit 7) -> 0x3D08 | 0x80.
-            (2, 0x3C28), (3, 0x3C68), (4, 0x3D88), (16, 0x3F48), (29, 0x3D0A),
+            (2, 0x3C28),
+            (3, 0x3C68),
+            (4, 0x3D88),
+            (16, 0x3F48),
+            (29, 0x3D0A),
             // 46 is gun-REPEATABLE per OG (P_ChangeSwitchTexture arg 1); the
             // audit's recomputed 0x3C2C used GunOnce in error. GunMany = 0x3C2D.
-            (42, 0x3C6B), (46, 0x3C2D), (50, 0x3C6A), (61, 0x3C2B), (63, 0x3D0B),
-            (75, 0x3C69), (76, 0x3F49), (86, 0x3C29), (90, 0x3D09), (103, 0x3C2A),
-            (105, 0x3D11), (106, 0x3C31), (107, 0x3C71), (108, 0x3D10), (109, 0x3C30),
-            (110, 0x3C70), (111, 0x3D12), (112, 0x3C32), (113, 0x3C72), (114, 0x3D13),
-            (115, 0x3C33), (116, 0x3C73),
+            (42, 0x3C6B),
+            (46, 0x3C2D),
+            (50, 0x3C6A),
+            (61, 0x3C2B),
+            (63, 0x3D0B),
+            (75, 0x3C69),
+            (76, 0x3F49),
+            (86, 0x3C29),
+            (90, 0x3D09),
+            (103, 0x3C2A),
+            (105, 0x3D11),
+            (106, 0x3C31),
+            (107, 0x3C71),
+            (108, 0x3D10),
+            (109, 0x3C30),
+            (110, 0x3C70),
+            (111, 0x3D12),
+            (112, 0x3C32),
+            (113, 0x3C72),
+            (114, 0x3D13),
+            (115, 0x3C33),
+            (116, 0x3C73),
             // lifts (10/88 carry the BOOM lift monster bit (bit 5) -> | 0x20)
-            (10, 0x3468), (53, 0x3748), (87, 0x3749), (88, 0x3469), (120, 0x3459),
-            (121, 0x3458), (21, 0x344A), (62, 0x344B), (122, 0x345A), (123, 0x345B),
+            (10, 0x3468),
+            (53, 0x3748),
+            (87, 0x3749),
+            (88, 0x3469),
+            (120, 0x3459),
+            (121, 0x3458),
+            (21, 0x344A),
+            (62, 0x344B),
+            (122, 0x345A),
+            (123, 0x345B),
         ];
         for &(n, want) in cases {
             assert_eq!(encode_vanilla(n), Some(want), "special {n} hex");
