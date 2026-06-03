@@ -60,21 +60,19 @@ pub fn parse_mapinfo(input: &str) -> Result<UMapInfo, String> {
             "music" => entry.music = Some(value.to_ascii_uppercase()),
             "author" => entry.author = Some(unquote(&value)),
             "levelname" => entry.level_name = Some(unquote(&value)),
-            "titlepatch" => entry.level_pic = Some(value.to_ascii_uppercase()),
-            "levelpic" => entry.level_pic = Some(value.to_ascii_uppercase()),
+            "titlepatch" | "levelpic" => entry.level_pic = Some(value.to_ascii_uppercase()),
             "exitpic" => entry.exit_pic = Some(unquote(&value)),
             "enterpic" => entry.enter_pic = Some(unquote(&value)),
             "partime" => entry.par_time = value.parse().ok(),
-            "cluster" => {} // cluster assignment — tracked but not used yet
             "map07special" => {
                 entry.boss_actions = Some(BossActions::Actions(vec![
                     super::BossAction {
-                        thing_type: "Fatso".to_string(),
+                        thing_type: "Fatso".to_owned(),
                         line_special: 23,
                         tag: 666,
                     },
                     super::BossAction {
-                        thing_type: "Arachnotron".to_string(),
+                        thing_type: "Arachnotron".to_owned(),
                         line_special: 30,
                         tag: 667,
                     },
@@ -82,21 +80,21 @@ pub fn parse_mapinfo(input: &str) -> Result<UMapInfo, String> {
             }
             "baronspecial" => {
                 entry.boss_actions = Some(BossActions::Actions(vec![super::BossAction {
-                    thing_type: "BaronOfHell".to_string(),
+                    thing_type: "BaronOfHell".to_owned(),
                     line_special: 23,
                     tag: 666,
                 }]));
             }
             "cyberdemonspecial" => {
                 entry.boss_actions = Some(BossActions::Actions(vec![super::BossAction {
-                    thing_type: "Cyberdemon".to_string(),
+                    thing_type: "Cyberdemon".to_owned(),
                     line_special: 23,
                     tag: 666,
                 }]));
             }
             "spidermastermindspecial" => {
                 entry.boss_actions = Some(BossActions::Actions(vec![super::BossAction {
-                    thing_type: "SpiderMastermind".to_string(),
+                    thing_type: "SpiderMastermind".to_owned(),
                     line_special: 23,
                     tag: 666,
                 }]));
@@ -106,6 +104,7 @@ pub fn parse_mapinfo(input: &str) -> Result<UMapInfo, String> {
             "endbunny" => entry.end_bunny = true,
             "endcast" => entry.end_cast = true,
             _ => {
+                // cluster assignment — tracked but not used yet
                 // Unknown key — skip silently (MAPINFO has many keys we don't
                 // support)
             }
@@ -166,26 +165,28 @@ fn split_key_value(line: &str) -> (String, String) {
     // Handle both "key = value" and "key value" syntax
     if let Some(eq_pos) = line.find('=') {
         let key = line[..eq_pos].trim().to_ascii_lowercase();
-        let val = line[eq_pos + 1..].trim().to_string();
+        let val = line[eq_pos + 1..].trim().to_owned();
         (key, val)
     } else {
         let (key, val) = split_first_token(line);
-        (key.to_ascii_lowercase(), val.to_string())
+        (key.to_ascii_lowercase(), val.to_owned())
     }
 }
 
 fn split_first_token(s: &str) -> (String, &str) {
     let s = s.trim();
-    // Quoted token
-    if let Some(end) = s[1..].find('"') {
-        let token = s[1..1 + end].to_string();
-        let rest = s[2 + end..].trim();
+    // Quoted token: only when the string actually starts with a quote.
+    if let Some(inner) = s.strip_prefix('"')
+        && let Some(end) = inner.find('"')
+    {
+        let token = inner[..end].to_string();
+        let rest = inner[end + 1..].trim();
         return (token, rest);
     }
 
     match s.find(|c: char| c.is_whitespace()) {
         Some(pos) => (s[..pos].to_string(), s[pos..].trim()),
-        None => (s.to_string(), ""),
+        None => (s.to_owned(), ""),
     }
 }
 
@@ -194,7 +195,7 @@ fn unquote(s: &str) -> String {
     if s.starts_with('"') && s.ends_with('"') && s.len() >= 2 {
         s[1..s.len() - 1].to_string()
     } else {
-        s.to_string()
+        s.to_owned()
     }
 }
 
@@ -286,7 +287,7 @@ music D_ULTIMA
 
         let m07 = info.get("MAP07").expect("MAP07 missing");
         assert_eq!(m07.level_name.as_deref(), Some("Hollow Icon"));
-        assert!(matches!(m07.boss_actions, Some(BossActions::Actions(ref a)) if a.len() == 2));
+        assert!(matches!(&m07.boss_actions, Some(BossActions::Actions(a)) if a.len() == 2));
 
         let m15 = info.get("MAP15").expect("MAP15 missing");
         assert_eq!(m15.next.as_deref(), Some("MAP16"));

@@ -353,29 +353,29 @@ impl MapObject {
 
     /// Iterate through the available live players and check if there is a LOS
     /// to one.
+    ///
+    /// OG `P_LookForPlayers`. The persistent `lastlook` cursor advances at the
+    /// bottom of every iteration (matching OG's `for(;; lastlook=(lastlook+1)&3)`
+    /// where the increment runs on `continue` too) but NOT on either `return`.
+    /// Getting that increment placement wrong drifts `lastlook` so the
+    /// `lastlook == stop` guard short-circuits before the sight check, and
+    /// monsters that should wake never do — a demo-desync source.
     pub(crate) fn look_for_players(&mut self, all_around: bool) -> bool {
-        // P_LookForPlayers — OG Doom examines up to two in-game players,
-        // starting from the actor's persistent `lastlook` and wrapping until it
-        // returns to `stop`. `count` bounds the scan to a full player sweep.
         let stop = (self.lastlook + MAXPLAYERS - 1) & 3;
-        let mut seen = 0;
+        let mut count = 0;
 
-        // OG advances `lastlook` on the loop tail (every non-returning pass) but
-        // not when a target is found. `advance` defers that increment so the
-        // `return true` path leaves `lastlook` pointing at the found player.
-        for _ in 0..=MAXPLAYERS {
-            let current = self.lastlook;
-            let mut advance = true;
-
-            if self.level().players_in_game()[current] {
-                // Two players examined, or wrapped back to the start — give up.
-                if seen == 2 || current == stop {
+        loop {
+            if self.level().players_in_game()[self.lastlook] {
+                // OG `if (c++ == 2 || actor->lastlook == stop)`: two players
+                // examined, or wrapped back to the start. Returns WITHOUT
+                // advancing `lastlook`.
+                if count == 2 || self.lastlook == stop {
                     return false;
                 }
-                seen += 1;
+                count += 1;
 
-                if self.level().players()[current].status.health > 0
-                    && let Some(target) = self.level().players()[current].mobj()
+                if self.level().players()[self.lastlook].status.health > 0
+                    && let Some(target) = self.level().players()[self.lastlook].mobj()
                 {
                     let tx = target.x;
                     let ty = target.y;
@@ -393,20 +393,19 @@ impl MapObject {
                     }
 
                     if visible {
-                        self.target = self.level_mut().players_mut()[current]
+                        // Found a target — return WITHOUT advancing `lastlook`,
+                        // leaving it on the found player (OG breaks out here).
+                        let found = self.lastlook;
+                        self.target = self.level_mut().players_mut()[found]
                             .mobj_mut()
                             .map(|m| m.thinker);
-                        advance = false;
+                        return true;
                     }
                 }
             }
 
-            if !advance {
-                return true;
-            }
             self.lastlook = (self.lastlook + 1) & 3;
         }
-        false
     }
 
     /// Check if there is a clear line of sight to the selected target object.
