@@ -104,17 +104,23 @@ pub fn r_point_to_dist(vx: FixedT, vy: FixedT, ox: FixedT, oy: FixedT) -> FixedT
 /// magic shifts hold across all precision modes. `num`/`den` are full-width
 /// `UInner` so `num << 3` cannot overflow in the 64-bit fixed-point modes.
 #[inline]
-#[allow(clippy::unnecessary_cast)] // for 64bit feature
+#[allow(
+    clippy::unnecessary_cast,
+    reason = "casts are real in the 64-bit precision modes"
+)]
 fn slope_div(num: UInner, den: UInner) -> u32 {
     if den < 512 {
         return SLOPERANGE;
     }
     let ans = (num << 3) / (den >> 8);
-    if ans <= SLOPERANGE as UInner {
-        ans as u32
-    } else {
-        SLOPERANGE
+
+    if ans <= UInner::from(SLOPERANGE) {
+        #[cfg(not(any(feature = "fixed64", feature = "fixed64hd")))]
+        return ans;
+        #[cfg(any(feature = "fixed64", feature = "fixed64hd"))]
+        return ans as u32;
     }
+    SLOPERANGE
 }
 
 /// OG Doom `R_PointToAngle2(0, 0, dx, dy)` — returns BAM angle from dx/dy.

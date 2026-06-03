@@ -49,7 +49,7 @@ pub struct MapPtr<T: Debug> {
 impl<T: Debug> MapPtr<T> {
     pub fn new(t: &mut T) -> MapPtr<T> {
         MapPtr {
-            inner: t as *mut _,
+            inner: t,
         }
     }
 

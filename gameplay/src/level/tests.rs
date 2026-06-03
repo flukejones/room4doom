@@ -51,7 +51,6 @@ mod map_data_tests {
         for (i, seg) in map.segments.iter().enumerate() {
             if seg.v1.pos == Vec2::new(496.0, -1072.0) && seg.v2.pos == Vec2::new(496.0, -1040.0) {
                 assert_eq!(ext.segments[i].linedef, 2670);
-                dbg!(i, &ext.segments[i]);
                 assert_eq!(ext.segments[i].linedef, 2670);
                 assert_eq!(ext.segments[i].side, 1);
                 // dbg!(&seg.sidedef);
@@ -92,9 +91,7 @@ mod map_data_tests {
         // linedef: 1590
         // side: 1
         for seg in ext.segments.iter() {
-            if seg.linedef == 1590 {
-                dbg!(seg); // two segs, one each side for this seg
-            }
+            if seg.linedef == 1590 {}
         }
 
         let lines: Vec<WadLineDef> = wad

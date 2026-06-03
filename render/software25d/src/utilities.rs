@@ -2,6 +2,20 @@ use math::{ANG90, Angle, Bam, FixedT};
 
 const MIN_DEN: FixedT = FixedT(1);
 
+/// Narrow a raw fixed-point `Inner` to `i32`. A no-op in the default 16.16 mode
+/// (`Inner = i32`); a real truncation in the 64-bit precision modes. This crate
+/// has no precision feature of its own (it inherits `math::Inner`), so the cast
+/// is unconditional and trivial-but-required in the default mode.
+#[inline]
+#[allow(
+    clippy::unnecessary_cast,
+    trivial_numeric_casts,
+    reason = "Inner is i64 in math's 64-bit modes"
+)]
+pub fn inner_to_i32(v: math::Inner) -> i32 {
+    v as i32
+}
+
 /// R_ScaleFromGlobalAngle
 pub fn scale_from_view_angle(
     visangle: Angle<Bam>,

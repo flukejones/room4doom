@@ -98,7 +98,7 @@ pub fn ev_do_floor(line: MapPtr<LineDef>, kind: FloorKind, level: &mut LevelStat
                 // TODO: int minsize = INT_MAX;
                 let mut min = sec.floorheight;
                 floor.direction = 1;
-                for line in sec.lines.iter() {
+                for line in &sec.lines {
                     if line.flags.contains(LineDefFlags::TwoSided) {
                         if let Some(bottomtexture) = line.front_sidedef.bottomtexture {
                             let tmp = SectorHeight::from(level.texture_heights[bottomtexture]);
@@ -123,7 +123,7 @@ pub fn ev_do_floor(line: MapPtr<LineDef>, kind: FloorKind, level: &mut LevelStat
                 floor.destheight = find_lowest_floor_surrounding(sec.clone());
                 floor.texture = sector.floorpic;
 
-                for line in sector.lines.iter() {
+                for line in &sector.lines {
                     if line.flags.contains(LineDefFlags::TwoSided) {
                         if line.front_sidedef.sector == sec {
                             sec = line.back_sidedef.as_ref().unwrap().sector.clone();
@@ -381,7 +381,7 @@ pub fn ev_do_donut(line: MapPtr<LineDef>, level: &mut LevelState) -> bool {
         ret = true;
 
         if let Some(mut s2) = get_next_sector(sector.lines[0].clone(), MapPtr::new(sector)) {
-            for line in s2.lines.iter_mut() {
+            for line in &mut s2.lines {
                 if !line.flags.contains(LineDefFlags::TwoSided) {
                     continue;
                 }

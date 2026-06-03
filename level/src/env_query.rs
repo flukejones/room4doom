@@ -115,10 +115,10 @@ pub fn find_next_highest_floor(sec: MapPtr<Sector>, current: SectorHeight) -> Se
     let mut height_list = Vec::new();
 
     for line in &sec.lines {
-        if let Some(other) = get_next_sector(line.clone(), sec.clone()) {
-            if other.floorheight > current {
-                height_list.push(other.floorheight);
-            }
+        if let Some(other) = get_next_sector(line.clone(), sec.clone())
+            && other.floorheight > current
+        {
+            height_list.push(other.floorheight);
         }
     }
 

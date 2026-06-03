@@ -13,7 +13,6 @@ fn ld164_lower_face_flips_when_door_drops() {
     let (ss, front_tex, back_tex) = {
         let mut found = None;
         for ss in 0..bsp3d.subsector_leaves.len() {
-            let leaf = bsp3d.get_subsector_leaf(ss).unwrap();
             for poly in bsp3d.leaf_polygons(ss) {
                 if let SurfaceKind::Vertical {
                     linedef_id: 164,

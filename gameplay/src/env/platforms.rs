@@ -186,7 +186,8 @@ pub fn ev_do_platform(
         if let Some(ptr) = level.thinkers.push::<Platform>(thinker) {
             ptr.set_obj_thinker_ptr();
             sec.set_sector_mover(ptr);
-            plats.push(ptr.platform_mut() as *mut Platform);
+            // Break lifetime; safe as the sector outlasts the thinker.
+            plats.push(std::ptr::from_mut::<Platform>(ptr.platform_mut()));
         }
     }
 

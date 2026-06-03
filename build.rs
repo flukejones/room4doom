@@ -45,7 +45,7 @@ fn main() {
             }
         }
     }
-    let target = std::env::var("TARGET").unwrap();
+    let target = env::var("TARGET").unwrap();
 
     if target.contains("apple-darwin") {
         // Runtime search paths so @rpath/SDL2.framework/... can be found:

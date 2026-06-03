@@ -14,7 +14,10 @@ const FRACUNIT: f32 = (1 << 16) as f32;
 /// with an offset for example: find the index for lump named "E1M1"
 /// in `self.wad_dirs` then combine this index with a `LumpIndex`
 /// variant to get a specific lump.
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "complete WAD map-lump enum; not every variant is referenced yet"
+)]
 #[derive(Debug, Clone, Copy)]
 pub enum MapLump {
     /// Position and angle for all monster, powerup and spawn location
@@ -340,7 +343,7 @@ impl WadData {
     /// Parse the UMAPINFO lump if present.
     pub fn umapinfo(&self) -> Option<crate::umapinfo::UMapInfo> {
         let lump = self.get_lump("UMAPINFO")?;
-        let text = std::str::from_utf8(&lump.data).ok()?;
+        let text = str::from_utf8(&lump.data).ok()?;
         match crate::umapinfo::parse(text) {
             Ok(info) => Some(info),
             Err(e) => {
@@ -353,7 +356,7 @@ impl WadData {
     /// Parse the MAPINFO lump if present.
     pub fn mapinfo(&self) -> Option<crate::umapinfo::UMapInfo> {
         let lump = self.get_lump("MAPINFO")?;
-        let text = std::str::from_utf8(&lump.data).ok()?;
+        let text = str::from_utf8(&lump.data).ok()?;
         match crate::umapinfo::parse_mapinfo(text) {
             Ok(info) => Some(info),
             Err(e) => {
@@ -366,7 +369,7 @@ impl WadData {
     /// Parse the ZMAPINFO lump if present.
     pub fn zmapinfo(&self) -> Option<crate::umapinfo::UMapInfo> {
         let lump = self.get_lump("ZMAPINFO")?;
-        let text = std::str::from_utf8(&lump.data).ok()?;
+        let text = str::from_utf8(&lump.data).ok()?;
         match crate::umapinfo::parse(text) {
             Ok(info) => Some(info),
             Err(e) => {

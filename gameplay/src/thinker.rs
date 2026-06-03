@@ -510,7 +510,7 @@ impl Thinker {
     }
 
     pub fn set_obj_thinker_ptr(&mut self) {
-        let ptr = self as *mut Self;
+        let ptr = ptr::from_mut(self);
         match &mut self.data {
             ThinkerData::TestObject(obj) => obj.set_thinker_ptr(ptr),
             ThinkerData::MapObject(obj) => obj.set_thinker_ptr(ptr),
@@ -715,13 +715,13 @@ pub(crate) trait Think {
 #[cfg(test)]
 impl ThinkerData {
     fn bad_ref<T>(&self) -> &T {
-        let mut ptr = self as *const Self as usize;
+        let mut ptr = ptr::from_ref(self) as usize;
         ptr += size_of::<u64>();
         unsafe { &*(ptr as *const T) }
     }
 
     fn bad_mut<T>(&mut self) -> &mut T {
-        let mut ptr = self as *mut Self as usize;
+        let mut ptr = ptr::from_mut(self) as usize;
         ptr += size_of::<u64>();
         unsafe { &mut *(ptr as *mut T) }
     }
@@ -739,7 +739,7 @@ mod tests {
     use level::LevelData;
 
     use super::{TestObject, ThinkerAlloc, ThinkerData};
-    use std::ptr::null_mut;
+    use std::ptr::{self, null_mut};
     use std::sync::mpsc::channel;
 
     #[test]
@@ -795,7 +795,7 @@ mod tests {
 
         assert!(x.think(&mut l));
 
-        let ptr = &mut x as *mut Thinker;
+        let ptr = ptr::from_mut(&mut x);
         x.data.bad_mut::<TestObject>().set_thinker_ptr(ptr);
         assert!(x.data.bad_mut::<TestObject>().thinker_mut().think(&mut l));
     }
@@ -813,12 +813,14 @@ mod tests {
         assert_eq!(links.len, 0);
         assert_eq!(links.capacity, 64);
 
-        let think = links
-            .push::<TestObject>(TestObject::create_thinker(
-                ThinkerData::Remove,
-                TestObject::think,
-            ))
-            .unwrap() as *mut Thinker;
+        let think = ptr::from_mut(
+            links
+                .push::<TestObject>(TestObject::create_thinker(
+                    ThinkerData::Remove,
+                    TestObject::think,
+                ))
+                .unwrap(),
+        );
         assert!(!links.head.is_null());
         assert_eq!(links.len, 1);
         unsafe {
@@ -826,11 +828,6 @@ mod tests {
         }
 
         unsafe {
-            dbg!(&*links.buf_ptr.add(0));
-            dbg!(&*links.buf_ptr.add(1));
-            dbg!(&*links.buf_ptr.add(2));
-            dbg!(&*links.buf_ptr.add(62));
-
             assert!(matches!((*links.buf_ptr.add(0)).data, ThinkerData::Remove));
             assert!(matches!((*links.buf_ptr.add(1)).data, ThinkerData::Free));
             assert!(matches!((*links.buf_ptr.add(2)).data, ThinkerData::Free));
@@ -852,15 +849,17 @@ mod tests {
             .unwrap();
         assert!(!links.head.is_null());
 
-        let one = links
-            .push::<TestObject>(TestObject::create_thinker(
-                ThinkerData::TestObject(TestObject {
-                    x: 666,
-                    thinker: null_mut(),
-                }),
-                TestObject::think,
-            ))
-            .unwrap() as *mut Thinker;
+        let one = ptr::from_mut(
+            links
+                .push::<TestObject>(TestObject::create_thinker(
+                    ThinkerData::TestObject(TestObject {
+                        x: 666,
+                        thinker: null_mut(),
+                    }),
+                    TestObject::think,
+                ))
+                .unwrap(),
+        );
 
         links
             .push::<TestObject>(TestObject::create_thinker(
@@ -871,15 +870,17 @@ mod tests {
                 TestObject::think,
             ))
             .unwrap();
-        let three = links
-            .push::<TestObject>(TestObject::create_thinker(
-                ThinkerData::TestObject(TestObject {
-                    x: 333,
-                    thinker: null_mut(),
-                }),
-                TestObject::think,
-            ))
-            .unwrap() as *mut Thinker;
+        let three = ptr::from_mut(
+            links
+                .push::<TestObject>(TestObject::create_thinker(
+                    ThinkerData::TestObject(TestObject {
+                        x: 333,
+                        thinker: null_mut(),
+                    }),
+                    TestObject::think,
+                ))
+                .unwrap(),
+        );
 
         unsafe {
             // forward

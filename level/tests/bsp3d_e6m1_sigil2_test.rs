@@ -127,9 +127,10 @@ fn test_e6m1_floor_ceiling_normals() {
     let failing_ssids: std::collections::HashSet<usize> = failures
         .iter()
         .filter_map(|f| {
-            f.strip_prefix("ss=")
-                .and_then(|s| s.split_whitespace().next())
-                .and_then(|n| n.parse().ok())
+            let n = f
+                .strip_prefix("ss=")
+                .and_then(|s| s.split_whitespace().next())?;
+            n.parse().ok()
         })
         .collect();
     for &ssid in &failing_ssids {

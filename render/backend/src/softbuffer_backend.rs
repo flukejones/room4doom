@@ -10,15 +10,18 @@ use winit::window::{Fullscreen, Window};
 
 use crate::DrawBuffer;
 
-/// Transmute a `&mut [Pixel]` to `&mut [u32]` for bulk pixel operations.
+/// Reinterpret a `&mut [Pixel]` as `&mut [u32]` for bulk pixel operations.
 ///
 /// # Safety
-/// `Pixel` is `#[repr(C, align(4))]` with 4 `u8` fields — same size and
-/// alignment as `u32`. The softbuffer documentation explicitly endorses this
-/// transmute pattern.
+/// `Pixel` is `#[repr(C, align(4))]` with four `u8` fields — identical size
+/// (4) and alignment (4) to `u32` — so the slice's length and element layout
+/// are preserved. This is the cast softbuffer documents for fast blits.
 #[inline(always)]
 fn pixels_as_u32_mut(pixels: &mut [Pixel]) -> &mut [u32] {
-    unsafe { std::mem::transmute::<&mut [Pixel], &mut [u32]>(pixels) }
+    let len = pixels.len();
+    let ptr = pixels.as_mut_ptr().cast::<u32>();
+    // SAFETY: layout-identical (see above); `len` elements, same alignment.
+    unsafe { std::slice::from_raw_parts_mut(ptr, len) }
 }
 
 /// Softbuffer display: owns the surface and a reference to the window.

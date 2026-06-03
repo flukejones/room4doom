@@ -112,7 +112,6 @@ pub fn init_spritedefs(names: &[&str], patches: &[SpritePic]) -> Vec<SpriteDef> 
                             names[index],
                             (frame as u8 + b'A') as char,
                         );
-                        dbg!(sprite_tmp[frame as usize].lump);
                     }
                 }
                 break;

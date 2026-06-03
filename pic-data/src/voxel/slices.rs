@@ -116,7 +116,10 @@ fn is_exposed(model: &VoxelModel, axis: Axis, dir: Dir, d: u32, u: u32, v: u32) 
 /// Build span-encoded columns for one face direction of a slice plane.
 /// Only exposed (visible-face) voxels are included; runs of consecutive
 /// exposed voxels are merged into spans.
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "voxel span builder needs the full model context"
+)]
 fn build_columns(
     model: &VoxelModel,
     axis: Axis,

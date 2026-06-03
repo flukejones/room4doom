@@ -1,4 +1,6 @@
 //! Shooting and aiming.
+use std::ptr;
+
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
 use math::{
@@ -585,7 +587,7 @@ impl SubSectTraverse {
 
             return true;
         } else if let Some(thing) = intercept.thing.as_mut() {
-            if std::ptr::eq(shooter, thing.as_ref()) {
+            if ptr::eq(shooter, thing.as_ref()) {
                 return true;
             }
             if !thing.flags.contains(MapObjFlag::Shootable) {
@@ -727,7 +729,7 @@ impl ShootTraverse {
 
             return true;
         } else if let Some(thing) = intercept.thing.as_mut() {
-            if std::ptr::eq(shooter, thing.as_ref()) {
+            if ptr::eq(shooter, thing.as_ref()) {
                 return true;
             }
             if !thing.flags.contains(MapObjFlag::Shootable) {
@@ -764,7 +766,7 @@ impl ShootTraverse {
             if self.damage > 0 {
                 let inflictor = Some((shooter.x, shooter.y, shooter.z));
                 // OG: P_DamageMobj(th, shootthing, shootthing, la_damage)
-                let source = unsafe { &mut *(shooter as *mut MapObject) };
+                let source = unsafe { &mut *ptr::from_mut(shooter) };
                 thing.p_take_damage(inflictor, Some(source), self.damage);
                 return false;
             }

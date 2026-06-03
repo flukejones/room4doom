@@ -60,7 +60,7 @@ impl DisplayBackend {
 
     /// Create a softbuffer display backend from a winit window.
     #[cfg(feature = "display-softbuffer")]
-    pub fn new_softbuffer(window: std::sync::Arc<winit::window::Window>) -> Self {
+    pub fn new_softbuffer(window: Arc<winit::window::Window>) -> Self {
         DisplayBackend::Softbuffer(softbuffer_backend::SoftbufferDisplay::new(window))
     }
 

@@ -38,6 +38,7 @@ use math::m_clear_random;
 use pic_data::PicData;
 use sound_common::{MusTrack, SndServerTx, SoundAction};
 use std::iter::Peekable;
+use std::ptr;
 use std::thread::JoinHandle;
 use std::time::Duration;
 use std::vec::IntoIter;
@@ -1285,7 +1286,7 @@ impl Game {
             }
 
             unsafe {
-                let lev = &mut *(level as *mut LevelState);
+                let lev = &mut *ptr::from_mut(level);
                 level.thinkers.run_thinkers(lev);
             }
 

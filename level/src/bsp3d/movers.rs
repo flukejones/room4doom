@@ -127,8 +127,8 @@ impl QuantizedVec2 {
 
     /// Look up the vertex index for a given sector in a vertex map.
     fn lookup(&self, map: &VertexMap, sector_id: usize) -> Option<usize> {
-        map.get(self)
-            .and_then(|sector_map| sector_map.get(&sector_id).copied())
+        let sector_map = map.get(self)?;
+        sector_map.get(&sector_id).copied()
     }
 }
 

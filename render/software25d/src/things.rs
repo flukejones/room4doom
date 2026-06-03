@@ -1,6 +1,7 @@
 #![allow(clippy::unnecessary_cast)] // required for 64bit fixed point
 
 use std::cmp;
+use std::ptr;
 
 use gameplay::{MapObjFlag, MapObject, SectorExt};
 use level::{LineDefFlags, Sector};
@@ -12,6 +13,7 @@ use render_common::{DrawBuffer, FUZZ_TABLE, RenderPspDef, RenderView, fuzz_darke
 
 use super::bsp::Software25D;
 use super::defs::DrawSeg;
+use super::utilities::inner_to_i32;
 use super::segs::SegRender;
 
 const FF_FULLBRIGHT: u32 = 0x8000;
@@ -306,8 +308,8 @@ impl Software25D {
             let texture_column = &patch.data[tex_column];
             let sprtopscreen = self.seg_renderer.centery - dc_texmid * spryscale;
             let bottomscreen = sprtopscreen + spryscale * FixedT::from(texture_column.len() as i32);
-            let mut top = FixedT::from(((sprtopscreen.0 + FRACUNIT - 1) >> FRACBITS) as i32);
-            let mut bottom = FixedT::from(((bottomscreen.0 - 1) >> FRACBITS) as i32);
+            let mut top = FixedT::from(inner_to_i32((sprtopscreen.0 + FRACUNIT - 1) >> FRACBITS));
+            let mut bottom = FixedT::from(inner_to_i32((bottomscreen.0 - 1) >> FRACBITS));
 
             if bottom >= clip_bottom[x] {
                 bottom = clip_bottom[x] - 1;
@@ -373,7 +375,7 @@ impl Software25D {
         let mut clip_top = vec![FixedT::from(-2); size.width_usize()];
 
         // Breaking liftime to enable this loop
-        let segs = unsafe { &*(&self.r_data.drawsegs as *const Vec<DrawSeg>) };
+        let segs = unsafe { &*ptr::from_ref(&self.r_data.drawsegs) };
         for seg in segs.iter().rev() {
             if seg.x1 > vis.x2
                 || seg.x2 < vis.x1
@@ -565,7 +567,7 @@ impl Software25D {
         // Sort only the vissprites used
         self.vissprites[..self.next_vissprite].sort();
         // Need to break lifetime as a chain function call needs &mut on a separate item
-        let vis = unsafe { &*(&self.vissprites as *const [VisSprite]) };
+        let vis = unsafe { &*ptr::from_ref(&self.vissprites[..]) };
         for (i, vis) in vis.iter().enumerate() {
             self.draw_sprite(view, vis, pic_data, rend);
             if i == self.next_vissprite {
@@ -683,8 +685,8 @@ impl Software25D {
                     let bottomscreen =
                         sprtopscreen + spryscale * FixedT::from(texture_column.len() as i32);
                     let mut top =
-                        FixedT::from(((sprtopscreen.0 + FRACUNIT - 1) >> FRACBITS) as i32);
-                    let mut bottom = FixedT::from(((bottomscreen.0 - 1) >> FRACBITS) as i32);
+                        FixedT::from(inner_to_i32((sprtopscreen.0 + FRACUNIT - 1) >> FRACBITS));
+                    let mut bottom = FixedT::from(inner_to_i32((bottomscreen.0 - 1) >> FRACBITS));
 
                     if bottom >= mfloorclip {
                         bottom = mfloorclip - 1;

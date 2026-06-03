@@ -65,7 +65,7 @@ pub struct LumpIter<'a, T, F: Fn(&Lump) -> T> {
     transformer: F,
 }
 
-impl<'a, T, F> Iterator for LumpIter<'a, T, F>
+impl<T, F> Iterator for LumpIter<'_, T, F>
 where
     F: Fn(&Lump) -> T,
 {

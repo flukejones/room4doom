@@ -36,7 +36,7 @@ pub(crate) fn write_pixel(
         buffer.set_pixel(
             x,
             y,
-            0xFF000000 | (r as u32) << 16 | (g as u32) << 8 | b as u32,
+            0xFF000000 | ((r as u32) << 16) | ((g as u32) << 8) | b as u32,
         );
     } else {
         buffer.set_pixel(x, y, color);
@@ -333,13 +333,13 @@ impl Software3D {
                 let inv_far = 1.0 / self.near_z;
                 let t = ((inv_w - inv_near) / (inv_far - inv_near)).clamp(0.0, 1.0);
                 let v = (t.sqrt() * 255.0) as u8;
-                (v as u32) << 16 | (v as u32) << 8 | v as u32
+                ((v as u32) << 16) | ((v as u32) << 8) | v as u32
             }
             DebugColourMode::Overdraw => {
                 let r = ((original >> 16) as u8).saturating_add(32);
                 let g = ((original >> 8) as u8).saturating_add(8);
                 let b = (original as u8).saturating_add(8);
-                (r as u32) << 16 | (g as u32) << 8 | b as u32
+                ((r as u32) << 16) | ((g as u32) << 8) | b as u32
             }
         }
     }

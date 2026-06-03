@@ -680,7 +680,7 @@ fn main() {
     let mut palette_u32 = [0u32; 256];
     for i in 0..256 {
         let (r, g, b) = palette[i];
-        palette_u32[i] = 0xFF000000 | (b as u32) << 16 | (g as u32) << 8 | r as u32;
+        palette_u32[i] = 0xFF000000 | ((b as u32) << 16) | ((g as u32) << 8) | r as u32;
     }
 
     // Focus midway between pivot origin and AABB center

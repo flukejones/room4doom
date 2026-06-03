@@ -63,7 +63,7 @@ fn open_append(path: &str) -> Option<File> {
 
 fn state_index(state: &'static crate::info::StateData) -> u64 {
     let base = addr_of!(STATES) as *const crate::info::StateData as usize;
-    let ptr = state as *const _ as usize;
+    let ptr = std::ptr::from_ref(state) as usize;
     ((ptr - base) / size_of::<crate::info::StateData>()) as u64
 }
 

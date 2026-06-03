@@ -93,7 +93,7 @@ fn lerp_color(a: u32, b: u32, t: f32) -> u32 {
     let r = (ar as f32 + (br as f32 - ar as f32) * t) as u8;
     let g = (ag as f32 + (bg as f32 - ag as f32) * t) as u8;
     let b = (ab as f32 + (bb as f32 - ab as f32) * t) as u8;
-    0xFF_00_00_00 | (r as u32) << 16 | (g as u32) << 8 | b as u32
+    0xFF_00_00_00 | ((r as u32) << 16) | ((g as u32) << 8) | b as u32
 }
 
 /// Sample the top source strip at `row_idx` rows from the join, with drift.
@@ -171,7 +171,7 @@ fn avg_rows_color(
     }
     #[allow(clippy::manual_checked_ops)] // don't want 3 lots of if let Some() = checked_div()
     if n > 0 {
-        (sum[0] / n) << 16 | (sum[1] / n) << 8 | (sum[2] / n)
+        ((sum[0] / n) << 16) | ((sum[1] / n) << 8) | (sum[2] / n)
     } else {
         0
     }

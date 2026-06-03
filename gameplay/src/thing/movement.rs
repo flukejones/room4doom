@@ -298,8 +298,8 @@ impl MapObject {
             && (self.player.is_none() || pfwd == 0 && pside == 0)
         {
             if self.player().is_some() {
-                let state_idx = (self.state as *const _ as usize - STATES.as_ptr() as usize)
-                    / std::mem::size_of::<StateData>();
+                let state_idx = (ptr::from_ref(self.state) as usize - STATES.as_ptr() as usize)
+                    / size_of::<StateData>();
                 let run1 = StateNum::PLAY_RUN1 as usize;
                 if state_idx >= run1 && state_idx < run1 + 4 {
                     self.set_state(StateNum::PLAY);
@@ -508,10 +508,7 @@ impl MapObject {
             return true;
         }
 
-        if ptr::eq(
-            self as *const _ as *const u8,
-            thing as *const _ as *const u8,
-        ) {
+        if ptr::eq(self, thing) {
             // Ignore self
             return true;
         }
@@ -519,7 +516,7 @@ impl MapObject {
         if self.flags.contains(MapObjFlag::Skullfly) {
             let damage = ((p_random() % 8) + 1) * self.info.damage;
             // OG: P_DamageMobj(thing, tmthing, tmthing, damage)
-            let self_ptr = unsafe { &mut *(self as *mut MapObject) };
+            let self_ptr = unsafe { &mut *ptr::from_mut(self) };
             thing.p_take_damage(Some((self.x, self.y, self.z)), Some(self_ptr), damage);
 
             self.momx = FixedT::ZERO;
@@ -551,10 +548,7 @@ impl MapObject {
                         && thing.kind == MapObjKind::MT_KNIGHT)
                 {
                     // Don't hit same species as originator.
-                    if ptr::eq(
-                        thing as *const _ as *const u8,
-                        target as *const _ as *const u8,
-                    ) {
+                    if ptr::eq(thing, target) {
                         return true;
                     }
 

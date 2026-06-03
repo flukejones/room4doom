@@ -350,7 +350,7 @@ pub fn ev_turn_tag_lights_off(line: MapPtr<LineDef>, level: &mut LevelState) {
         let sec = MapPtr::new(sector);
         min = sector.lightlevel;
 
-        for line in sector.lines.iter_mut() {
+        for line in &mut sector.lines {
             let tsec = get_next_sector(line.clone(), sec.clone());
             if let Some(tsec) = tsec
                 && tsec.lightlevel < min
@@ -365,7 +365,8 @@ pub fn ev_turn_tag_lights_off(line: MapPtr<LineDef>, level: &mut LevelState) {
 
 /// Doom function name `EV_StartLightStrobing`
 pub fn ev_start_light_strobing(line: MapPtr<LineDef>, level: &mut LevelState) {
-    let level_ptr = unsafe { &mut *(level as *mut LevelState) };
+    // Level outlasts the spawned thinker.
+    let level_ptr = unsafe { &mut *std::ptr::from_mut::<LevelState>(level) };
     for sector in level
         .level_data
         .sectors

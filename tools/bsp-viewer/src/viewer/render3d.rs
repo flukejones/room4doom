@@ -169,6 +169,29 @@ fn debug_opts(mode: Render3DMode) -> DebugDrawOptions {
     opts
 }
 
+fn render_view(cam: &Camera3D) -> RenderView {
+    let fp = FixedT::from_f32;
+    RenderView {
+        x: fp(cam.pos.x),
+        y: fp(cam.pos.y),
+        z: fp(cam.pos.z),
+        viewz: fp(cam.pos.z),
+        viewheight: fp(0.0),
+        angle: Angle::<Bam>::new(cam.yaw),
+        lookdir: cam.pitch,
+        fixedcolormap: 0,
+        extralight: 0,
+        is_shadow: false,
+        subsector_id: 0,
+        psprites: [RenderPspDef::default(); 2],
+        sector_lightlevel: 0,
+        player_mobj_id: 0,
+        frac: 1.0,
+        frac_fp: fp(1.0),
+        game_tic: 0,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -208,28 +231,5 @@ mod tests {
             let mut r = Renderer3D::new(&wad, mode, 320, 240);
             r.render_to_buffer(&level, &cam);
         }
-    }
-}
-
-fn render_view(cam: &Camera3D) -> RenderView {
-    let fp = FixedT::from_f32;
-    RenderView {
-        x: fp(cam.pos.x),
-        y: fp(cam.pos.y),
-        z: fp(cam.pos.z),
-        viewz: fp(cam.pos.z),
-        viewheight: fp(0.0),
-        angle: Angle::<Bam>::new(cam.yaw),
-        lookdir: cam.pitch,
-        fixedcolormap: 0,
-        extralight: 0,
-        is_shadow: false,
-        subsector_id: 0,
-        psprites: [RenderPspDef::default(); 2],
-        sector_lightlevel: 0,
-        player_mobj_id: 0,
-        frac: 1.0,
-        frac_fp: fp(1.0),
-        game_tic: 0,
     }
 }

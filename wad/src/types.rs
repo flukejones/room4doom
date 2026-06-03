@@ -52,7 +52,7 @@ pub const BLACK: WadColour = 0xFF_00_00_00;
 /// Pack RGB bytes into a `WadColour` (`0xFFRRGGBB`, fully opaque).
 #[inline(always)]
 pub const fn rgb_u32(r: u8, g: u8, b: u8) -> WadColour {
-    0xFF_00_00_00 | (r as u32) << 16 | (g as u32) << 8 | b as u32
+    0xFF_00_00_00 | ((r as u32) << 16) | ((g as u32) << 8) | b as u32
 }
 
 /// Extract the red channel from a `WadColour`.
