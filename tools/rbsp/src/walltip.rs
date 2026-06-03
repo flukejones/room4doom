@@ -6,6 +6,10 @@
 
 use crate::types::{LineDefAccess, SideDefAccess, Vertex, WadLineDef, WadSideDef, WallTip};
 
+#[allow(
+    clippy::useless_conversion,
+    reason = "Float can be 32 or 64 bit depending on feature"
+)]
 /// Build wall-tip lists for all vertices. Returns one Vec<WallTip> per vertex,
 /// sorted by angle ascending.
 pub fn build_wall_tips(
@@ -25,10 +29,8 @@ pub fn build_wall_tips(
 
         let dx = vertices[v2].x - vertices[v1].x;
         let dy = vertices[v2].y - vertices[v1].y;
-        #[allow(clippy::unnecessary_cast)] // cast needed when Float = f32
-        let angle_v1 = (dy as f64).atan2(dx as f64);
-        #[allow(clippy::unnecessary_cast)]
-        let angle_v2 = (-(dy as f64)).atan2(-(dx as f64));
+        let angle_v1 = f64::from(dy).atan2(f64::from(dx));
+        let angle_v2 = (-f64::from(dy)).atan2(-f64::from(dx));
 
         let front_sector = ld.front_sidedef_idx().map(|i| sidedefs[i].sector_idx());
         let back_sector = ld.back_sidedef_idx().map(|i| sidedefs[i].sector_idx());
@@ -92,6 +94,10 @@ pub fn wall_tip_sector_at(tips: &[WallTip], angle: f64) -> Option<u32> {
     None
 }
 
+#[allow(
+    clippy::useless_conversion,
+    reason = "Float can be 32 or 64 bit depending on feature"
+)]
 /// Copy wall-tips from a linedef's endpoints to a new split vertex.
 pub fn copy_wall_tips_for_split(
     wall_tips: &mut Vec<Vec<WallTip>>,
@@ -108,10 +114,8 @@ pub fn copy_wall_tips_for_split(
     let v2 = linedef.end_vertex_idx();
     let dx = vertices[v2].x - vertices[v1].x;
     let dy = vertices[v2].y - vertices[v1].y;
-    #[allow(clippy::unnecessary_cast)] // cast needed when Float = f32
-    let angle_fwd = (dy as f64).atan2(dx as f64);
-    #[allow(clippy::unnecessary_cast)]
-    let angle_rev = (-(dy as f64)).atan2(-(dx as f64));
+    let angle_fwd = f64::from(dy).atan2(f64::from(dx));
+    let angle_rev = (-f64::from(dy)).atan2(-f64::from(dx));
 
     let front_sector = linedef
         .front_sidedef_idx()

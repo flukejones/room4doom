@@ -1,5 +1,7 @@
 //! Doom source name `p_switch`
 
+use std::ptr;
+
 use log::{debug, warn};
 use sound_common::{SfxName, SndServerTx};
 
@@ -62,7 +64,7 @@ pub fn start_button(
 pub(crate) fn start_sector_sound(line: &LineDef, sfx: SfxName, snd: &SndServerTx) {
     let sfx_origin = line.front_sidedef.sector.sound_origin;
     if let Err(e) = snd.send(sound_common::SoundAction::StartSfx {
-        uid: line as *const LineDef as usize,
+        uid: ptr::from_ref(line) as usize,
         sfx,
         x: sfx_origin.x,
         y: sfx_origin.y,

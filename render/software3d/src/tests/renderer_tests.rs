@@ -105,9 +105,10 @@ fn test_frustum_clipping_completely_inside() {
     assert_eq!(renderer.rasterizer.clipped_vertices_len, 3);
 
     // Vertices should be approximately the same
-    for i in 0..3 {
-        let clipped = renderer.rasterizer.clipped_vertices_buffer[i];
-        let original = vertices[i];
+    for (clipped, original) in renderer.rasterizer.clipped_vertices_buffer[..3]
+        .iter()
+        .zip(&vertices[..3])
+    {
         assert!((clipped.x - original.x).abs() < 0.001);
         assert!((clipped.y - original.y).abs() < 0.001);
         assert!((clipped.z - original.z).abs() < 0.001);

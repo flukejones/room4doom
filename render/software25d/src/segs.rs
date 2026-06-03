@@ -8,7 +8,7 @@ use pic_data::{FlatPic, PicData};
 use render_common::{DrawBuffer, RenderView};
 use std::ptr::NonNull;
 
-use crate::utilities::scale_from_view_angle;
+use crate::utilities::{inner_to_i32, scale_from_view_angle};
 
 use super::RenderData;
 use super::defs::{DrawSeg, MAXDRAWSEGS, SIL_BOTH, SIL_BOTTOM, SIL_NONE, SIL_TOP};
@@ -280,7 +280,7 @@ impl SegRender {
             ) * self.wide_ratio;
             ds_p.scale2 = scale2;
 
-            let count = (stop - start).to_i32() as math::Inner;
+            let count = math::Inner::from((stop - start).to_i32());
             self.rw_scalestep = FixedT((scale2.0 - self.rw_scale.0) / count);
             ds_p.scalestep = self.rw_scalestep;
         } else {
@@ -589,7 +589,7 @@ impl SegRender {
             // and is the starting point that topstep is added to
             top = rdata.portal_clip.ceilingclip[clip_index] + 1;
             // OG: yl = (topfrac + HEIGHTUNIT - 1) >> HEIGHTBITS (ceiling in 20.12)
-            yl = FixedT::from(((self.topfrac.0 + 0xFFF) >> 12) as i32);
+            yl = FixedT::from(inner_to_i32((self.topfrac.0 + 0xFFF) >> 12));
             if yl < top {
                 yl = top;
             }
@@ -646,7 +646,7 @@ impl SegRender {
 
             bottom = rdata.portal_clip.floorclip[clip_index] - 1;
             // OG: yh = bottomfrac >> HEIGHTBITS (floor in 20.12)
-            yh = FixedT::from((self.bottomfrac.0 >> 12) as i32);
+            yh = FixedT::from(inner_to_i32(self.bottomfrac.0 >> 12));
             if yh > bottom {
                 yh = bottom;
             }
@@ -714,7 +714,7 @@ impl SegRender {
                 if self.toptexture {
                     // floor vs ceil affects how things align in slightly off ways
                     // OG: mid = pixhigh >> HEIGHTBITS
-                    mid = FixedT::from((self.pixhigh.0 >> 12) as i32);
+                    mid = FixedT::from(inner_to_i32(self.pixhigh.0 >> 12));
                     self.pixhigh += self.pixhighstep;
 
                     if mid >= rdata.portal_clip.floorclip[clip_index] {
@@ -744,7 +744,7 @@ impl SegRender {
                 if self.bottomtexture {
                     // floor vs ceil affects how things align in slightly off ways
                     // OG: mid = (pixlow + HEIGHTUNIT - 1) >> HEIGHTBITS
-                    mid = FixedT::from(((self.pixlow.0 + 0xFFF) >> 12) as i32);
+                    mid = FixedT::from(inner_to_i32((self.pixlow.0 + 0xFFF) >> 12));
                     self.pixlow += self.pixlowstep;
 
                     if mid <= rdata.portal_clip.ceilingclip[clip_index] {

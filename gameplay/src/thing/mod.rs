@@ -13,7 +13,7 @@ mod shooting;
 
 use bitflags::bitflags;
 use std::fmt::Debug;
-use std::ptr::null_mut;
+use std::ptr::{self, null_mut};
 
 use self::movement::SubSectorMinMax;
 
@@ -219,7 +219,7 @@ impl MapObject {
         kind: MapObjKind,
         info: MapObjInfo,
         tics: i32,
-        state: &'static crate::info::StateData,
+        state: &'static StateData,
         flags: MapObjFlag,
         health: i32,
         movedir: MoveDir,
@@ -392,8 +392,7 @@ impl MapObject {
 
     /// State table index (for trace comparison with OG Doom).
     pub fn state_index(&self) -> usize {
-        (self.state as *const _ as usize - STATES.as_ptr() as usize)
-            / std::mem::size_of::<StateData>()
+        (ptr::from_ref(self.state) as usize - STATES.as_ptr() as usize) / size_of::<StateData>()
     }
 
     /// State tics remaining.
@@ -1129,7 +1128,7 @@ impl MapObject {
                 sfx,
                 self.x.to_f32(),
                 self.y.to_f32(),
-                self as *const Self as usize, /* pointer cast as a UID */
+                ptr::from_ref(self) as usize, /* pointer cast as a UID */
             )
         }
     }

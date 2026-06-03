@@ -2,6 +2,7 @@ use super::RenderData;
 use super::defs::ClipRange;
 use super::segs::SegRender;
 use super::things::VisSprite;
+use super::utilities::inner_to_i32;
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
 use game_config::tic_cmd::LookDirs;
@@ -183,7 +184,7 @@ impl Software25D {
             } else {
                 let t = base_centerxfrac - tangent * base_focal_len;
                 let t = (t.0 + math::FRACUNIT - 1) >> math::FRACBITS;
-                let base_col = (t as i32).clamp(-1, base_width + 1);
+                let base_col = inner_to_i32(t).clamp(-1, base_width + 1);
                 viewangletox[i] = if base_col < 0 {
                     -1
                 } else {
@@ -200,7 +201,7 @@ impl Software25D {
             while i < FINEANGLES / 2 && viewangletox[i] > x as i32 {
                 i += 1;
             }
-            xtoviewangle[x] = ((i as u32) << math::ANGLETOFINESHIFT).wrapping_sub(ANG90);
+            xtoviewangle[x] = ((i as u32) << ANGLETOFINESHIFT).wrapping_sub(ANG90);
         });
 
         // OG Doom fencepost fix
@@ -230,7 +231,7 @@ impl Software25D {
             projection,
             focal_length,
             // Derive from fov_half_fine (integer) instead of float fov
-            fov_half_bam: fov_half_fine << math::ANGLETOFINESHIFT,
+            fov_half_bam: fov_half_fine << ANGLETOFINESHIFT,
             buf_width: width,
             buf_height: height,
             viewangletox,

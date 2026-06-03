@@ -4,6 +4,8 @@
 //!
 //! Doom source name `p_spec`
 
+use std::ptr;
+
 use crate::doom_def::{ONCEILINGZ, ONFLOORZ};
 use crate::env::ceiling::{CeilKind, ev_do_ceiling};
 use crate::env::doors::{DoorKind, ev_do_door};
@@ -22,7 +24,7 @@ use crate::pic::ButtonWhere;
 use crate::thing::MapObject;
 use crate::{MapObjFlag, TICRATE};
 use level::map_defs::{LineDef, Sector, SectorHeight};
-use level::{BSP3D, MapPtr, MovementType, WallType};
+use level::{MapPtr, MovementType, WallType};
 use log::{debug, error, trace};
 use math::{Angle, FixedT};
 use pic_data::PicData;
@@ -89,7 +91,7 @@ pub fn move_plane(
     level: &mut LevelState,
 ) -> PlaneResult {
     // Split borrow: bsp3d from level_data, blocklinks from level
-    let bsp3d = unsafe { &mut *(&mut level.level_data.bsp_3d as *mut BSP3D) };
+    let bsp3d = unsafe { &mut *ptr::from_mut(&mut level.level_data.bsp_3d) };
     let sector_num = sector.num as usize;
     match floor_or_ceiling {
         0 => {
@@ -779,7 +781,7 @@ pub fn shoot_special_line(line: MapPtr<LineDef>, thing: &mut MapObject) {
 pub fn spawn_specials(level: &mut LevelState) {
     // TODO: level timer
 
-    let level_iter = unsafe { &mut *(level as *mut LevelState) };
+    let level_iter = unsafe { &mut *ptr::from_mut(level) };
     for sector in level_iter
         .level_data
         .sectors

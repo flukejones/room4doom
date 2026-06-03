@@ -103,7 +103,10 @@ mod tests {
     use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, PI};
 
     #[test]
-    #[allow(clippy::float_cmp)]
+    #[allow(
+        clippy::float_cmp,
+        reason = "exact equality is the intended assertion in this test"
+    )]
     fn convert_bam_to_rad() {
         // DOOM constants
         let ang45: u32 = 0x20000000;

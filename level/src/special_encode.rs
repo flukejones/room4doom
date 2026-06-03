@@ -263,9 +263,7 @@ fn boom_category(special: u32) -> Option<Category> {
         Some(Category::Floor)
     } else if special >= GEN_CEILING_BASE {
         Some(Category::Ceiling)
-    } else if special >= GEN_DOOR_BASE {
-        Some(Category::Door)
-    } else if special >= GEN_LOCKED_BASE {
+    } else if special >= GEN_DOOR_BASE || special >= GEN_LOCKED_BASE {
         Some(Category::Door) // generalized locked door -> door category
     } else if special >= GEN_LIFT_BASE {
         Some(Category::Lift)
@@ -702,7 +700,7 @@ mod tests {
     #[test]
     fn extended_flags_decode() {
         assert!(decode_ext(encode_vanilla(40).unwrap()).unwrap().composite);
-        assert!(decode_ext(encode_vanilla(9).unwrap()).unwrap().composite == false);
+        assert!(!decode_ext(encode_vanilla(9).unwrap()).unwrap().composite);
         assert!(decode_ext(encode_vanilla(1).unwrap()).unwrap().manual);
         assert_eq!(decode_ext(encode_vanilla(14).unwrap()).unwrap().amount, 32);
         assert_eq!(decode_ext(encode_vanilla(15).unwrap()).unwrap().amount, 24);

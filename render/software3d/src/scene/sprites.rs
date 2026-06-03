@@ -1,3 +1,5 @@
+use std::ptr;
+
 use crate::voxel::collect::{
     CollectResult, VoxelCollectParams, VoxelSliceRef, collect_visible_slices,
 };
@@ -60,7 +62,7 @@ impl Software3D {
             let sector = &sectors[sector_id];
             <Sector as SectorExt>::run_func_on_thinglist(sector, |thing| {
                 // Skip the player's own mobj
-                if thing as *const MapObject as usize == view.player_mobj_id {
+                if ptr::from_ref(thing) as usize == view.player_mobj_id {
                     return true;
                 }
 

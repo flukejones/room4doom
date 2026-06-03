@@ -55,7 +55,7 @@ pub struct DoomApp {
     frame_interval: Option<Duration>,
     /// Target instant for the next frame when vsync is active.
     next_frame: Instant,
-    voxel_manager: Option<std::sync::Arc<pic_data::VoxelManager>>,
+    voxel_manager: Option<Arc<pic_data::VoxelManager>>,
     user_config: crate::config::UserConfig,
 }
 

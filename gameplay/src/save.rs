@@ -5,7 +5,7 @@
 //! behaviour.
 
 use std::fmt;
-use std::ptr::null_mut;
+use std::ptr::{self, null_mut};
 
 use level::map_defs::{Sector, SectorHeight};
 use level::{LevelData, LineDefFlags, MapPtr};
@@ -24,7 +24,7 @@ use crate::level::LevelState;
 use crate::pic::Button;
 use crate::player::{Player, PlayerState};
 use crate::thing::MapObject;
-use crate::thinker::{Think, Thinker, ThinkerData};
+use crate::thinker::{Think, ThinkerData};
 use game_config::{Skill, WeaponType};
 
 const SAVE_MAGIC: &[u8; 4] = b"R4DS";
@@ -85,8 +85,8 @@ impl From<std::io::Error> for SaveError {
 /// Convert a state reference to its index in the global STATES array.
 fn state_to_index(state: &'static crate::info::StateData) -> u16 {
     let base = std::ptr::addr_of!(STATES) as *const crate::info::StateData as usize;
-    let ptr = state as *const _ as usize;
-    let idx = (ptr - base) / std::mem::size_of::<crate::info::StateData>();
+    let ptr = ptr::from_ref(state) as usize;
+    let idx = (ptr - base) / size_of::<crate::info::StateData>();
     idx as u16
 }
 
@@ -563,7 +563,7 @@ fn load_mobj(
     let info = MOBJINFO[kind as usize];
     let state = index_to_state(state_idx)?;
 
-    let level_ptr = level as *mut LevelState;
+    let level_ptr = ptr::from_mut(level);
 
     let mobj = MapObject::from_save_data(
         x,
@@ -612,8 +612,8 @@ fn load_mobj(
         if player_idx >= 0 && (player_idx as usize) < MAXPLAYERS {
             let pi = player_idx as usize;
             if players_in_game[pi] {
-                mobj.player = Some(&mut players[pi] as *mut Player);
-                players[pi].set_mobj(mobj as *mut MapObject);
+                mobj.player = Some(ptr::from_mut(&mut players[pi]));
+                players[pi].set_mobj(ptr::from_mut(mobj));
             }
         }
     }
@@ -647,7 +647,7 @@ fn load_vdoor(r: &mut SaveReader, level: &mut LevelState) -> Result<(), SaveErro
     let thinker =
         VerticalDoor::create_thinker(ThinkerData::VerticalDoor(door), VerticalDoor::think);
     if let Some(t) = level.thinkers.push_raw(thinker) {
-        let ptr = t as *mut Thinker as *mut ();
+        let ptr = ptr::from_mut(t) as *mut ();
         let sec = resolve_sector(sector_num, &mut level.level_data)?;
         sec.as_ptr().cast::<Sector>();
         unsafe { (*sec.as_ptr()).specialdata = Some(ptr) };
@@ -684,7 +684,7 @@ fn load_floor(r: &mut SaveReader, level: &mut LevelState) -> Result<(), SaveErro
 
     let thinker = FloorMove::create_thinker(ThinkerData::FloorMove(floor), FloorMove::think);
     if let Some(t) = level.thinkers.push_raw(thinker) {
-        let ptr = t as *mut Thinker as *mut ();
+        let ptr = ptr::from_mut(t) as *mut ();
         unsafe {
             (*resolve_sector(sector_num, &mut level.level_data)?.as_ptr()).specialdata = Some(ptr)
         };
@@ -722,7 +722,7 @@ fn load_ceiling(r: &mut SaveReader, level: &mut LevelState) -> Result<(), SaveEr
 
     let thinker = CeilingMove::create_thinker(ThinkerData::CeilingMove(ceil), CeilingMove::think);
     if let Some(t) = level.thinkers.push_raw(thinker) {
-        let ptr = t as *mut Thinker as *mut ();
+        let ptr = ptr::from_mut(t) as *mut ();
         unsafe {
             (*resolve_sector(sector_num, &mut level.level_data)?.as_ptr()).specialdata = Some(ptr)
         };
@@ -766,12 +766,12 @@ fn load_platform(r: &mut SaveReader, level: &mut LevelState) -> Result<(), SaveE
 
     let thinker = Platform::create_thinker(ThinkerData::Platform(plat), Platform::think);
     if let Some(t) = level.thinkers.push_raw(thinker) {
-        let ptr = t as *mut Thinker as *mut ();
+        let ptr = ptr::from_mut(t) as *mut ();
         unsafe {
             (*resolve_sector(sector_num, &mut level.level_data)?.as_ptr()).specialdata = Some(ptr)
         };
         // Add to active platforms
-        let plat_ptr = t.platform_mut() as *mut Platform;
+        let plat_ptr = ptr::from_mut(t.platform_mut());
         level.add_active_platform(plat_ptr);
     }
 
@@ -1192,7 +1192,7 @@ pub fn save_game_to_bytes(
                 // Find which player this is by comparing pointers
                 let mut idx = -1i8;
                 for (i, player) in players.iter().enumerate() {
-                    if std::ptr::eq(player_ptr, player) {
+                    if ptr::eq(player_ptr, player) {
                         idx = i as i8;
                         break;
                     }

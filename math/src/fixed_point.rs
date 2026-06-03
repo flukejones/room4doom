@@ -62,14 +62,21 @@ impl FixedT {
     /// Construct from WAD/OG 16.16 fixed-point i32.
     #[inline]
     pub const fn from_fixed(raw: i32) -> Self {
-        Self((raw as Inner) << WAD_SHIFT)
+        #[cfg(not(any(feature = "fixed64", feature = "fixed64hd")))]
+        let inner = raw;
+        #[cfg(any(feature = "fixed64", feature = "fixed64hd"))]
+        let inner = raw as Inner;
+        Self(inner << WAD_SHIFT)
     }
 
     /// Export as WAD-compatible 16.16 i32 (truncates in 64-bit modes).
     #[inline]
-    #[allow(clippy::unnecessary_cast)] // cast is required in 64-bit Inner modes
     pub const fn to_fixed_raw(self) -> i32 {
-        (self.0 >> WAD_SHIFT) as i32
+        let shifted = self.0 >> WAD_SHIFT;
+        #[cfg(not(any(feature = "fixed64", feature = "fixed64hd")))]
+        return shifted;
+        #[cfg(any(feature = "fixed64", feature = "fixed64hd"))]
+        return shifted as i32;
     }
 
     /// Doom `FixedMul`: `(a * b) >> FRACBITS` via wide intermediate.
@@ -160,7 +167,10 @@ impl FixedT {
 
     /// Arithmetic right shift by `bits`.
     #[inline]
-    #[allow(clippy::should_implement_trait)] // inherent method kept for ergonomics; Shr trait also implemented
+    #[allow(
+        clippy::should_implement_trait,
+        reason = "inherent method kept for ergonomics; Shr trait also implemented"
+    )]
     pub fn shr(self, bits: u32) -> Self {
         Self(self.0 >> bits)
     }
@@ -173,9 +183,12 @@ impl FixedT {
 
     /// Convert to i32 (truncating fractional part).
     #[inline]
-    #[allow(clippy::unnecessary_cast)] // cast is required in 64-bit Inner modes
     pub fn to_i32(self) -> i32 {
-        (self.0 >> FRACBITS) as i32
+        let shifted = self.0 >> FRACBITS;
+        #[cfg(not(any(feature = "fixed64", feature = "fixed64hd")))]
+        return shifted;
+        #[cfg(any(feature = "fixed64", feature = "fixed64hd"))]
+        return shifted as i32;
     }
 
     /// Check if negative.
@@ -238,11 +251,14 @@ impl AddAssign for FixedT {
     }
 }
 
-#[allow(clippy::suspicious_op_assign_impl)]
+#[allow(
+    clippy::suspicious_op_assign_impl,
+    reason = "i32 operand is scaled to fixed-point (<< FRACBITS); the shift is intentional"
+)]
 impl AddAssign<i32> for FixedT {
     #[inline]
     fn add_assign(&mut self, rhs: i32) {
-        self.0 = self.0.wrapping_add((rhs as Inner) << FRACBITS);
+        self.0 = self.0.wrapping_add(Inner::from(rhs) << FRACBITS);
     }
 }
 
@@ -253,11 +269,14 @@ impl SubAssign for FixedT {
     }
 }
 
-#[allow(clippy::suspicious_op_assign_impl)]
+#[allow(
+    clippy::suspicious_op_assign_impl,
+    reason = "i32 operand is scaled to fixed-point (<< FRACBITS); the shift is intentional"
+)]
 impl SubAssign<i32> for FixedT {
     #[inline]
     fn sub_assign(&mut self, rhs: i32) {
-        self.0 = self.0.wrapping_sub((rhs as Inner) << FRACBITS);
+        self.0 = self.0.wrapping_sub(Inner::from(rhs) << FRACBITS);
     }
 }
 
@@ -321,39 +340,51 @@ impl PartialOrd<f32> for FixedT {
     }
 }
 
-#[allow(clippy::suspicious_arithmetic_impl)]
+#[allow(
+    clippy::suspicious_arithmetic_impl,
+    reason = "i32 operand is scaled to fixed-point (<< FRACBITS); mixed ops are intentional"
+)]
 impl Add<i32> for FixedT {
     type Output = Self;
     #[inline]
     fn add(self, rhs: i32) -> Self {
-        Self(self.0.wrapping_add((rhs as Inner) << FRACBITS))
+        Self(self.0.wrapping_add(Inner::from(rhs) << FRACBITS))
     }
 }
 
-#[allow(clippy::suspicious_arithmetic_impl)]
+#[allow(
+    clippy::suspicious_arithmetic_impl,
+    reason = "i32 operand is scaled to fixed-point (<< FRACBITS); mixed ops are intentional"
+)]
 impl Sub<i32> for FixedT {
     type Output = Self;
     #[inline]
     fn sub(self, rhs: i32) -> Self {
-        Self(self.0.wrapping_sub((rhs as Inner) << FRACBITS))
+        Self(self.0.wrapping_sub(Inner::from(rhs) << FRACBITS))
     }
 }
 
-#[allow(clippy::suspicious_arithmetic_impl)]
+#[allow(
+    clippy::suspicious_arithmetic_impl,
+    reason = "i32 operand is scaled to fixed-point (<< FRACBITS); mixed ops are intentional"
+)]
 impl Mul<i32> for FixedT {
     type Output = Self;
     #[inline]
     fn mul(self, rhs: i32) -> Self {
-        self.fixed_mul(Self((rhs as Inner) << FRACBITS))
+        self.fixed_mul(Self(Inner::from(rhs) << FRACBITS))
     }
 }
 
-#[allow(clippy::suspicious_arithmetic_impl)]
+#[allow(
+    clippy::suspicious_arithmetic_impl,
+    reason = "i32 operand is scaled to fixed-point (<< FRACBITS); mixed ops are intentional"
+)]
 impl Div<i32> for FixedT {
     type Output = Self;
     #[inline]
     fn div(self, rhs: i32) -> Self {
-        self.fixed_div(Self((rhs as Inner) << FRACBITS))
+        self.fixed_div(Self(Inner::from(rhs) << FRACBITS))
     }
 }
 
@@ -365,42 +396,48 @@ impl Div<FixedT> for f32 {
     }
 }
 
-#[allow(clippy::suspicious_arithmetic_impl)]
+#[allow(
+    clippy::suspicious_arithmetic_impl,
+    reason = "i32 operand is scaled to fixed-point (<< FRACBITS); mixed ops are intentional"
+)]
 impl Sub<FixedT> for i32 {
     type Output = FixedT;
     #[inline]
     fn sub(self, rhs: FixedT) -> FixedT {
-        FixedT(((self as Inner) << FRACBITS).wrapping_sub(rhs.0))
+        FixedT((Inner::from(self) << FRACBITS).wrapping_sub(rhs.0))
     }
 }
 
-#[allow(clippy::suspicious_arithmetic_impl)]
+#[allow(
+    clippy::suspicious_arithmetic_impl,
+    reason = "i32 operand is scaled to fixed-point (<< FRACBITS); mixed ops are intentional"
+)]
 impl Div<FixedT> for i32 {
     type Output = FixedT;
     #[inline]
     fn div(self, rhs: FixedT) -> FixedT {
-        FixedT((self as Inner) << FRACBITS).fixed_div(rhs)
+        FixedT(Inner::from(self) << FRACBITS).fixed_div(rhs)
     }
 }
 
 impl PartialEq<i32> for FixedT {
     #[inline]
     fn eq(&self, other: &i32) -> bool {
-        self.0 == ((*other as Inner) << FRACBITS)
+        self.0 == (Inner::from(*other) << FRACBITS)
     }
 }
 
 impl PartialOrd<i32> for FixedT {
     #[inline]
     fn partial_cmp(&self, other: &i32) -> Option<std::cmp::Ordering> {
-        Some(self.0.cmp(&((*other as Inner) << FRACBITS)))
+        Some(self.0.cmp(&(Inner::from(*other) << FRACBITS)))
     }
 }
 
 impl From<i32> for FixedT {
     #[inline]
     fn from(v: i32) -> Self {
-        Self((v as Inner) << FRACBITS)
+        Self(Inner::from(v) << FRACBITS)
     }
 }
 

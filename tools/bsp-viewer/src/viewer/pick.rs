@@ -38,19 +38,19 @@ pub fn pick_sector(
         // No AABB pre-reject: `poly.aabb` is not refreshed by `move_surface`,
         // so a moved surface would be wrongly culled. Ray-vs-polygon directly.
         let verts: Vec<Vec3> = poly.vertices.iter().map(|&i| bsp3d.vertex_get(i)).collect();
-        if let Some(t) = ray_hits_polygon(origin, dir, &verts, poly.normal) {
-            if best.is_none_or(|(bt, ..)| t < bt) {
-                let linedef_id = match &poly.surface_kind {
-                    SurfaceKind::Vertical {
-                        linedef_id,
-                        ..
-                    } => Some(*linedef_id),
-                    SurfaceKind::Horizontal {
-                        ..
-                    } => None,
-                };
-                best = Some((t, poly.sector_id, linedef_id));
-            }
+        if let Some(t) = ray_hits_polygon(origin, dir, &verts, poly.normal)
+            && best.is_none_or(|(bt, ..)| t < bt)
+        {
+            let linedef_id = match &poly.surface_kind {
+                SurfaceKind::Vertical {
+                    linedef_id,
+                    ..
+                } => Some(*linedef_id),
+                SurfaceKind::Horizontal {
+                    ..
+                } => None,
+            };
+            best = Some((t, poly.sector_id, linedef_id));
         }
     }
     best.map(|(_, sector_id, linedef_id)| PickHit {

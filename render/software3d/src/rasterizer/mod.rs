@@ -15,7 +15,7 @@ use crate::SCREEN_EDGE_SNAP;
 #[derive(Debug, Clone)]
 pub struct ScreenPoly<'a>(pub &'a [Vec2]);
 
-impl<'a> ScreenPoly<'a> {
+impl ScreenPoly<'_> {
     #[inline(always)]
     pub fn bounds(&self) -> Option<(Vec2, Vec2)> {
         if self.0.is_empty() {

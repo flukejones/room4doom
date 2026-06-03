@@ -465,7 +465,7 @@ fn test_debug_subsectors() {
             "SS{} segments (first_seg={}, seg_count={}):",
             ssid, ss.start_seg, ss.seg_count
         );
-        for si in ss.start_seg..(ss.start_seg + ss.seg_count as u32) {
+        for si in ss.start_seg..(ss.start_seg + ss.seg_count) {
             let seg = &map.segments[si as usize];
             let v1 = *seg.v1;
             let v2 = *seg.v2;

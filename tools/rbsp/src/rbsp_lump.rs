@@ -260,6 +260,7 @@ mod tests {
 
     use super::*;
 
+    #[allow(trivial_numeric_casts, reason = "f64 -> Float narrows only with f32 feature")]
     fn make_test_output() -> BspOutput {
         BspOutput {
             vertices: vec![

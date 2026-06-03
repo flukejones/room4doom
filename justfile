@@ -50,8 +50,15 @@ test:
 	cargo test --workspace
 
 # Demo determinism regression (headless playback vs golden hashes).
+# Always builds a fresh release binary first so the run reflects current code.
 demo-check:
+	cargo build --release -p room4doom
 	bash tools/demo-regression.sh
+
+# Demo regression against a fresh debug build (slower playback, dev opt-level).
+demo-check-debug:
+	cargo build -p room4doom
+	BIN="{{justfile_directory()}}/target/debug/room4doom" bash tools/demo-regression.sh
 
 # --- xcode / packaging ---
 

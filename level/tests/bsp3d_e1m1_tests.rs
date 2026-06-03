@@ -25,7 +25,7 @@ fn test_door_vertex_sharing() {
         let linedef = &*segment.linedef;
         let linedef_id = linedefs
             .iter()
-            .position(|ld| std::ptr::eq(ld as *const _, linedef as *const _));
+            .position(|ld| std::ptr::eq(ld, linedef));
 
         if let Some(ld_id) = linedef_id
             && [148, 150, 151, 152, 153].contains(&ld_id)

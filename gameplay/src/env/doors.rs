@@ -49,7 +49,7 @@ impl fmt::Debug for VerticalDoor {
             .field("direction", &self.direction)
             .field("topwait", &self.topwait)
             .field("topcountdown", &self.topcountdown)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 

@@ -40,6 +40,9 @@ pub fn make_initial_clip_poly(
 /// OnLine vertices go to Right only (matching engine's cross <= 0 → Right
 /// convention). All intersection vertices are inserted via dedup into the
 /// shared pool.
+// Intersections compute in f64; storing as `Float` narrows only under the f32
+// feature (no-op when Float = f64).
+#[allow(trivial_numeric_casts, reason = "f64 -> Float narrows only with f32 feature")]
 pub fn clip_convex_poly(
     poly: &ClipPoly,
     partition: &Seg,

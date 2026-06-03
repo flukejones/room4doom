@@ -1,7 +1,10 @@
-// Generated LUT — approx_constant and large_const_arrays are expected here.
-#![allow(clippy::approx_constant, clippy::large_const_arrays)]
+#![allow(
+    clippy::approx_constant,
+    clippy::large_const_arrays,
+    reason = "generated trig LUT: literal constants near PI and a large array are expected"
+)]
 
-pub(crate) const TAN_TABLE: [f32; 8192] = [
+pub(crate) static TAN_TABLE: [f32; 8192] = [
     0.0007669906,
     0.001533982,
     0.0023009751,

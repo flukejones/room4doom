@@ -19,9 +19,9 @@ fn finetangent_table_length() {
 #[test]
 fn finesine_accuracy_all_entries() {
     use std::f64::consts::TAU;
-    for i in 0..8192usize {
+    for (i, &entry) in FINESINE.iter().enumerate() {
         let expected = ((i as f64 + 0.5) * TAU / 8192.0).sin();
-        let got = FINESINE[i] as f64 / TABLE_FRACUNIT;
+        let got = entry as f64 / TABLE_FRACUNIT;
         let err = (got - expected).abs();
         assert!(
             err < TOLERANCE,

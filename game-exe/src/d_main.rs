@@ -18,7 +18,9 @@
 //! playback state, options used to setup the world, players and their stats,
 //! and the overall gamestate.
 
-use gameplay::{MapObjFlag, MapObject, Player};
+use std::ptr;
+
+use gameplay::{MapObjFlag, Player};
 use gamestate::Game;
 use gamestate::subsystems::GameSubsystem;
 use gamestate_traits::{GameState, KeyCode, SubsystemTrait};
@@ -49,7 +51,7 @@ fn build_render_view(
     let subsector_id = level_data
         .subsectors
         .iter()
-        .position(|ss| std::ptr::eq(ss, &*mobj.subsector))?;
+        .position(|ss| ptr::eq(ss, &*mobj.subsector))?;
     let prev = &player.prev_render;
 
     // f32 boundary: frac originates from Timestep (Instant timing division)
@@ -93,7 +95,7 @@ fn build_render_view(
         subsector_id,
         psprites,
         sector_lightlevel: mobj.subsector.sector.lightlevel,
-        player_mobj_id: mobj as *const _ as usize,
+        player_mobj_id: ptr::from_ref(mobj) as usize,
         frac,
         frac_fp,
         game_tic,
@@ -107,7 +109,7 @@ pub(crate) fn load_voxels(
     wad: &wad::WadData,
     game_mode: game_config::GameMode,
     pwad_overrides: &std::collections::HashSet<String>,
-) -> Option<std::sync::Arc<pic_data::VoxelManager>> {
+) -> Option<Arc<pic_data::VoxelManager>> {
     let voxel_path = options.voxels.as_ref()?;
     let path = Path::new(voxel_path);
     let doom_palette: Vec<u8> = wad
@@ -239,7 +241,7 @@ pub(crate) fn run_game_tic(
 /// Update the sound listener position from the console player.
 pub(crate) fn update_sound(game: &Game) {
     if let Some(mobj) = game.players[game.consoleplayer].mobj() {
-        let uid = mobj as *const MapObject as usize;
+        let uid = ptr::from_ref(mobj) as usize;
         if let Err(e) = game.sound_cmd.send(SoundAction::UpdateListener {
             uid,
             x: mobj.x.to_f32(),

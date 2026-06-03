@@ -357,13 +357,13 @@ impl Statusbar {
         if big && !upper {
             let patch = self.get_patch("STFB1");
             y = self.screen_height - patch.height as f32 * sy;
-            x = (self.x_ofs + self.screen_width) / 2.0 - patch.width as f32 * sx / 2.0;
+            x = f32::midpoint(self.x_ofs, self.screen_width) - patch.width as f32 * sx / 2.0;
             draw_patch(patch, x, y, sx, sy, &self.palette, pixels);
         };
 
         let patch = self.faces.get_face();
         if upper || big {
-            x = (self.x_ofs + self.screen_width) / 2.0 - patch.width as f32 * sx / 2.0;
+            x = f32::midpoint(self.x_ofs, self.screen_width) - patch.width as f32 * sx / 2.0;
             y = if upper {
                 FACE_UPPER_Y * sy
             } else {

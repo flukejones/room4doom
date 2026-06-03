@@ -242,7 +242,7 @@ pub(crate) fn a_fireplasma(player: &mut Player, _pspr: &mut PspDef) {
             (*mobj).start_sound(SfxName::Plasma);
             MapObject::spawn_player_missile(
                 &mut *mobj,
-                crate::MapObjKind::MT_PLASMA,
+                MapObjKind::MT_PLASMA,
                 &mut (*(*mobj).level),
             );
         }
@@ -260,7 +260,7 @@ pub(crate) fn a_firemissile(player: &mut Player, _pspr: &mut PspDef) {
             (*mobj).start_sound(SfxName::Rlaunc);
             MapObject::spawn_player_missile(
                 &mut *mobj,
-                crate::MapObjKind::MT_ROCKET,
+                MapObjKind::MT_ROCKET,
                 &mut (*(*mobj).level),
             );
         }
@@ -275,11 +275,7 @@ pub(crate) fn a_firebfg(player: &mut Player, _pspr: &mut PspDef) {
     // );
     if let Some(mobj) = player.mobj_raw() {
         unsafe {
-            MapObject::spawn_player_missile(
-                &mut *mobj,
-                crate::MapObjKind::MT_BFG,
-                &mut (*(*mobj).level),
-            );
+            MapObject::spawn_player_missile(&mut *mobj, MapObjKind::MT_BFG, &mut (*(*mobj).level));
         }
     }
 }

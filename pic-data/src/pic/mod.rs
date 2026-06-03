@@ -168,7 +168,7 @@ pub struct PicData {
     sprite_defs: Vec<SpriteDef>,
     /// 4-char sprite prefixes that were overridden by a PWAD.
     /// Voxel models should not replace these.
-    pwad_sprite_overrides: std::collections::HashSet<String>,
+    pwad_sprite_overrides: HashSet<String>,
     /// The pallette to be used. Can be set with `set_pallette()` or
     /// `set_player_palette()`, typically done on frame start to set effects
     /// like take-damage.
@@ -366,7 +366,10 @@ impl PicData {
         let mut tmp = [[0usize; 128]; 16];
         for i in 0..LIGHTLEVELS {
             let startmap = ((LIGHTLEVELS - 1 - i) * 2) * NUMCOLORMAPS / LIGHTLEVELS;
-            #[allow(clippy::needless_range_loop)] // j used in arithmetic (160 / (j+1)) and as index
+            #[allow(
+                clippy::needless_range_loop,
+                reason = "j used in arithmetic (160 / (j+1)) as well as an index"
+            )]
             for j in 0..MAXLIGHTZ {
                 let scale = (160 / (j + 1)) as f32;
                 let mut level = startmap - (scale / 2.0) as i32;
@@ -627,7 +630,7 @@ impl PicData {
         self.sky_pic
     }
 
-    pub fn pwad_sprite_overrides(&self) -> &std::collections::HashSet<String> {
+    pub fn pwad_sprite_overrides(&self) -> &HashSet<String> {
         &self.pwad_sprite_overrides
     }
 

@@ -1,3 +1,5 @@
+use std::ptr;
+
 use bitflags::bitflags;
 use math::{ANG90, ANG180, Bam, FixedT};
 
@@ -320,7 +322,7 @@ impl Player {
                     sfx,
                     mobj.x.to_f32(),
                     mobj.y.to_f32(),
-                    self as *const Self as usize, /* pointer cast as a UID */
+                    ptr::from_ref(self) as usize, /* pointer cast as a UID */
                 )
             }
         }
@@ -487,7 +489,7 @@ impl Player {
     ///
     /// Doom function name `P_MovePsprites`
     fn move_player_sprites(&mut self) {
-        let psps = unsafe { &mut *(&mut self.psprites as *mut [PspDef]) };
+        let psps = unsafe { &mut *ptr::from_mut(&mut self.psprites[..]) };
         for (i, psp) in psps.iter_mut().enumerate() {
             if let Some(state) = psp.state {
                 // a -1 tic count never changes
@@ -521,7 +523,7 @@ impl Player {
             }
 
             if let Some(func) = state.action.resolve_player() {
-                let psps = unsafe { &mut *(&mut self.psprites[position] as *mut PspDef) };
+                let psps = unsafe { &mut *ptr::from_mut(&mut self.psprites[position]) };
                 func(self, psps);
                 if self.psprites[position].state.is_none() {
                     break;
@@ -1086,7 +1088,7 @@ impl Player {
 
             if let Some(attacker) = self.attacker {
                 let attacker = unsafe { &mut *attacker };
-                if !std::ptr::eq(mobj, attacker) {
+                if !ptr::eq(mobj, attacker) {
                     // OG: an = R_PointToAngle2(mo->x, mo->y, attacker->x, attacker->y)
                     let dx = attacker.x - mobj.x;
                     let dy = attacker.y - mobj.y;

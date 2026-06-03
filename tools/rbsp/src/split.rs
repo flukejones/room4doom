@@ -84,6 +84,9 @@ pub struct SplitResult {
 /// Split segs and clip the polygon against a partition line. Split vertices
 /// and seg endpoints are inserted into both polygon halves so that seg
 /// vertices are polygon vertices.
+// Intersections compute in f64; storing as `Float` narrows only under the f32
+// feature (no-op when Float = f64).
+#[allow(trivial_numeric_casts, reason = "f64 -> Float narrows only with f32 feature")]
 pub fn split_segs_and_poly(
     seg_indices: &[usize],
     partition: &Seg,
