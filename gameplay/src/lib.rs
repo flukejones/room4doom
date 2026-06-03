@@ -11,6 +11,7 @@
 
 use std::f32::consts::TAU;
 
+pub mod demo_trace;
 pub mod dirs;
 mod doom_def;
 pub(crate) mod env;

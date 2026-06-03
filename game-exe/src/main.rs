@@ -181,9 +181,65 @@ fn run_winit(
         user_config.to_config_array(),
     );
     game.pic_data.set_crt_gamma(user_config.crt_gamma);
+
+    // Headless mode: tick the game with no window/render, for deterministic
+    // demo playback (CI regression checks, demo-trace recording). The winit
+    // redraw loop stalls when the window lacks focus, so live tracing is
+    // unreliable; this path drives tics directly.
+    if options.headless {
+        run_headless(game, input_state, options);
+        return Ok(());
+    }
+
     let mut app = DoomApp::new(game, input_state, options, user_config.clone());
     event_loop.run_app(&mut app)?;
     Ok(())
+}
+
+/// Drive the game loop with no display backend. Runs the demo (or title loop)
+/// purely for its tic side effects — used by CI determinism checks and demo
+/// trace recording. Exits when `game.running()` becomes false (demo finished).
+#[cfg(all(
+    any(feature = "display-softbuffer", feature = "display-pixels"),
+    not(feature = "display-sdl2")
+))]
+fn run_headless(mut game: Game, mut input: input::InputState, options: CLIOptions) {
+    use doom_ui::{Finale, GameMenu, Intermission, Messages, Statusbar};
+    use gamestate::subsystems::GameSubsystem;
+    use gamestate_traits::SubsystemTrait;
+    use crate::d_main::run_game_tic;
+
+    const HEADLESS_WIDTH: i32 = 320;
+
+    let mut machines = GameSubsystem {
+        statusbar: Statusbar::new(game.game_type.mode, &game.wad_data),
+        intermission: Intermission::new(game.game_type.mode, &game.wad_data, &game.umapinfo),
+        hud_msgs: Messages::new(&game.wad_data),
+        finale: Finale::new(&game.wad_data),
+    };
+    let mut menu = GameMenu::new(game.game_type.mode, &game.wad_data, HEADLESS_WIDTH);
+    menu.init(&game);
+
+    if let Some(name) = options.demo.clone() {
+        game.start_demo(name);
+    }
+
+    // Safety cap so a desynced/looping demo can't hang CI. Overridable via
+    // DEMO_MAX_TICS; the default is far longer than any stock demo.
+    let max_tics: u32 = std::env::var("DEMO_MAX_TICS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(100_000);
+    let mut tics = 0u32;
+
+    while game.running() && tics < max_tics {
+        run_game_tic(&mut game, &mut input, &mut menu, &mut machines);
+        // No render path consumes screen wipes, so clear the wipe state each
+        // tic (a real wipe is purely visual). Without this, gameplay stays
+        // frozen behind a pending ForceWipe and tics never advance.
+        game.wipe_game_state = game.gamestate;
+        tics += 1;
+    }
 }
 
 /// Initialise the sound server (SDL2 display path).

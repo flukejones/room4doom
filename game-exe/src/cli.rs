@@ -115,6 +115,10 @@ pub struct CLIOptions {
     /// enable CRT phosphor gamma correction (true/false)
     #[argh(option)]
     pub crt_gamma: Option<bool>,
+    /// run with no window or rendering, ticking the game directly. Intended for
+    /// demo playback in CI and deterministic demo-trace recording.
+    #[argh(switch)]
+    pub headless: bool,
 }
 
 impl CLIOptions {
