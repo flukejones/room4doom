@@ -1,4 +1,9 @@
-//! Sky texture extension.
+//! Sky texture extension. Shared by the software and GPU renderers.
+//!
+//! Doom's sky texture is short; looking up/down would otherwise repeat the top
+//! and bottom rows forever. This builds an extended sky: the original texture
+//! with generated rows above and below that fade jittered edge detail into an
+//! averaged zenith/nadir colour, so the sky dissolves smoothly past its band.
 //!
 //! Pipeline (symmetric around the original texture):
 //!
@@ -22,15 +27,19 @@
 //!   rows `0..height`                         — original texture
 //!   rows `height..height+SKY_EXTEND_ROWS`    — upward extension
 //!   rows `height+SKY_EXTEND_ROWS..total`     — downward extension
+//!
+//! [`build_sky_extended`] is generic over the output pixel: it builds the
+//! `0xFFRRGGBB` gradient internally, then maps each texel through `pixel` so the
+//! caller chooses the format (palette index for the index plane, RGBA for GPU).
 
 /// Sky texture tiles this many times around 360°.
-pub(crate) const SKY_TILES: f32 = 4.0;
+pub const SKY_TILES: f32 = 4.0;
 /// Vertical stretch factor: sky appears this much taller than the screen.
-pub(crate) const SKY_V_STRETCH: f32 = 1.33;
+pub const SKY_V_STRETCH: f32 = 1.33;
 /// Number of rows generated above the original texture.
-pub(crate) const SKY_EXTEND_ROWS: usize = 256;
+pub const SKY_EXTEND_ROWS: usize = 256;
 /// Number of rows generated below the original texture.
-pub(crate) const SKY_DOWN_ROWS: usize = SKY_EXTEND_ROWS;
+pub const SKY_DOWN_ROWS: usize = SKY_EXTEND_ROWS;
 
 /// Rows from the texture top/bottom used as jitter source material.
 const SKY_SOURCE_ROWS: usize = 6;
@@ -50,6 +59,152 @@ const SKY_JITTER_WALK_RATE: f32 = SKY_JITTER_START_ROW as f32 / 2.0;
 const SKY_MAX_DRIFT: f32 = 1.8;
 /// Probability per row of the drift stepping ±0.3.
 const SKY_DRIFT_SMOOTHNESS: f32 = 0.08;
+
+/// Build the extended sky as a flat column-major buffer of `T`.
+///
+/// `data` is the column-major source texture (`u16` palette indices, `u16::MAX`
+/// = transparent), `colourmap`/`palette` resolve it to `0xFFRRGGBB`. Each output
+/// texel is `pixel(xrgb)`, where `xrgb` is `0` for transparent source.
+pub fn build_sky_extended<T>(
+    data: &[u16],
+    width: usize,
+    height: usize,
+    colourmap: &[usize],
+    palette: &[u32],
+    mut pixel: impl FnMut(u32) -> T,
+) -> Vec<T> {
+    let up_rows = SKY_EXTEND_ROWS;
+    let dn_rows = SKY_DOWN_ROWS;
+    let source_rows = SKY_SOURCE_ROWS.min(height / 2).max(2);
+    let zenith_rows = SKY_ZENITH_ROWS.min(source_rows).max(1);
+
+    let fade_start = (up_rows as f32 * SKY_FADE_START_FRAC).round() as usize;
+    let fade_end =
+        ((fade_start as f32 + up_rows as f32 * SKY_FADE_SPAN_FRAC).round() as usize).min(up_rows);
+
+    let zenith = avg_rows_color(data, width, 0, zenith_rows, height, colourmap, palette);
+    let nadir = avg_rows_color(
+        data,
+        width,
+        height - zenith_rows,
+        zenith_rows,
+        height,
+        colourmap,
+        palette,
+    );
+
+    let drift_up = build_drift(
+        width,
+        up_rows,
+        SKY_MAX_DRIFT,
+        SKY_DRIFT_SMOOTHNESS,
+        0xD71F_7000,
+    );
+    let drift_dn = build_drift(
+        width,
+        dn_rows,
+        SKY_MAX_DRIFT,
+        SKY_DRIFT_SMOOTHNESS,
+        0xA3C8_1F00,
+    );
+
+    // Upward extension
+    let mut ext_up = vec![0u32; width * up_rows];
+    for col in 0..width {
+        for r in 0..up_rows {
+            let d = drift_up[col * up_rows + r];
+            let jitter = jitter_sample_up(data, col, r, d, source_rows, height, colourmap, palette);
+            ext_up[col * up_rows + r] = if r < fade_start {
+                jitter
+            } else if r < fade_end {
+                let t = smoothstep((r - fade_start) as f32 / (fade_end - fade_start) as f32);
+                lerp_color(jitter, zenith, t)
+            } else {
+                zenith
+            };
+        }
+    }
+
+    // Downward extension (mirrors upward, fade toward nadir)
+    let mut ext_dn = vec![0u32; width * dn_rows];
+    for col in 0..width {
+        for r in 0..dn_rows {
+            let d = drift_dn[col * dn_rows + r];
+            let jitter =
+                jitter_sample_down(data, col, r, d, source_rows, height, colourmap, palette);
+            ext_dn[col * dn_rows + r] = if r < fade_start {
+                jitter
+            } else if r < fade_end {
+                let t = smoothstep((r - fade_start) as f32 / (fade_end - fade_start) as f32);
+                lerp_color(jitter, nadir, t)
+            } else {
+                nadir
+            };
+        }
+    }
+
+    // Assemble: texture | up ext | down ext
+    let total = height + up_rows + dn_rows;
+    let mut combined = vec![0u32; width * total];
+    for col in 0..width {
+        let base = col * total;
+        for row in 0..height {
+            combined[base + row] = resolve(data, col, row, height, colourmap, palette);
+        }
+        for r in 0..up_rows {
+            combined[base + height + r] = ext_up[col * up_rows + r];
+        }
+        for r in 0..dn_rows {
+            combined[base + height + up_rows + r] = ext_dn[col * dn_rows + r];
+        }
+    }
+
+    // Jitter bleeds into texture rows near each join
+    let jitter_in_tex = SKY_JITTER_START_ROW.min(height / 2);
+    for col in 0..width {
+        let base = col * total;
+        for i in 0..jitter_in_tex {
+            let blend_t = 1.0 - (i as f32 + 1.0) / (jitter_in_tex as f32 + 1.0);
+            // Top join bleed
+            let d_up = drift_up[col * up_rows + i.min(up_rows - 1)];
+            let jup = jitter_sample_up(data, col, i, d_up, source_rows, height, colourmap, palette);
+            let idx = base + (i + 1);
+            combined[idx] = lerp_color(combined[idx], jup, blend_t);
+            // Bottom join bleed
+            let d_dn = drift_dn[col * dn_rows + i.min(dn_rows - 1)];
+            let jdn =
+                jitter_sample_down(data, col, i, d_dn, source_rows, height, colourmap, palette);
+            let idx = base + (height - 1 - i);
+            combined[idx] = lerp_color(combined[idx], jdn, blend_t);
+        }
+    }
+
+    combined.into_iter().map(&mut pixel).collect()
+}
+
+/// Nearest Doom palette index for an `0xFFRRGGBB` colour (RGB squared distance).
+/// Quantizes the sky gradient into the index plane (`0` for transparent).
+pub fn nearest_palette_index(colour: u32, palette: &[u32]) -> u8 {
+    if colour == 0 {
+        return 0;
+    }
+    let r = ((colour >> 16) & 0xFF) as i32;
+    let g = ((colour >> 8) & 0xFF) as i32;
+    let b = (colour & 0xFF) as i32;
+    let mut best_dist = i32::MAX;
+    let mut best = 0u8;
+    for (i, &p) in palette.iter().take(256).enumerate() {
+        let dr = r - ((p >> 16) & 0xFF) as i32;
+        let dg = g - ((p >> 8) & 0xFF) as i32;
+        let db = b - (p & 0xFF) as i32;
+        let dist = dr * dr + dg * dg + db * db;
+        if dist < best_dist {
+            best_dist = dist;
+            best = i as u8;
+        }
+    }
+    best
+}
 
 fn smoothstep(t: f32) -> f32 {
     let t = t.clamp(0.0, 1.0);
@@ -169,7 +324,7 @@ fn avg_rows_color(
             }
         }
     }
-    #[allow(clippy::manual_checked_ops)] // don't want 3 lots of if let Some() = checked_div()
+    #[allow(clippy::manual_checked_ops)] // avoid three separate checked_div checks
     if n > 0 {
         ((sum[0] / n) << 16) | ((sum[1] / n) << 8) | (sum[2] / n)
     } else {
@@ -195,120 +350,4 @@ fn build_drift(width: usize, rows: usize, max_drift: f32, smoothness: f32, seed:
         }
     }
     drift
-}
-
-pub(crate) fn build_sky_combined(
-    data: &[u16],
-    width: usize,
-    height: usize,
-    colourmap: &[usize],
-    palette: &[u32],
-) -> Vec<u32> {
-    let up_rows = SKY_EXTEND_ROWS;
-    let dn_rows = SKY_DOWN_ROWS;
-    let source_rows = SKY_SOURCE_ROWS.min(height / 2).max(2);
-    let zenith_rows = SKY_ZENITH_ROWS.min(source_rows).max(1);
-
-    let fade_start = (up_rows as f32 * SKY_FADE_START_FRAC).round() as usize;
-    let fade_end =
-        ((fade_start as f32 + up_rows as f32 * SKY_FADE_SPAN_FRAC).round() as usize).min(up_rows);
-
-    let zenith = avg_rows_color(data, width, 0, zenith_rows, height, colourmap, palette);
-    let nadir = avg_rows_color(
-        data,
-        width,
-        height - zenith_rows,
-        zenith_rows,
-        height,
-        colourmap,
-        palette,
-    );
-
-    let drift_up = build_drift(
-        width,
-        up_rows,
-        SKY_MAX_DRIFT,
-        SKY_DRIFT_SMOOTHNESS,
-        0xD71F_7000,
-    );
-    let drift_dn = build_drift(
-        width,
-        dn_rows,
-        SKY_MAX_DRIFT,
-        SKY_DRIFT_SMOOTHNESS,
-        0xA3C8_1F00,
-    );
-
-    // Upward extension
-    let mut ext_up = vec![0u32; width * up_rows];
-    for col in 0..width {
-        for r in 0..up_rows {
-            let d = drift_up[col * up_rows + r];
-            let jitter = jitter_sample_up(data, col, r, d, source_rows, height, colourmap, palette);
-            ext_up[col * up_rows + r] = if r < fade_start {
-                jitter
-            } else if r < fade_end {
-                let t = smoothstep((r - fade_start) as f32 / (fade_end - fade_start) as f32);
-                lerp_color(jitter, zenith, t)
-            } else {
-                zenith
-            };
-        }
-    }
-
-    // Downward extension (mirrors upward, fade toward nadir)
-    let mut ext_dn = vec![0u32; width * dn_rows];
-    for col in 0..width {
-        for r in 0..dn_rows {
-            let d = drift_dn[col * dn_rows + r];
-            let jitter =
-                jitter_sample_down(data, col, r, d, source_rows, height, colourmap, palette);
-            ext_dn[col * dn_rows + r] = if r < fade_start {
-                jitter
-            } else if r < fade_end {
-                let t = smoothstep((r - fade_start) as f32 / (fade_end - fade_start) as f32);
-                lerp_color(jitter, nadir, t)
-            } else {
-                nadir
-            };
-        }
-    }
-
-    // Assemble: texture | up ext | down ext
-    let total = height + up_rows + dn_rows;
-    let mut combined = vec![0u32; width * total];
-    for col in 0..width {
-        let base = col * total;
-        for row in 0..height {
-            combined[base + row] = resolve(data, col, row, height, colourmap, palette);
-        }
-        for r in 0..up_rows {
-            combined[base + height + r] = ext_up[col * up_rows + r];
-        }
-        for r in 0..dn_rows {
-            combined[base + height + up_rows + r] = ext_dn[col * dn_rows + r];
-        }
-    }
-
-    // Jitter bleeds into texture rows near each join
-    let jitter_in_tex = SKY_JITTER_START_ROW.min(height / 2);
-    for col in 0..width {
-        let base = col * total;
-        for i in 0..jitter_in_tex {
-            let blend_t = 1.0 - (i as f32 + 1.0) / (jitter_in_tex as f32 + 1.0);
-            // Top join bleed
-            let d_up = drift_up[col * up_rows + i.min(up_rows - 1)];
-            let jup = jitter_sample_up(data, col, i, d_up, source_rows, height, colourmap, palette);
-            let idx = base + (i + 1);
-            combined[idx] = lerp_color(combined[idx], jup, blend_t);
-            // Bottom join bleed
-            let d_dn = drift_dn[col * dn_rows + i.min(dn_rows - 1)];
-            let jdn =
-                jitter_sample_down(data, col, i, d_dn, source_rows, height, colourmap, palette);
-            let idx = base + (height - 1 - i);
-            combined[idx] = lerp_color(combined[idx], jdn, blend_t);
-        }
-    }
-
-    combined
 }

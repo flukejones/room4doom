@@ -5,63 +5,29 @@ mod map_data_tests {
     use crate::bsp_trace::BSPTrace;
     use glam::Vec2;
     use level::level_data::LevelData;
-    use level::{IS_SSECTOR_MASK, LineDefFlags, Node};
+    use level::{IS_SSECTOR_MASK, LineDefFlags};
     use math::{Angle, FixedT};
     use test_utils::{doom1_wad_path, sunder_wad_path};
     use wad::extended::WadExtendedMap;
     use wad::types::{WadLineDef, WadSideDef};
     use wad::{MapLump, WadData};
 
-    #[ignore = "sunder.wad can't be included in git"]
+    #[cfg_attr(not(feature = "wad-sunder"), ignore = "needs sunder.wad (~/doom/)")]
     #[test]
     fn check_nodes_of_sunder_m3() {
+        // Structural counts from the WAD's extended-node lump are stable; node
+        // and seg coordinates are NOT pinned — the engine re-BSPs the map, so
+        // those are builder output and change with the builder.
         let wad = WadData::new(&sunder_wad_path());
         let ext = WadExtendedMap::parse(&wad, "MAP03").unwrap();
-        assert_eq!(ext.num_org_vertices, 5525); // verified with crispy
-        assert_eq!(ext.vertexes.len(), 996); // verified with crispy
+        assert_eq!(ext.num_org_vertices, 5525);
+        assert_eq!(ext.vertexes.len(), 996);
         assert_eq!(ext.subsectors.len(), 4338);
         assert_eq!(ext.segments.len(), 14582);
         assert_eq!(ext.nodes.len(), 4337);
-
-        let mut map = LevelData::default();
-        map.load("MAP03", |_| None, &wad, None, None);
-
-        // 666: no->x: 12.000000, no->y: -342.000000, no->dx: 0.000000, no->dy:
-        // -20.000000 666: child[0]: 665, child[1]: -2147482974
-        assert_eq!(
-            map.get_nodes()[666],
-            Node {
-                xy: Vec2::new(12.0, -342.0),
-                delta: Vec2::new(0.0, -20.0),
-                bboxes: [
-                    [Vec2::new(0.0, -342.0), Vec2::new(12.0, -362.0)],
-                    [Vec2::new(12.0, -333.0), Vec2::new(24.0, -371.0)]
-                ],
-                children: [665, 2147484322],
-            }
-        );
-
-        // seg v1:, x:496.000000, y:-1072.000000
-        // seg v2:, x:496.000000, y:-1040.000000
-        // sidedef->toptexture: 151
-        // linedef: 2670
-        // side: 1
-        // sidenum: 4387
-        let mut success = false;
-        for (i, seg) in map.segments.iter().enumerate() {
-            if seg.v1.pos == Vec2::new(496.0, -1072.0) && seg.v2.pos == Vec2::new(496.0, -1040.0) {
-                assert_eq!(ext.segments[i].linedef, 2670);
-                assert_eq!(ext.segments[i].linedef, 2670);
-                assert_eq!(ext.segments[i].side, 1);
-                // dbg!(&seg.sidedef);
-                assert_eq!(seg.sidedef.toptexture, Some(151));
-                success = true;
-            }
-        }
-        assert!(success);
     }
 
-    #[ignore = "sunder.wad can't be included in git"]
+    #[cfg_attr(not(feature = "wad-sunder"), ignore = "needs sunder.wad (~/doom/)")]
     #[test]
     fn check_nodes_of_sunder_m20() {
         let name = "MAP20";
@@ -90,7 +56,7 @@ mod map_data_tests {
         // sidedef->midtexture: 1657
         // linedef: 1590
         // side: 1
-        for seg in ext.segments.iter() {
+        for seg in &ext.segments {
             if seg.linedef == 1590 {}
         }
 
@@ -353,7 +319,7 @@ mod map_data_tests {
 
         // Every node child should be either a valid node index or a valid subsector ref
         let num_subsectors = map.subsectors.len();
-        for node in nodes.iter() {
+        for node in nodes {
             for &child in &node.children {
                 if child & IS_SSECTOR_MASK != 0 {
                     let ss_idx = (child & !IS_SSECTOR_MASK) as usize;

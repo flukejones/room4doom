@@ -29,9 +29,10 @@ pub struct SpriteDef {
 
 /// Initialise the sprite definitions based on the names and appended bits
 pub fn init_spritedefs(names: &[&str], patches: &[SpritePic]) -> Vec<SpriteDef> {
-    if names.is_empty() {
-        panic!("No sprites used, sprite name list is empty");
-    }
+    assert!(
+        !names.is_empty(),
+        "No sprites used, sprite name list is empty"
+    );
 
     // positioning matches names[];
     let mut sprites: Vec<SpriteDef> = vec![SpriteDef::default(); names.len()];
@@ -135,7 +136,7 @@ fn install_sprite(
     name: &str,
 ) {
     if frame >= 29 || rotation > 8 {
-        error!("install_sprite: Bad frame characters in patch {}", name);
+        error!("install_sprite: Bad frame characters in patch {name}");
     }
 
     if frame as i32 > *max_frame {

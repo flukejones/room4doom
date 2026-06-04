@@ -109,7 +109,7 @@ impl TriangleInterpolator {
         // Compute min/max inv_w across all polygon vertices to clamp extrapolation
         let mut inv_w_min = f32::INFINITY;
         let mut inv_w_max = f32::NEG_INFINITY;
-        for &w in inv_w.iter() {
+        for &w in inv_w {
             if w < inv_w_min {
                 inv_w_min = w;
             }
@@ -131,7 +131,7 @@ impl TriangleInterpolator {
             let da_dx = (v1.y - v2.y) / denom;
             let db_dx = (v2.y - v0.y) / denom;
 
-            return Some(TriangleInterpolator {
+            return Some(Self {
                 v0,
                 v1,
                 v2,
@@ -183,7 +183,7 @@ impl TriangleInterpolator {
         let da_dx = (v1.y - v2.y) / denom;
         let db_dx = (v2.y - v0.y) / denom;
 
-        Some(TriangleInterpolator {
+        Some(Self {
             v0,
             v1,
             v2,

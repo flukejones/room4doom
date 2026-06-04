@@ -24,7 +24,6 @@ struct SurfaceAnim {
     rest: f32,
     target: f32,
     current: f32,
-    texture: usize,
     phase: Phase,
 }
 
@@ -70,17 +69,12 @@ impl MoverState {
                     MovementType::Ceiling => sec.ceilingheight.to_f32(),
                     _ => sec.floorheight.to_f32(),
                 };
-                let texture = match t.movement {
-                    MovementType::Ceiling => sec.ceilingpic,
-                    _ => sec.floorpic,
-                };
                 SurfaceAnim {
                     sector_id: t.sector_id,
                     movement: t.movement,
                     rest,
                     target: t.height,
                     current: rest,
-                    texture,
                     phase: Phase::ToTarget,
                 }
             })
@@ -109,7 +103,7 @@ impl MoverState {
                     }
                     level
                         .bsp_3d
-                        .move_surface(s.sector_id, s.movement, s.current, s.texture);
+                        .move_surface(s.sector_id, s.movement, s.current);
                     if s.current != goal {
                         active = true;
                     }

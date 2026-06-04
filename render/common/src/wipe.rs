@@ -1,27 +1,30 @@
 use std::time::Instant;
 
 use math::m_random;
+use pic_data::PixelFmt;
 
 /// Duration between wipe steps (~60Hz).
 const STEP_INTERVAL_MS: u128 = 16;
 
-pub struct Wipe {
+/// Per-column melt offset state shared by the CPU [`Wipe`] and the GPU melt pass.
+///
+/// Holds the jagged `y[x]` heights, the step clock, and the advance logic. Owning
+/// the RNG-seeded `init_offsets` in one place keeps both renderers consuming the
+/// same `m_random` sequence (demo determinism).
+pub struct MeltColumns {
     y: Vec<i32>,
-    height: i32,
     width: i32,
-    /// Snapshot of the old frame taken when the wipe starts.
-    snapshot: Vec<u32>,
+    height: i32,
     /// Time of the last wipe step, used to gate advancement.
     last_step: Instant,
 }
 
-impl Wipe {
+impl MeltColumns {
     pub fn new(width: i32, height: i32) -> Self {
         Self {
             y: Self::init_offsets(width),
-            height,
             width,
-            snapshot: Vec::new(),
+            height,
             last_step: Instant::now(),
         }
     }
@@ -43,71 +46,45 @@ impl Wipe {
         y
     }
 
+    /// Re-seed the column offsets and reset the step clock.
     pub fn reset(&mut self) {
         self.y = Self::init_offsets(self.width);
-        self.snapshot.clear();
-    }
-
-    /// Capture the current display buffer as the old frame for melting.
-    pub fn start(&mut self, buf: &[u32]) {
-        self.snapshot.clear();
-        self.snapshot.extend_from_slice(buf);
         self.last_step = Instant::now();
     }
 
-    /// Returns true if the snapshot has been captured (wipe is in progress).
-    pub fn is_wiping(&self) -> bool {
-        !self.snapshot.is_empty()
+    /// The current per-column melt heights (px).
+    pub fn offsets(&self) -> &[i32] {
+        &self.y
     }
 
-    /// Overdraw shifted old-frame columns on top of the display buffer.
-    ///
-    /// The caller must have already rendered the new scene into `buf`.
-    /// This paints the old frame's columns shifted down, covering the
-    /// bottom portion where the old scene should still be visible.
-    ///
-    /// Only advances the melt when at least `STEP_INTERVAL_MS` has elapsed
-    /// since the last step; otherwise it redraws the current state without
-    /// advancing.
-    ///
-    /// Returns true when the melt is complete.
-    pub fn do_melt_pixels(&mut self, buf: &mut [u32], pitch: usize) -> bool {
-        let elapsed = self.last_step.elapsed().as_millis();
-        let should_step = elapsed >= STEP_INTERVAL_MS;
-        if should_step {
+    /// Restart the step clock (a new wipe begins).
+    pub fn reset_clock(&mut self) {
+        self.last_step = Instant::now();
+    }
+
+    /// True if at least one step interval has elapsed; resets the clock when so.
+    fn take_step(&mut self) -> bool {
+        let should = self.last_step.elapsed().as_millis() >= STEP_INTERVAL_MS;
+        if should {
             self.last_step = Instant::now();
         }
+        should
+    }
 
-        let mut done = true;
+    /// Advance the offsets one melt step (no pixel work). Returns true when every
+    /// column has fully melted. Same stepping as the CPU [`Wipe::do_melt_pixels`].
+    pub fn advance(&mut self) -> bool {
+        let should_step = self.take_step();
         let stepping = self.height as usize / 100;
         let f = self.height / 200;
-
+        let mut done = true;
         for x in (0..self.width as usize - stepping).step_by(stepping) {
             if self.y[x] < 0 {
                 if should_step {
                     self.y[x] += stepping as i32 / 2;
                 }
-                // Column hasn't started melting yet — overdraw entire column
-                // with old frame pixels.
-                for col in x..x + stepping {
-                    for row in 0..self.height as usize {
-                        buf[row * pitch + col] = self.snapshot[row * pitch + col];
-                    }
-                }
                 done = false;
             } else if self.y[x] < self.height {
-                let melt_y = self.y[x] as usize;
-
-                // Overdraw: paint old-frame pixels shifted down by melt_y.
-                // Old row 0..(height - melt_y) appears at display rows
-                // melt_y..height.
-                for col in x..x + stepping {
-                    for src_y in 0..(self.height as usize - melt_y) {
-                        let dst_y = src_y + melt_y;
-                        buf[dst_y * pitch + col] = self.snapshot[src_y * pitch + col];
-                    }
-                }
-
                 if should_step {
                     let mut dy = if self.y[x] < (16 * f) {
                         self.y[x] + stepping as i32
@@ -125,7 +102,84 @@ impl Wipe {
                 }
                 done = false;
             }
+        }
+        done
+    }
+}
+
+/// CPU melt-wipe: overdraws columns of the *last presented frame* (held by the
+/// surface provider's back buffer) shifted down over the freshly rendered frame.
+///
+/// Holds no pixel buffer — the old frame lives in the provider's spare surface.
+/// `width`/`height` track the geometry the column offsets were seeded for.
+pub struct Wipe {
+    melt: MeltColumns,
+    height: i32,
+    width: i32,
+    active: bool,
+}
+
+impl Wipe {
+    pub fn new(width: i32, height: i32) -> Self {
+        Self {
+            melt: MeltColumns::new(width, height),
+            height,
+            width,
+            active: false,
+        }
+    }
+
+    /// Begin a wipe: re-seed the column offsets and restart the step clock. The
+    /// old frame is whatever the provider's back buffer holds (last present).
+    pub fn start(&mut self) {
+        self.melt.reset();
+        self.active = true;
+    }
+
+    /// True while a wipe is in progress.
+    pub fn is_wiping(&self) -> bool {
+        self.active
+    }
+
+    /// Overdraw shifted last-frame columns onto the freshly rendered surface.
+    ///
+    /// `new` is the current surface (just rendered, `new_pitch` elements/row);
+    /// `old` is the last presented frame (`old_pitch` elements/row). Columns of
+    /// `old` are painted shifted down by their per-column melt offset, covering
+    /// the portion where the old scene should still show. Returns true (and
+    /// clears the active flag) when the melt completes.
+    pub fn do_melt_pixels<P: PixelFmt>(
+        &mut self,
+        new: &mut [P],
+        new_pitch: usize,
+        old: &[P],
+        old_pitch: usize,
+    ) -> bool {
+        let stepping = self.height as usize / 100;
+        let offsets = self.melt.offsets();
+
+        for x in (0..self.width as usize - stepping).step_by(stepping) {
+            if offsets[x] < 0 {
+                // Column hasn't started melting — overdraw the whole column.
+                for col in x..x + stepping {
+                    for row in 0..self.height as usize {
+                        new[row * new_pitch + col] = old[row * old_pitch + col];
+                    }
+                }
+            } else if offsets[x] < self.height {
+                let melt_y = offsets[x] as usize;
+                for col in x..x + stepping {
+                    for src_y in 0..(self.height as usize - melt_y) {
+                        let dst_y = src_y + melt_y;
+                        new[dst_y * new_pitch + col] = old[src_y * old_pitch + col];
+                    }
+                }
+            }
             // else: column fully melted, new scene shows through
+        }
+        let done = self.melt.advance();
+        if done {
+            self.active = false;
         }
         done
     }

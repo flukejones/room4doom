@@ -44,7 +44,7 @@ fn bench_build_bsp(c: &mut Criterion) {
 
         for w in [8, 11, 14] {
             let opts = rbsp::BspOptions {
-                split_weight: w as f64,
+                split_weight: w as rbsp::Float,
             };
             group.bench_with_input(
                 BenchmarkId::new(format!("{}/w{}", case.name, w), case.map),

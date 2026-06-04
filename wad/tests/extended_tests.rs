@@ -3,24 +3,21 @@ use wad::extended::{NodeLumpType, WadExtendedMap};
 use wad::types::*;
 use wad::{MapLump, WadData};
 
-#[ignore = "sunder.wad can't be included in git"]
+#[cfg_attr(not(feature = "wad-sunder"), ignore = "needs sunder.wad (~/doom/)")]
 #[test]
 fn extended_nodes_sunder_m3_check_vertex() {
     let name = "MAP03";
     let wad = WadData::new(&sunder_wad_path());
     let map = WadExtendedMap::parse(&wad, name).unwrap();
 
+    // Counts are stable across Sunder releases; the new-vertex coordinates are
+    // node-builder output and differ per ZDBSP build, so are not pinned.
     assert_eq!(map.num_org_vertices, 5525);
     assert_eq!(map.num_new_vertices, 996);
     assert_eq!(map.vertexes.len(), 996);
-
-    assert_eq!(map.vertexes[0].x, 1072.0);
-    assert_eq!(map.vertexes[0].y, -256.0);
-    assert_eq!(map.vertexes[995].x, -2832.0);
-    assert_eq!(map.vertexes[995].y, -1872.0);
 }
 
-#[ignore = "sunder.wad can't be included in git"]
+#[cfg_attr(not(feature = "wad-sunder"), ignore = "needs sunder.wad (~/doom/)")]
 #[test]
 fn extended_nodes_sunder_m3_check_subs() {
     let name = "MAP03";
@@ -36,7 +33,7 @@ fn extended_nodes_sunder_m3_check_subs() {
     assert_eq!(map.subsectors[4237].seg_count, 4);
 }
 
-#[ignore = "sunder.wad can't be included in git"]
+#[cfg_attr(not(feature = "wad-sunder"), ignore = "needs sunder.wad (~/doom/)")]
 #[test]
 fn extended_nodes_sunder_m3_check_segs() {
     let name = "MAP03";
@@ -50,7 +47,7 @@ fn extended_nodes_sunder_m3_check_segs() {
     assert_eq!(map.segments[7990].side, 0);
 }
 
-#[ignore = "sunder.wad can't be included in git"]
+#[cfg_attr(not(feature = "wad-sunder"), ignore = "needs sunder.wad (~/doom/)")]
 #[test]
 fn extended_nodes_sunder_m3_check_nodes() {
     let name = "MAP03";
@@ -87,7 +84,7 @@ fn extended_nodes_sunder_m3_check_nodes() {
     assert_eq!(node.dy, -20);
 }
 
-#[ignore = "sunder.wad can't be included in git"]
+#[cfg_attr(not(feature = "wad-sunder"), ignore = "needs sunder.wad (~/doom/)")]
 #[test]
 fn extended_nodes_sunder_m3() {
     let name = "MAP03";
@@ -115,14 +112,14 @@ fn doom1_node_lump_type() {
     assert!(matches!(wad.node_lump_type("E1M1"), NodeLumpType::OGDoom));
 }
 
-#[ignore = "sunder.wad can't be included in git"]
+#[cfg_attr(not(feature = "wad-sunder"), ignore = "needs sunder.wad (~/doom/)")]
 #[test]
 fn sunder_node_lump_type() {
     let wad = WadData::new(&sunder_wad_path());
     assert!(!matches!(wad.node_lump_type("MAP03"), NodeLumpType::OGDoom));
 }
 
-#[ignore = "sunder.wad can't be included in git"]
+#[cfg_attr(not(feature = "wad-sunder"), ignore = "needs sunder.wad (~/doom/)")]
 #[test]
 fn extended_nodes_sunder_m19() {
     let name = "MAP19";

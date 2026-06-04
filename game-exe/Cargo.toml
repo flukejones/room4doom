@@ -12,7 +12,20 @@ name = "room4doom"
 path = "src/main.rs"
 
 [features]
-default = ["trig_lut", "display-softbuffer"]
+default = ["hardware"]
+hardware = ["trig_lut", "display-wgpu", "software25d", "software3d", "wgpu3d"]
+software = ["trig_lut", "display-softbuffer", "software25d", "software3d"]
+
+cpu-render = []
+software25d = ["render-backend/software25d", "doom-ui/software25d", "gameplay/software25d", "cpu-render"]
+software3d = [
+    "render-backend/software3d",
+    "doom-ui/software3d",
+    "gameplay/software3d",
+    "dep:software3d",
+    "cpu-render",
+]
+wgpu3d = ["render-backend/wgpu3d", "doom-ui/wgpu3d", "gameplay/wgpu3d", "display-wgpu"]
 
 hprof = ["render-backend/hprof", "gameplay/hprof"]
 render_stats = ["render-backend/render_stats"]
@@ -23,7 +36,7 @@ trig_lut = ["render-backend/trig_lut", "math/trig_lut"]
 
 display-sdl2 = ["render-backend/display-sdl2", "input/input-sdl2", "dep:sdl2"]
 display-softbuffer = ["render-backend/display-softbuffer", "input/input-winit", "dep:winit"]
-display-pixels = ["render-backend/display-pixels", "input/input-winit", "dep:winit", "dep:pixels"]
+display-wgpu = ["render-backend/display-wgpu", "input/input-winit", "dep:winit"]
 
 [dependencies]
 mimalloc = "0.1.43"
@@ -39,22 +52,19 @@ gamestate.workspace = true
 math.workspace = true
 gamestate-traits.workspace = true
 log.workspace = true
-glam.workspace = true
 
 hud-util.workspace = true
 
 sound-common.workspace = true
 sound-rodio.workspace = true
 render-common.workspace = true
-render-backend.workspace = true
-software3d.workspace = true
+render-backend = { path = "../render/backend", default-features = false }
+software3d = { workspace = true, optional = true }
 sdl2 = { workspace = true, optional = true }
 winit = { workspace = true, optional = true }
-pixels = { workspace = true, optional = true }
 wad.workspace = true
 # utility deps
 simplelog.workspace = true
-dirs.workspace = true
 nanoserde.workspace = true
 coarse-prof.workspace = true
 

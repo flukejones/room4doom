@@ -15,7 +15,7 @@ pub fn teleport(
     line: MapPtr<LineDef>,
     side: usize,
     thing: &mut MapObject,
-    level: &mut LevelState,
+    level: &LevelState,
 ) -> bool {
     // Don't teleport missiles... this could be interesting to muck with.
     if thing.flags.contains(MapObjFlag::Missile) {

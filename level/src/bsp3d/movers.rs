@@ -1,13 +1,15 @@
-//! Mover vertex pass: separates shared vertices at zero-height boundaries,
-//! connects wall vertices to floor/ceiling polygons, and sets `moves` flags
-//! for sectors that participate in lifts, doors, and platforms.
+//! Mover vertex pass.
+//!
+//! Separates shared vertices at zero-height boundaries, connects wall vertices
+//! to floor/ceiling polygons, and sets `moves` flags for sectors that
+//! participate in lifts, doors, and platforms.
 
 use super::build::{BSP3D, HEIGHT_EPSILON, QUANT_PRECISION, QuantizedVec3, SurfaceKind, WallType};
 use crate::flags::LineDefFlags;
 use crate::map_defs::{LineDef, Sector, Segment, SubSector};
 use crate::special_encode::{self, Category as SpecialCategory};
 use glam::{Vec2, Vec3};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 /// Deduplication tolerance for vertex proximity checks.
 const DEDUP_EPSILON: f32 = 0.1;
@@ -27,14 +29,14 @@ pub enum MoverKind {
 }
 
 impl MoverKind {
-    fn combine(self, other: MoverKind) -> MoverKind {
+    fn combine(self, other: Self) -> Self {
         match (self, other) {
-            (MoverKind::Floor, MoverKind::Ceiling) | (MoverKind::Ceiling, MoverKind::Floor) => {
-                MoverKind::Both
-            }
-            (MoverKind::Both, _) | (_, MoverKind::Both) => MoverKind::Both,
-            (MoverKind::Floor, MoverKind::Floor) => MoverKind::Floor,
-            (MoverKind::Ceiling, MoverKind::Ceiling) => MoverKind::Ceiling,
+            (Self::Floor, Self::Ceiling)
+            | (Self::Ceiling, Self::Floor)
+            | (Self::Both, _)
+            | (_, Self::Both) => Self::Both,
+            (Self::Floor, Self::Floor) => Self::Floor,
+            (Self::Ceiling, Self::Ceiling) => Self::Ceiling,
         }
     }
 }
@@ -97,7 +99,7 @@ pub fn classify_sector_mover(
         }
     }
     for line in &sector.lines {
-        if let Some(ref back) = line.backsector
+        if let Some(back) = &line.backsector
             && back.num == sector.num
             && let Some(kind) = classify_special(line.special)
         {
@@ -173,7 +175,8 @@ impl BSP3D {
     ) {
         // Step 1: identify mover sectors and zh boundaries.
         let mut mover_sectors: HashMap<usize, MoverKind> = HashMap::new();
-        let mut zh_sectors: HashSet<usize> = HashSet::new();
+        // BTreeSet: deterministic iteration in the vertex-separation steps below.
+        let mut zh_sectors: BTreeSet<usize> = BTreeSet::new();
         let mut zh_lower_bounds: Vec<(Vec2, usize, usize)> = Vec::new();
         let mut zh_upper_bounds: Vec<(Vec2, usize, usize)> = Vec::new();
         let mut zh_lower_seen: HashSet<(QuantizedVec2, usize, usize)> = HashSet::new();
@@ -344,7 +347,8 @@ impl BSP3D {
         }
 
         // Step 2: insert missing boundary vertices into floor/ceiling N-gons.
-        let all_relevant: HashSet<usize> = zh_lower_sectors
+        // Sorted for deterministic build order.
+        let all_relevant: BTreeSet<usize> = zh_lower_sectors
             .union(&zh_upper_sectors)
             .copied()
             .chain(zh_sectors.iter().copied())
@@ -461,13 +465,13 @@ impl BSP3D {
         );
 
         // Step 4d: populate vertex maps from all mover/zh polygon vertices.
-        let floor_map_sectors: HashSet<usize> = mover_sectors
+        let floor_map_sectors: BTreeSet<usize> = mover_sectors
             .keys()
             .copied()
             .chain(zh_lower_sectors.iter().copied())
             .chain(zh_sectors.iter().copied())
             .collect();
-        let ceil_map_sectors: HashSet<usize> = mover_sectors
+        let ceil_map_sectors: BTreeSet<usize> = mover_sectors
             .keys()
             .copied()
             .chain(zh_upper_sectors.iter().copied())
@@ -840,7 +844,7 @@ impl BSP3D {
         vertex_map: &mut VertexMap,
         is_floor: bool,
     ) {
-        let mut pairs: HashSet<(usize, usize)> = HashSet::new();
+        let mut pairs: BTreeSet<(usize, usize)> = BTreeSet::new();
         for &(_, a, b) in bounds {
             if a != b {
                 pairs.insert(if a < b { (a, b) } else { (b, a) });
@@ -879,7 +883,7 @@ impl BSP3D {
     /// in the vertex map so Steps 5-6 can link wall vertices.
     fn populate_vertex_map_from_polys(
         &self,
-        sector_ids: &HashSet<usize>,
+        sector_ids: &BTreeSet<usize>,
         sectors: &[Sector],
         vertex_map: &mut VertexMap,
         is_floor: bool,
@@ -985,7 +989,9 @@ impl BSP3D {
                         linedef_id,
                         ..
                     } => (*wall_type, *linedef_id),
-                    _ => continue,
+                    SurfaceKind::Horizontal {
+                        ..
+                    } => continue,
                 };
                 let verts = poly.vertices.clone();
                 let all_same_z = verts.iter().all(|&vi| {
@@ -1057,7 +1063,7 @@ impl BSP3D {
                                 upper_vertex_map,
                             );
                         }
-                        _ => {}
+                        WallType::Middle => {}
                     }
                 }
             }
@@ -1091,16 +1097,16 @@ impl BSP3D {
         mover_sectors: &HashMap<usize, MoverKind>,
         zh_lower_sectors: &HashSet<usize>,
         zh_upper_sectors: &HashSet<usize>,
-        zh_sectors: &HashSet<usize>,
+        zh_sectors: &BTreeSet<usize>,
         linedefs: &[LineDef],
     ) {
-        let floor_movers: HashSet<usize> = mover_sectors
+        let floor_movers: BTreeSet<usize> = mover_sectors
             .keys()
             .copied()
             .chain(zh_lower_sectors.iter().copied())
             .chain(zh_sectors.iter().copied())
             .collect();
-        let ceil_movers: HashSet<usize> = mover_sectors
+        let ceil_movers: BTreeSet<usize> = mover_sectors
             .keys()
             .copied()
             .chain(zh_upper_sectors.iter().copied())
@@ -1268,14 +1274,13 @@ impl BSP3D {
             // (e.g. wall quad vertex). Otherwise create fresh.
             let target_pos = Vec3::new(proj.x, proj.y, height);
             let key = QuantizedVec3::from_vec3(target_pos, QUANT_PRECISION);
-            let ins_vi = match pos_map.get(&key) {
-                Some(&vi) => vi,
-                None => {
-                    let vi = self.vertices.len();
-                    self.vertices.push(target_pos);
-                    pos_map.insert(key, vi);
-                    vi
-                }
+            let ins_vi = if let Some(&vi) = pos_map.get(&key) {
+                vi
+            } else {
+                let vi = self.vertices.len();
+                self.vertices.push(target_pos);
+                pos_map.insert(key, vi);
+                vi
             };
             // Guard against inserting a vertex index already in the polygon.
             if self.polygons[gi].vertices.contains(&ins_vi) {

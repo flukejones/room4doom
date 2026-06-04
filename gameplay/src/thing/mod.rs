@@ -17,7 +17,7 @@ use std::ptr::{self, null_mut};
 
 use self::movement::SubSectorMinMax;
 
-use crate::SectorExt;
+use crate::SectorExt as _;
 use crate::doom_def::{MELEERANGE, MTF_SINGLE_PLAYER};
 use crate::level::LevelState;
 use crate::thinker::{Think, Thinker, ThinkerData};
@@ -136,9 +136,9 @@ pub struct MapObject {
     /// Link to the previous `Thinker` in this sector
     pub(crate) s_prev: Option<*mut Thinker>,
     /// Link to next `MapObject` in the same blockmap cell
-    pub(crate) b_next: Option<*mut MapObject>,
+    pub(crate) b_next: Option<*mut Self>,
     /// Link to previous `MapObject` in the same blockmap cell
-    pub(crate) b_prev: Option<*mut MapObject>,
+    pub(crate) b_prev: Option<*mut Self>,
     /// The subsector this object is currently in. When a map object is spawned
     /// `set_thing_position()` is called which then sets this to a valid
     /// subsector, making this safe in 99% of cases.
@@ -432,58 +432,46 @@ impl MapObject {
 
     pub(crate) fn level(&self) -> &LevelState {
         #[cfg(feature = "null_check")]
-        if self.level.is_null() {
-            std::panic!("MapObject level pointer was null");
-        }
+        assert!(!self.level.is_null(), "MapObject level pointer was null");
         unsafe { &*self.level }
     }
 
     pub(crate) fn level_mut(&mut self) -> &mut LevelState {
         #[cfg(feature = "null_check")]
-        if self.level.is_null() {
-            std::panic!("MapObject level pointer was null");
-        }
+        assert!(!self.level.is_null(), "MapObject level pointer was null");
         unsafe { &mut *self.level }
     }
 
     pub fn player(&self) -> Option<&Player> {
         self.player.map(|p| unsafe {
             #[cfg(feature = "null_check")]
-            if p.is_null() {
-                std::panic!("MapObject player pointer was null");
-            }
+            assert!(!p.is_null(), "MapObject player pointer was null");
             &*p
         })
     }
 
     pub(crate) fn player_mut(&mut self) -> Option<&mut Player> {
-        self.player.map(|p| unsafe {
-            #[cfg(feature = "null_check")]
-            if p.is_null() {
-                std::panic!("MapObject player pointer was null");
-            }
-            &mut *p
-        })
+        if let Some(p) = self.player {
+            unsafe { p.as_mut() }
+        } else {
+            None
+        }
     }
 
-    pub(crate) fn target(&self) -> Option<&MapObject> {
+    pub(crate) fn target(&self) -> Option<&Self> {
         self.target.map(|t| unsafe {
             #[cfg(feature = "null_check")]
-            if t.is_null() {
-                std::panic!("MapObject target pointer was null");
-            }
+            assert!(!t.is_null(), "MapObject target pointer was null");
             (*t).mobj()
         })
     }
 
-    pub(crate) fn target_mut(&mut self) -> Option<&mut MapObject> {
-        self.target.map(|t| unsafe {
-            #[cfg(feature = "null_check")]
-            if t.is_null() {
-                std::panic!("MapObject target pointer was null");
-            }
-            (*t).mobj_mut()
-        })
+    pub(crate) fn target_mut(&mut self) -> Option<&mut Self> {
+        if let Some(p) = self.target {
+            unsafe { p.as_mut().map(|t| t.mobj_mut()) }
+        } else {
+            None
+        }
     }
 
     /// P_SpawnPlayer
@@ -519,7 +507,7 @@ impl MapObject {
 
         // Doom spawns this in it's memory manager then passes a pointer back. As fasr
         // as I can see the Player object owns this.
-        let mobj = MapObject::spawn_map_object(
+        let mobj = Self::spawn_map_object(
             (mthing.x as i32).into(),
             (mthing.y as i32).into(),
             ONFLOORZ.into(),
@@ -592,7 +580,7 @@ impl MapObject {
             // save spots for respawning in network games
             level.player_starts[(mthing.kind - 1) as usize] = Some(mthing);
             if level.options.deathmatch == 0 {
-                MapObject::p_spawn_player(&mthing, level, players, active_players);
+                Self::p_spawn_player(&mthing, level, players, active_players);
             }
             return;
         }
@@ -657,8 +645,7 @@ impl MapObject {
             ONFLOORZ
         };
 
-        let mobj =
-            MapObject::spawn_map_object(x.into(), y.into(), z.into(), MapObjKind::from(i), level);
+        let mobj = Self::spawn_map_object(x.into(), y.into(), z.into(), MapObjKind::from(i), level);
         let mobj = unsafe { &mut *mobj };
         if mobj.tics > 0 {
             mobj.tics = 1 + (p_random() % mobj.tics);
@@ -689,7 +676,7 @@ impl MapObject {
         level: &mut LevelState,
     ) {
         let z = z + (p_random() - p_random()) / 64;
-        let mobj = MapObject::spawn_map_object(x, y, z, MapObjKind::MT_PUFF, level);
+        let mobj = Self::spawn_map_object(x, y, z, MapObjKind::MT_PUFF, level);
         let mobj = unsafe { &mut *mobj };
         mobj.momz = FixedT::ONE;
         mobj.tics -= p_random() & 3;
@@ -713,7 +700,7 @@ impl MapObject {
     ) {
         let z_adj = z + (p_random() - p_random()) / 64;
         // BSP boundary: spawn_map_object takes f32/i32
-        let mobj = MapObject::spawn_map_object(x, y, z_adj, MapObjKind::MT_BLOOD, level);
+        let mobj = Self::spawn_map_object(x, y, z_adj, MapObjKind::MT_BLOOD, level);
         let mobj = unsafe { &mut *mobj };
         mobj.momz = 2.into();
         mobj.tics -= p_random() & 3;
@@ -733,7 +720,7 @@ impl MapObject {
     ///
     /// Doom function name is `P_SpawnPlayerMissile`
     pub(crate) fn spawn_player_missile(
-        source: &mut MapObject,
+        source: &mut Self,
         kind: MapObjKind,
         level: &mut LevelState,
     ) {
@@ -765,7 +752,7 @@ impl MapObject {
         let y = source.y;
         let z = source.z + 32;
 
-        let mobj = MapObject::spawn_map_object(x, y, z, kind, level);
+        let mobj = Self::spawn_map_object(x, y, z, kind, level);
         let mobj = unsafe { &mut *mobj };
 
         if !matches!(mobj.info.seesound, SfxName::None | SfxName::NumSfx) {
@@ -788,8 +775,8 @@ impl MapObject {
     ///
     /// Doom function name is `P_SpawnMissile`
     pub(crate) fn spawn_missile<'a>(
-        source: &mut MapObject,
-        target: &mut MapObject,
+        source: &Self,
+        target: &Self,
         kind: MapObjKind,
         level: &mut LevelState,
     ) -> &'a mut Self {
@@ -797,7 +784,7 @@ impl MapObject {
         let y = source.y;
         let z = source.z + 32;
 
-        let mobj = MapObject::spawn_map_object(x, y, z, kind, level);
+        let mobj = Self::spawn_map_object(x, y, z, kind, level);
         let mobj = unsafe { &mut *mobj };
 
         if !matches!(mobj.info.seesound, SfxName::None | SfxName::NumSfx) {
@@ -864,7 +851,7 @@ impl MapObject {
         z: FixedT,
         kind: MapObjKind,
         level: &mut LevelState,
-    ) -> *mut MapObject {
+    ) -> *mut Self {
         let info = MOBJINFO[kind as usize];
         let reactiontime = if level.options.skill != Skill::Nightmare {
             info.reactiontime
@@ -876,12 +863,12 @@ impl MapObject {
         // because action routines can not be called yet
         let state = &STATES[info.spawnstate as usize];
 
-        let mobj = MapObject::new(x, y, z, reactiontime, kind, info, state, level);
+        let mobj = Self::new(x, y, z, reactiontime, kind, info, state, level);
 
-        let thinker = MapObject::create_thinker(ThinkerData::MapObject(mobj), MapObject::think);
+        let thinker = Self::create_thinker(ThinkerData::MapObject(mobj), Self::think);
 
         // P_AddThinker(&thing->thinker);
-        if let Some(ptr) = level.thinkers.push::<MapObject>(thinker) {
+        if let Some(ptr) = level.thinkers.push::<Self>(thinker) {
             let thing = ptr.mobj_mut();
             unsafe {
                 // Sets the subsector link and links in sector
@@ -900,16 +887,13 @@ impl MapObject {
                     }
                     thing.prev_z = thing.z;
                 } else {
-                    warn!("Thing {:?} didn't get a subsector", kind);
+                    warn!("Thing {kind:?} didn't get a subsector");
                 }
                 return thing;
             }
         }
 
-        panic!(
-            "P_SpawnMapThing: Could not spawn type {:?} at ({}, {}): out of memory",
-            kind, x, y
-        );
+        panic!("P_SpawnMapThing: Could not spawn type {kind:?} at ({x}, {y}): out of memory");
     }
 
     /// P_SetMobjState
@@ -1105,7 +1089,7 @@ impl MapObject {
         if crush_change && level_time & 3 == 0 {
             debug!("Crushing!");
             self.p_take_damage(None, None, 10);
-            let mobj = MapObject::spawn_map_object(
+            let mobj = Self::spawn_map_object(
                 self.x,
                 self.y,
                 (self.z + self.height) / 2,
@@ -1129,7 +1113,7 @@ impl MapObject {
                 self.x.to_f32(),
                 self.y.to_f32(),
                 ptr::from_ref(self) as usize, /* pointer cast as a UID */
-            )
+            );
         }
     }
 
@@ -1145,7 +1129,7 @@ impl MapObject {
         let ss = self.level_mut().level_data.point_in_subsector(sp_x, sp_y);
         let floor = ss.sector.floorheight.to_i32();
         let fog = unsafe {
-            &mut *MapObject::spawn_map_object(
+            &mut *Self::spawn_map_object(
                 sp_x,
                 sp_y,
                 floor.into(),
@@ -1164,7 +1148,7 @@ impl MapObject {
         };
 
         let thing = unsafe {
-            &mut *MapObject::spawn_map_object(sp_x, sp_y, z.into(), self.kind, self.level_mut())
+            &mut *Self::spawn_map_object(sp_x, sp_y, z.into(), self.kind, self.level_mut())
         };
         thing.angle = Angle::from_bam(ANG45.wrapping_mul((mthing.angle as u32) / 45));
         thing.spawnpoint = mthing;
@@ -1181,9 +1165,7 @@ impl Think for MapObject {
     fn think(object: &mut Thinker, level: &mut LevelState) -> bool {
         let this = object.mobj_mut();
         #[cfg(feature = "null_check")]
-        if this.thinker.is_null() {
-            std::panic!("MapObject thinker was null");
-        }
+        assert!(!this.thinker.is_null(), "MapObject thinker was null");
 
         // Save position for rendering interpolation
         this.prev_x = this.x;
@@ -1244,9 +1226,7 @@ impl Think for MapObject {
 
     fn thinker_mut(&mut self) -> &mut Thinker {
         #[cfg(feature = "null_check")]
-        if self.thinker.is_null() {
-            std::panic!("MapObject thinker was null");
-        }
+        assert!(!self.thinker.is_null(), "MapObject thinker was null");
         unsafe { &mut *self.thinker }
     }
 }

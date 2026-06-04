@@ -1,8 +1,8 @@
 use level::SurfaceKind;
+use pic_data::sky::{SKY_DOWN_ROWS, SKY_EXTEND_ROWS};
 use pic_data::{FlatPic, PicData, WallPic};
 
 use crate::Software3D;
-use crate::scene::sky;
 
 /// Doom flat textures are always 64×64 (engine format invariant).
 const FLAT_DIM: usize = 64;
@@ -27,17 +27,15 @@ pub(crate) fn sample_sky_pixel(
     sky_col: usize,
     sky_r: i32,
     sky_tex_height: usize,
-    sky_combined: &[u32],
-) -> Option<u32> {
-    const UP: usize = sky::SKY_EXTEND_ROWS;
-    const DN: usize = sky::SKY_DOWN_ROWS;
-    let total = sky_tex_height + UP + DN;
+    sky_combined: &[u8],
+) -> Option<u8> {
+    let total = sky_tex_height + SKY_EXTEND_ROWS + SKY_DOWN_ROWS;
     let row = if sky_r > 0 && (sky_r as usize) < sky_tex_height {
         sky_r as usize
     } else if sky_r <= 0 {
-        sky_tex_height + ((-sky_r) as usize).min(UP - 1)
+        sky_tex_height + ((-sky_r) as usize).min(SKY_EXTEND_ROWS - 1)
     } else if sky_r >= sky_tex_height as i32 {
-        sky_tex_height + UP + (sky_r as usize - sky_tex_height).min(DN - 1)
+        sky_tex_height + SKY_EXTEND_ROWS + (sky_r as usize - sky_tex_height).min(SKY_DOWN_ROWS - 1)
     } else if sky_tex_height > 0 {
         sky_tex_height - 1
     } else {
@@ -112,14 +110,11 @@ impl<'a> TextureSampler<'a> {
         }
     }
 
+    /// Sample the lit palette index at `(u, v)`. Returns `u16::MAX` for a
+    /// transparent texel (caller skips); otherwise the 0-255 colourmap-lit
+    /// palette index for the scene index plane.
     #[inline(always)]
-    pub(crate) fn sample(
-        &'a self,
-        u: f32,
-        v: f32,
-        colourmap: &[usize],
-        pic_data: &'a PicData,
-    ) -> u32 {
+    pub(crate) fn sample(&'a self, u: f32, v: f32, colourmap: &[usize]) -> u16 {
         unsafe {
             match self {
                 TextureSampler::Vertical {
@@ -136,10 +131,9 @@ impl<'a> TextureSampler<'a> {
 
                     let color_index = *texture.data.get_unchecked(tex_x * texture.height + tex_y);
                     if color_index == u16::MAX {
-                        return 0;
+                        return u16::MAX;
                     }
-                    let lit_color_index = *colourmap.get_unchecked(color_index as usize);
-                    *pic_data.palette().get_unchecked(lit_color_index)
+                    *colourmap.get_unchecked(color_index as usize) as u16
                 }
                 TextureSampler::Horizontal {
                     texture,
@@ -147,15 +141,18 @@ impl<'a> TextureSampler<'a> {
                     let tex_x = ((u.abs() * FLAT_DIM_F32) as usize) & FLAT_MASK;
                     let tex_y = ((v.abs() * FLAT_DIM_F32) as usize) & FLAT_MASK;
                     let color_index = *texture.data.get_unchecked(tex_x * FLAT_DIM + tex_y);
-                    let lit_color_index = *colourmap.get_unchecked(color_index as usize);
-                    *pic_data.palette().get_unchecked(lit_color_index)
+                    *colourmap.get_unchecked(color_index as usize) as u16
                 }
-                TextureSampler::Sky => 0xFF202020,
-                TextureSampler::Untextured => 0xFF202020,
+                // Error fill (should not normally be hit): a fixed dark index.
+                TextureSampler::Sky | TextureSampler::Untextured => SKY_FILL_INDEX,
             }
         }
     }
 }
+
+/// Fixed palette index used for the untextured/sky error fill (mid-dark grey
+/// region of the Doom palette).
+const SKY_FILL_INDEX: u16 = 8;
 
 impl Software3D {
     pub(crate) fn generate_pseudo_random_colour(id: u32, brightness: usize) -> u32 {

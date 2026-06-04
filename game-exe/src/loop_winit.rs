@@ -11,12 +11,14 @@ const NANOS_PER_MILLIHERTZ: u64 = 1_000_000_000_000;
 use doom_ui::{Finale, GameMenu, Intermission, Messages, Statusbar};
 use gamestate::Game;
 use gamestate::subsystems::GameSubsystem;
-use gamestate_traits::{ConfigTraits, SubsystemTrait};
+use gamestate_traits::{ConfigTraits as _, SubsystemTrait as _};
 use input::InputState;
 use log::{info, warn};
-use render_backend::{DisplayBackend, RenderTarget};
-use render_common::{GameRenderer, STBAR_HEIGHT};
-use software3d::DebugDrawOptions;
+use render_backend::{ActiveBackend, RenderStack};
+
+/// The display backend for the winit loop (always `u32` surface).
+type WinitBackend = ActiveBackend<u32>;
+use render_common::STBAR_HEIGHT;
 use winit::application::ApplicationHandler;
 use winit::event::{DeviceEvent, DeviceId, ElementState, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow};
@@ -25,18 +27,36 @@ use winit::window::{Window, WindowId};
 
 use crate::CLIOptions;
 use crate::cheats::Cheats;
-use crate::d_main::{d_display, input_responder, load_voxels, run_game_tic, update_sound};
+use crate::d_main::d_display;
+use crate::d_main::{input_responder, load_voxels, run_game_tic, update_sound};
 use crate::timestep::TimeStep;
 
-/// Create the appropriate display backend for the active feature.
-#[cfg(feature = "display-pixels")]
-fn new_display_backend(window: Arc<Window>, vsync: bool) -> DisplayBackend {
-    DisplayBackend::new_pixels(window, vsync)
+/// Create the appropriate render surface for the active feature.
+#[cfg(feature = "display-wgpu")]
+fn new_backend(
+    window: Arc<Window>,
+    vsync: bool,
+    post: &[crate::config::PostEffect],
+) -> WinitBackend {
+    use crate::config::PostEffect as Cfg;
+    use render_backend::PostEffect;
+    let chain = post
+        .iter()
+        .map(|p| match p {
+            Cfg::Stretch => PostEffect::Stretch,
+            Cfg::Crt => PostEffect::Crt,
+        })
+        .collect();
+    render_backend::new_wgpu(window, vsync, chain)
 }
 
-#[cfg(all(feature = "display-softbuffer", not(feature = "display-pixels")))]
-fn new_display_backend(window: Arc<Window>, _vsync: bool) -> DisplayBackend {
-    DisplayBackend::new_softbuffer(window)
+#[cfg(all(feature = "display-softbuffer", not(feature = "display-wgpu")))]
+fn new_backend(
+    window: Arc<Window>,
+    _vsync: bool,
+    _post: &[crate::config::PostEffect],
+) -> WinitBackend {
+    render_backend::new_softbuffer(window)
 }
 
 /// All game state owned by the winit event loop.
@@ -45,11 +65,13 @@ pub struct DoomApp {
     input: InputState,
     cheats: Cheats,
     timestep: TimeStep,
-    render_backend: Option<RenderTarget>,
+    /// "FPS N", refreshed once per second; drawn when ShowFps is on.
+    fps_text: String,
+    // winit drives softbuffer/pixels, both u32-only. (565 is sdl2-only.)
+    render_backend: Option<RenderStack<u32>>,
     menu: Option<GameMenu>,
     machines: GameSubsystem<Intermission, Statusbar, Messages, Finale>,
     options: CLIOptions,
-    debug_draw: DebugDrawOptions,
     window: Option<Arc<Window>>,
     /// Frame interval for vsync pacing. `None` = uncapped.
     frame_interval: Option<Duration>,
@@ -57,6 +79,8 @@ pub struct DoomApp {
     next_frame: Instant,
     voxel_manager: Option<Arc<pic_data::VoxelManager>>,
     user_config: crate::config::UserConfig,
+    /// Parsed post-process chain (wgpu backend); empty = stretch only.
+    post: Vec<crate::config::PostEffect>,
 }
 
 impl DoomApp {
@@ -67,7 +91,6 @@ impl DoomApp {
         options: CLIOptions,
         user_config: crate::config::UserConfig,
     ) -> Self {
-        let debug_draw = options.debug_draw();
         let machines = GameSubsystem {
             statusbar: Statusbar::new(game.game_type.mode, &game.wad_data),
             intermission: Intermission::new(game.game_type.mode, &game.wad_data, &game.umapinfo),
@@ -80,21 +103,36 @@ impl DoomApp {
             game.game_type.mode,
             game.pic_data.pwad_sprite_overrides(),
         );
+        let post = match options.post.as_deref() {
+            Some(s) => crate::config::parse_post_chain(s).unwrap_or_else(|e| {
+                warn!("ignoring --post: {e}");
+                Vec::new()
+            }),
+            None => Vec::new(),
+        };
+        // CLI `-r` overrides the saved renderer so every Screen rebuild
+        // (resize, config change) reads one source of truth.
+        let mut user_config = user_config;
+        if let Some(rendering) = options.rendering {
+            user_config.renderer = rendering;
+        }
+        log::info!("Renderer: {:?}", user_config.renderer);
         Self {
             game,
             input,
             cheats: Cheats::new(),
             timestep: TimeStep::new(),
+            fps_text: String::new(),
             render_backend: None,
             menu: None,
             machines,
             options,
-            debug_draw,
             window: None,
             frame_interval: None,
             next_frame: Instant::now(),
             voxel_manager,
             user_config,
+            post,
         }
     }
 }
@@ -203,10 +241,10 @@ impl ApplicationHandler for DoomApp {
             .expect("failed to grab cursor");
 
         let vsync = self.options.vsync.unwrap_or(true);
-        // With the pixels (wgpu) backend, vsync is handled by the GPU present
-        // mode — wgpu blocks in render() until vblank. Adding a winit-level
-        // frame interval on top double-throttles and can cause white frames.
-        let use_winit_interval = vsync && !cfg!(feature = "display-pixels");
+        // With the wgpu backend, vsync is handled by the GPU present mode — wgpu
+        // blocks in render() until vblank. Adding a winit-level frame interval on
+        // top double-throttles and can cause white frames.
+        let use_winit_interval = vsync && !cfg!(feature = "display-wgpu");
         if use_winit_interval {
             let monitor = window
                 .current_monitor()
@@ -231,14 +269,16 @@ impl ApplicationHandler for DoomApp {
             self.frame_interval = None;
         }
 
-        let display = new_display_backend(window.clone(), self.options.vsync.unwrap_or(true));
+        let backend = new_backend(
+            window.clone(),
+            self.options.vsync.unwrap_or(true),
+            &self.post,
+        );
 
-        let mut render_backend = RenderTarget::new(
+        let mut render_backend = RenderStack::new(
             self.options.hi_res.unwrap_or(true),
-            self.options.dev_parm,
-            &self.debug_draw,
-            display,
-            self.options.rendering.unwrap_or_default().into(),
+            backend,
+            self.user_config.renderer.into(),
         );
         if self.user_config.hud_size == 1 {
             render_backend.set_statusbar_height(STBAR_HEIGHT);
@@ -247,7 +287,7 @@ impl ApplicationHandler for DoomApp {
             .events
             .set_mouse_scale((self.user_config.mouse_sensitivity, 1));
         self.input.events.set_invert_y(self.user_config.invert_y);
-        if let Some(ref vm) = self.voxel_manager {
+        if let Some(vm) = &self.voxel_manager {
             render_backend.set_voxel_manager(vm.clone());
         }
         let mut menu = GameMenu::new(
@@ -305,7 +345,7 @@ impl ApplicationHandler for DoomApp {
                         ElementState::Released => {
                             self.input.events.unset_kb(kc);
                         }
-                        _ => {}
+                        ElementState::Pressed => {}
                     }
                 }
             }
@@ -321,22 +361,44 @@ impl ApplicationHandler for DoomApp {
                     }
                 }
             }
-            WindowEvent::Resized(_) => {
+            WindowEvent::Resized(new_size) => {
+                // The backend syncs the live window size every present, so a resize
+                // needs a Screen rebuild ONLY when the engine BUFFER size changes
+                // (buffer width tracks the window aspect for the CRT stretch).
+                // macOS also emits a burst of Resized events at startup that flap
+                // the size; rebuilding then is wasteful and resets per-frame state
+                // like the melt-wipe — so skip when the buffer size is unchanged,
+                // and defer a genuine change while a wipe is in progress.
+                let buf_h = if self.user_config.hi_res {
+                    400u32
+                } else {
+                    200u32
+                };
+                let (nw, nh) = (new_size.width.max(1), new_size.height.max(1));
+                let new_buf_w = ((nw as f32 * buf_h as f32 * (240.0 / 200.0) / nh as f32).round()
+                    as u32)
+                    .max(buf_h);
+                let skip = self.render_backend.as_ref().is_some_and(|s| {
+                    let bs = s.buffer_size();
+                    let unchanged = bs.width() as u32 == new_buf_w && bs.height() as u32 == buf_h;
+                    unchanged || s.is_wiping()
+                });
+                if skip {
+                    return;
+                }
                 if let Some(window) = &self.window {
-                    let display = new_display_backend(window.clone(), self.user_config.vsync);
+                    let backend = new_backend(window.clone(), self.user_config.vsync, &self.post);
                     let prev_state = self.menu.as_ref().map(|m| m.save_state());
-                    let mut rt = RenderTarget::new(
+                    let mut rt = RenderStack::new(
                         self.user_config.hi_res,
-                        self.options.dev_parm,
-                        &self.debug_draw,
-                        display,
+                        backend,
                         self.user_config.renderer.into(),
                     );
                     if self.user_config.hud_size == 1 {
                         rt.set_statusbar_height(STBAR_HEIGHT);
                     }
                     if self.user_config.voxels
-                        && let Some(ref vm) = self.voxel_manager
+                        && let Some(vm) = &self.voxel_manager
                     {
                         rt.set_voxel_manager(vm.clone());
                     }
@@ -376,7 +438,17 @@ impl ApplicationHandler for DoomApp {
                         1.0
                     };
                     update_sound(&self.game);
-                    d_display(rt, menu, &mut self.machines, &mut self.game, frac);
+                    #[cfg(feature = "wgpu3d")]
+                    {
+                        rt.set_light_gamma(self.user_config.light_gamma as f32 / 100.0);
+                        rt.set_dynamic_sky(self.user_config.dynamic_sky);
+                    }
+                    let fps = if self.user_config.show_fps {
+                        self.fps_text.as_str()
+                    } else {
+                        ""
+                    };
+                    d_display(rt, menu, &mut self.machines, &mut self.game, frac, fps);
                 }
 
                 if self.game.is_config_dirty() {
@@ -413,7 +485,7 @@ impl ApplicationHandler for DoomApp {
                                     self.game.pic_data.pwad_sprite_overrides(),
                                 );
                             }
-                            if let Some(ref vm) = self.voxel_manager
+                            if let Some(vm) = &self.voxel_manager
                                 && let Some(rt) = self.render_backend.as_mut()
                             {
                                 rt.set_voxel_manager(vm.clone());
@@ -462,17 +534,13 @@ impl ApplicationHandler for DoomApp {
                     {
                         let prev_state = self.menu.as_ref().map(|m| m.save_state());
                         let old_rt = self.render_backend.take().unwrap();
-                        let mut new_rt = old_rt.resize(
-                            self.user_config.hi_res,
-                            self.options.dev_parm,
-                            &self.debug_draw,
-                            self.user_config.renderer.into(),
-                        );
+                        let mut new_rt = old_rt
+                            .resize(self.user_config.hi_res, self.user_config.renderer.into());
                         if self.user_config.hud_size == 1 {
                             new_rt.set_statusbar_height(STBAR_HEIGHT);
                         }
                         if self.user_config.voxels
-                            && let Some(ref vm) = self.voxel_manager
+                            && let Some(vm) = &self.voxel_manager
                         {
                             new_rt.set_voxel_manager(vm.clone());
                         }
@@ -490,14 +558,8 @@ impl ApplicationHandler for DoomApp {
                     }
                 }
 
-                if let Some(fps) = self.timestep.frame_rate() {
-                    if let Some(rt) = self.render_backend.as_mut() {
-                        if self.user_config.show_fps {
-                            rt.set_debug_line(format!("FPS {}", fps.frames));
-                        } else {
-                            rt.set_debug_line(String::new());
-                        }
-                    }
+                if let Some(fd) = self.timestep.frame_rate() {
+                    self.fps_text = format!("FPS {}", fd.frames);
                     coarse_prof::write(&mut std::io::stdout()).unwrap();
                 }
 

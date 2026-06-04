@@ -34,8 +34,8 @@ impl fmt::Display for FrameData {
 }
 
 impl TimeStep {
-    pub fn new() -> TimeStep {
-        TimeStep {
+    pub fn new() -> Self {
+        Self {
             last_time: Instant::now(),
             delta_time: 0.0,
             frame_count: 0,

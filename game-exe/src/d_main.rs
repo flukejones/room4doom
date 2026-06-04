@@ -24,12 +24,17 @@ use gameplay::{MapObjFlag, Player};
 use gamestate::Game;
 use gamestate::subsystems::GameSubsystem;
 use gamestate_traits::{GameState, KeyCode, SubsystemTrait};
-use hud_util::{draw_patch, fullscreen_scale};
+use hud_util::{draw_patch, draw_text_line, fullscreen_scale, hud_scale, measure_text_line};
 use input::InputState;
 use level::LevelData;
 use log::error;
 use math::{Angle, Bam, FixedT};
-use render_common::{DrawBuffer, GameRenderer, RenderPspDef, RenderView};
+#[cfg(feature = "wgpu3d")]
+use pic_data::resolve_tint_state;
+use render_backend::RenderStack;
+#[cfg(feature = "wgpu3d")]
+use render_backend::ScreenEffects;
+use render_common::{ByteOrder, DrawBuffer, PixelFmt, RenderPspDef, RenderView};
 use sound_common::SoundAction;
 use std::f32::consts::PI;
 use std::path::Path;
@@ -102,6 +107,25 @@ fn build_render_view(
     })
 }
 
+/// Build the GPU `ScreenEffects` (player tint + invuln + health bleed) from the
+/// console player's status. `bleed_enabled` is the user config toggle.
+#[cfg(feature = "wgpu3d")]
+fn build_screen_effects(player: &Player, bleed_enabled: bool) -> ScreenEffects {
+    let (damagecount, radsuit) = resolve_tint_state(
+        player.status.damagecount,
+        player.status.powers[gameplay::PowerType::Strength as usize],
+        player.status.powers[gameplay::PowerType::IronFeet as usize],
+    );
+    ScreenEffects {
+        damagecount,
+        bonuscount: player.status.bonuscount,
+        radsuit,
+        fixedcolormap: player.fixedcolormap as usize,
+        health: player.status.health,
+        bleed_enabled,
+    }
+}
+
 /// Load voxel models from the CLI-specified directory (if any) and attach
 /// them to the render target.
 pub(crate) fn load_voxels(
@@ -145,12 +169,12 @@ pub(crate) fn load_voxels(
             pwad_overrides,
         )
     } else {
-        log::warn!("Voxel path is not a directory or PK3: {}", voxel_path);
+        log::warn!("Voxel path is not a directory or PK3: {voxel_path}");
         return None;
     };
     println!("]");
     if mgr.is_empty() {
-        log::warn!("No voxel models loaded from {}", voxel_path);
+        log::warn!("No voxel models loaded from {voxel_path}");
         return None;
     }
     Some(Arc::new(mgr))
@@ -253,17 +277,23 @@ pub(crate) fn update_sound(game: &Game) {
     }
 }
 
-fn page_drawer(game: &mut Game, draw_buf: &mut impl DrawBuffer) {
-    draw_buf.buf_mut().fill(BLACK);
+fn page_drawer(game: &Game, draw_buf: &mut impl DrawBuffer) {
+    let black = PixelFmt::from_argb(BLACK, ByteOrder::Argb);
+    draw_buf.buf_mut().fill(black);
     let (sx, sy) = fullscreen_scale(draw_buf);
     let x = (draw_buf.size().width_f32() - 320.0 * sx) / 2.0;
     let palette = game.pic_data.wad_palette();
     draw_patch(&game.page.cache, x, 0.0, sx, sy, palette, draw_buf);
 }
 
-/// D_Display — draw the current frame.
-pub(crate) fn d_display<R: GameRenderer>(
-    render_backend: &mut R,
+/// D_Display — drive one frame's rendering, and only that. One entry for every
+/// renderer: the CPU software renderers write final pixels into the shared frame
+/// and melt the previous frame for screen wipes; the GPU renderer records the
+/// scene into a texture, draws UI into the same shared frame, and composites +
+/// melts in shaders. The render kind is hidden behind [`RenderStack`]'s uniform
+/// API. `fps` is drawn top-right when non-empty.
+pub(crate) fn d_display<P: PixelFmt>(
+    screen: &mut RenderStack<P>,
     menu: &mut impl SubsystemTrait,
     machines: &mut GameSubsystem<
         impl SubsystemTrait,
@@ -273,30 +303,30 @@ pub(crate) fn d_display<R: GameRenderer>(
     >,
     game: &mut Game,
     frac: f32,
+    fps: &str,
 ) {
     let wipe = game.gamestate != game.wipe_game_state;
     if wipe {
-        // Capture old frame on first wipe frame
-        render_backend.start_wipe();
+        // Fresh bleed pattern for the new game state.
+        screen.reset_health_bleed();
+        if !screen.is_wiping() {
+            screen.start_wipe();
+        }
     }
-    // Disable interpolation during wipe — the old frame covers the transition
+    // Disable interpolation during a wipe — the old frame covers the transition
     // and prev state may not be valid for the new level.
-    let frac = if render_backend.is_wiping() || game.frozen {
+    let frac = if screen.is_wiping() || game.frozen {
         1.0
     } else {
         frac
     };
-    let automap_active = false;
 
     match game.gamestate {
         GameState::Level => {
-            if !automap_active && let Some(ref mut level) = game.level {
-                if !game.players_in_game[game.consoleplayer] {
-                    return;
-                }
-                // Interpolate sector heights and light levels for smooth rendering
+            if let Some(level) = game.level.as_mut()
+                && game.players_in_game[game.consoleplayer]
+            {
                 level.level_data.apply_render_interpolation(frac);
-
                 let player = &game.players[game.consoleplayer];
                 if let Some(view) =
                     build_render_view(player, &level.level_data, frac, game.game_tic)
@@ -307,48 +337,69 @@ pub(crate) fn d_display<R: GameRenderer>(
                         player.status.powers[gameplay::PowerType::Strength as usize],
                         player.status.powers[gameplay::PowerType::IronFeet as usize],
                     );
-                    render_backend.render_player_view(&view, &level.level_data, &mut game.pic_data);
-                    if game.config_values[gamestate_traits::ConfigKey::HealthVignette as usize] != 0
+                    #[cfg(feature = "wgpu3d")]
                     {
-                        render_backend.draw_health_vignette(player.status.health);
+                        let bleed_enabled = game.config_values
+                            [gamestate_traits::ConfigKey::HealthBleed as usize]
+                            != 0;
+                        let player = &game.players[game.consoleplayer];
+                        screen.set_screen_effects(build_screen_effects(player, bleed_enabled));
                     }
+                    screen.render_player_view(&view, &level.level_data, &mut game.pic_data);
                 } else {
                     error!("Active console player has no MapObject, can't render player view");
                 }
-
-                // Restore true post-tic sector values
                 level.level_data.restore_render_interpolation();
+                // GPU-only: the textures now match the rendered frame; clear the
+                // dirty bits so static frames skip re-upload. Idempotent; the next
+                // interpolation re-dirties moving sectors, switches/scrollers
+                // re-dirty texture state on the next tic.
+                #[cfg(feature = "wgpu3d")]
+                if screen.is_hardware_renderer() {
+                    level.level_data.bsp_3d_mut().clear_geometry_dirty();
+                    level.level_data.bsp_3d_mut().clear_texture_dirty();
+                }
             }
-            machines.statusbar.draw(render_backend.frame_buffer());
-            machines.hud_msgs.draw(render_backend.frame_buffer());
+            machines.statusbar.draw(&mut screen.ui_frame());
+            machines.hud_msgs.draw(&mut screen.ui_frame());
         }
-        GameState::Intermission => machines.intermission.draw(render_backend.frame_buffer()),
-        GameState::Finale => machines.finale.draw(render_backend.frame_buffer()),
+        GameState::Intermission => machines.intermission.draw(&mut screen.ui_frame()),
+        GameState::Finale => machines.finale.draw(&mut screen.ui_frame()),
         GameState::DemoScreen => {
-            if game.page.cache.name != game.page.name {
-                let lump = game
-                    .wad_data
-                    .get_lump(game.page.name)
-                    .expect("TITLEPIC missing");
-                game.page.cache = WadPatch::from_lump(lump);
-            }
-            page_drawer(game, render_backend.frame_buffer());
+            refresh_title_page(game);
+            page_drawer(game, &mut screen.ui_frame());
         }
-        _ => {}
+        GameState::ForceWipe => {}
     }
 
-    if wipe {
-        // Overdraw old-frame columns on top of the new scene
-        if render_backend.do_wipe() {
-            game.wipe_game_state = game.gamestate;
-            // Snap player prev_render so first interpolated frame after wipe
-            // doesn't jump from a stale position
-            let player = &mut game.players[game.consoleplayer];
-            player.save_prev_render();
-        }
-        menu.draw(render_backend.frame_buffer());
-    } else {
-        menu.draw(render_backend.frame_buffer());
+    // Advance the wipe (CPU melts the previous frame; GPU steps the melt offsets).
+    // The melt runs over several frames; advance the wipe state only once it has
+    // fully completed. `build_tic_cmd` resumes when gamestate == wipe_game_state.
+    if wipe && screen.do_wipe() {
+        game.wipe_game_state = game.gamestate;
+        // Snap player prev_render so the first interpolated frame after the wipe
+        // doesn't jump from a stale position.
+        let player = &mut game.players[game.consoleplayer];
+        player.save_prev_render();
     }
-    render_backend.flip_and_present();
+    if !fps.is_empty() {
+        let palette = game.pic_data.wad_palette();
+        let ui = screen.ui_frame();
+        let (sx, sy) = hud_scale(ui);
+        let x = ui.size().width_f32() - measure_text_line(fps, sx) - 4.0 * sx;
+        draw_text_line(fps, x, 2.0, sx, sy, palette, ui);
+    }
+    menu.draw(&mut screen.ui_frame());
+    screen.present(wipe);
+}
+
+/// Refresh the cached TITLEPIC patch when the page name changed.
+fn refresh_title_page(game: &mut Game) {
+    if game.page.cache.name != game.page.name {
+        let lump = game
+            .wad_data
+            .get_lump(game.page.name)
+            .expect("TITLEPIC missing");
+        game.page.cache = WadPatch::from_lump(lump);
+    }
 }

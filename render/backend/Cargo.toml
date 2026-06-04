@@ -7,28 +7,46 @@ license.workspace = true
 build = "../../build.rs"
 
 [features]
-default = []
+#default = ["software25d", "software3d", "display-softbuffer"]
+cpu-render = []
+software25d = ["dep:software25d", "cpu-render"]
+software3d = ["dep:software3d", "cpu-render"]
+wgpu3d = ["display-wgpu", "dep:wgpu3d"]
 display-sdl2 = ["dep:sdl2"]
 display-softbuffer = ["dep:softbuffer", "dep:winit"]
-display-pixels = ["dep:pixels", "dep:winit"]
+display-wgpu = ["dep:wgpu", "dep:pollster", "dep:winit"]
 safety_check = []
-hprof = ["software25d/hprof", "software3d/hprof"]
-render_stats = ["software3d/render_stats"]
-trig_lut = ["software25d/trig_lut"]
+hprof = ["software25d?/hprof", "software3d?/hprof"]
+render_stats = ["software3d?/render_stats"]
+trig_lut = ["software25d?/trig_lut"]
 
 [dependencies]
 level.workspace = true
 pic-data.workspace = true
-math.workspace = true
 render-common.workspace = true
-software25d.workspace = true
-software3d.workspace = true
+software25d = { workspace = true, optional = true }
+software3d = { workspace = true, optional = true }
+wgpu3d = { workspace = true, optional = true }
 hud-util.workspace = true
 coarse-prof.workspace = true
+log.workspace = true
 sdl2 = { workspace = true, optional = true }
 softbuffer = { workspace = true, optional = true }
-pixels = { workspace = true, optional = true }
+wgpu = { workspace = true, optional = true }
+pollster = { workspace = true, optional = true }
 winit = { workspace = true, optional = true }
+
+[dev-dependencies]
+naga = { version = "29", features = ["wgsl-in"] }
+
+[dev-features]
+default = ["software25d", "software3d", "display-softbuffer"]
+
+[[example]]
+name = "minimal"
+# Needs a winit backend (softbuffer or wgpu) + a renderer; the active backend is
+# chosen inside the example. softbuffer is the simplest (pure CPU).
+required-features = ["software3d"]
 
 [lints]
 workspace = true

@@ -6,7 +6,7 @@ use crate::map_defs::{
     LineDef, Node, Sector, Segment, SideDef, SubSector, is_subsector, subsector_index,
 };
 use glam::{Vec2, Vec3};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::f32::consts::FRAC_PI_2;
 /// Quantization grid for position-only vertex dedup.
 /// Vertex deduplication grid cell size. rbsp already deduplicates at 1e-5,
@@ -59,6 +59,69 @@ fn vertex_shoelace(indices: &[usize], vertices: &[Vec3]) -> f32 {
         .sum()
 }
 
+/// Max Doom light band.
+pub const LIGHT_LEVELS: i32 = 15;
+
+/// Fake-contrast brightness delta for axis-aligned walls (N/S −1 darker, E/W +1
+/// lighter); 0 otherwise. Shared so the formula has one home.
+pub fn contrast_adjust(normal: Vec3) -> i32 {
+    let horizontal = normal.z.abs() >= 0.01; // floor/ceiling
+    let north_south = normal.x.abs() < 0.001;
+    let east_west = normal.y.abs() < 0.001;
+    match (horizontal, north_south, east_west) {
+        (false, true, _) => -1,
+        (false, _, true) => 1,
+        _ => 0,
+    }
+}
+
+/// Final light band (0..15): `(sector_light>>4 + extralight)` capped at 15, then
+/// the contrast delta re-clamped. Matches the software3d order exactly.
+pub fn light_band(sector_light: usize, extralight: usize, normal: Vec3) -> i32 {
+    let base = ((sector_light >> 4) + extralight).min(LIGHT_LEVELS as usize) as i32;
+    (base + contrast_adjust(normal)).clamp(0, LIGHT_LEVELS)
+}
+
+/// Whether a polygon is a sky surface: a sky-filler wall (front texture ==
+/// `sky_pic`) or a sky flat (texture == `sky_num`).
+fn poly_is_sky(polygon: &SurfacePolygon, sky_pic: Option<usize>, sky_num: Option<usize>) -> bool {
+    match &polygon.surface_kind {
+        SurfaceKind::Vertical {
+            front,
+            ..
+        } => front.texture == sky_pic && sky_pic.is_some(),
+        SurfaceKind::Horizontal {
+            texture,
+            ..
+        } => Some(*texture) == sky_num,
+    }
+}
+
+/// A polygon's texture id and whether it is a flat. `u32::MAX` = untextured
+/// (e.g. a wall face with no texture, or sky).
+fn poly_texture(polygon: &SurfacePolygon) -> (u32, bool) {
+    match &polygon.surface_kind {
+        SurfaceKind::Vertical {
+            front,
+            ..
+        } => (front.texture.map_or(u32::MAX, |t| t as u32), false),
+        SurfaceKind::Horizontal {
+            texture,
+            ..
+        } => (*texture as u32, true),
+    }
+}
+
+/// Whether the wall texture is pegged so the texture origin is at the top
+/// (matches `software3d::calculate_tex_coords`).
+fn wall_unpeg(wall_type: WallType, pin: WallTexPin) -> bool {
+    match wall_type {
+        WallType::Upper => matches!(pin, WallTexPin::UnpegTop | WallTexPin::UnpegBoth),
+        WallType::Middle => !matches!(pin, WallTexPin::UnpegBottom | WallTexPin::UnpegBoth),
+        WallType::Lower => matches!(pin, WallTexPin::UnpegBottom | WallTexPin::UnpegBoth),
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum WallType {
     Upper,
@@ -78,13 +141,13 @@ pub enum WallTexPin {
 impl From<LineDefFlags> for WallTexPin {
     fn from(flags: LineDefFlags) -> Self {
         if flags.contains(LineDefFlags::UnpegBottom) && flags.contains(LineDefFlags::UnpegTop) {
-            WallTexPin::UnpegBoth
+            Self::UnpegBoth
         } else if flags.contains(LineDefFlags::UnpegBottom) {
-            WallTexPin::UnpegBottom
+            Self::UnpegBottom
         } else if flags.contains(LineDefFlags::UnpegTop) {
-            WallTexPin::UnpegTop
+            Self::UnpegTop
         } else {
-            WallTexPin::None
+            Self::None
         }
     }
 }
@@ -136,7 +199,7 @@ impl AABB {
         self.max = self.max.max(point);
     }
 
-    fn expand_to_include_aabb(&mut self, other: &AABB) {
+    fn expand_to_include_aabb(&mut self, other: &Self) {
         self.min = self.min.min(other.min);
         self.max = self.max.max(other.max);
     }
@@ -179,6 +242,20 @@ pub struct BSPLeaf3D {
     pub occlusion_segs: Vec<OcclusionSeg>,
 }
 
+/// A leaf's floor or ceiling polygon indices for a movement type. Free fn so it
+/// composes inside a disjoint-field borrow of `BSP3D`.
+fn surface_polygons_of(
+    leaves: &[BSPLeaf3D],
+    subsector_id: usize,
+    movement: MovementType,
+) -> &[usize] {
+    match movement {
+        MovementType::Floor => &leaves[subsector_id].floor_polygons,
+        MovementType::Ceiling => &leaves[subsector_id].ceiling_polygons,
+        MovementType::None => &[],
+    }
+}
+
 /// Per-side texturing for a vertical wall. `texture` is `None` when that
 /// sidedef is untextured.
 #[derive(Debug, Clone)]
@@ -206,8 +283,6 @@ pub enum SurfaceKind {
     },
     Horizontal {
         texture: usize,
-        tex_cos: f32,
-        tex_sin: f32,
     },
 }
 
@@ -292,6 +367,18 @@ impl SurfacePolygon {
         };
         face.texture.map(|_| face)
     }
+
+    /// A two-sided middle (masked) wall: drawn once, not tiled vertically.
+    pub fn is_masked_middle(&self) -> bool {
+        matches!(
+            self.surface_kind,
+            SurfaceKind::Vertical {
+                two_sided: true,
+                wall_type: WallType::Middle,
+                ..
+            }
+        )
+    }
 }
 
 /// Bit-exact Vec3 key for vertex deduplication. Two vertices share an index
@@ -329,6 +416,32 @@ pub struct BSP3D {
     linedef_wall_polygons: HashMap<usize, Vec<usize>>,
     /// Temporary: zh wall records used during construction only.
     pub(crate) zh_wall_records: Vec<ZhWallRecord>,
+    /// Fan triangulation: triples of indices into [`Self::vertices`]. Topology is
+    /// stable across moves (movers only change vertex `z`).
+    pub triangles: Vec<[u32; 3]>,
+    /// Texel-space UV per polygon vertex (n-gon renderers: software3d), indexed
+    /// via [`Self::poly_vertex_range`]. Texel, not normalised; renderers divide.
+    pub poly_vertex_uv: Vec<[f32; 2]>,
+    /// `[start, end)` into [`Self::poly_vertex_uv`] per polygon. Triangulating
+    /// renderers (wgpu3d) fan this into per-corner UV at mesh upload.
+    pub poly_vertex_range: Vec<(u32, u32)>,
+    /// Per-polygon texture id; `u32::MAX` = untextured (sky).
+    pub poly_tex: Vec<u32>,
+    /// Per-polygon: flat (`true`) vs wall (`false`) texture.
+    pub poly_is_flat: Vec<bool>,
+    /// Per-polygon: a sky surface (sky-filler wall or sky flat). Renderers draw
+    /// these with the sky, not the atlas.
+    pub poly_is_sky: Vec<bool>,
+    /// Wall polygon indices per sector (deduped), for mover UV recompute.
+    pub sector_wall_polygons: Vec<Vec<usize>>,
+    /// Per-polygon horizontal texture scroll in texels (special-48 scrollers),
+    /// added to U at sample time. Delta beyond the build-baked offset.
+    pub poly_scroll: Vec<f32>,
+    /// Set when a surface moves; renderers re-upload only when set.
+    geometry_dirty: bool,
+    /// Set when poly_tex or poly_scroll changed (switch/scroll). Separate from
+    /// geometry_dirty: scroll dirties every tic, movement only on move.
+    texture_dirty: bool,
 }
 
 impl BSP3D {
@@ -363,6 +476,17 @@ impl BSP3D {
             carved_polygons: pre_carved,
             linedef_wall_polygons: HashMap::new(),
             zh_wall_records: Vec::new(),
+            triangles: Vec::new(),
+            poly_vertex_uv: Vec::new(),
+            poly_vertex_range: Vec::new(),
+            poly_tex: Vec::new(),
+            poly_is_flat: Vec::new(),
+            poly_is_sky: Vec::new(),
+            sector_wall_polygons: Vec::new(),
+            poly_scroll: Vec::new(),
+            // First frame must upload the initial geometry + textures.
+            geometry_dirty: true,
+            texture_dirty: true,
         };
 
         let mut vertex_map: HashMap<QuantizedVec3, usize> =
@@ -444,11 +568,209 @@ impl BSP3D {
             );
         }
 
+        // Phase 4: fan-triangulate every polygon now that all geometry exists
+        // (walls, floors/ceilings, movers, sky filler) and bake per-vertex light.
+        bsp3d.triangulate(sky_pic, sky_num);
+        bsp3d.build_sector_wall_polygons();
+
         bsp3d.update_all_aabbs();
         bsp3d.expand_node_aabbs_for_movers(sectors, linedefs);
         bsp3d.build_linedef_wall_map();
 
         bsp3d
+    }
+
+    /// Collect each sector's wall (vertical) polygon indices, deduped. A
+    /// two-sided wall appears in two subsectors; the `seen` set keeps one entry
+    /// per sector.
+    fn build_sector_wall_polygons(&mut self) {
+        self.sector_wall_polygons = vec![Vec::new(); self.sector_subsectors.len()];
+        for sector_id in 0..self.sector_subsectors.len() {
+            let mut seen = HashSet::new();
+            for si in 0..self.sector_subsectors[sector_id].len() {
+                let ss = self.sector_subsectors[sector_id][si];
+                for &gi in &self.subsector_leaves[ss].polygon_indices {
+                    if matches!(self.polygons[gi].surface_kind, SurfaceKind::Vertical { .. })
+                        && seen.insert(gi)
+                    {
+                        self.sector_wall_polygons[sector_id].push(gi);
+                    }
+                }
+            }
+        }
+    }
+
+    /// Build the fan triangulation + per-polygon-vertex UV/texture. Convex polys
+    /// (rbsp carve / wall quads) fan as `(v0, vi, vi+1)`, no ear-clipping.
+    fn triangulate(&mut self, sky_pic: Option<usize>, sky_num: Option<usize>) {
+        let tri_count: usize = self
+            .polygons
+            .iter()
+            .map(|p| p.vertices.len().saturating_sub(2))
+            .sum();
+        let vert_total: usize = self.polygons.iter().map(|p| p.vertices.len()).sum();
+        self.triangles = Vec::with_capacity(tri_count);
+        self.poly_vertex_uv = Vec::with_capacity(vert_total);
+        self.poly_vertex_range = Vec::with_capacity(self.polygons.len());
+        self.poly_tex = Vec::with_capacity(self.polygons.len());
+        self.poly_is_flat = Vec::with_capacity(self.polygons.len());
+        self.poly_is_sky = Vec::with_capacity(self.polygons.len());
+        for poly_idx in 0..self.polygons.len() {
+            let (tex, is_flat) = poly_texture(&self.polygons[poly_idx]);
+            self.poly_tex.push(tex);
+            self.poly_is_flat.push(is_flat);
+            self.poly_is_sky
+                .push(poly_is_sky(&self.polygons[poly_idx], sky_pic, sky_num));
+
+            let pv_start = self.poly_vertex_uv.len() as u32;
+            let n = self.polygons[poly_idx].vertices.len();
+            if n >= 3 {
+                for j in 0..n {
+                    // Read the index per-iteration so `polygons` is not borrowed
+                    // across the push (no vertex-list clone needed).
+                    let vi = self.polygons[poly_idx].vertices[j];
+                    self.poly_vertex_uv
+                        .push(self.corner_uv_texels(poly_idx, vi));
+                }
+                let v0 = self.polygons[poly_idx].vertices[0] as u32;
+                for i in 1..n - 1 {
+                    let vi = self.polygons[poly_idx].vertices[i] as u32;
+                    let vi1 = self.polygons[poly_idx].vertices[i + 1] as u32;
+                    self.triangles.push([v0, vi, vi1]);
+                }
+            }
+            self.poly_vertex_range
+                .push((pv_start, self.poly_vertex_uv.len() as u32));
+        }
+        self.poly_scroll = vec![0.0; self.polygons.len()];
+    }
+
+    /// Recompute texture UV for one wall polygon after its vertex z changed
+    /// (its sector's floor/ceiling moved). Reuses [`Self::corner_uv_texels`].
+    /// No-op for non-vertical or degenerate polygons.
+    fn recompute_wall_uv(&mut self, poly_idx: usize) {
+        if !matches!(
+            self.polygons[poly_idx].surface_kind,
+            SurfaceKind::Vertical { .. }
+        ) {
+            return;
+        }
+        let n = self.polygons[poly_idx].vertices.len();
+        if n < 3 {
+            return;
+        }
+        let (pv_start, _) = self.poly_vertex_range[poly_idx];
+        let base = pv_start as usize;
+        for j in 0..n {
+            // Read the index per-iteration so the borrow of `polygons` ends
+            // before the `&mut self` write (no vertex-list clone needed).
+            let vi = self.polygons[poly_idx].vertices[j];
+            self.poly_vertex_uv[base + j] = self.corner_uv_texels(poly_idx, vi);
+        }
+    }
+
+    /// Recompute UV for all walls of a sector whose surface just moved.
+    fn recompute_sector_wall_uv(&mut self, sector_id: usize) {
+        if sector_id >= self.sector_wall_polygons.len() {
+            return;
+        }
+        for i in 0..self.sector_wall_polygons[sector_id].len() {
+            let gi = self.sector_wall_polygons[sector_id][i];
+            self.recompute_wall_uv(gi);
+        }
+    }
+
+    /// Fan a per-polygon attribute into per-corner entries (static, order matches
+    /// [`Self::triangles`]). `attr(poly_idx)` builds the value. `out` is cleared.
+    pub fn fan_corner_attr<T: Copy>(&self, out: &mut Vec<T>, attr: impl Fn(usize) -> T) {
+        out.clear();
+        for poly_idx in 0..self.polygons.len() {
+            let (start, end) = self.poly_vertex_range[poly_idx];
+            let n = (end - start) as usize;
+            if n < 3 {
+                continue;
+            }
+            let v = attr(poly_idx);
+            for _ in 0..(n - 2) * 3 {
+                out.push(v);
+            }
+        }
+    }
+
+    /// Fan per-polygon-vertex UV ([`Self::poly_vertex_uv`]) into per-corner UV
+    /// (fan `(v0, vi, vi+1)`, order matches [`Self::triangles`]). `out` is
+    /// cleared. Triangulating renderers (wgpu3d) call this at mesh upload and on
+    /// geometry/texture re-upload instead of storing a second UV array.
+    pub fn fan_corner_uv(&self, out: &mut Vec<[f32; 2]>) {
+        out.clear();
+        for &(start, end) in &self.poly_vertex_range {
+            let base = start as usize;
+            let n = (end - start) as usize;
+            if n < 3 {
+                continue;
+            }
+            for i in 1..n - 1 {
+                out.push(self.poly_vertex_uv[base]);
+                out.push(self.poly_vertex_uv[base + i]);
+                out.push(self.poly_vertex_uv[base + i + 1]);
+            }
+        }
+    }
+
+    /// Texel-space `(u, v)` for one polygon corner, replicating
+    /// `software3d::calculate_tex_coords` (minus the `+tex_height` pegging shift,
+    /// a whole-texture offset that wraps to a no-op). `level` has no texture
+    /// dimensions; the renderer divides by them.
+    fn corner_uv_texels(&self, poly_idx: usize, vertex_idx: usize) -> [f32; 2] {
+        let polygon = &self.polygons[poly_idx];
+        let world_pos = self.vertices[vertex_idx];
+        match &polygon.surface_kind {
+            SurfaceKind::Vertical {
+                front,
+                wall_type,
+                wall_tex_pin,
+                ..
+            } => {
+                let v1 = self.vertices[polygon.vertices[0]];
+                let from_start = world_pos - v1;
+                let u = from_start.x * front.texture_direction.x
+                    + from_start.y * front.texture_direction.y
+                    + front.tex_x_offset;
+
+                let (wall_bottom_z, wall_top_z) = self.wall_z_range(polygon);
+                let unpeg = wall_unpeg(*wall_type, *wall_tex_pin);
+                // `+tex_height` omitted from the non-unpeg Upper/Middle case: it
+                // is a whole-texture shift that wraps to a no-op under `fract`.
+                let anchor_z = match (unpeg, wall_type) {
+                    (true, WallType::Middle) | (false, WallType::Lower) => wall_top_z,
+                    (true, _) => front.ceiling_z,
+                    (false, WallType::Upper | WallType::Middle) => wall_bottom_z,
+                };
+                let v = -world_pos.z + anchor_z + front.tex_y_offset;
+                [u, v]
+            }
+            SurfaceKind::Horizontal {
+                ..
+            } => {
+                let tex_cos = HORIZONTAL_TEX_DIRECTION.cos();
+                let tex_sin = HORIZONTAL_TEX_DIRECTION.sin();
+                let u = world_pos.x * tex_cos - world_pos.y * tex_sin;
+                let v = world_pos.x * tex_sin + world_pos.y * tex_cos;
+                [u, v]
+            }
+        }
+    }
+
+    /// Min/max Z over a polygon's vertices (wall pegging anchors).
+    fn wall_z_range(&self, polygon: &SurfacePolygon) -> (f32, f32) {
+        let mut lo = f32::MAX;
+        let mut hi = f32::MIN;
+        for &vi in &polygon.vertices {
+            let z = self.vertices[vi].z;
+            lo = lo.min(z);
+            hi = hi.max(z);
+        }
+        (lo, hi)
     }
 
     pub fn nodes(&self) -> &[Node3D] {
@@ -493,15 +815,9 @@ impl BSP3D {
         unsafe { *self.vertices.get_unchecked(idx) }
     }
 
-    /// Move all vertices of a sector's floor or ceiling polygons to
-    /// `new_height` and update the horizontal surface texture.
-    pub fn move_surface(
-        &mut self,
-        sector_id: usize,
-        movement_type: MovementType,
-        new_height: f32,
-        texture: usize,
-    ) {
+    /// Move a sector's floor or ceiling polygons to `new_height` (vertex z only).
+    /// Flat texture changes go through [`Self::update_flat_texture`], not here.
+    pub fn move_surface(&mut self, sector_id: usize, movement_type: MovementType, new_height: f32) {
         if movement_type == MovementType::None {
             return;
         }
@@ -513,26 +829,17 @@ impl BSP3D {
                     let vertex_idx = self.polygons[gi].vertices[vi];
                     self.vertices[vertex_idx].z = new_height;
                 }
-                if let SurfaceKind::Horizontal {
-                    texture: tex,
-                    ..
-                } = &mut self.polygons[gi].surface_kind
-                {
-                    *tex = texture;
-                }
             }
         }
 
+        self.recompute_sector_wall_uv(sector_id);
+        self.geometry_dirty = true;
         self.update_affected_aabbs(sector_id);
     }
 
     /// A leaf's floor or ceiling polygon indices for a movement type.
     fn surface_polygons(&self, subsector_id: usize, movement: MovementType) -> &[usize] {
-        match movement {
-            MovementType::Floor => &self.subsector_leaves[subsector_id].floor_polygons,
-            MovementType::Ceiling => &self.subsector_leaves[subsector_id].ceiling_polygons,
-            MovementType::None => &[],
-        }
+        surface_polygons_of(&self.subsector_leaves, subsector_id, movement)
     }
 
     /// Apply interpolated sector heights to BSP3D vertices for smooth
@@ -604,7 +911,8 @@ impl BSP3D {
     }
 
     /// Set vertex Z for all polygons of a surface type in a sector (no texture
-    /// update).
+    /// update). The sector's walls share these vertices, so re-derive their UV so
+    /// textures stay anchored (tile) instead of stretching.
     fn set_surface_height(&mut self, sector_id: usize, movement: MovementType, height: f32) {
         for si in 0..self.sector_subsectors[sector_id].len() {
             let ss = self.sector_subsectors[sector_id][si];
@@ -616,18 +924,60 @@ impl BSP3D {
                 }
             }
         }
+        self.recompute_sector_wall_uv(sector_id);
+        self.geometry_dirty = true;
     }
 
-    /// Replace the floor texture for all subsector polygons in a sector.
-    pub fn update_floor_texture(&mut self, sector_id: usize, new_texture: usize) {
-        for &subsector_id in &self.sector_subsectors[sector_id] {
-            for &gi in &self.subsector_leaves[subsector_id].floor_polygons {
+    /// True if vertex positions / UV changed since the last
+    /// [`Self::clear_geometry_dirty`]. A renderer uploads dynamic buffers only
+    /// when set.
+    pub fn geometry_dirty(&self) -> bool {
+        self.geometry_dirty
+    }
+
+    /// Clear the dirty flag after a renderer has uploaded the dynamic buffers.
+    pub fn clear_geometry_dirty(&mut self) {
+        self.geometry_dirty = false;
+    }
+
+    /// True if poly_tex or poly_scroll changed since [`Self::clear_texture_dirty`]
+    /// (switch swap or texture scroll). Renderers re-upload texture buffers only
+    /// when set.
+    pub fn texture_dirty(&self) -> bool {
+        self.texture_dirty
+    }
+
+    pub fn clear_texture_dirty(&mut self) {
+        self.texture_dirty = false;
+    }
+
+    /// Set the floor or ceiling flat texture for a sector's polygons, syncing
+    /// both render stores (`surface_kind` for software3d, `poly_tex` for wgpu3d)
+    /// + `texture_dirty`. Called from env when a sector flat pic changes.
+    pub fn update_flat_texture(
+        &mut self,
+        sector_id: usize,
+        movement: MovementType,
+        new_texture: usize,
+    ) {
+        let Self {
+            sector_subsectors,
+            subsector_leaves,
+            polygons,
+            poly_tex,
+            texture_dirty,
+            ..
+        } = self;
+        for &ss in &sector_subsectors[sector_id] {
+            for &gi in surface_polygons_of(subsector_leaves, ss, movement) {
                 if let SurfaceKind::Horizontal {
                     texture,
                     ..
-                } = &mut self.polygons[gi].surface_kind
+                } = &mut polygons[gi].surface_kind
                 {
                     *texture = new_texture;
+                    poly_tex[gi] = new_texture as u32;
+                    *texture_dirty = true;
                 }
             }
         }
@@ -659,20 +1009,48 @@ impl BSP3D {
         wall_type: WallType,
         new_texture: usize,
     ) {
-        let Some(indices) = self.linedef_wall_polygons.get(&linedef_id).cloned() else {
+        let Self {
+            linedef_wall_polygons,
+            polygons,
+            poly_tex,
+            texture_dirty,
+            ..
+        } = self;
+        let Some(indices) = linedef_wall_polygons.get(&linedef_id) else {
             return;
         };
-        for gi in indices {
+        for &gi in indices {
             if let SurfaceKind::Vertical {
                 front,
                 wall_type: wt,
                 ..
-            } = &mut self.polygons[gi].surface_kind
+            } = &mut polygons[gi].surface_kind
                 && *wt == wall_type
             {
                 front.texture = Some(new_texture);
+                poly_tex[gi] = new_texture as u32;
+                *texture_dirty = true;
             }
         }
+    }
+
+    /// Set horizontal texture scroll (texels) for all wall polygons of a
+    /// scrolling linedef (special 48). `delta` is the live offset minus the
+    /// build-baked one, added to U at sample time so it does not double-count.
+    pub fn set_wall_scroll(&mut self, linedef_id: usize, delta: f32) {
+        let Self {
+            linedef_wall_polygons,
+            poly_scroll,
+            texture_dirty,
+            ..
+        } = self;
+        let Some(indices) = linedef_wall_polygons.get(&linedef_id) else {
+            return;
+        };
+        for &gi in indices {
+            poly_scroll[gi] = delta;
+        }
+        *texture_dirty = true;
     }
 
     /// Convert 2D BSP nodes to 3D, extending vertical bounds to the global
@@ -808,7 +1186,7 @@ impl BSP3D {
                 .ceilingheight
                 .to_f32()
                 .min(back_sector.ceilingheight.to_f32());
-            let front_face = self.wall_face_for_side(
+            let front_face = Self::wall_face_for_side(
                 segment,
                 false,
                 segment.sidedef.midtexture,
@@ -856,7 +1234,7 @@ impl BSP3D {
         if front_tex.is_none() && back_tex.is_none() {
             return;
         }
-        let front = self.wall_face_for_side(
+        let front = Self::wall_face_for_side(
             segment,
             false,
             front_tex,
@@ -864,7 +1242,7 @@ impl BSP3D {
             front_sector.ceilingheight.to_f32(),
         );
         let back = other_sidedef.map(|sd| {
-            self.wall_face_for_side(
+            Self::wall_face_for_side(
                 segment,
                 true,
                 back_tex,
@@ -897,7 +1275,6 @@ impl BSP3D {
     /// the linedef reversed, so its direction and seg offset come from the
     /// opposite endpoints.
     fn wall_face_for_side(
-        &self,
         segment: &Segment,
         is_back: bool,
         texture: Option<usize>,
@@ -941,7 +1318,7 @@ impl BSP3D {
             // creates fresh vertices and a ZhWallRecord. The mover pass
             // connects bottom → floor vertex, top → ceiling vertex.
             let back_sector_id = if is_zh { Some(front_id) } else { None };
-            let front_face = self.wall_face_for_side(
+            let front_face = Self::wall_face_for_side(
                 segment,
                 false,
                 segment.sidedef.midtexture,
@@ -1112,7 +1489,7 @@ impl BSP3D {
         sky_max_ceil: &[f32],
         sky_min_floor: &[f32],
     ) {
-        for sector in sectors.iter() {
+        for sector in sectors {
             let sector_id = sector.num as usize;
             let is_sky_ceil = sector.ceilingpic == sky_num;
             let is_sky_floor = sector.floorpic == sky_num;
@@ -1137,25 +1514,21 @@ impl BSP3D {
                 let ss = &subsectors[ss_id];
                 let start = ss.start_seg as usize;
                 let end = start + ss.seg_count as usize;
-                for seg in segments[start..end].iter() {
+                for seg in &segments[start..end] {
                     // Only perimeter segments: skip interior (same-sector)
                     // and sky-to-sky boundaries.
-                    let is_perimeter_ceil = match seg.backsector {
-                        Some(ref back) => {
-                            back.num != seg.frontsector.num && back.ceilingpic != sky_num
-                        }
+                    let is_perimeter_ceil = match &seg.backsector {
+                        Some(back) => back.num != seg.frontsector.num && back.ceilingpic != sky_num,
                         None => true,
                     };
-                    let is_perimeter_floor = match seg.backsector {
-                        Some(ref back) => {
-                            back.num != seg.frontsector.num && back.floorpic != sky_num
-                        }
+                    let is_perimeter_floor = match &seg.backsector {
+                        Some(back) => back.num != seg.frontsector.num && back.floorpic != sky_num,
                         None => true,
                     };
 
                     // Skip if the existing wall already reaches the target.
                     if needs_ceil_filler && is_perimeter_ceil && sky_ceil < max_h {
-                        let face = self.wall_face_for_side(
+                        let face = Self::wall_face_for_side(
                             seg,
                             false,
                             Some(sky_pic),
@@ -1177,7 +1550,7 @@ impl BSP3D {
                         );
                     }
                     if needs_floor_filler && is_perimeter_floor && min_h < sky_floor {
-                        let face = self.wall_face_for_side(
+                        let face = Self::wall_face_for_side(
                             seg,
                             false,
                             Some(sky_pic),
@@ -1303,7 +1676,7 @@ impl BSP3D {
             if fv.len() >= 3 && vertex_shoelace(&fv, &self.vertices) > 0.0 {
                 let fp = SurfacePolygon::new(
                     sector_num,
-                    self.create_horizontal_surface_kind(subsector.sector.floorpic),
+                    Self::create_horizontal_surface_kind(subsector.sector.floorpic),
                     fv,
                     Vec3::new(0.0, 0.0, 1.0),
                     &self.vertices,
@@ -1333,7 +1706,7 @@ impl BSP3D {
             }
             let cp = SurfacePolygon::new(
                 sector_num,
-                self.create_horizontal_surface_kind(subsector.sector.ceilingpic),
+                Self::create_horizontal_surface_kind(subsector.sector.ceilingpic),
                 cv,
                 Vec3::new(0.0, 0.0, -1.0),
                 &self.vertices,
@@ -1376,11 +1749,9 @@ impl BSP3D {
         self.update_node_aabbs_recursive(self.root_node);
     }
 
-    fn create_horizontal_surface_kind(&self, texture: usize) -> SurfaceKind {
+    fn create_horizontal_surface_kind(texture: usize) -> SurfaceKind {
         SurfaceKind::Horizontal {
             texture,
-            tex_cos: HORIZONTAL_TEX_DIRECTION.cos(),
-            tex_sin: HORIZONTAL_TEX_DIRECTION.sin(),
         }
     }
 

@@ -29,7 +29,7 @@ struct Fnv(u64);
 
 impl Fnv {
     fn new() -> Self {
-        Fnv(FNV_OFFSET)
+        Self(FNV_OFFSET)
     }
     fn w_i64(&mut self, v: i64) {
         for b in v.to_le_bytes() {
@@ -38,7 +38,7 @@ impl Fnv {
         }
     }
     fn w_u64(&mut self, v: u64) {
-        self.w_i64(v as i64)
+        self.w_i64(v as i64);
     }
     fn done(&self) -> u64 {
         self.0
@@ -62,7 +62,7 @@ fn open_append(path: &str) -> Option<File> {
 }
 
 fn state_index(state: &'static crate::info::StateData) -> u64 {
-    let base = addr_of!(STATES) as *const crate::info::StateData as usize;
+    let base = addr_of!(STATES).cast::<crate::info::StateData>() as usize;
     let ptr = std::ptr::from_ref(state) as usize;
     ((ptr - base) / size_of::<crate::info::StateData>()) as u64
 }
@@ -138,7 +138,7 @@ pub fn trace_tic(level: &LevelState) {
                         dump,
                         from,
                         to,
-                    })
+                    });
                 });
             }
         }

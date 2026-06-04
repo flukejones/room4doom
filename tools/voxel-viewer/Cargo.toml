@@ -15,10 +15,11 @@ render_stats = ["software3d/render_stats"]
 
 [dependencies]
 pic-data.workspace = true
+render-common.workspace = true
 software3d = { path = "../../render/software3d" }
 glam.workspace = true
 winit.workspace = true
-pixels.workspace = true
+softbuffer.workspace = true
 coarse-prof = { workspace = true, optional = true }
 
 [lints]

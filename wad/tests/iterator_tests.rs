@@ -64,7 +64,7 @@ fn patches_doom1_iter() {
 }
 
 #[test]
-#[ignore = "doom.wad is commercial"]
+#[cfg_attr(not(feature = "wad-doom"), ignore = "needs doom.wad (~/doom/)")]
 fn patches_doom_iter_commercial() {
     // patches_iter counts all non-empty lumps in P_START/P_END sections.
     // PNAMES has 351 entries; 2 extra lumps exist in the section but are
@@ -74,7 +74,7 @@ fn patches_doom_iter_commercial() {
 }
 
 #[test]
-#[ignore = "doom2.wad is commercial"]
+#[cfg_attr(not(feature = "wad-doom2"), ignore = "needs doom2.wad (~/doom/)")]
 fn patches_doom2_iter() {
     // PNAMES has 469 entries; 1 extra lump in the section is not
     // referenced by PNAMES. Harmless — pic-data looks up by name.
@@ -83,7 +83,7 @@ fn patches_doom2_iter() {
 }
 
 #[test]
-#[ignore = "doom2.wad is commercial"]
+#[cfg_attr(not(feature = "wad-doom2"), ignore = "needs doom2.wad (~/doom/)")]
 fn w94_1_commercial() {
     let wad = WadData::new(&doom2_wad_path());
     let lump = wad.get_lump("W94_1").expect("W94_1");
@@ -93,7 +93,7 @@ fn w94_1_commercial() {
 }
 
 #[test]
-#[ignore = "doom2.wad is commercial"]
+#[cfg_attr(not(feature = "wad-doom2"), ignore = "needs doom2.wad (~/doom/)")]
 fn pnames_doom2_iter_commercial() {
     let wad = WadData::new(&doom2_wad_path());
     let mut iter = wad.pnames_iter();
@@ -138,7 +138,7 @@ fn flats_doom1() {
     assert_eq!(wad.flats_iter().count(), 54);
 }
 
-#[ignore = "doom.wad is commercial"]
+#[cfg_attr(not(feature = "wad-doom"), ignore = "needs doom.wad (~/doom/)")]
 #[test]
 fn flats_doom_commercial() {
     let wad = WadData::new(&doom_wad_path());
@@ -146,7 +146,7 @@ fn flats_doom_commercial() {
     assert_eq!(wad.flats_iter().count(), 107);
 }
 
-#[ignore = "doom2.wad is commercial"]
+#[cfg_attr(not(feature = "wad-doom2"), ignore = "needs doom2.wad (~/doom/)")]
 #[test]
 fn flats_doom2_commercial() {
     let wad = WadData::new(&doom2_wad_path());
@@ -177,18 +177,8 @@ mod cross_ref {
         ));
         assert_eq!(verts.len(), reference.len());
         for (i, (v, r)) in verts.iter().zip(reference.iter()).enumerate() {
-            assert_eq!(
-                v.x as i16,
-                r["x"].as_i64().unwrap() as i16,
-                "vertex {} x",
-                i
-            );
-            assert_eq!(
-                v.y as i16,
-                r["y"].as_i64().unwrap() as i16,
-                "vertex {} y",
-                i
-            );
+            assert_eq!(v.x as i16, r["x"].as_i64().unwrap() as i16, "vertex {i} x");
+            assert_eq!(v.y as i16, r["y"].as_i64().unwrap() as i16, "vertex {i} y");
         }
     }
 
@@ -207,45 +197,38 @@ mod cross_ref {
             assert_eq!(
                 l.start_vertex,
                 r["vx_a"].as_u64().unwrap() as u16,
-                "linedef {} start",
-                i
+                "linedef {i} start"
             );
             assert_eq!(
                 l.end_vertex,
                 r["vx_b"].as_u64().unwrap() as u16,
-                "linedef {} end",
-                i
+                "linedef {i} end"
             );
             assert_eq!(
                 l.front_sidedef,
                 r["front"].as_u64().unwrap() as u16,
-                "linedef {} front",
-                i
+                "linedef {i} front"
             );
             let back = r["back"].as_u64().unwrap() as u16;
             assert_eq!(
                 l.back_sidedef,
                 if back == 0xFFFF { None } else { Some(back) },
-                "linedef {} back",
-                i
+                "linedef {i} back"
             );
             assert_eq!(
                 l.flags,
                 r["flags"].as_u64().unwrap() as u16,
-                "linedef {} flags",
-                i
+                "linedef {i} flags"
             );
             assert_eq!(
                 l.special,
                 r["action"].as_i64().unwrap() as i16,
-                "linedef {} action",
-                i
+                "linedef {i} action"
             );
             assert_eq!(
                 l.sector_tag,
                 r["tag"].as_i64().unwrap() as i16,
-                "linedef {} tag",
-                i
+                "linedef {i} tag"
             );
         }
     }
@@ -269,38 +252,32 @@ mod cross_ref {
             assert_eq!(
                 s.x_offset,
                 r["off_x"].as_i64().unwrap() as i16,
-                "sidedef {} off_x",
-                i
+                "sidedef {i} off_x"
             );
             assert_eq!(
                 s.y_offset,
                 r["off_y"].as_i64().unwrap() as i16,
-                "sidedef {} off_y",
-                i
+                "sidedef {i} off_y"
             );
             assert_eq!(
                 s.upper_tex.as_str(),
                 norm(r["tx_up"].as_str().unwrap()),
-                "sidedef {} tx_up",
-                i
+                "sidedef {i} tx_up"
             );
             assert_eq!(
                 s.lower_tex.as_str(),
                 norm(r["tx_low"].as_str().unwrap()),
-                "sidedef {} tx_low",
-                i
+                "sidedef {i} tx_low"
             );
             assert_eq!(
                 s.middle_tex.as_str(),
                 norm(r["tx_mid"].as_str().unwrap()),
-                "sidedef {} tx_mid",
-                i
+                "sidedef {i} tx_mid"
             );
             assert_eq!(
                 s.sector,
                 r["sector"].as_i64().unwrap() as i16,
-                "sidedef {} sector",
-                i
+                "sidedef {i} sector"
             );
         }
     }
@@ -320,40 +297,34 @@ mod cross_ref {
             assert_eq!(
                 s.floor_height,
                 r["z_floor"].as_i64().unwrap() as i16,
-                "sector {} z_floor",
-                i
+                "sector {i} z_floor"
             );
             assert_eq!(
                 s.ceil_height,
                 r["z_ceil"].as_i64().unwrap() as i16,
-                "sector {} z_ceil",
-                i
+                "sector {i} z_ceil"
             );
             assert_eq!(
                 s.floor_tex,
                 r["tx_floor"].as_str().unwrap().trim_end_matches('\0'),
-                "sector {} tx_floor",
-                i
+                "sector {i} tx_floor"
             );
             assert_eq!(
                 s.ceil_tex,
                 r["tx_ceil"].as_str().unwrap().trim_end_matches('\0'),
-                "sector {} tx_ceil",
-                i
+                "sector {i} tx_ceil"
             );
             assert_eq!(
                 s.light_level,
                 r["light"].as_i64().unwrap() as i16,
-                "sector {} light",
-                i
+                "sector {i} light"
             );
             assert_eq!(
                 s.kind,
                 r["type"].as_i64().unwrap() as i16,
-                "sector {} type",
-                i
+                "sector {i} type"
             );
-            assert_eq!(s.tag, r["tag"].as_i64().unwrap() as i16, "sector {} tag", i);
+            assert_eq!(s.tag, r["tag"].as_i64().unwrap() as i16, "sector {i} tag");
         }
     }
 
@@ -367,25 +338,18 @@ mod cross_ref {
         ));
         assert_eq!(things.len(), reference.len());
         for (i, (t, r)) in things.iter().zip(reference.iter()).enumerate() {
-            assert_eq!(t.x, r["x"].as_i64().unwrap() as i16, "thing {} x", i);
-            assert_eq!(t.y, r["y"].as_i64().unwrap() as i16, "thing {} y", i);
+            assert_eq!(t.x, r["x"].as_i64().unwrap() as i16, "thing {i} x");
+            assert_eq!(t.y, r["y"].as_i64().unwrap() as i16, "thing {i} y");
             assert_eq!(
                 t.angle,
                 r["angle"].as_i64().unwrap() as i16,
-                "thing {} angle",
-                i
+                "thing {i} angle"
             );
-            assert_eq!(
-                t.kind,
-                r["type"].as_i64().unwrap() as i16,
-                "thing {} type",
-                i
-            );
+            assert_eq!(t.kind, r["type"].as_i64().unwrap() as i16, "thing {i} type");
             assert_eq!(
                 t.flags,
                 r["flags"].as_i64().unwrap() as i16,
-                "thing {} flags",
-                i
+                "thing {i} flags"
             );
         }
     }
@@ -393,7 +357,10 @@ mod cross_ref {
 
 /// PWAD sprites override IWAD sprites when merged.
 #[test]
-#[ignore = "doom2.wad and Eviternity.wad can't be included in git"]
+#[cfg_attr(
+    all(not(feature = "wad-doom2"), not(feature = "wad-eviternity")),
+    ignore = "needs doom2.wad + Eviternity.wad (~/doom/)"
+)]
 fn pwad_sprites_override_iwad() {
     use test_utils::{doom2_wad_path, eviternity_wad_path};
 
@@ -411,7 +378,10 @@ fn pwad_sprites_override_iwad() {
 
 /// F_SKY1 flat survives when PWAD with FF_START is merged.
 #[test]
-#[ignore = "doom2.wad and Eviternity.wad can't be included in git"]
+#[cfg_attr(
+    all(not(feature = "wad-doom2"), not(feature = "wad-eviternity")),
+    ignore = "needs doom2.wad + Eviternity.wad (~/doom/)"
+)]
 fn pwad_flats_preserve_iwad_fsky1() {
     use test_utils::{doom2_wad_path, eviternity_wad_path};
 

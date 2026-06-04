@@ -4,7 +4,9 @@
 //! adjoin the vertex at each angle. Used to assign sectors to seg-less
 //! subsectors by querying "what sector is at angle θ from vertex V".
 
-use crate::types::{LineDefAccess, SideDefAccess, Vertex, WadLineDef, WadSideDef, WallTip};
+use crate::types::{
+    LineDefAccess as _, SideDefAccess as _, Vertex, WadLineDef, WadSideDef, WallTip,
+};
 
 #[allow(
     clippy::useless_conversion,

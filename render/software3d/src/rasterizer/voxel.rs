@@ -1,5 +1,5 @@
 use pic_data::VoxelColumn;
-use render_common::{FUZZ_TABLE, fuzz_darken};
+use render_common::{FUZZ_TABLE, PixelFmt, PixelTarget};
 
 use super::Rasterizer;
 
@@ -116,7 +116,7 @@ impl Rasterizer {
 
     /// Render voxel slice by iterating occupied texels with clip-space
     /// incremental projection, corner caching, and scanline parallelogram fill.
-    pub fn rasterize_voxel_texels(
+    pub fn rasterize_voxel_texels<P: PixelFmt>(
         &mut self,
         origin: glam::Vec3,
         u_vec: glam::Vec3,
@@ -127,15 +127,13 @@ impl Rasterizer {
         view_proj: &glam::Mat4,
         camera_pos: glam::Vec3,
         colourmaps: &[&[usize]],
-        palette: &[u32],
-        buffer: &mut [u32],
+        buffer: &mut PixelTarget<P>,
         pitch: usize,
     ) {
-        let s = match self.voxel_setup(
+        let Some(s) = self.voxel_setup(
             origin, u_vec, v_vec, tex_width, tex_height, view_proj, camera_pos,
-        ) {
-            Some(s) => s,
-            None => return,
+        ) else {
+            return;
         };
 
         let mut col_idx = 0usize;
@@ -158,25 +156,27 @@ impl Rasterizer {
                         top
                     } else {
                         let c10 = c00 + s.clip_du;
-                        match (pdiv(c00, s.half_w, s.half_h), pdiv(c10, s.half_w, s.half_h)) {
-                            (Some(a), Some(b)) => (a, b),
-                            _ => {
-                                c00 += s.clip_dv;
-                                cached_top = None;
-                                continue;
-                            }
+                        if let (Some(a), Some(b)) =
+                            (pdiv(c00, s.half_w, s.half_h), pdiv(c10, s.half_w, s.half_h))
+                        {
+                            (a, b)
+                        } else {
+                            c00 += s.clip_dv;
+                            cached_top = None;
+                            continue;
                         }
                     };
 
                     let c01 = c00 + s.clip_dv;
                     let c11 = c00 + s.clip_duv;
-                    let bot = match (pdiv(c01, s.half_w, s.half_h), pdiv(c11, s.half_w, s.half_h)) {
-                        (Some(a), Some(b)) => (a, b),
-                        _ => {
-                            c00 += s.clip_dv;
-                            cached_top = None;
-                            continue;
-                        }
+                    let bot = if let (Some(a), Some(b)) =
+                        (pdiv(c01, s.half_w, s.half_h), pdiv(c11, s.half_w, s.half_h))
+                    {
+                        (a, b)
+                    } else {
+                        c00 += s.clip_dv;
+                        cached_top = None;
+                        continue;
                     };
                     let (s3, s2) = bot;
                     cached_top = Some((s3, s2));
@@ -203,8 +203,9 @@ impl Rasterizer {
 
                         let band = (avg_iw * super::LIGHT_SCALE).min(47.0) as usize;
                         let colourmap = colourmaps[band];
-                        let lit_index = colourmap[color as usize];
-                        let pixel_color = palette[lit_index];
+                        let pixel_color = colourmap[color as usize] as u16;
+                        // avoid per-pixel palette lookup; quad is flat-shaded
+                        let texel = buffer.lookup(pixel_color);
 
                         if min_y == max_y {
                             let min_x = min_x as i32;
@@ -215,7 +216,7 @@ impl Rasterizer {
                                 if avg_iw
                                     > self.depth_buffer.peek_depth_unchecked(ux, min_y as usize)
                                 {
-                                    buffer[row + ux] = pixel_color;
+                                    buffer.write(row + ux, texel);
                                     self.depth_buffer.set_depth_update_hiz(
                                         ux,
                                         min_y as usize,
@@ -262,7 +263,7 @@ impl Rasterizer {
                                     if avg_iw
                                         > self.depth_buffer.peek_depth_unchecked(ux, py as usize)
                                     {
-                                        buffer[row + ux] = pixel_color;
+                                        buffer.write(row + ux, texel);
                                         self.depth_buffer.set_depth_update_hiz(
                                             ux,
                                             py as usize,
@@ -282,7 +283,7 @@ impl Rasterizer {
 
     /// Fuzz variant of voxel rendering — reads existing framebuffer pixels at
     /// Y-offset and darkens them, producing the spectre shimmer effect.
-    pub fn rasterize_voxel_fuzz(
+    pub fn rasterize_voxel_fuzz<P: PixelFmt>(
         &mut self,
         origin: glam::Vec3,
         u_vec: glam::Vec3,
@@ -292,15 +293,14 @@ impl Rasterizer {
         tex_height: u16,
         view_proj: &glam::Mat4,
         camera_pos: glam::Vec3,
-        buffer: &mut [u32],
+        buffer: &mut PixelTarget<P>,
         pitch: usize,
         fuzz_pos: &mut usize,
     ) {
-        let s = match self.voxel_setup(
+        let Some(s) = self.voxel_setup(
             origin, u_vec, v_vec, tex_width, tex_height, view_proj, camera_pos,
-        ) {
-            Some(s) => s,
-            None => return,
+        ) else {
+            return;
         };
         let h_clamp = s.h_f32 as i32 - 1;
 
@@ -324,25 +324,27 @@ impl Rasterizer {
                         top
                     } else {
                         let c10 = c00 + s.clip_du;
-                        match (pdiv(c00, s.half_w, s.half_h), pdiv(c10, s.half_w, s.half_h)) {
-                            (Some(a), Some(b)) => (a, b),
-                            _ => {
-                                c00 += s.clip_dv;
-                                cached_top = None;
-                                continue;
-                            }
+                        if let (Some(a), Some(b)) =
+                            (pdiv(c00, s.half_w, s.half_h), pdiv(c10, s.half_w, s.half_h))
+                        {
+                            (a, b)
+                        } else {
+                            c00 += s.clip_dv;
+                            cached_top = None;
+                            continue;
                         }
                     };
 
                     let c01 = c00 + s.clip_dv;
                     let c11 = c00 + s.clip_duv;
-                    let bot = match (pdiv(c01, s.half_w, s.half_h), pdiv(c11, s.half_w, s.half_h)) {
-                        (Some(a), Some(b)) => (a, b),
-                        _ => {
-                            c00 += s.clip_dv;
-                            cached_top = None;
-                            continue;
-                        }
+                    let bot = if let (Some(a), Some(b)) =
+                        (pdiv(c01, s.half_w, s.half_h), pdiv(c11, s.half_w, s.half_h))
+                    {
+                        (a, b)
+                    } else {
+                        c00 += s.clip_dv;
+                        cached_top = None;
+                        continue;
                     };
                     let (s3, s2) = bot;
                     cached_top = Some((s3, s2));
@@ -378,7 +380,7 @@ impl Rasterizer {
                                 {
                                     let offset = FUZZ_TABLE[*fuzz_pos % FUZZ_TABLE.len()];
                                     let src_y = (min_y + offset).clamp(0, h_clamp) as usize;
-                                    buffer[row + ux] = fuzz_darken(buffer[src_y * pitch + ux]);
+                                    buffer.fuzz(row + ux, src_y * pitch + ux);
                                     *fuzz_pos += 1;
                                     self.depth_buffer.set_depth_update_hiz(
                                         ux,
@@ -428,7 +430,7 @@ impl Rasterizer {
                                     {
                                         let offset = FUZZ_TABLE[*fuzz_pos % FUZZ_TABLE.len()];
                                         let src_y = (py + offset).clamp(0, h_clamp) as usize;
-                                        buffer[row + ux] = fuzz_darken(buffer[src_y * pitch + ux]);
+                                        buffer.fuzz(row + ux, src_y * pitch + ux);
                                         *fuzz_pos += 1;
                                         self.depth_buffer.set_depth_update_hiz(
                                             ux,

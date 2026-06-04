@@ -20,6 +20,7 @@ use wad::WadData;
 use wad::types::{WadColour, WadPalette, WadPatch, WadTexture};
 
 use self::sprites::{SpriteDef, init_spritedefs};
+use crate::colour::{ByteOrder, PALETTE_LEN, PalLit, PixelFmt};
 use game_config::GameMode;
 
 const MAXLIGHTZ: usize = 128;
@@ -59,8 +60,74 @@ pub struct SpritePic {
 }
 
 type Colourmap = [usize; 256];
-const PALLETE_LEN: usize = 14;
-const COLOURMAP_LEN: usize = 34;
+
+/// Damage/bonus/radsuit tint application.
+///
+/// `Vanilla` steps through the 14 discrete PLAYPAL palettes (`(cnt+7)>>3`).
+/// `Smooth` (Quake cshift) blends a continuous tint over palette 0 by intensity,
+/// rebuilding palette 0 each frame the tint is active. Same trigger counts.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum PaletteFade {
+    #[default]
+    Vanilla,
+    Smooth,
+}
+
+/// Smooth-fade tint colours (`0x00RRGGBB`; alpha unused) matching the PLAYPAL
+/// red/gold/green families.
+const CSHIFT_DAMAGE: u32 = 0x00FF_0000;
+const CSHIFT_BONUS: u32 = 0x00D7_B85A;
+const CSHIFT_RADSUIT: u32 = 0x0000_FF00;
+/// Max blend strength per family (fraction of full tint at peak count).
+const CSHIFT_DAMAGE_MAX: f32 = 0.7;
+const CSHIFT_BONUS_MAX: f32 = 0.5;
+const CSHIFT_RADSUIT_PCT: f32 = 0.125;
+
+/// Resolve raw player power state into the effective damage count + radsuit flag.
+///
+/// Berserk slowly raises the damage count, and radsuit is active near full
+/// ironfeet or on its blink cycle. Pure; the single definition shared by
+/// [`PicData::set_player_palette`] and the GPU screen-effects driver.
+pub fn resolve_tint_state(
+    damagecount: i32,
+    strength_power: i32,
+    ironfeet_power: i32,
+) -> (i32, bool) {
+    let mut damagecount = damagecount;
+    if strength_power != 0 {
+        // slowly fade the berserk out
+        let berkers = 12 - (strength_power >> 6);
+        if berkers > damagecount {
+            damagecount = berkers;
+        }
+    }
+    let radsuit = ironfeet_power > 4 * 32 || ironfeet_power & 8 != 0;
+    (damagecount, radsuit)
+}
+
+/// Player screen-tint colour + strength from the damage/bonus/radsuit counts.
+///
+/// Vanilla precedence (damage > bonus > radsuit). Pure: no palette state.
+/// Returns the packed tint (`0x00RRGGBB`) and blend fraction `0.0..1.0`. The
+/// single definition of the cshift colours — used by both the CPU smooth fade
+/// and the GPU screen-effects pass.
+pub fn player_cshift(damagecount: i32, bonuscount: i32, radsuit: bool) -> (u32, f32) {
+    if damagecount != 0 {
+        (
+            CSHIFT_DAMAGE,
+            (damagecount as f32 / 64.0).min(1.0) * CSHIFT_DAMAGE_MAX,
+        )
+    } else if bonuscount != 0 {
+        (
+            CSHIFT_BONUS,
+            (bonuscount as f32 / 32.0).min(1.0) * CSHIFT_BONUS_MAX,
+        )
+    } else if radsuit {
+        (CSHIFT_RADSUIT, CSHIFT_RADSUIT_PCT)
+    } else {
+        (0, 0.0)
+    }
+}
 
 /// CRT phosphor response simulation parameters.
 /// Operates in luminance space to avoid over-saturating colours.
@@ -141,13 +208,14 @@ fn apply_crt_tone(color: u32, tone_lut: &[u8; 256], saturation: f32) -> u32 {
 #[derive(Debug)]
 pub struct PicData {
     /// Original palettes from WAD (never modified after load)
-    palettes_raw: [WadPalette; PALLETE_LEN],
+    palettes_raw: [WadPalette; PALETTE_LEN],
     /// Active palettes (tone-corrected if CRT gamma enabled)
-    palettes: [WadPalette; PALLETE_LEN],
+    palettes: [WadPalette; PALETTE_LEN],
     crt_gamma: CrtGamma,
     crt_tone_lut: [u8; 256],
-    // Usually 34 blocks of 256, each u8 being an index in to the palette
-    colourmap: [Colourmap; COLOURMAP_LEN],
+    // Usually 34 blocks of 256, each being an index into the palette. Heap-
+    // allocated (like OG's zone-cached `colormaps`); render borrows into it.
+    colourmap: Vec<Colourmap>,
     /// Precomputed wall light colourmaps (16 light levels × 48 scales)
     lightscale_colourmap: Vec<Colourmap>,
     /// Precomputed flat light colourmaps (16 light levels × 128 distances)
@@ -173,6 +241,15 @@ pub struct PicData {
     /// `set_player_palette()`, typically done on frame start to set effects
     /// like take-damage.
     use_pallette: usize,
+    /// Bumped whenever the active palettes change (gamma/CRT). Consumers cache
+    /// derived tables (e.g. the `PalLit`) keyed on this.
+    palette_generation: u64,
+    /// How damage/bonus/radsuit tints are applied (vanilla discrete vs smooth
+    /// cshift blend).
+    fade_mode: PaletteFade,
+    /// Last smooth-cshift `(tint, pct*256)`; early-outs `apply_smooth_cshift`
+    /// when the blend is unchanged, so idle frames don't bump the generation.
+    last_cshift: (u32, i32),
 }
 
 impl Default for PicData {
@@ -182,7 +259,7 @@ impl Default for PicData {
             palettes: Default::default(),
             crt_gamma: CrtGamma::default(),
             crt_tone_lut: [0; 256],
-            colourmap: [[0; 256]; COLOURMAP_LEN],
+            colourmap: Vec::new(),
             use_fixed_colourmap: Default::default(),
             walls: Default::default(),
             wall_translation: Default::default(),
@@ -194,6 +271,9 @@ impl Default for PicData {
             sprite_defs: Default::default(),
             pwad_sprite_overrides: Default::default(),
             use_pallette: Default::default(),
+            palette_generation: 0,
+            fade_mode: PaletteFade::Vanilla,
+            last_cshift: (0, 0),
             lightscale_colourmap: vec![[0usize; 256]; LIGHTMAP_LEN],
             zlight_colourmap: vec![[0usize; 256]; 16 * 128],
         }
@@ -254,7 +334,7 @@ impl PicData {
 
             let mut x_pos = 0;
             let mut compose = vec![vec![u16::MAX; patch.height as usize]; patch.width as usize];
-            for c in patch.columns.iter() {
+            for c in &patch.columns {
                 if x_pos == patch.width as i32 {
                     break;
                 }
@@ -305,36 +385,38 @@ impl PicData {
             sprite_defs,
             pwad_sprite_overrides,
             use_pallette: 0,
+            palette_generation: 0,
+            fade_mode: PaletteFade::Vanilla,
+            last_cshift: (0, 0),
         };
         s.apply_crt_gamma();
         s
     }
 
-    fn init_palette(wad: &WadData) -> [WadPalette; PALLETE_LEN] {
+    fn init_palette(wad: &WadData) -> [WadPalette; PALETTE_LEN] {
         print!(".");
-        let mut tmp = [WadPalette::default(); PALLETE_LEN];
+        let mut tmp = [WadPalette::default(); PALETTE_LEN];
         for (i, p) in wad.lump_iter::<WadPalette>("PLAYPAL").enumerate() {
             tmp[i] = p;
         }
         tmp
     }
 
-    fn init_colourmap(wad: &WadData) -> [Colourmap; COLOURMAP_LEN] {
+    /// Load the COLORMAP lump as a heap table (matches OG Doom, which caches
+    /// `colormaps` in the zone heap and indexes it by pointer). The 34 × 256
+    /// `usize` maps are 68 KB — kept off the stack.
+    fn init_colourmap(wad: &WadData) -> Vec<Colourmap> {
         print!(".");
-        let mut tmp = [[0; 256]; COLOURMAP_LEN];
-        let maps: Vec<Colourmap> = wad
-            .colourmap_iter()
+        wad.colourmap_iter()
             .map(|i| i as usize)
             .collect::<Vec<usize>>()
             .chunks(256)
             .map(|v| {
-                let mut tmp: Colourmap = [0; 256];
-                tmp.copy_from_slice(v);
-                tmp
+                let mut map: Colourmap = [0; 256];
+                map.copy_from_slice(v);
+                map
             })
-            .collect();
-        tmp.copy_from_slice(&maps);
-        tmp
+            .collect()
     }
 
     /// Precompute the wall light scale LUT: maps (light level, scale) to
@@ -358,7 +440,7 @@ impl PicData {
 
     /// Force a fixed colourmap for all light levels. Pass 0 to disable.
     pub const fn set_fixed_lightscale(&mut self, colourmap: usize) {
-        self.use_fixed_colourmap = colourmap
+        self.use_fixed_colourmap = colourmap;
     }
 
     fn init_zlight_scales() -> [[usize; 128]; 16] {
@@ -435,7 +517,7 @@ impl PicData {
                 .map(&mut pic_func)
                 .collect();
             wall_pic.append(&mut textures2);
-        };
+        }
 
         let tmp = (texture_alloc_size / 1024).to_string();
         let size = tmp.split_at(2);
@@ -505,14 +587,14 @@ impl PicData {
 
     fn build_wall_pic(texture: WadTexture, patches: &[WadPatch]) -> WallPic {
         let mut compose = vec![u16::MAX; texture.height as usize * texture.width as usize];
-        for wad_tex_patch in texture.patches.iter() {
+        for wad_tex_patch in &texture.patches {
             let wad_patch = &patches[wad_tex_patch.patch_index];
             let mut x_pos = wad_tex_patch.origin_x;
             if x_pos.is_negative() {
                 x_pos = 0;
             }
 
-            for patch_column in wad_patch.columns.iter() {
+            for patch_column in &wad_patch.columns {
                 if patch_column.y_offset == 255 {
                     x_pos += 1;
                     continue;
@@ -546,8 +628,32 @@ impl PicData {
     }
 
     #[inline(always)]
+    pub fn use_palette(&self) -> usize {
+        self.use_pallette
+    }
+
+    /// All palettes as one `PALETTE_LEN * 256` slice, `[pal * 256 + colour]`.
+    #[inline(always)]
+    pub fn palettes_flat(&self) -> &[WadColour] {
+        // SAFETY: `WadPalette` is a newtype over `[WadColour; 256]`, so the
+        // array is already contiguous `PALETTE_LEN * 256` colours.
+        unsafe {
+            std::slice::from_raw_parts(
+                self.palettes.as_ptr().cast::<WadColour>(),
+                PALETTE_LEN * 256,
+            )
+        }
+    }
+
+    #[inline(always)]
     pub const fn wad_palette(&self) -> &WadPalette {
         &self.palettes[self.use_pallette]
+    }
+
+    /// Build a [`PalLit<T>`] from the active (gamma-baked) palettes.
+    /// Caller rebuilds on gamma change; tint select needs no rebuild.
+    pub fn build_pal_lit<T: PixelFmt>(&self, order: ByteOrder) -> PalLit<T> {
+        PalLit::new(&self.palettes, order)
     }
 
     #[inline(always)]
@@ -568,6 +674,7 @@ impl PicData {
     }
 
     fn apply_crt_gamma(&mut self) {
+        self.palette_generation = self.palette_generation.wrapping_add(1);
         self.palettes = self.palettes_raw;
         if !self.crt_gamma.enabled {
             return;
@@ -581,6 +688,19 @@ impl PicData {
         }
     }
 
+    /// Generation counter for the active palettes; bumped on every gamma/CRT
+    /// change. Cache derived tables (the `PalLit`) keyed on this.
+    #[inline(always)]
+    pub const fn palette_generation(&self) -> u64 {
+        self.palette_generation
+    }
+
+    /// All active palettes for the table build (gamma already baked).
+    #[inline(always)]
+    pub fn palettes(&self) -> &[WadPalette; PALETTE_LEN] {
+        &self.palettes
+    }
+
     /// Set palette based on player damage/bonus/power state.
     /// Arguments are extracted from Player to avoid depending on gameplay
     /// types.
@@ -591,14 +711,12 @@ impl PicData {
         strength_power: i32,
         ironfeet_power: i32,
     ) {
-        let mut damagecount = damagecount;
+        let (damagecount, radsuit) =
+            resolve_tint_state(damagecount, strength_power, ironfeet_power);
 
-        if strength_power != 0 {
-            // slowly fade the berzerk out
-            let berkers = 12 - (strength_power >> 6);
-            if berkers > damagecount {
-                damagecount = berkers;
-            }
+        if self.fade_mode == PaletteFade::Smooth {
+            self.apply_smooth_cshift(damagecount, bonuscount, radsuit);
+            return;
         }
 
         if damagecount != 0 {
@@ -609,7 +727,7 @@ impl PicData {
             self.use_pallette = ((bonuscount + 7) >> 3) as usize;
             self.use_pallette = self.use_pallette.min(NUMBONUSPALS - 1);
             self.use_pallette += STARTBONUSPALS;
-        } else if ironfeet_power > 4 * 32 || ironfeet_power & 8 != 0 {
+        } else if radsuit {
             self.use_pallette = RADIATIONPAL;
         } else {
             self.use_pallette = 0;
@@ -618,6 +736,58 @@ impl PicData {
         if self.use_pallette >= self.palettes.len() {
             self.use_pallette = self.palettes.len() - 1;
         }
+    }
+
+    /// Select vanilla (discrete PLAYPAL) or smooth (cshift blend) tinting.
+    /// Switching back to vanilla restores palette 0 from raw + gamma.
+    pub fn set_palette_fade(&mut self, mode: PaletteFade) {
+        if self.fade_mode == mode {
+            return;
+        }
+        self.fade_mode = mode;
+        if mode == PaletteFade::Vanilla {
+            self.use_pallette = 0;
+            self.apply_crt_gamma();
+            self.last_cshift = (0, 0);
+        } else {
+            self.last_cshift = (u32::MAX, -1);
+        }
+    }
+
+    /// Smooth fade: blend a continuous tint over palette 0 by intensity (Quake
+    /// cshift). Rebuilds palette 0 each call from raw+gamma+tint; `use_pallette`
+    /// stays 0. Intensity tracks the same counts, so it decays as they do.
+    fn apply_smooth_cshift(&mut self, damagecount: i32, bonuscount: i32, radsuit: bool) {
+        self.use_pallette = 0;
+        let (tint, pct) = player_cshift(damagecount, bonuscount, radsuit);
+
+        let key = (tint, (pct * 256.0) as i32);
+        if key == self.last_cshift {
+            return;
+        }
+        self.last_cshift = key;
+
+        let tr = ((tint >> 16) & 0xFF) as f32;
+        let tg = ((tint >> 8) & 0xFF) as f32;
+        let tb = (tint & 0xFF) as f32;
+        let lut = self.crt_tone_lut;
+        let sat = self.crt_gamma.saturation;
+        let gamma_on = self.crt_gamma.enabled;
+        for (i, raw) in self.palettes_raw[0].0.iter().enumerate() {
+            let r = ((raw >> 16) & 0xFF) as f32;
+            let g = ((raw >> 8) & 0xFF) as f32;
+            let b = (raw & 0xFF) as f32;
+            let nr = (r + (tr - r) * pct).clamp(0.0, 255.0) as u32;
+            let ng = (g + (tg - g) * pct).clamp(0.0, 255.0) as u32;
+            let nb = (b + (tb - b) * pct).clamp(0.0, 255.0) as u32;
+            let blended = 0xFF00_0000 | (nr << 16) | (ng << 8) | nb;
+            self.palettes[0].0[i] = if gamma_on {
+                apply_crt_tone(blended, &lut, sat)
+            } else {
+                blended
+            };
+        }
+        self.palette_generation = self.palette_generation.wrapping_add(1);
     }
 
     #[inline(always)]
@@ -665,7 +835,7 @@ impl PicData {
         if let Some(idx) = self.wallpic_num_for_name(name) {
             self.sky_pic = idx;
         } else {
-            log::warn!("UMAPINFO sky texture '{}' not found, keeping default", name);
+            log::warn!("UMAPINFO sky texture '{name}' not found, keeping default");
         }
     }
 
@@ -735,13 +905,12 @@ impl PicData {
 
     #[inline(always)]
     pub fn get_flat(&self, num: usize) -> &FlatPic {
-        if num >= self.flat_translation.len() || num >= self.flats.len() {
-            panic!(
-                "get_flat: flat index {num} out of range (translations {}, flats {})",
-                self.flat_translation.len(),
-                self.flats.len()
-            )
-        }
+        assert!(
+            !(num >= self.flat_translation.len() || num >= self.flats.len()),
+            "get_flat: flat index {num} out of range (translations {}, flats {})",
+            self.flat_translation.len(),
+            self.flats.len()
+        );
         #[cfg(not(feature = "safety_check"))]
         unsafe {
             let num = self.flat_translation.get_unchecked(num);
@@ -816,6 +985,29 @@ impl PicData {
     #[inline(always)]
     pub fn texture_height(&self, texture: usize) -> i32 {
         self.wall_pic(texture).height as i32
+    }
+
+    pub fn num_flats(&self) -> usize {
+        self.flats.len()
+    }
+
+    /// Number of sprite patches (lumps). Lets a renderer enumerate every patch
+    /// for a one-time atlas bake (cf. [`Self::sprite_patch`]).
+    pub fn num_sprite_patches(&self) -> usize {
+        self.sprite_patches.len()
+    }
+
+    /// Per-base-id wall texture translation (animation maps base id -> current
+    /// frame id). Indexed by base texture id.
+    #[inline(always)]
+    pub fn wall_translation(&self) -> &[usize] {
+        &self.wall_translation
+    }
+
+    /// Per-base-id flat translation (animation maps base id -> current frame id).
+    #[inline(always)]
+    pub fn flat_translation(&self) -> &[usize] {
+        &self.flat_translation
     }
 
     #[inline(always)]
@@ -927,5 +1119,78 @@ impl PicData {
         }
 
         ((r_sum / sample_count) << 16) | ((g_sum / sample_count) << 8) | (b_sum / sample_count)
+    }
+}
+
+#[cfg(test)]
+mod fade_tests {
+    use super::*;
+    use wad::WadData;
+
+    fn pics() -> Option<PicData> {
+        let path = test_utils::doom1_wad_path();
+        if !path.exists() {
+            eprintln!("skip fade_tests: {} not found", path.display());
+            return None;
+        }
+        Some(PicData::init(&WadData::new(&path), &["TROO"]))
+    }
+
+    #[test]
+    fn vanilla_damage_selects_red_palette() {
+        let Some(mut p) = pics() else { return };
+        p.set_palette_fade(PaletteFade::Vanilla);
+        p.set_player_palette(8, 0, 0, 0);
+        assert!(
+            (STARTREDPALS..STARTREDPALS + NUMREDPALS).contains(&p.use_palette()),
+            "damage should pick a red PLAYPAL index, got {}",
+            p.use_palette()
+        );
+    }
+
+    #[test]
+    fn smooth_damage_tints_palette0_red_keeps_index0() {
+        let Some(mut p) = pics() else { return };
+        let before_gen = p.palette_generation();
+        let base = p.palettes()[0].0[0];
+        p.set_palette_fade(PaletteFade::Smooth);
+        p.set_player_palette(40, 0, 0, 0);
+        assert_eq!(p.use_palette(), 0, "smooth keeps use_pallette = 0");
+        assert!(p.palette_generation() > before_gen, "generation bumped");
+        // Palette 0 entry should shift toward red vs its base.
+        let after = p.palettes()[0].0[0];
+        let br = (base >> 16) & 0xFF;
+        let ar = (after >> 16) & 0xFF;
+        assert!(ar >= br, "red channel should not decrease under red tint");
+    }
+
+    #[test]
+    fn smooth_then_vanilla_restores_palette0() {
+        let Some(mut p) = pics() else { return };
+        let base = p.palettes()[0].0[10];
+        p.set_palette_fade(PaletteFade::Smooth);
+        p.set_player_palette(40, 0, 0, 0);
+        p.set_palette_fade(PaletteFade::Vanilla);
+        assert_eq!(
+            p.palettes()[0].0[10],
+            base,
+            "switching back to vanilla restores palette 0 from raw+gamma"
+        );
+    }
+
+    #[test]
+    fn cshift_precedence_and_strength() {
+        // damage > bonus > radsuit; pct scales with the count to its max.
+        assert_eq!(player_cshift(0, 0, false), (0, 0.0));
+        let (tint, pct) = player_cshift(64, 16, true);
+        assert_eq!(tint, CSHIFT_DAMAGE);
+        assert_eq!(pct, CSHIFT_DAMAGE_MAX, "full damage count = max strength");
+        let (tint, pct) = player_cshift(0, 32, true);
+        assert_eq!(tint, CSHIFT_BONUS);
+        assert_eq!(pct, CSHIFT_BONUS_MAX, "full bonus count = max strength");
+        assert_eq!(
+            player_cshift(0, 0, true),
+            (CSHIFT_RADSUIT, CSHIFT_RADSUIT_PCT)
+        );
     }
 }

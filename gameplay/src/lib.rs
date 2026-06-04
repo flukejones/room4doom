@@ -25,6 +25,8 @@ mod player;
 mod player_sprite;
 pub mod save;
 pub(crate) mod sector_ext;
+#[cfg(test)]
+mod test_support;
 mod thing;
 mod thinker;
 

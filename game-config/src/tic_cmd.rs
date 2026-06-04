@@ -115,7 +115,7 @@ pub struct TicCmd {
 
 impl TicCmd {
     pub const fn new() -> Self {
-        TicCmd {
+        Self {
             forwardmove: 0,
             sidemove: 0,
             angleturn: 0,

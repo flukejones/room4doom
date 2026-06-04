@@ -107,7 +107,7 @@ impl GameTraits for Game {
     fn level_done(&mut self) {
         self.pending_action = GameAction::WorldDone;
         if self.world_info.didsecret {
-            for p in self.players.iter_mut() {
+            for p in &mut self.players {
                 p.didsecret = true;
             }
         }
@@ -151,7 +151,7 @@ impl GameTraits for Game {
         self.players[self.consoleplayer]
             .message
             .take()
-            .map(|s| s.to_string())
+            .map(|s| s.to_owned())
     }
 
     fn get_wad_data(&self) -> &WadData {
@@ -212,7 +212,7 @@ impl Game {
                 log::warn!("Could not send music, sound thread gone: {e}");
             }
         } else {
-            log::warn!("Music lump '{}' not found or empty", lump_name);
+            log::warn!("Music lump '{lump_name}' not found or empty");
         }
     }
 

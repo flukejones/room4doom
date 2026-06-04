@@ -11,7 +11,7 @@ use level::{LevelData, Sector, Segment, SubSector, is_subsector, subsector_index
 use log::trace;
 use math::{ANG90, ANG180, ANGLETOFINESHIFT, Angle, Bam, FixedT};
 use pic_data::PicData;
-use render_common::{DrawBuffer, RenderView};
+use render_common::{DrawBuffer as _, PixelFmt, PixelTarget, RenderView};
 use std::mem;
 
 const MAX_SEGS: usize = 128;
@@ -35,9 +35,10 @@ const FINEANGLES: usize = 8192;
 // sector_t *frontsector; // Shared in seg/bsp . c, in segs StoreWallRange +
 // sector_t *backsector;
 
-/// We store most of what is needed for rendering in various functions here to
-/// avoid having to pass too many things in args through multiple function
-/// calls. This is due to the Doom C relying a fair bit on global state.
+/// Render state shared across the BSP traverse.
+///
+/// Holds most of what rendering needs so it isn't threaded through many
+/// function args — the Doom C relied on global state for this.
 ///
 /// `RenderData` will be passed to the sprite drawer/clipper to use `drawsegs`
 ///
@@ -60,7 +61,6 @@ pub struct Software25D {
 
     pub(super) r_data: RenderData,
     pub(super) seg_renderer: SegRender,
-    pub(super) _debug: bool,
 
     /// Used for checking if a sector has been worked on when iterating over
     pub(super) checked_sectors: [i32; MAX_SECTS],
@@ -92,12 +92,14 @@ impl Software25D {
     /// - Runs BSP traversal to emit walls and collect sprites
     /// - Draws masked/translucent elements (sprites, mid-textures)
     ///   back-to-front
-    pub fn draw_view(
+    ///
+    /// Render the player view, writing final pixels directly into `rend`.
+    pub fn draw_view<P: PixelFmt>(
         &mut self,
         view: &RenderView,
         level_data: &LevelData,
         pic_data: &mut PicData,
-        rend: &mut impl DrawBuffer,
+        rend: &mut PixelTarget<P>,
     ) {
         // TODO: pull duplicate functionality out to a function
         self.clear(FixedT::from(rend.size().width()));
@@ -139,7 +141,11 @@ impl Software25D {
         // TODO: netupdate again
     }
 
-    pub fn new(fov: f32, width: f32, height: f32, hi_res: bool, debug: bool) -> Software25D {
+    #[allow(
+        clippy::large_stack_arrays,
+        reason = "OG-style fixed vissprite pool; renderer is long-lived, built once"
+    )]
+    pub fn new(fov: f32, width: f32, height: f32, hi_res: bool) -> Self {
         let look_dirs = LookDirs::new(hi_res);
         let (_, _, focal_length_f) = render_common::og_projection(fov, width, height);
         // OG: projection = centerxfrac = half_width (used for scale comparison)
@@ -206,7 +212,7 @@ impl Software25D {
 
         // OG Doom fencepost fix
         let w = width as i32;
-        for v in viewangletox.iter_mut() {
+        for v in &mut viewangletox {
             if *v == -1 {
                 *v = 0;
             } else if *v >= w {
@@ -222,7 +228,6 @@ impl Software25D {
                 first: FixedT::ZERO,
                 last: FixedT::ZERO,
             }; MAX_SEGS],
-            _debug: debug,
             checked_sectors: [-1; MAX_SECTS],
             checked_idx: 0,
             vissprites: [VisSprite::new(); MAX_VIS_SPRITES],
@@ -241,13 +246,14 @@ impl Software25D {
 
     /// Recompute derived values when the 3D view height changes (statusbar
     /// toggle).
-    pub fn set_view_height(&mut self, vh: usize) {
+    pub fn set_view_height(&mut self, vh: i32) {
+        let vh = vh as usize;
         self.seg_renderer.set_view_height(vh);
         self.r_data.set_view_height(vh);
     }
 
     fn clear(&mut self, screen_width: FixedT) {
-        for vis in self.vissprites.iter_mut() {
+        for vis in &mut self.vissprites {
             *vis = unsafe { mem::zeroed::<VisSprite>() };
         }
         self.next_vissprite = 0;
@@ -269,13 +275,13 @@ impl Software25D {
     /// - Maps clipped angles to screen columns via `viewangletox`
     /// - Routes to `clip_solid_seg` for one-sided walls and closed doors,
     ///   `clip_portal_seg` for two-sided lines (windows, height changes)
-    fn add_line<'a>(
+    fn add_line<'a, P: PixelFmt>(
         &'a mut self,
         view: &RenderView,
         seg: &'a Segment,
         front_sector: &'a Sector,
         pic_data: &PicData,
-        rend: &mut impl DrawBuffer,
+        rend: &mut PixelTarget<P>,
     ) {
         #[cfg(feature = "hprof")]
         profile!("add_line");
@@ -360,13 +366,13 @@ impl Software25D {
     }
 
     /// R_Subsector - r_bsp
-    fn draw_subsector(
+    fn draw_subsector<P: PixelFmt>(
         &mut self,
         map: &LevelData,
         view: &RenderView,
         subsect: &SubSector,
         pic_data: &PicData,
-        rend: &mut impl DrawBuffer,
+        rend: &mut PixelTarget<P>,
     ) {
         #[cfg(feature = "hprof")]
         profile!("draw_subsector");
@@ -382,7 +388,7 @@ impl Software25D {
 
     /// R_ClearClipSegs - r_bsp
     fn clear_clip_segs(&mut self, screen_width: FixedT) {
-        for s in self.solidsegs.iter_mut() {
+        for s in &mut self.solidsegs {
             s.first = screen_width;
             s.last = FixedT::MAX;
         }
@@ -403,14 +409,14 @@ impl Software25D {
     /// - Finds the first clip range overlapping `[first, last]`
     /// - Renders any uncovered fragments between existing ranges
     /// - Merges the new range into `solidsegs`, crunching overlapped entries
-    fn clip_solid_seg(
+    fn clip_solid_seg<P: PixelFmt>(
         &mut self,
         first: FixedT,
         last: FixedT,
         seg: &Segment,
         view: &RenderView,
         pic_data: &PicData,
-        rend: &mut impl DrawBuffer,
+        rend: &mut PixelTarget<P>,
     ) {
         let mut next;
 
@@ -512,14 +518,14 @@ impl Software25D {
     /// the segment into the occlusion list. This allows geometry behind
     /// portals (windows, height changes with upper/lower textures) to
     /// remain visible.
-    fn clip_portal_seg(
+    fn clip_portal_seg<P: PixelFmt>(
         &mut self,
         first: FixedT,
         last: FixedT,
         seg: &Segment,
         view: &RenderView,
         pic_data: &PicData,
-        rend: &mut impl DrawBuffer,
+        rend: &mut PixelTarget<P>,
     ) {
         // Find the first range that touches the range
         //  (adjacent pixels are touching).
@@ -612,13 +618,13 @@ impl Software25D {
     /// position. Leaf nodes (subsectors) are drawn immediately. For internal
     /// nodes, the front child is always visited; the back child is only
     /// visited if its bounding box passes the FOV/occlusion test.
-    fn render_bsp_node(
+    fn render_bsp_node<P: PixelFmt>(
         &mut self,
         map: &LevelData,
         view: &RenderView,
         node_id: u32,
         pic_data: &PicData,
-        rend: &mut impl DrawBuffer,
+        rend: &mut PixelTarget<P>,
         count: &mut usize,
     ) {
         // profile!("render_bsp_node");

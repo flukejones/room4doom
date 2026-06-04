@@ -10,7 +10,9 @@ use glam::{Vec2, Vec3, Vec4};
 use level::Sector;
 use math::{FixedT, point_to_angle_2};
 use pic_data::{PicData, VoxelSlices};
-use render_common::{DrawBuffer, RenderView};
+use render_common::{
+    DrawBuffer as _, PixelFmt, PixelTarget, RenderView, VoxelTransformIn, voxel_transform,
+};
 use std::f32::consts::{FRAC_PI_2, TAU};
 
 use crate::{SCREEN_EDGE_SNAP, Software3D};
@@ -19,7 +21,6 @@ const FF_FULLBRIGHT: u32 = 0x8000;
 const FF_FRAMEMASK: u32 = 0x7FFF;
 const FRAME_ROT_OFFSET: f32 = 9.0 * FRAC_PI_2 / 4.0;
 const FRAME_ROT_SELECT: f32 = 8.0 / TAU;
-const VOXEL_BOB_RANGE: f32 = 6.0;
 const VOXEL_MAX_DIST: f32 = 666.0;
 const VOXEL_MAX_DIST_SQ: f32 = VOXEL_MAX_DIST * VOXEL_MAX_DIST;
 pub(crate) struct SpriteQuad {
@@ -34,12 +35,12 @@ pub(crate) struct SpriteQuad {
 impl Software3D {
     /// Collect and draw all visible sprites after polygon rendering.
     /// Creates billboard quads and renders them through the polygon pipeline.
-    pub(crate) fn draw_sprites(
+    pub(crate) fn draw_sprites<P: PixelFmt>(
         &mut self,
         sectors: &[Sector],
         view: &RenderView,
-        pic_data: &mut PicData,
-        buffer: &mut impl DrawBuffer,
+        pic_data: &PicData,
+        buffer: &mut PixelTarget<P>,
     ) {
         let player_pos = Vec3::new(view.x.into(), view.y.into(), view.viewz.into());
         let player_angle = view.angle.rad();
@@ -70,7 +71,7 @@ impl Software3D {
                 let frame = (thing.frame & FF_FRAMEMASK) as usize;
 
                 // Check for voxel replacement (within distance threshold)
-                if let Some(ref mgr) = voxel_mgr
+                if let Some(mgr) = &voxel_mgr
                     && let Some(vslices) = mgr.get(sprnum, frame)
                 {
                     let dx = player_pos.x - thing.x.to_f32();
@@ -169,38 +170,29 @@ impl Software3D {
 
         let lerp =
             |prev: FixedT, curr: FixedT| prev.to_f32() + (curr.to_f32() - prev.to_f32()) * frac;
-        let base_x = lerp(thing.prev_x, thing.x);
-        let base_y = lerp(thing.prev_y, thing.y);
-        let base_z = lerp(thing.prev_z, thing.z);
-
-        let spin_rate = if thing.flags.contains(MapObjFlag::Dropped) {
-            vslices.dropped_spin
-        } else {
-            vslices.placed_spin
-        };
-        let (angle_rad, spin_bob) = if vslices.face_player {
-            let dx = player_pos.x - base_x;
-            let dy = player_pos.y - base_y;
-            (dy.atan2(dx) + vslices.angle_offset, 0.0)
-        } else if spin_rate != 0.0 {
-            let spin_angle = spin_rate * (game_tic as f32 + frac);
-            let bob = (1.0 - (spin_angle * 3.0).cos()) * 0.5 * VOXEL_BOB_RANGE;
-            (spin_angle + vslices.angle_offset, bob)
-        } else {
-            (thing.angle.rad() + vslices.angle_offset, 0.0)
-        };
-
-        let brightness = if thing.frame & FF_FULLBRIGHT != 0 {
-            15
-        } else {
-            (light_level + player_extralight).min(15)
-        };
+        let transform = voxel_transform(
+            vslices,
+            &VoxelTransformIn {
+                base_x: lerp(thing.prev_x, thing.x),
+                base_y: lerp(thing.prev_y, thing.y),
+                base_z: lerp(thing.prev_z, thing.z),
+                thing_angle_rad: thing.angle.rad(),
+                player_x: player_pos.x,
+                player_y: player_pos.y,
+                game_tic,
+                frac,
+                dropped: thing.flags.contains(MapObjFlag::Dropped),
+                fullbright: thing.frame & FF_FULLBRIGHT != 0,
+                light_level,
+                extralight: player_extralight,
+            },
+        );
 
         let params = VoxelCollectParams {
-            base_pos: Vec3::new(base_x, base_y, base_z + spin_bob),
-            cos_a: angle_rad.cos(),
-            sin_a: angle_rad.sin(),
-            brightness,
+            base_pos: Vec3::from(transform.pos),
+            cos_a: transform.angle_rad.cos(),
+            sin_a: transform.angle_rad.sin(),
+            brightness: transform.brightness,
             player_pos,
             view_proj,
             screen_width,
@@ -352,11 +344,11 @@ impl Software3D {
     /// - Clips each triangle against the view frustum
     /// - Projects clipped vertices to screen space with perspective divide
     /// - Dispatches to `draw_sprite_polygon` or `draw_sprite_fuzz`
-    fn render_sprite_quad(
+    fn render_sprite_quad<P: PixelFmt>(
         &mut self,
         quad: &SpriteQuad,
-        pic_data: &mut PicData,
-        buffer: &mut impl DrawBuffer,
+        pic_data: &PicData,
+        buffer: &mut PixelTarget<P>,
     ) {
         // We need to split the quad into two triangles and render each,
         // because the clipping pipeline works with triangles (3 input vertices)
@@ -437,18 +429,17 @@ impl Software3D {
     ///
     /// - Caches colourmaps per brightness band to avoid repeated lookups
     /// - Dispatches to `rasterize_voxel_texels` or `rasterize_voxel_fuzz`
-    fn render_voxel_slices(
+    fn render_voxel_slices<P: PixelFmt>(
         &mut self,
         slices: &[VoxelSliceRef],
         view_proj: &glam::Mat4,
-        pic_data: &mut PicData,
-        buffer: &mut impl DrawBuffer,
+        pic_data: &PicData,
+        buffer: &mut PixelTarget<P>,
     ) {
         #[cfg(feature = "hprof")]
         profile!("voxel_render_all");
         let cp = self.camera_pos;
         let buf_pitch = buffer.pitch();
-        let palette = pic_data.palette();
 
         let mut cached_brightness = usize::MAX;
         let mut colourmaps = [&[][..]; 48];
@@ -463,7 +454,6 @@ impl Software3D {
             }
 
             let columns = vq.columns;
-            let buf = buffer.buf_mut();
             if vq.is_shadow {
                 self.rasterizer.rasterize_voxel_fuzz(
                     vq.origin,
@@ -474,7 +464,7 @@ impl Software3D {
                     vq.height,
                     view_proj,
                     cp,
-                    buf,
+                    buffer,
                     buf_pitch,
                     &mut self.fuzz_pos,
                 );
@@ -489,8 +479,7 @@ impl Software3D {
                     view_proj,
                     cp,
                     &colourmaps,
-                    palette,
-                    buf,
+                    buffer,
                     buf_pitch,
                 );
             }

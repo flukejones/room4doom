@@ -45,9 +45,9 @@ fn main() {
     if let Err(e) =
         rbsp::wad_io::process_wad(Path::new(&args.input), Path::new(&output_path), &options)
     {
-        eprintln!("Error: {}", e);
+        eprintln!("Error: {e}");
         process::exit(1);
     }
 
-    eprintln!("Wrote {}", output_path);
+    eprintln!("Wrote {output_path}");
 }

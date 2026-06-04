@@ -1,7 +1,8 @@
-//! A `GameSubsystem` is defined as something that can be a self-contained
-//! entity. These implement the `SubsystemTrait` which allows them to initialise
-//! their state, tick (update self), and draw. The methods on this trait provide
-//! access to `GameTraits` methods, and the `PixelBuf`.
+//! A `GameSubsystem` is a self-contained entity.
+//!
+//! These implement `SubsystemTrait` to initialise state, tick (update self),
+//! and draw. The trait's methods provide access to `GameTraits` and the
+//! `PixelBuf`.
 
 use gamestate_traits::SubsystemTrait;
 

@@ -47,7 +47,7 @@ pub fn point_on_line_side(x: FixedT, y: FixedT, line: &LineDef) -> usize {
         let dy = y.to_fixed_raw().wrapping_sub(v1y.to_fixed_raw());
         let left = ((ldy.to_fixed_raw() >> 16) as i64 * dx as i64) >> 16;
         let right = (dy as i64 * (ldx.to_fixed_raw() >> 16) as i64) >> 16;
-        if right < left { 0 } else { 1 }
+        usize::from(right >= left)
     }
     #[cfg(any(feature = "fixed64", feature = "fixed64hd"))]
     {
@@ -375,10 +375,10 @@ impl PortalZ {
         let front = &line.frontsector;
         let back = unsafe { line.backsector.as_ref().unwrap_unchecked() };
 
-        let front_ceil: FixedT = FixedT::from_fixed(front.ceilingheight.to_fixed_raw());
-        let back_ceil: FixedT = FixedT::from_fixed(back.ceilingheight.to_fixed_raw());
-        let front_floor: FixedT = FixedT::from_fixed(front.floorheight.to_fixed_raw());
-        let back_floor: FixedT = FixedT::from_fixed(back.floorheight.to_fixed_raw());
+        let front_ceil = FixedT::from_fixed(front.ceilingheight.to_fixed_raw());
+        let back_ceil = FixedT::from_fixed(back.ceilingheight.to_fixed_raw());
+        let front_floor = FixedT::from_fixed(front.floorheight.to_fixed_raw());
+        let back_floor = FixedT::from_fixed(back.floorheight.to_fixed_raw());
 
         let top_z = if front_ceil < back_ceil {
             front_ceil
@@ -432,10 +432,7 @@ pub fn traverse_intercepts(
             return true;
         }
 
-        let idx = match nearest {
-            Some(idx) => idx,
-            None => return true,
-        };
+        let Some(idx) = nearest else { return true };
 
         if !trav(&mut intercepts[idx]) {
             return false;
@@ -807,4 +804,163 @@ fn add_thing_intercept(
         thing: Some(MapPtr::new(thing)),
     });
     true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{box_on_line_side, p_divline_side_raw, point_on_line_side};
+    use math::FixedT;
+    use test_utils::{doom1_wad_path, load_map};
+
+    // E1M1: ld0 Horizontal, ld1 Vertical, ld5/40 Positive, ld6/41 Negative.
+    // Geometry pinned below so a WAD swap that moves them is caught.
+
+    fn e1m1() -> level::LevelData {
+        load_map(&doom1_wad_path(), "E1M1")
+    }
+
+    fn fp(v: i32) -> FixedT {
+        FixedT::from(v)
+    }
+
+    #[test]
+    fn point_on_line_side_geometry_pinned() {
+        let map = e1m1();
+        let ld0 = &map.linedefs[0];
+        assert_eq!((ld0.v1.x as i32, ld0.v1.y as i32), (1088, -3680));
+        assert_eq!(ld0.delta_fp, [-(64 << 16), 0]);
+        let ld1 = &map.linedefs[1];
+        assert_eq!((ld1.v1.x as i32, ld1.v1.y as i32), (1024, -3680));
+        assert_eq!(ld1.delta_fp, [0, 32 << 16]);
+        let ld5 = &map.linedefs[5];
+        assert_eq!((ld5.v1.x as i32, ld5.v1.y as i32), (1280, -3552));
+        let ld6 = &map.linedefs[6];
+        assert_eq!((ld6.v1.x as i32, ld6.v1.y as i32), (960, -3648));
+    }
+
+    #[test]
+    fn point_on_line_side_horizontal() {
+        // ld0 horizontal, v1y=-3680, delta_x<0. OG: y<=v1y -> 1, else 0.
+        let map = e1m1();
+        let ld = &map.linedefs[0];
+        assert_eq!(point_on_line_side(fp(1056), fp(-3700), ld), 1);
+        assert_eq!(point_on_line_side(fp(1056), fp(-3660), ld), 0);
+        assert_eq!(point_on_line_side(fp(1056), fp(-3680), ld), 1);
+    }
+
+    #[test]
+    fn point_on_line_side_vertical() {
+        // ld1 vertical, v1x=1024, delta_y>0. OG: x<=v1x -> 1, else 0.
+        let map = e1m1();
+        let ld = &map.linedefs[1];
+        assert_eq!(point_on_line_side(fp(1000), fp(-3664), ld), 1);
+        assert_eq!(point_on_line_side(fp(1056), fp(-3664), ld), 0);
+        assert_eq!(point_on_line_side(fp(1024), fp(-3664), ld), 1);
+    }
+
+    /// Diagonals: point_on_line_side must agree with the divline form (on-line
+    /// 2 maps to back 1).
+    #[test]
+    fn point_on_line_side_diagonals_agree_with_divline() {
+        let map = e1m1();
+        for &ldn in &[5usize, 6, 40, 41] {
+            let ld = &map.linedefs[ldn];
+            let (v1x, v1y) = (ld.v1.x as i32, ld.v1.y as i32);
+            let (ldx, ldy) = (ld.delta_fp[0] >> 16, ld.delta_fp[1] >> 16);
+            // Sample a grid of points around the line.
+            for px in (v1x - 200..=v1x + 200).step_by(40) {
+                for py in (v1y - 200..=v1y + 200).step_by(40) {
+                    let pls = point_on_line_side(fp(px), fp(py), ld);
+                    let dls =
+                        p_divline_side_raw(fp(px), fp(py), fp(v1x), fp(v1y), fp(ldx), fp(ldy));
+                    // divline 2 (exactly on) corresponds to point_on_line_side's
+                    // right==left case, which it reports as back (1).
+                    let dls_norm = if dls == 2 { 1 } else { dls };
+                    assert_eq!(pls, dls_norm, "ld{ldn} point=({px},{py})");
+                }
+            }
+        }
+    }
+
+    /// box: above / below / straddling (-1) the horizontal line.
+    #[test]
+    fn box_on_line_side_horizontal() {
+        let map = e1m1();
+        let ld = &map.linedefs[0];
+        let b = |t: i32, bm: i32, l: i32, r: i32| [t << 16, bm << 16, l << 16, r << 16];
+        assert_eq!(box_on_line_side(&b(-3600, -3660, 1040, 1072), ld), 0);
+        assert_eq!(box_on_line_side(&b(-3700, -3760, 1040, 1072), ld), 1);
+        assert_eq!(box_on_line_side(&b(-3600, -3760, 1040, 1072), ld), -1);
+    }
+
+    /// box: right / left / straddling (-1) the vertical line.
+    #[test]
+    fn box_on_line_side_vertical() {
+        let map = e1m1();
+        let ld = &map.linedefs[1];
+        let b = |t: i32, bm: i32, l: i32, r: i32| [t << 16, bm << 16, l << 16, r << 16];
+        assert_eq!(box_on_line_side(&b(-3650, -3700, 1040, 1080), ld), 0);
+        assert_eq!(box_on_line_side(&b(-3650, -3700, 980, 1020), ld), 1);
+        assert_eq!(box_on_line_side(&b(-3650, -3700, 1000, 1080), ld), -1);
+    }
+
+    /// Exercises the ndx==0 / ndy==0 / on-line (2) branches.
+    #[test]
+    fn divline_side_axis_aligned_and_on_line() {
+        // Vertical partition at x=0, +y: x<=0 -> 1, x>0 -> 0, on -> 2.
+        assert_eq!(
+            p_divline_side_raw(fp(-10), fp(5), fp(0), fp(0), fp(0), fp(10)),
+            1
+        );
+        assert_eq!(
+            p_divline_side_raw(fp(10), fp(5), fp(0), fp(0), fp(0), fp(10)),
+            0
+        );
+        assert_eq!(
+            p_divline_side_raw(fp(0), fp(5), fp(0), fp(0), fp(0), fp(10)),
+            2
+        );
+        // Horizontal partition at y=0, +x: below -> 0, above -> 1, on -> 2.
+        assert_eq!(
+            p_divline_side_raw(fp(5), fp(-10), fp(0), fp(0), fp(10), fp(0)),
+            0
+        );
+        assert_eq!(
+            p_divline_side_raw(fp(5), fp(10), fp(0), fp(0), fp(10), fp(0)),
+            1
+        );
+        assert_eq!(
+            p_divline_side_raw(fp(5), fp(0), fp(0), fp(0), fp(10), fp(0)),
+            2
+        );
+    }
+
+    /// Sign-bit regression: 45° partitions with large +/- coords that once
+    /// mis-signed.
+    #[test]
+    fn divline_side_sign_bit_large_coords() {
+        let n = (fp(0), fp(0), fp(1000), fp(1000));
+        assert_eq!(
+            p_divline_side_raw(fp(-2000), fp(2000), n.0, n.1, n.2, n.3),
+            1
+        );
+        assert_eq!(
+            p_divline_side_raw(fp(2000), fp(-2000), n.0, n.1, n.2, n.3),
+            0
+        );
+        assert_eq!(
+            p_divline_side_raw(fp(1500), fp(1500), n.0, n.1, n.2, n.3),
+            2
+        );
+        // Anti-diagonal dir = (+1,-1).
+        let m = (fp(0), fp(0), fp(1000), fp(-1000));
+        assert_eq!(
+            p_divline_side_raw(fp(2000), fp(2000), m.0, m.1, m.2, m.3),
+            1
+        );
+        assert_eq!(
+            p_divline_side_raw(fp(-2000), fp(-2000), m.0, m.1, m.2, m.3),
+            0
+        );
+    }
 }

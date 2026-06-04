@@ -45,7 +45,7 @@ fn check_image_patch() {
     assert_eq!(patch.columns[15].pixels.len(), 0);
 }
 
-#[ignore = "sigil.wad can't be included in git"]
+#[cfg_attr(not(feature = "wad-sigil"), ignore = "needs sigil.wad (~/doom/)")]
 #[test]
 fn load_sigil() {
     let mut wad = WadData::new(&doom_wad_path());
@@ -64,7 +64,7 @@ fn load_sigil() {
 }
 
 #[test]
-#[ignore = "sunder.wad can't be included in git"]
+#[cfg_attr(not(feature = "wad-sunder"), ignore = "needs sunder.wad (~/doom/)")]
 fn load_sunder() {
     let wad = WadData::new(&sunder_wad_path());
     assert_eq!(wad.lumps().len(), 2530);
@@ -87,7 +87,7 @@ fn find_e1m1_blockmap() {
 }
 
 #[test]
-#[ignore = "sunder.wad can't be included in git"]
+#[cfg_attr(not(feature = "wad-sunder"), ignore = "needs sunder.wad (~/doom/)")]
 fn find_sunder15_reject() {
     let wad = WadData::new(&sunder_wad_path());
     let rejects = wad.read_rejects("MAP15").unwrap();

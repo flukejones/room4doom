@@ -2,64 +2,24 @@
 //!
 //! Spawns a camera at the player-1 start at eye height and renders the same
 //! frame repeatedly — isolating the rasterizer. Two scenes (doom1 E1M2;
-//! doom + sigil2 E6M6) × two resolutions (320×200, 1280×800), no voxels.
+//! doom + sigil2 E6M6) × two resolutions (320×200, 1280×800), no voxels. The
+//! scene writes final pixels straight into the `PixelTarget` surface (no index
+//! plane, no resolve).
+
+use std::path::Path;
 
 use criterion::{Criterion, criterion_group, criterion_main};
-use math::{Angle, Bam, FixedT};
-use pic_data::PicData;
-use render_common::{BufferSize, DrawBuffer, RenderPspDef, RenderView};
-use software3d::{DebugDrawOptions, Software3D};
-use std::path::Path;
-use wad::WadData;
-
 use level::LevelData;
+use math::{Angle, Bam, FixedT};
+use pic_data::{ByteOrder, PalLit, PicData};
+use render_common::{BufferSize, PixelTarget, RenderPspDef, RenderView};
+use software3d::Software3D;
+use wad::WadData;
 
 const FOV: f32 = std::f32::consts::FRAC_PI_2;
 const VIEWHEIGHT: f32 = 41.0;
 const LOW: (usize, usize) = (320, 200);
 const HI: (usize, usize) = (1280, 800);
-
-/// Headless framebuffer; indexes by its own width so any resolution works.
-struct HeadlessBuffer {
-    size: BufferSize,
-    data: Vec<u32>,
-    w: usize,
-}
-
-impl HeadlessBuffer {
-    fn new(w: usize, h: usize) -> Self {
-        Self {
-            size: BufferSize::new(w, h),
-            data: vec![0u32; w * h],
-            w,
-        }
-    }
-    fn any_drawn(&self) -> bool {
-        self.data.iter().any(|&p| p & 0x00FF_FFFF != 0)
-    }
-}
-
-impl DrawBuffer for HeadlessBuffer {
-    fn size(&self) -> &BufferSize {
-        &self.size
-    }
-    fn set_pixel(&mut self, x: usize, y: usize, colour: u32) {
-        self.data[y * self.w + x] = colour;
-    }
-    fn read_pixel(&self, x: usize, y: usize) -> u32 {
-        self.data[y * self.w + x]
-    }
-    fn get_buf_index(&self, x: usize, y: usize) -> usize {
-        y * self.w + x
-    }
-    fn pitch(&self) -> usize {
-        self.w
-    }
-    fn buf_mut(&mut self) -> &mut [u32] {
-        &mut self.data
-    }
-    fn debug_flip_and_present(&mut self) {}
-}
 
 /// Build a fixed-pose RenderView at the player-1 start, eye height above floor.
 fn build_view(level: &mut LevelData) -> RenderView {
@@ -124,7 +84,12 @@ fn load_from(wad: WadData, map: &str) -> (LevelData, PicData) {
     (level, pics)
 }
 
-/// Render `map` repeatedly at `(w, h)` under the given bench name.
+/// True if the rendered surface drew anything (RGB non-zero somewhere).
+fn any_drawn(surface: &[u32]) -> bool {
+    surface.iter().any(|&p| p & 0x00FF_FFFF != 0)
+}
+
+/// Render `map` repeatedly at `(w, h)` into a u32 `PixelTarget` under `name`.
 fn bench_scene(
     c: &mut Criterion,
     name: &str,
@@ -132,16 +97,58 @@ fn bench_scene(
     pics: &mut PicData,
     (w, h): (usize, usize),
 ) {
-    let mut renderer = Software3D::new(w as f32, h as f32, FOV, DebugDrawOptions::default());
+    let mut renderer = Software3D::new(w as f32, h as f32, FOV);
     let view = build_view(level);
-    let mut buffer = HeadlessBuffer::new(w, h);
+    let tint = pics.use_palette();
+    let pal: PalLit<u32> = pics.build_pal_lit(ByteOrder::Argb);
+    let size = BufferSize::new(w, h);
+    let mut surface = vec![0u32; w * h];
 
     // Sanity: a broken setup renders a blank frame.
-    renderer.draw_view(&view, level, pics, &mut buffer);
-    assert!(buffer.any_drawn(), "{name}: rendered a blank frame");
+    {
+        let mut t = PixelTarget::new(&mut surface, size, w, &pal, tint);
+        renderer.draw_view(&view, level, pics, &mut t);
+    }
+    assert!(any_drawn(&surface), "{name}: rendered a blank frame");
 
     c.bench_function(name, |b| {
-        b.iter(|| renderer.draw_view(&view, level, pics, &mut buffer));
+        b.iter(|| {
+            let mut t = PixelTarget::new(&mut surface, size, w, &pal, tint);
+            renderer.draw_view(&view, level, pics, &mut t);
+        });
+    });
+}
+
+/// Compare the full scene-draw cost of the two surface formats at one size: the
+/// scene writes final pixels straight into the output surface (no resolve).
+fn bench_pixel_modes(
+    c: &mut Criterion,
+    prefix: &str,
+    level: &mut LevelData,
+    pics: &mut PicData,
+    (w, h): (usize, usize),
+) {
+    let mut renderer = Software3D::new(w as f32, h as f32, FOV);
+    let view = build_view(level);
+    let tint = pics.use_palette();
+    let pal32: PalLit<u32> = pics.build_pal_lit(ByteOrder::Argb);
+    let pal16: PalLit<u16> = pics.build_pal_lit(ByteOrder::Argb);
+    let size = BufferSize::new(w, h);
+
+    let mut out32 = vec![0u32; w * h];
+    c.bench_function(&format!("{prefix}/rgb888"), |b| {
+        b.iter(|| {
+            let mut t = PixelTarget::new(&mut out32, size, w, &pal32, tint);
+            renderer.draw_view(&view, level, pics, &mut t);
+        });
+    });
+
+    let mut out16 = vec![0u16; w * h];
+    c.bench_function(&format!("{prefix}/rgb565"), |b| {
+        b.iter(|| {
+            let mut t = PixelTarget::new(&mut out16, size, w, &pal16, tint);
+            renderer.draw_view(&view, level, pics, &mut t);
+        });
     });
 }
 
@@ -149,10 +156,14 @@ fn benches(c: &mut Criterion) {
     if let Some((mut level, mut pics)) = load_iwad(&test_utils::doom1_wad_path(), "E1M2") {
         bench_scene(c, "sw3d/e1m2/320x200", &mut level, &mut pics, LOW);
         bench_scene(c, "sw3d/e1m2/1280x800", &mut level, &mut pics, HI);
+        bench_pixel_modes(c, "sw3d/pixmode/e1m2/320x200", &mut level, &mut pics, LOW);
+        bench_pixel_modes(c, "sw3d/pixmode/e1m2/1280x800", &mut level, &mut pics, HI);
     }
-    if let Some((mut level, mut pics)) =
-        load_pwad(&test_utils::doom_wad_path(), &test_utils::sigil2_wad_path(), "E6M6")
-    {
+    if let Some((mut level, mut pics)) = load_pwad(
+        &test_utils::doom_wad_path(),
+        &test_utils::sigil2_wad_path(),
+        "E6M6",
+    ) {
         bench_scene(c, "sw3d/e6m6/320x200", &mut level, &mut pics, LOW);
         bench_scene(c, "sw3d/e6m6/1280x800", &mut level, &mut pics, HI);
     }

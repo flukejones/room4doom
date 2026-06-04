@@ -137,7 +137,7 @@ impl AngleInner for f32 {
 impl AngleInner for Bam {
     #[inline]
     fn from_radians(rad: f32) -> Self {
-        Bam(radian_to_bam(rad))
+        Self(radian_to_bam(rad))
     }
 
     #[inline]
@@ -173,37 +173,37 @@ impl AngleInner for Bam {
 
     #[inline]
     fn wrap_add(self, other: Self) -> Self {
-        Bam(self.0.wrapping_add(other.0))
+        Self(self.0.wrapping_add(other.0))
     }
 
     #[inline]
     fn wrap_sub(self, other: Self) -> Self {
-        Bam(self.0.wrapping_sub(other.0))
+        Self(self.0.wrapping_sub(other.0))
     }
 
     #[inline]
     fn negate(self) -> Self {
-        Bam(0u32.wrapping_sub(self.0))
+        Self(0u32.wrapping_sub(self.0))
     }
 
     #[inline]
     fn scale(self, factor: f32) -> Self {
-        Bam((self.0 as f64 * factor as f64) as u32)
+        Self((self.0 as f64 * factor as f64) as u32)
     }
 
     #[inline]
     fn inv_scale(self, factor: f32) -> Self {
-        Bam((self.0 as f64 / factor as f64) as u32)
+        Self((self.0 as f64 / factor as f64) as u32)
     }
 
     #[inline]
     fn from_atan2(y: f32, x: f32) -> Self {
-        Bam(radian_to_bam(y.atan2(x)))
+        Self(radian_to_bam(y.atan2(x)))
     }
 
     #[inline]
     fn from_bam(bam: u32) -> Self {
-        Bam(bam)
+        Self(bam)
     }
 }
 
@@ -284,8 +284,8 @@ impl<A: AngleInner> Angle<A> {
     }
 
     #[inline]
-    pub fn sub_other(self, other: Angle<A>) -> Angle<A> {
-        Angle(self.0.wrap_sub(other.0))
+    pub fn sub_other(self, other: Self) -> Self {
+        Self(self.0.wrap_sub(other.0))
     }
 
     #[inline]
@@ -309,24 +309,24 @@ impl<A: AngleInner> Angle<A> {
 // --- Arithmetic ---
 
 impl<A: AngleInner> Add for Angle<A> {
-    type Output = Angle<A>;
+    type Output = Self;
     #[inline]
-    fn add(self, other: Angle<A>) -> Angle<A> {
-        Angle(self.0.wrap_add(other.0))
+    fn add(self, other: Self) -> Self {
+        Self(self.0.wrap_add(other.0))
     }
 }
 
 impl<A: AngleInner> Add<f32> for Angle<A> {
-    type Output = Angle<A>;
+    type Output = Self;
     #[inline]
-    fn add(self, other: f32) -> Angle<A> {
-        Angle(self.0.wrap_add(A::from_radians(other)))
+    fn add(self, other: f32) -> Self {
+        Self(self.0.wrap_add(A::from_radians(other)))
     }
 }
 
 impl<A: AngleInner> AddAssign for Angle<A> {
     #[inline]
-    fn add_assign(&mut self, other: Angle<A>) {
+    fn add_assign(&mut self, other: Self) {
         self.0 = self.0.wrap_add(other.0);
     }
 }
@@ -339,24 +339,24 @@ impl<A: AngleInner> AddAssign<f32> for Angle<A> {
 }
 
 impl<A: AngleInner> Sub for Angle<A> {
-    type Output = Angle<A>;
+    type Output = Self;
     #[inline]
-    fn sub(self, other: Angle<A>) -> Angle<A> {
-        Angle(self.0.wrap_sub(other.0))
+    fn sub(self, other: Self) -> Self {
+        Self(self.0.wrap_sub(other.0))
     }
 }
 
 impl<A: AngleInner> Sub<f32> for Angle<A> {
-    type Output = Angle<A>;
+    type Output = Self;
     #[inline]
-    fn sub(self, other: f32) -> Angle<A> {
-        Angle(self.0.wrap_sub(A::from_radians(other)))
+    fn sub(self, other: f32) -> Self {
+        Self(self.0.wrap_sub(A::from_radians(other)))
     }
 }
 
 impl<A: AngleInner> SubAssign for Angle<A> {
     #[inline]
-    fn sub_assign(&mut self, other: Angle<A>) {
+    fn sub_assign(&mut self, other: Self) {
         self.0 = self.0.wrap_sub(other.0);
     }
 }
@@ -369,10 +369,10 @@ impl<A: AngleInner> SubAssign<f32> for Angle<A> {
 }
 
 impl<A: AngleInner> Mul<f32> for Angle<A> {
-    type Output = Angle<A>;
+    type Output = Self;
     #[inline]
-    fn mul(self, other: f32) -> Angle<A> {
-        Angle(self.0.scale(other))
+    fn mul(self, other: f32) -> Self {
+        Self(self.0.scale(other))
     }
 }
 
@@ -384,10 +384,10 @@ impl<A: AngleInner> MulAssign<f32> for Angle<A> {
 }
 
 impl<A: AngleInner> Div<f32> for Angle<A> {
-    type Output = Angle<A>;
+    type Output = Self;
     #[inline]
-    fn div(self, other: f32) -> Angle<A> {
-        Angle(self.0.inv_scale(other))
+    fn div(self, other: f32) -> Self {
+        Self(self.0.inv_scale(other))
     }
 }
 
@@ -402,7 +402,7 @@ impl<A: AngleInner> Neg for Angle<A> {
     type Output = Self;
     #[inline]
     fn neg(self) -> Self::Output {
-        Angle(self.0.negate())
+        Self(self.0.negate())
     }
 }
 

@@ -5,7 +5,7 @@
 
 use std::f64::consts::PI;
 use std::fs::File;
-use std::io::{self, Write};
+use std::io::{self, Write as _};
 use std::path::Path;
 
 use wad::WadData;
@@ -79,7 +79,7 @@ pub fn process_wad(input_path: &Path, output_path: &Path, options: &BspOptions) 
     let mut all_lumps: Vec<OutputLump> = Vec::new();
 
     for map_name in &maps {
-        log::info!("Processing {}", map_name);
+        log::info!("Processing {map_name}");
 
         let input = load_input(&wad, map_name);
         let num_sectors = input.sectors.len();
@@ -167,6 +167,9 @@ fn write_segs(output: &BspOutput) -> Vec<u8> {
     for seg in &output.segs {
         buf.extend_from_slice(&(seg.start as i16).to_le_bytes());
         buf.extend_from_slice(&(seg.end as i16).to_le_bytes());
+        #[cfg(feature = "f32")]
+        let angle = ((seg.angle as f64 * 65536.0 / (2.0 * PI)) as i32) as i16;
+        #[cfg(not(feature = "f32"))]
         let angle = ((seg.angle * 65536.0 / (2.0 * PI)) as i32) as i16;
         buf.extend_from_slice(&angle.to_le_bytes());
         buf.extend_from_slice(&(seg.linedef as i16).to_le_bytes());

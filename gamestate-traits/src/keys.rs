@@ -163,7 +163,7 @@ impl fmt::Display for KeyCode {
 impl KeyCode {
     /// Convert an i32 discriminant to a `KeyCode`. Returns `None` for
     /// unknown values. Used for config deserialization and weapon key lookup.
-    pub fn from_i32(val: i32) -> Option<KeyCode> {
+    pub fn from_i32(val: i32) -> Option<Self> {
         ALL_KEYS.iter().find(|k| **k as i32 == val).copied()
     }
 
@@ -171,45 +171,45 @@ impl KeyCode {
     /// Used by the cheat code system (replaces `Keycode::from_scancode`).
     pub const fn to_char(self) -> Option<char> {
         match self {
-            KeyCode::A => Some('a'),
-            KeyCode::B => Some('b'),
-            KeyCode::C => Some('c'),
-            KeyCode::D => Some('d'),
-            KeyCode::E => Some('e'),
-            KeyCode::F => Some('f'),
-            KeyCode::G => Some('g'),
-            KeyCode::H => Some('h'),
-            KeyCode::I => Some('i'),
-            KeyCode::J => Some('j'),
-            KeyCode::K => Some('k'),
-            KeyCode::L => Some('l'),
-            KeyCode::M => Some('m'),
-            KeyCode::N => Some('n'),
-            KeyCode::O => Some('o'),
-            KeyCode::P => Some('p'),
-            KeyCode::Q => Some('q'),
-            KeyCode::R => Some('r'),
-            KeyCode::S => Some('s'),
-            KeyCode::T => Some('t'),
-            KeyCode::U => Some('u'),
-            KeyCode::V => Some('v'),
-            KeyCode::W => Some('w'),
-            KeyCode::X => Some('x'),
-            KeyCode::Y => Some('y'),
-            KeyCode::Z => Some('z'),
-            KeyCode::Num1 => Some('1'),
-            KeyCode::Num2 => Some('2'),
-            KeyCode::Num3 => Some('3'),
-            KeyCode::Num4 => Some('4'),
-            KeyCode::Num5 => Some('5'),
-            KeyCode::Num6 => Some('6'),
-            KeyCode::Num7 => Some('7'),
-            KeyCode::Num8 => Some('8'),
-            KeyCode::Num9 => Some('9'),
-            KeyCode::Num0 => Some('0'),
-            KeyCode::Space => Some(' '),
-            KeyCode::Minus => Some('-'),
-            KeyCode::Equals => Some('='),
+            Self::A => Some('a'),
+            Self::B => Some('b'),
+            Self::C => Some('c'),
+            Self::D => Some('d'),
+            Self::E => Some('e'),
+            Self::F => Some('f'),
+            Self::G => Some('g'),
+            Self::H => Some('h'),
+            Self::I => Some('i'),
+            Self::J => Some('j'),
+            Self::K => Some('k'),
+            Self::L => Some('l'),
+            Self::M => Some('m'),
+            Self::N => Some('n'),
+            Self::O => Some('o'),
+            Self::P => Some('p'),
+            Self::Q => Some('q'),
+            Self::R => Some('r'),
+            Self::S => Some('s'),
+            Self::T => Some('t'),
+            Self::U => Some('u'),
+            Self::V => Some('v'),
+            Self::W => Some('w'),
+            Self::X => Some('x'),
+            Self::Y => Some('y'),
+            Self::Z => Some('z'),
+            Self::Num1 => Some('1'),
+            Self::Num2 => Some('2'),
+            Self::Num3 => Some('3'),
+            Self::Num4 => Some('4'),
+            Self::Num5 => Some('5'),
+            Self::Num6 => Some('6'),
+            Self::Num7 => Some('7'),
+            Self::Num8 => Some('8'),
+            Self::Num9 => Some('9'),
+            Self::Num0 => Some('0'),
+            Self::Space => Some(' '),
+            Self::Minus => Some('-'),
+            Self::Equals => Some('='),
             _ => None,
         }
     }
@@ -226,11 +226,11 @@ pub enum MouseBtn {
 
 impl MouseBtn {
     /// Convert a raw button index to `MouseBtn`.
-    pub fn from_u8(val: u8) -> Option<MouseBtn> {
+    pub fn from_u8(val: u8) -> Option<Self> {
         match val {
-            1 => Some(MouseBtn::Left),
-            2 => Some(MouseBtn::Middle),
-            3 => Some(MouseBtn::Right),
+            1 => Some(Self::Left),
+            2 => Some(Self::Middle),
+            3 => Some(Self::Right),
             _ => None,
         }
     }

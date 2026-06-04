@@ -5,7 +5,7 @@ use level::{LineDefFlags, Segment};
 use log::warn;
 use math::{ANG90, ANG180, ANGLETOFINESHIFT, Angle, Bam, FixedT, fine_tan};
 use pic_data::{FlatPic, PicData};
-use render_common::{DrawBuffer, RenderView};
+use render_common::{DrawBuffer as _, PixelFmt, PixelTarget, RenderView};
 use std::ptr::NonNull;
 
 use crate::utilities::{inner_to_i32, scale_from_view_angle};
@@ -207,7 +207,7 @@ impl SegRender {
     }
 
     /// R_StoreWallRange - r_segs
-    pub(crate) fn store_wall_range(
+    pub(crate) fn store_wall_range<P: PixelFmt>(
         &mut self,
         start: FixedT,
         stop: FixedT,
@@ -215,7 +215,7 @@ impl SegRender {
         view: &RenderView,
         rdata: &mut RenderData,
         pic_data: &PicData,
-        rend: &mut impl DrawBuffer,
+        rend: &mut PixelTarget<P>,
     ) {
         #[cfg(feature = "hprof")]
         profile!("store_wall_range");
@@ -401,14 +401,14 @@ impl SegRender {
             self.rw_toptexturemid += sidedef.rowoffset;
             self.rw_bottomtexturemid += sidedef.rowoffset;
 
-            // TODO: fix this. Enabed causes sprites to clip throguh some places
-            // if sidedef.midtexture.is_some() {
-            self.maskedtexture = true;
-            self.maskedtexturecol = self.lastopening - self.rw_startx;
-            ds_p.maskedtexturecol = self.maskedtexturecol;
+            // OG: only allocate masked-texture columns when a midtexture exists.
+            if sidedef.midtexture.is_some() {
+                self.maskedtexture = true;
+                self.maskedtexturecol = self.lastopening - self.rw_startx;
+                ds_p.maskedtexturecol = self.maskedtexturecol;
 
-            self.lastopening += self.rw_stopx - self.rw_startx;
-            // }
+                self.lastopening += self.rw_stopx - self.rw_startx;
+            }
         } else {
             // single sided line
             self.markfloor = true;
@@ -554,13 +554,13 @@ impl SegRender {
     /// - Draws mid/top/bottom wall textures for one-sided and two-sided lines
     /// - Updates portal clip arrays for subsequent rendering passes
     /// - Stores masked texture column indices in the openings array
-    fn render_seg_loop(
+    fn render_seg_loop<P: PixelFmt>(
         &mut self,
         seg: &Segment,
         view: &RenderView,
         rdata: &mut RenderData,
         pic_data: &PicData,
-        rend: &mut impl DrawBuffer,
+        rend: &mut PixelTarget<P>,
     ) {
         #[cfg(feature = "hprof")]
         profile!("render_seg_loop");
@@ -706,7 +706,7 @@ impl SegRender {
                             pic_data,
                             rend,
                         );
-                    };
+                    }
                     rdata.portal_clip.ceilingclip[clip_index] = view.viewheight;
                     rdata.portal_clip.floorclip[clip_index] = FixedT::from(-1);
                 }
@@ -789,15 +789,15 @@ impl SegRender {
     /// Rasterize one textured wall column. In sky mode, texel indices are
     /// halved and dc_iscale is caller-supplied.
     #[inline]
-    fn draw_wall_column(
-        &mut self,
+    fn draw_wall_column<P: PixelFmt>(
+        &self,
         texture_column: &[u16],
         dc_texturemid: FixedT,
         y_start: i32,
         mut y_end: i32,
         sky: bool,
         pic_data: &PicData,
-        pixels: &mut impl DrawBuffer,
+        pixels: &mut PixelTarget<P>,
     ) {
         #[cfg(feature = "hprof")]
         profile!("draw_wall_column");
@@ -808,18 +808,15 @@ impl SegRender {
             return;
         }
 
-        let pal = pic_data.palette();
         let mut frac = dc_texturemid + (FixedT::from(y_start) - self.centery) * self.dc_iscale;
         let mut pos = pixels.get_buf_index(self.rw_startx.to_i32() as usize, y_start as usize);
         let pitch = pixels.pitch();
-        let buf = pixels.buf_mut();
 
         let colourmap = if !sky {
             pic_data.vert_light_colourmap(self.wall_lights, self.rw_scale.to_f32())
         } else {
             pic_data.colourmap(0)
         };
-
         for _ in y_start..=y_end {
             let mut select = (frac.to_i32() as usize) & 127;
             if sky && self.sky_doubled {
@@ -830,14 +827,8 @@ impl SegRender {
             }
             let tc = texture_column[select];
             if (tc as usize) < colourmap.len() {
-                unsafe {
-                    let c = *pal.get_unchecked(*colourmap.get_unchecked(tc as usize));
-                    *buf.get_unchecked_mut(pos) = c;
-                }
-            }
-            #[cfg(any())] // disabled
-            {
-                pixels.set_pixel(dc_x, i as u32 as usize, pal[colourmap[tc as usize]]);
+                let lit = unsafe { *colourmap.get_unchecked(tc as usize) } as u16;
+                pixels.store(pos, lit);
             }
             frac += self.dc_iscale;
             pos += pitch;
@@ -852,8 +843,8 @@ impl SegRender {
     /// each texel exactly. Texture coordinates are derived from yslope-based
     /// perspective distance scaled by view angle cosine/sine.
     #[inline]
-    fn draw_flat_column(
-        &mut self,
+    fn draw_flat_column<P: PixelFmt>(
+        &self,
         texture: &FlatPic,
         view_x: FixedT,
         view_y: FixedT,
@@ -865,7 +856,7 @@ impl SegRender {
         y_start: usize,
         mut y_end: usize,
         pic_data: &PicData,
-        pixels: &mut impl DrawBuffer,
+        pixels: &mut PixelTarget<P>,
     ) {
         #[cfg(feature = "hprof")]
         profile!("draw_flat_column");
@@ -878,7 +869,6 @@ impl SegRender {
             return;
         }
 
-        let pal = pic_data.palette();
         let tex_len = texture.height - 1; // always square
         let tex_w = texture.width;
         let mut pos = pixels.get_buf_index(dc_x as usize, y_start);
@@ -937,7 +927,6 @@ impl SegRender {
                 let mut xfrac = x0;
                 let mut yfrac = y0;
 
-                let buf = pixels.buf_mut();
                 for j in 0..FLAT_INTERP_INTERVAL {
                     let diminished_light = plane_height * yslopes[i + j];
                     let colourmap = pic_data.flat_light_colourmap(
@@ -948,18 +937,15 @@ impl SegRender {
                     let x_step = (xfrac.doom_abs().to_i32() as usize) & tex_len;
                     let y_step = (yfrac.doom_abs().to_i32() as usize) & tex_len;
 
-                    unsafe {
-                        let tc = texture.data[y_step * tex_w + x_step];
-                        let c = *pal.get_unchecked(*colourmap.get_unchecked(tc as usize));
-                        *buf.get_unchecked_mut(pos) = c;
-                    }
+                    let tc = texture.data[y_step * tex_w + x_step];
+                    let lit = unsafe { *colourmap.get_unchecked(tc as usize) } as u16;
+                    pixels.store(pos, lit);
                     pos += pitch;
                     xfrac += dx;
                     yfrac += dy;
                 }
                 i += FLAT_INTERP_INTERVAL;
             } else {
-                let buf = pixels.buf_mut();
                 // Tail: fewer than N pixels, compute each exactly
                 for j in 0..remaining {
                     let (xfrac, yfrac) = sample_coords(
@@ -980,11 +966,9 @@ impl SegRender {
                     let x_step = (xfrac.doom_abs().to_i32() as usize) & tex_len;
                     let y_step = (yfrac.doom_abs().to_i32() as usize) & tex_len;
 
-                    unsafe {
-                        let tc = texture.data[y_step * tex_w + x_step];
-                        let c = *pal.get_unchecked(*colourmap.get_unchecked(tc as usize));
-                        *buf.get_unchecked_mut(pos) = c;
-                    }
+                    let tc = texture.data[y_step * tex_w + x_step];
+                    let lit = unsafe { *colourmap.get_unchecked(tc as usize) } as u16;
+                    pixels.store(pos, lit);
                     pos += pitch;
                 }
                 i += remaining;
@@ -993,7 +977,11 @@ impl SegRender {
     }
 
     #[cfg(feature = "debug_seg_clip")]
-    pub(crate) fn draw_debug_clipping(&self, rdata: &RenderData, pixels: &mut impl DrawBuffer) {
+    pub(crate) fn draw_debug_clipping<P: PixelFmt>(
+        &self,
+        rdata: &RenderData,
+        pixels: &mut PixelTarget<P>,
+    ) {
         // Draw ceiling clip line in red
         for x in 0..pixels.size().width_usize() {
             let ceiling_y = rdata.portal_clip.ceilingclip[x].to_i32() as usize;
@@ -1044,48 +1032,6 @@ impl SegRender {
                     pixels.set_pixel(x, y, 0xFFFFFF00); // Semi-transparent yellow
                 }
             }
-        }
-    }
-
-    #[cfg(feature = "debug_seg_invert")]
-    fn highlight_inverted_clips(&self, rdata: &RenderData, pixels: &mut impl DrawBuffer) {
-        let width = pixels.size().width_usize();
-        let height = pixels.size().height_usize();
-
-        let mut inverted_count = 0;
-        let mut first_inverted = None;
-
-        for x in 0..width {
-            let ceiling = rdata.portal_clip.ceilingclip[x];
-            let floor = rdata.portal_clip.floorclip[x];
-
-            if ceiling >= floor {
-                inverted_count += 1;
-                if first_inverted.is_none() {
-                    first_inverted = Some(x);
-                }
-
-                // Draw a vertical magenta line at each inverted column
-                for y in 0..height {
-                    let existing = pixels.read_pixel(x, y);
-                    let er = (existing >> 16) as u8;
-                    let eg = (existing >> 8) as u8;
-                    let eb = existing as u8;
-                    let r = 255u8 / 2 + er / 2;
-                    let g = eg / 2;
-                    let b = 255u8 / 2 + eb / 2;
-                    let pixel = (r as u32) << 16 | (g as u32) << 8 | b as u32;
-                    pixels.set_pixel(x, y, pixel);
-                }
-            }
-        }
-
-        if inverted_count > 0 {
-            warn!(
-                "CLIP INVERSION: Found {} columns with ceiling >= floor. First at x={}",
-                inverted_count,
-                first_inverted.unwrap()
-            );
         }
     }
 }

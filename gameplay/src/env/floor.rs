@@ -5,7 +5,7 @@ use std::ptr::{self, null_mut};
 
 use sound_common::SfxName;
 
-use crate::SectorExt;
+use crate::SectorExt as _;
 use crate::env::specials::{
     PlaneResult, find_highest_floor_surrounding, find_lowest_ceiling_surrounding,
     find_lowest_floor_surrounding, find_next_highest_floor, get_next_sector, move_plane,
@@ -14,9 +14,9 @@ use crate::env::switch::start_sector_sound;
 use crate::level::LevelState;
 use crate::thing::MapObject;
 use crate::thinker::{Think, Thinker, ThinkerData};
-use level::MapPtr;
 use level::flags::LineDefFlags;
 use level::map_defs::{LineDef, Sector, SectorHeight};
+use level::{MapPtr, MovementType};
 
 const FLOORSPEED: SectorHeight = SectorHeight::ONE;
 
@@ -127,18 +127,13 @@ pub fn ev_do_floor(line: MapPtr<LineDef>, kind: FloorKind, level: &mut LevelStat
                     if line.flags.contains(LineDefFlags::TwoSided) {
                         if line.front_sidedef.sector == sec {
                             sec = line.back_sidedef.as_ref().unwrap().sector.clone();
-                            if sec.floorheight == floor.destheight {
-                                floor.texture = sec.floorpic;
-                                floor.newspecial = sec.special;
-                                break;
-                            }
                         } else {
                             sec = line.front_sidedef.sector.clone();
-                            if sec.floorheight == floor.destheight {
-                                floor.texture = sec.floorpic;
-                                floor.newspecial = sec.special;
-                                break;
-                            }
+                        }
+                        if sec.floorheight == floor.destheight {
+                            floor.texture = sec.floorpic;
+                            floor.newspecial = sec.special;
+                            break;
                         }
                     }
                 }
@@ -152,6 +147,11 @@ pub fn ev_do_floor(line: MapPtr<LineDef>, kind: FloorKind, level: &mut LevelStat
                 floor.destheight = sec.floorheight + 24;
                 sec.floorpic = line.frontsector.floorpic;
                 sec.special = line.frontsector.special;
+                level.level_data.bsp_3d.update_flat_texture(
+                    sec.num as usize,
+                    MovementType::Floor,
+                    sec.floorpic,
+                );
             }
             FloorKind::RaiseFloorCrush => {
                 floor.direction = 1;
@@ -191,9 +191,7 @@ impl Think for FloorMove {
     fn think(object: &mut Thinker, level: &mut LevelState) -> bool {
         let floor = object.floor_mut();
         #[cfg(feature = "null_check")]
-        if floor.thinker.is_null() {
-            std::panic!("vdoor thinker was null");
-        }
+        assert!(!floor.thinker.is_null(), "floor thinker was null");
         let line = floor.sector.lines[0].as_ref();
 
         let res = move_plane(
@@ -217,14 +215,15 @@ impl Think for FloorMove {
             {
                 floor.sector.special = floor.newspecial;
                 floor.sector.floorpic = floor.texture;
-                level
-                    .level_data
-                    .bsp_3d
-                    .update_floor_texture(floor.sector.num as usize, floor.texture);
+                level.level_data.bsp_3d.update_flat_texture(
+                    floor.sector.num as usize,
+                    MovementType::Floor,
+                    floor.texture,
+                );
             }
 
             floor.sector.specialdata = None;
-            <FloorMove as Think>::thinker_mut(floor).mark_remove();
+            <Self as Think>::thinker_mut(floor).mark_remove();
         }
 
         true
@@ -236,9 +235,7 @@ impl Think for FloorMove {
 
     fn thinker_mut(&mut self) -> &mut Thinker {
         #[cfg(feature = "null_check")]
-        if self.thinker.is_null() {
-            std::panic!("NULL");
-        }
+        assert!(!self.thinker.is_null(), "floor thinker was null");
         unsafe { Thinker::from_erased(self.thinker) }
     }
 }

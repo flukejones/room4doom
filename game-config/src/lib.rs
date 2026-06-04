@@ -26,7 +26,7 @@ impl Error for DoomArgError {}
 impl fmt::Display for DoomArgError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            DoomArgError::InvalidSkill(m) => write!(f, "{}", m),
+            Self::InvalidSkill(m) => write!(f, "{m}"),
         }
     }
 }
@@ -57,7 +57,7 @@ pub struct GameOptions {
 impl Default for GameOptions {
     fn default() -> Self {
         Self {
-            iwad: "doom.wad".to_string(),
+            iwad: "doom.wad".to_owned(),
             pwad: Default::default(),
             no_monsters: Default::default(),
             respawn_parm: Default::default(),
@@ -92,9 +92,7 @@ pub enum Skill {
 
 impl From<i32> for Skill {
     fn from(w: i32) -> Self {
-        if w > Skill::Nightmare as i32 {
-            panic!("{} is not a variant of Skill", w);
-        }
+        assert!(w <= Self::Nightmare as i32, "{w} is not a variant of Skill");
         unsafe { std::mem::transmute(w) }
     }
 }
@@ -107,9 +105,10 @@ impl From<u8> for Skill {
 
 impl From<usize> for Skill {
     fn from(w: usize) -> Self {
-        if w > Skill::Nightmare as usize {
-            panic!("{} is not a variant of Skill", w);
-        }
+        assert!(
+            w <= Self::Nightmare as usize,
+            "{w} is not a variant of Skill"
+        );
         unsafe { std::mem::transmute(w as i32) }
     }
 }
@@ -119,11 +118,11 @@ impl FromStr for Skill {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "1" => Ok(Skill::Baby),
-            "2" => Ok(Skill::Easy),
-            "3" => Ok(Skill::Medium),
-            "4" => Ok(Skill::Hard),
-            "5" => Ok(Skill::Nightmare),
+            "1" => Ok(Self::Baby),
+            "2" => Ok(Self::Easy),
+            "3" => Ok(Self::Medium),
+            "4" => Ok(Self::Hard),
+            "5" => Ok(Self::Nightmare),
             _ => Err(DoomArgError::InvalidSkill("Invalid arg".to_owned())),
         }
     }

@@ -21,7 +21,7 @@ pub struct SuperBlock {
     pub y1: Float,
     pub x2: Float,
     pub y2: Float,
-    pub children: [Option<Box<SuperBlock>>; 2],
+    pub children: [Option<Box<Self>>; 2],
     /// Seg indices stored at this level (segs that straddle the split).
     pub seg_indices: Vec<usize>,
     /// Total seg count in this block and all descendants.
@@ -106,7 +106,7 @@ impl SuperBlock {
         } else {
             (self.x1, mid, self.x2, self.y2)
         };
-        self.children[idx] = Some(Box::new(SuperBlock::new(x1, y1, x2, y2)));
+        self.children[idx] = Some(Box::new(Self::new(x1, y1, x2, y2)));
     }
 }
 

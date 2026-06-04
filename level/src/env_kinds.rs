@@ -1,6 +1,7 @@
-//! Mover kind vocabulary: the floor/ceiling/door/platform/stair kinds the
-//! engine and tooling share. These are level-environment types (no game state),
-//! moved here from gameplay so target-height computation can live in `level`.
+//! Mover kind vocabulary shared by the engine and tooling.
+//!
+//! The floor/ceiling/door/platform/stair kinds. These are level-environment
+//! types (no game state), so target-height computation can live in `level`.
 //!
 //! The `#[repr(u8)]` discriminant order is load-bearing: it is the `kind` field
 //! carried by the generalized encoding (see [`crate::special_encode`]).
@@ -43,19 +44,19 @@ impl TryFrom<u8> for FloorKind {
 
     fn try_from(v: u8) -> Result<Self, u8> {
         match v {
-            0 => Ok(FloorKind::LowerFloor),
-            1 => Ok(FloorKind::LowerFloorToLowest),
-            2 => Ok(FloorKind::TurboLower),
-            3 => Ok(FloorKind::RaiseFloor),
-            4 => Ok(FloorKind::RaiseFloorToNearest),
-            5 => Ok(FloorKind::RaiseToTexture),
-            6 => Ok(FloorKind::LowerAndChange),
-            7 => Ok(FloorKind::RaiseFloor24),
-            8 => Ok(FloorKind::RaiseFloor24andChange),
-            9 => Ok(FloorKind::RaiseFloorCrush),
-            10 => Ok(FloorKind::RaiseFloorTurbo),
-            11 => Ok(FloorKind::DonutRaise),
-            12 => Ok(FloorKind::RaiseFloor512),
+            0 => Ok(Self::LowerFloor),
+            1 => Ok(Self::LowerFloorToLowest),
+            2 => Ok(Self::TurboLower),
+            3 => Ok(Self::RaiseFloor),
+            4 => Ok(Self::RaiseFloorToNearest),
+            5 => Ok(Self::RaiseToTexture),
+            6 => Ok(Self::LowerAndChange),
+            7 => Ok(Self::RaiseFloor24),
+            8 => Ok(Self::RaiseFloor24andChange),
+            9 => Ok(Self::RaiseFloorCrush),
+            10 => Ok(Self::RaiseFloorTurbo),
+            11 => Ok(Self::DonutRaise),
+            12 => Ok(Self::RaiseFloor512),
             _ => Err(v),
         }
     }
@@ -76,8 +77,8 @@ impl TryFrom<u8> for StairKind {
 
     fn try_from(v: u8) -> Result<Self, u8> {
         match v {
-            0 => Ok(StairKind::Build8),
-            1 => Ok(StairKind::Turbo16),
+            0 => Ok(Self::Build8),
+            1 => Ok(Self::Turbo16),
             _ => Err(v),
         }
     }
@@ -100,12 +101,12 @@ impl TryFrom<u8> for CeilKind {
 
     fn try_from(v: u8) -> Result<Self, u8> {
         match v {
-            0 => Ok(CeilKind::LowerToFloor),
-            1 => Ok(CeilKind::RaiseToHighest),
-            2 => Ok(CeilKind::LowerAndCrush),
-            3 => Ok(CeilKind::CrushAndRaise),
-            4 => Ok(CeilKind::FastCrushAndRaise),
-            5 => Ok(CeilKind::SilentCrushAndRaise),
+            0 => Ok(Self::LowerToFloor),
+            1 => Ok(Self::RaiseToHighest),
+            2 => Ok(Self::LowerAndCrush),
+            3 => Ok(Self::CrushAndRaise),
+            4 => Ok(Self::FastCrushAndRaise),
+            5 => Ok(Self::SilentCrushAndRaise),
             _ => Err(v),
         }
     }
@@ -130,14 +131,14 @@ impl TryFrom<u8> for DoorKind {
 
     fn try_from(v: u8) -> Result<Self, u8> {
         match v {
-            0 => Ok(DoorKind::Normal),
-            1 => Ok(DoorKind::Close30ThenOpen),
-            2 => Ok(DoorKind::Close),
-            3 => Ok(DoorKind::Open),
-            4 => Ok(DoorKind::RaiseIn5Mins),
-            5 => Ok(DoorKind::BlazeRaise),
-            6 => Ok(DoorKind::BlazeOpen),
-            7 => Ok(DoorKind::BlazeClose),
+            0 => Ok(Self::Normal),
+            1 => Ok(Self::Close30ThenOpen),
+            2 => Ok(Self::Close),
+            3 => Ok(Self::Open),
+            4 => Ok(Self::RaiseIn5Mins),
+            5 => Ok(Self::BlazeRaise),
+            6 => Ok(Self::BlazeOpen),
+            7 => Ok(Self::BlazeClose),
             _ => Err(v),
         }
     }
@@ -159,11 +160,11 @@ impl TryFrom<u8> for PlatKind {
 
     fn try_from(v: u8) -> Result<Self, u8> {
         match v {
-            0 => Ok(PlatKind::PerpetualRaise),
-            1 => Ok(PlatKind::DownWaitUpStay),
-            2 => Ok(PlatKind::RaiseAndChange),
-            3 => Ok(PlatKind::RaiseToNearestAndChange),
-            4 => Ok(PlatKind::BlazeDWUS),
+            0 => Ok(Self::PerpetualRaise),
+            1 => Ok(Self::DownWaitUpStay),
+            2 => Ok(Self::RaiseAndChange),
+            3 => Ok(Self::RaiseToNearestAndChange),
+            4 => Ok(Self::BlazeDWUS),
             _ => Err(v),
         }
     }

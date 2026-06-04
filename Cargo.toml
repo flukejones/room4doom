@@ -13,6 +13,7 @@ members = [
     "render/common",
     "render/software25d",
     "render/software3d",
+    "render/wgpu3d",
     "tools/voxel-viewer",
     "sound/common",
     "sound/rodio",
@@ -56,17 +57,22 @@ render-common = { path = "./render/common" }
 render-backend = { path = "./render/backend" }
 software3d = { path = "./render/software3d" }
 software25d = { path = "./render/software25d" }
+wgpu3d = { path = "./render/wgpu3d" }
 level = { path = "./level" }
 rbsp = { path = "./tools/rbsp" }
 
 winit = "0.30"
-pixels = "0.15"
-softbuffer = { git = "https://github.com/flukejones/softbuffer", branch = "madsmtm/iosurface" }
+wgpu = "29"
+pollster = "0.4"
+bytemuck = "1"
+softbuffer = { git = "https://github.com/flukejones/softbuffer", branch = "madsmtm/iosurface"}
+#softbuffer = { git = "https://github.com/flukejones/softbuffer", branch = "iosurface-vsync" }
 coarse-prof = "0.2"
-glam = "*"
+glam = "0.32"
 sdl2 = { version = "0.38", features = [
     "use_mac_framework",
     "unsafe_textures",
+    "raw-window-handle",
 ] }
 
 argh = "0.1.12"
@@ -88,6 +94,9 @@ dirs = "~5.0"
 nanoserde = { git = "https://github.com/not-fl3/nanoserde.git", default-features = false, features = [
     "ron",
 ] }
+
+[build]
+rustflags = ["-W", "unreachable_pub"]
 
 # 915fps | codegen-units=1 -> 930fps, no other change
 # 9.30s buildtime

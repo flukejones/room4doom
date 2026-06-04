@@ -47,7 +47,7 @@ impl MapObject {
     pub(crate) fn p_take_damage(
         &mut self,
         inflictor: Option<(FixedT, FixedT, FixedT)>,
-        mut source: Option<&mut MapObject>,
+        mut source: Option<&mut Self>,
         mut damage: i32,
     ) {
         if !self.flags.contains(MapObjFlag::Shootable) {
@@ -189,7 +189,7 @@ impl MapObject {
     }
 
     /// Doom function name `P_KillMobj`
-    fn kill(&mut self, mut source: Option<&mut MapObject>) {
+    fn kill(&mut self, mut source: Option<&mut Self>) {
         self.flags
             .remove(MapObjFlag::Shootable | MapObjFlag::Float | MapObjFlag::Skullfly);
 
@@ -255,8 +255,7 @@ impl MapObject {
         };
 
         unsafe {
-            let mobj =
-                MapObject::spawn_map_object(self.x, self.y, self.floorz, item, &mut *self.level);
+            let mobj = Self::spawn_map_object(self.x, self.y, self.floorz, item, &mut *self.level);
             (*mobj).flags.insert(MapObjFlag::Dropped);
         }
     }
@@ -264,7 +263,7 @@ impl MapObject {
     /// Interact with special pickups
     ///
     /// Doom function name `P_TouchSpecialThing`
-    pub(crate) fn touch_special(&mut self, special: &mut MapObject) {
+    pub(crate) fn touch_special(&mut self, special: &mut Self) {
         let delta = special.z - self.z;
 
         if delta > self.height || delta < -8 {
@@ -584,3 +583,60 @@ impl MapObject {
 }
 
 const BASETHRESHOLD: i32 = 100;
+
+#[cfg(test)]
+mod damage_tests {
+    use crate::MapObjKind;
+    use crate::test_support::{TestLevel, rng_guard};
+    use crate::thing::MapObjFlag;
+    use math::get_prndindex;
+
+    // MT_BARREL: health 20, painchance 0. MT_POSSESSED: health 20, chance 200.
+
+    /// Pain-chance roll always fires (one p_random) even at painchance 0.
+    #[test]
+    fn take_damage_non_fatal_consumes_one_rng() {
+        let _g = rng_guard();
+        let mut level = TestLevel::load("E1M1");
+        let barrel = level.spawn(1056, -3616, MapObjKind::MT_BARREL);
+
+        let before = get_prndindex();
+        barrel.p_take_damage(None, None, 5);
+
+        assert_eq!(barrel.health, 15);
+        assert!(barrel.flags.contains(MapObjFlag::Shootable));
+        assert_eq!(get_prndindex(), before + 1);
+    }
+
+    /// Lethal hit: health <= 0, non-shootable corpse, height quartered.
+    #[test]
+    fn take_damage_fatal_kills() {
+        let _g = rng_guard();
+        let mut level = TestLevel::load("E1M1");
+        let zombie = level.spawn(1056, -3616, MapObjKind::MT_POSSESSED);
+        let full_height = zombie.height;
+
+        zombie.p_take_damage(None, None, 50);
+
+        assert!(zombie.health <= 0);
+        assert!(!zombie.flags.contains(MapObjFlag::Shootable));
+        assert!(zombie.flags.contains(MapObjFlag::Corpse));
+        assert_eq!(zombie.height.to_f32(), (full_height / 4).to_f32());
+    }
+
+    /// Non-shootable thing: no damage, no RNG.
+    #[test]
+    fn take_damage_ignores_non_shootable() {
+        let _g = rng_guard();
+        let mut level = TestLevel::load("E1M1");
+        let barrel = level.spawn(1056, -3616, MapObjKind::MT_BARREL);
+        barrel.flags.remove(MapObjFlag::Shootable);
+        let health = barrel.health;
+
+        let before = get_prndindex();
+        barrel.p_take_damage(None, None, 5);
+
+        assert_eq!(barrel.health, health);
+        assert_eq!(get_prndindex(), before);
+    }
+}

@@ -82,6 +82,7 @@ pub fn fullscreen_scale(pixels: &impl DrawBuffer) -> (f32, f32) {
 }
 
 /// Draw a WadPatch at (x, y) with separate X and Y pixel duplication scales.
+///
 /// `sx` controls column width, `sy` controls row height. Uses fractional
 /// accumulation for both axes so the scaling is correct even at non-integer
 /// scales (e.g. sx=0.833 for CRT-correct fullscreen patches).
@@ -99,7 +100,7 @@ pub fn draw_patch(
     let x_base = x - patch.left_offset as f32 * sx;
     let mut src_col: u32 = 0;
 
-    for column in patch.columns.iter() {
+    for column in &patch.columns {
         let col_x_start = (x_base + src_col as f32 * sx).floor() as i32;
         let col_x_end = (x_base + (src_col + 1) as f32 * sx).floor() as i32;
         let col_y = y + column.y_offset as f32 * sy;
@@ -147,7 +148,7 @@ pub fn draw_patch_tinted(
     let tb = tint & 0xFF;
     let mut src_col: u32 = 0;
 
-    for column in patch.columns.iter() {
+    for column in &patch.columns {
         let col_x_start = (x_base + src_col as f32 * sx).floor() as i32;
         let col_x_end = (x_base + (src_col + 1) as f32 * sx).floor() as i32;
         let col_y = y + column.y_offset as f32 * sy;

@@ -25,7 +25,7 @@ pub fn parse(text: &str) -> Vec<VoxelDef> {
 fn parse_line(line: &str) -> Option<VoxelDef> {
     // Format: sprite_name = "kvx_filename" { key = value ... }
     let eq_pos = line.find('=')?;
-    let sprite_name = line[..eq_pos].trim().to_string();
+    let sprite_name = line[..eq_pos].trim().to_owned();
 
     let rest = line[eq_pos + 1..].trim();
     // Extract quoted filename

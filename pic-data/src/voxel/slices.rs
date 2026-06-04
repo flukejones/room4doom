@@ -67,14 +67,14 @@ pub fn generate(model: &VoxelModel) -> VoxelSlices {
 }
 
 #[derive(Clone, Copy)]
-enum Axis {
+pub(crate) enum Axis {
     X,
     Y,
     Z,
 }
 
 #[derive(Clone, Copy)]
-enum Dir {
+pub(crate) enum Dir {
     Neg,
     Pos,
 }
@@ -87,7 +87,7 @@ fn axis_params(axis: Axis, xs: u32, ys: u32, zs: u32) -> (u32, u32, u32) {
     }
 }
 
-fn map_coords(axis: Axis, d: u32, u: u32, v: u32) -> (u32, u32, u32) {
+pub(crate) fn map_coords(axis: Axis, d: u32, u: u32, v: u32) -> (u32, u32, u32) {
     match axis {
         Axis::X => (d, u, v),
         Axis::Y => (u, d, v),
@@ -97,7 +97,7 @@ fn map_coords(axis: Axis, d: u32, u: u32, v: u32) -> (u32, u32, u32) {
 
 /// Check if a voxel at (d, u, v) along `axis` is non-empty and has no
 /// opaque neighbour in `dir` (i.e. its face is visible).
-fn is_exposed(model: &VoxelModel, axis: Axis, dir: Dir, d: u32, u: u32, v: u32) -> bool {
+pub(crate) fn is_exposed(model: &VoxelModel, axis: Axis, dir: Dir, d: u32, u: u32, v: u32) -> bool {
     let (x, y, z) = map_coords(axis, d, u, v);
     if model.get(x, y, z) == 255 {
         return false;

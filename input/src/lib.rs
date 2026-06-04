@@ -103,11 +103,7 @@ impl InputEvents {
         let mut cmd = TicCmd::default();
 
         let strafe = self.is_kb_pressed(cfg.key_strafe) || self.is_mb_pressed(cfg.mousebstrafe);
-        let speed = if self.is_kb_pressed(cfg.key_speed) {
-            1
-        } else {
-            0
-        };
+        let speed = usize::from(self.is_kb_pressed(cfg.key_speed));
 
         let mut side = 0;
         let mut forward = 0;

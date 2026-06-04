@@ -6,12 +6,17 @@ mod config;
 mod d_main;
 #[cfg(feature = "display-sdl2")]
 mod loop_sdl2;
-#[cfg(any(feature = "display-softbuffer", feature = "display-pixels"))]
+#[cfg(all(
+    any(feature = "display-softbuffer", feature = "display-wgpu"),
+    not(feature = "display-sdl2")
+))]
 mod loop_winit;
 mod timestep;
 
 use cli::*;
 use mimalloc::MiMalloc;
+#[cfg(feature = "display-sdl2")]
+use pic_data::PixelFmt;
 use simplelog::TermLogger;
 use std::path::PathBuf;
 use std::{error::Error, path::Path};
@@ -26,18 +31,14 @@ use sound_common::{SndServerTx, SoundAction};
 use wad::WadData;
 
 #[cfg(feature = "display-sdl2")]
-use config::WindowMode;
-#[cfg(feature = "display-sdl2")]
 use loop_sdl2::d_doom_loop_sdl2;
 #[cfg(all(
-    any(feature = "display-softbuffer", feature = "display-pixels"),
+    any(feature = "display-softbuffer", feature = "display-wgpu"),
     not(feature = "display-sdl2")
 ))]
 use loop_winit::DoomApp;
-#[cfg(feature = "display-sdl2")]
-use render_backend::DisplayBackend;
 #[cfg(all(
-    any(feature = "display-softbuffer", feature = "display-pixels"),
+    any(feature = "display-softbuffer", feature = "display-wgpu"),
     not(feature = "display-sdl2")
 ))]
 use winit::event_loop::EventLoop;
@@ -68,11 +69,20 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     #[cfg(feature = "display-sdl2")]
     {
-        run_sdl2(game_options, wad, &user_config, options)?;
+        use crate::config::PixelMode;
+
+        match options.pixels {
+            Some(PixelMode::Rgb565) => {
+                run_sdl2::<u16>(game_options, wad, &user_config, options)?;
+            }
+            Some(PixelMode::Rgb888) | None => {
+                run_sdl2::<u32>(game_options, wad, &user_config, options)?;
+            }
+        }
     }
 
     #[cfg(all(
-        any(feature = "display-softbuffer", feature = "display-pixels"),
+        any(feature = "display-softbuffer", feature = "display-wgpu"),
         not(feature = "display-sdl2")
     ))]
     {
@@ -83,12 +93,15 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 #[cfg(feature = "display-sdl2")]
-fn run_sdl2(
+fn run_sdl2<P>(
     game_options: game_config::GameOptions,
     wad: WadData,
     user_config: &UserConfig,
     options: CLIOptions,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<(), Box<dyn Error>>
+where
+    P: PixelFmt,
+{
     let sdl_ctx = sdl2::init()?;
     info!("Init SDL2 main");
     let video_ctx = sdl_ctx.video()?;
@@ -101,52 +114,12 @@ fn run_sdl2(
         info!("Found display {:?}", video_ctx.display_name(n)?);
     }
 
-    let mut window = video_ctx
-        .window("ROOM4DOOM", options.width, options.height)
-        .hidden()
-        .position_centered()
-        .build()?;
-
-    match options.window_mode.unwrap_or(WindowMode::Windowed) {
-        WindowMode::Windowed => {
-            window.set_fullscreen(sdl2::video::FullscreenType::Off)?;
-        }
-        WindowMode::Borderless => {
-            window.set_fullscreen(sdl2::video::FullscreenType::Desktop)?;
-        }
-        WindowMode::Exclusive => {
-            window.set_fullscreen(sdl2::video::FullscreenType::True)?;
-        }
-    }
-
     let input = input::InputSdl2::new(sdl_ctx.event_pump()?, (&user_config.input).into());
 
     sdl_ctx.mouse().show_cursor(false);
     sdl_ctx.mouse().set_relative_mouse_mode(true);
     sdl_ctx.mouse().capture(true);
 
-    let mut canvas_builder = window.into_canvas().target_texture();
-    if matches!(options.vsync, Some(true)) {
-        canvas_builder = canvas_builder.present_vsync();
-    }
-    let mut canvas = canvas_builder.build()?;
-    info!("Built display window");
-    canvas.window_mut().show();
-    {
-        let w = canvas.window();
-        let (win_w, win_h) = w.size();
-        let (draw_w, draw_h) = w.drawable_size();
-        info!(
-            "Window: {}x{}, drawable: {}x{}, fullscreen: {:?}",
-            win_w,
-            win_h,
-            draw_w,
-            draw_h,
-            w.fullscreen_state()
-        );
-    }
-
-    let display = DisplayBackend::new_sdl2(canvas);
     let mut game = Game::new(
         game_options,
         wad,
@@ -155,12 +128,17 @@ fn run_sdl2(
         user_config.to_config_array(),
     );
     game.pic_data.set_crt_gamma(user_config.crt_gamma);
-    d_doom_loop_sdl2(game, input, display, options, user_config.clone())?;
+    game.pic_data
+        .set_palette_fade(options.palette_fade.unwrap_or_default().into());
+    // The loop owns window/backend creation; `sdl_ctx` stays alive here (the
+    // `event_pump` moved into `input` is owned, not borrowing it) until the loop
+    // returns.
+    d_doom_loop_sdl2::<P>(game, input, video_ctx, options, user_config.clone());
     Ok(())
 }
 
 #[cfg(all(
-    any(feature = "display-softbuffer", feature = "display-pixels"),
+    any(feature = "display-softbuffer", feature = "display-wgpu"),
     not(feature = "display-sdl2")
 ))]
 fn run_winit(
@@ -181,6 +159,8 @@ fn run_winit(
         user_config.to_config_array(),
     );
     game.pic_data.set_crt_gamma(user_config.crt_gamma);
+    game.pic_data
+        .set_palette_fade(options.palette_fade.unwrap_or_default().into());
 
     // Headless mode: tick the game with no window/render, for deterministic
     // demo playback (CI regression checks, demo-trace recording). The winit
@@ -200,14 +180,14 @@ fn run_winit(
 /// purely for its tic side effects — used by CI determinism checks and demo
 /// trace recording. Exits when `game.running()` becomes false (demo finished).
 #[cfg(all(
-    any(feature = "display-softbuffer", feature = "display-pixels"),
+    any(feature = "display-softbuffer", feature = "display-wgpu"),
     not(feature = "display-sdl2")
 ))]
 fn run_headless(mut game: Game, mut input: input::InputState, options: CLIOptions) {
     use crate::d_main::run_game_tic;
     use doom_ui::{Finale, GameMenu, Intermission, Messages, Statusbar};
     use gamestate::subsystems::GameSubsystem;
-    use gamestate_traits::SubsystemTrait;
+    use gamestate_traits::SubsystemTrait as _;
 
     const HEADLESS_WIDTH: i32 = 320;
 
@@ -253,7 +233,10 @@ fn init_sound(
 }
 
 /// Initialise the sound server (winit display path).
-#[cfg(any(feature = "display-softbuffer", feature = "display-pixels"))]
+#[cfg(all(
+    any(feature = "display-softbuffer", feature = "display-wgpu"),
+    not(feature = "display-sdl2")
+))]
 fn init_sound_no_sdl(
     wad: &WadData,
     config: &UserConfig,

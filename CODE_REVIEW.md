@@ -82,7 +82,7 @@ Strictly typed and memory-safe, but logical and layout traps remain. Shaders are
 
 - **Tests in the same file** (`#[cfg(test)] mod tests`); validate mock WAD/parser data through the real loader, not hand-built structs.
 - **WAD-dependent tests are `#[ignore]`/feature-gated** with the WAD named in the header (`wad-doom`, `wad-sunder`); E1M1/shareware paths run in CI.
-- **Every commit leaves the repo green** — `cargo build` (dev only, never `--release`) + `cargo +nightly fmt` + `cargo clippy` clean. The pre-commit hook runs the suite + demo regression.
+- **Every commit leaves the repo green** — `cargo build` (dev only, never `--release`) + `cargo fmt` + `cargo clippy` clean. The pre-commit hook runs the suite + demo regression.
 - **Conventional prefix** — `feat(scope):`, `fix(scope):`, `refactor(scope):`. Terse body, bullets, no session/forward refs.
 - **Fold fixes into the commit that introduced them** (`git commit --amend` / `rebase -i --autosquash`); no stacked `fixup` commits. When fixes scatter across many commits with heavy file overlap, one `refactor: review cleanups` commit on HEAD is the pragmatic alternative.
 - **Stage by path, never `git add -A/.`** — `git status` first.

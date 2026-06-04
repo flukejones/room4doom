@@ -9,10 +9,27 @@ build = "../build.rs"
 [features]
 null_check = []
 hprof = []
+# Mirror rbsp's `Float` width so geometry casts gate correctly.
+f32 = ["rbsp/f32"]
+# Test-only markers gating BSP3D tests by the WAD they load (WADs not in-repo):
+#   cargo test -p level --features wad-all
+wad-doom = []
+wad-doom2 = []
+wad-sigil = []
+wad-sigil2 = []
+wad-eviternity = []
+wad-sunder = []
+wad-all = [
+    "wad-doom",
+    "wad-doom2",
+    "wad-sigil",
+    "wad-sigil2",
+    "wad-eviternity",
+    "wad-sunder",
+]
 
 [dependencies]
 coarse-prof.workspace = true
-game-config.workspace = true
 math.workspace = true
 wad.workspace = true
 rbsp.workspace = true

@@ -125,8 +125,8 @@ pub struct WadPatch {
 }
 
 impl WadPatch {
-    pub const fn default() -> WadPatch {
-        WadPatch {
+    pub const fn default() -> Self {
+        Self {
             name: String::new(),
             width: 0,
             height: 0,
@@ -217,8 +217,8 @@ impl WadPatch {
             }
         }
 
-        WadPatch {
-            name: lump.name.to_owned(),
+        Self {
+            name: lump.name.clone(),
             width,
             height: u16::from_le_bytes([data[2], data[3]]),
             left_offset: i16::from_le_bytes([data[4], data[5]]),
@@ -291,8 +291,8 @@ pub struct WadThing {
 }
 
 impl WadThing {
-    pub fn new(x: i16, y: i16, angle: i16, kind: i16, flags: i16) -> WadThing {
-        WadThing {
+    pub fn new(x: i16, y: i16, angle: i16, kind: i16, flags: i16) -> Self {
+        Self {
             x,
             y,
             angle,
@@ -336,8 +336,8 @@ pub struct WadVertex {
 }
 
 impl WadVertex {
-    pub fn new(x: f32, y: f32) -> WadVertex {
-        WadVertex {
+    pub fn new(x: f32, y: f32) -> Self {
+        Self {
             x,
             y,
         }
@@ -409,8 +409,8 @@ impl WadLineDef {
         front_sidedef: u16,
         back_sidedef: Option<u16>,
         sides: [u16; 2],
-    ) -> WadLineDef {
-        WadLineDef {
+    ) -> Self {
+        Self {
             start_vertex,
             end_vertex,
             flags,
@@ -489,8 +489,8 @@ impl WadSegment {
         linedef: u16,
         side: i16,
         offset: i16,
-    ) -> WadSegment {
-        WadSegment {
+    ) -> Self {
+        Self {
             start_vertex,
             end_vertex,
             angle,
@@ -500,8 +500,8 @@ impl WadSegment {
         }
     }
 
-    pub fn new_z(start_vertex: u32, end_vertex: u32, linedef: u16, side: u16) -> WadSegment {
-        WadSegment {
+    pub fn new_z(start_vertex: u32, end_vertex: u32, linedef: u16, side: u16) -> Self {
+        Self {
             start_vertex,
             end_vertex,
             angle: i16::MIN,
@@ -563,8 +563,8 @@ pub struct WadSubSector {
 }
 
 impl WadSubSector {
-    pub fn new(seg_count: u32, start_seg: u32) -> WadSubSector {
-        WadSubSector {
+    pub fn new(seg_count: u32, start_seg: u32) -> Self {
+        Self {
             seg_count,
             start_seg,
         }
@@ -583,12 +583,10 @@ impl WadRecord for WadSubSector {
     const SIZE: usize = 4;
 }
 
-/// A `Sector` is a horizontal (east-west and north-south) area of the level
-/// where a floor height and ceiling height is defined.
-/// Any change in floor or ceiling height or texture requires a
-/// new sector (and therefore separating linedefs and sidedefs).
+/// A horizontal area of the level with a defined floor and ceiling height.
 ///
-/// Each `Sector` record is 26 bytes
+/// Any change in floor/ceiling height or texture requires a new sector (and
+/// therefore separating linedefs and sidedefs). Each record is 26 bytes.
 #[derive(Debug, Clone)]
 pub struct WadSector {
     pub floor_height: i16,
@@ -618,8 +616,8 @@ impl WadSector {
         light_level: i16,
         kind: i16,
         tag: i16,
-    ) -> WadSector {
-        WadSector {
+    ) -> Self {
+        Self {
             floor_height,
             ceil_height,
             floor_tex: tex_name(floor_tex),
@@ -674,26 +672,23 @@ impl WadSideDef {
         lower_tex: &[u8],
         middle_tex: &[u8],
         sector: i16,
-    ) -> WadSideDef {
-        if upper_tex.len() != 8 {
-            panic!(
-                "sidedef upper_tex name incorrect length, expected 8, got {}",
-                upper_tex.len()
-            )
-        }
-        if lower_tex.len() != 8 {
-            panic!(
-                "sidedef lower_tex name incorrect length, expected 8, got {}",
-                lower_tex.len()
-            )
-        }
-        if middle_tex.len() != 8 {
-            panic!(
-                "sidedef middle_tex name incorrect length, expected 8, got {}",
-                middle_tex.len()
-            )
-        }
-        WadSideDef {
+    ) -> Self {
+        assert!(
+            upper_tex.len() == 8,
+            "sidedef upper_tex name incorrect length, expected 8, got {}",
+            upper_tex.len()
+        );
+        assert!(
+            lower_tex.len() == 8,
+            "sidedef lower_tex name incorrect length, expected 8, got {}",
+            lower_tex.len()
+        );
+        assert!(
+            middle_tex.len() == 8,
+            "sidedef middle_tex name incorrect length, expected 8, got {}",
+            middle_tex.len()
+        );
+        Self {
             x_offset,
             y_offset,
             upper_tex: if upper_tex[0] == b'-' {
@@ -761,12 +756,11 @@ impl WadRecord for WadSideDef {
     const SIZE: usize = 30;
 }
 
-/// The base node structure as parsed from the WAD records. What is stored in
-/// the WAD is the splitting line used for splitting the level/node (starts with
-/// the level then consecutive nodes, aiming for an even split if possible), a
-/// box which encapsulates the left and right regions of the split, and the
-/// index numbers for left and right children of the node; the index is in to
-/// the array built from this lump.
+/// A BSP node as parsed from the WAD records.
+///
+/// Stores the splitting line (level first, then consecutive nodes, aiming for
+/// an even split), a box enclosing the left/right regions, and the left/right
+/// child indices into the array built from this lump.
 ///
 /// **The last node is the root node**
 ///
@@ -818,8 +812,8 @@ impl WadNode {
         bounding_boxes: [[i16; 4]; 2],
         right_child_id: u32,
         left_child_id: u32,
-    ) -> WadNode {
-        WadNode {
+    ) -> Self {
+        Self {
             x,
             y,
             dx,
@@ -883,14 +877,8 @@ pub struct WadBlockMap {
 }
 
 impl WadBlockMap {
-    pub fn new(
-        x_origin: i16,
-        y_origin: i16,
-        width: i16,
-        height: i16,
-        lines: Vec<i16>,
-    ) -> WadBlockMap {
-        WadBlockMap {
+    pub fn new(x_origin: i16, y_origin: i16, width: i16, height: i16, lines: Vec<i16>) -> Self {
+        Self {
             x_origin,
             y_origin,
             columns: width,
@@ -1015,7 +1003,10 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Registered Doom only"]
+    #[cfg_attr(
+        not(feature = "wad-doom"),
+        ignore = "needs registered doom.wad (~/doom/)"
+    )]
     fn texture2_header() {
         let wad = WadData::new(&doom_wad_path());
         let lump = wad.find_lump_or_panic("TEXTURE2");

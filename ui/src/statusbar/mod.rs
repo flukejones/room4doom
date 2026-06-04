@@ -157,7 +157,7 @@ impl Statusbar {
     // Fullscreen HUD (no background, overlay on 3D view)
     // ========================================================================
 
-    fn draw_fullscreen(&mut self, buffer: &mut impl DrawBuffer) {
+    fn draw_fullscreen(&self, buffer: &mut impl DrawBuffer) {
         let face = true;
         if face {
             self.draw_face_fullscreen(false, false, buffer);
@@ -359,7 +359,7 @@ impl Statusbar {
             y = self.screen_height - patch.height as f32 * sy;
             x = f32::midpoint(self.x_ofs, self.screen_width) - patch.width as f32 * sx / 2.0;
             draw_patch(patch, x, y, sx, sy, &self.palette, pixels);
-        };
+        }
 
         let patch = self.faces.get_face();
         if upper || big {
@@ -372,7 +372,7 @@ impl Statusbar {
         } else {
             x = self.x_ofs + (patch.width as f32 / 2.0 + FACE_X_OFFSET) * sx;
             y = self.screen_height - (patch.height as f32 + FACE_Y_OFFSET) * sy;
-        };
+        }
         draw_patch(patch, x, y, sx, sy, &self.palette, pixels);
     }
 
@@ -453,7 +453,7 @@ impl Statusbar {
         }
     }
 
-    fn draw_bar(&mut self, buffer: &mut impl DrawBuffer) {
+    fn draw_bar(&self, buffer: &mut impl DrawBuffer) {
         let (sx, sy) = hud_scale(buffer);
         let bar_y = buffer.size().view_height_f32();
         // STBAR is always centered, regardless of widescreen HUD setting
@@ -633,10 +633,6 @@ impl SubsystemTrait for Statusbar {
         self.widescreen = game.config_value(ConfigKey::HudWidth) != 0;
         self.bar_mode = game.config_value(ConfigKey::HudSize) == 1;
         false
-    }
-
-    fn get_palette(&self) -> &WadPalette {
-        &self.palette
     }
 
     fn draw(&mut self, buffer: &mut impl DrawBuffer) {

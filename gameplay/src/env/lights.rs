@@ -43,7 +43,7 @@ impl FireFlicker {
     /// Doom function name `P_SpawnFireFlicker`
     pub fn spawn(sector: &mut Sector, level: &mut LevelState) {
         sector.special = 0;
-        let light = FireFlicker {
+        let light = Self {
             thinker: null_mut(),
             sector: MapPtr::new(sector),
             count: 4,
@@ -51,10 +51,9 @@ impl FireFlicker {
             min_light: find_min_light_surrounding(MapPtr::new(sector), sector.lightlevel) + 16,
         };
 
-        let thinker =
-            MapObject::create_thinker(ThinkerData::FireFlicker(light), FireFlicker::think);
+        let thinker = MapObject::create_thinker(ThinkerData::FireFlicker(light), Self::think);
 
-        if let Some(ptr) = level.thinkers.push::<FireFlicker>(thinker) {
+        if let Some(ptr) = level.thinkers.push::<Self>(thinker) {
             ptr.set_obj_thinker_ptr();
         }
     }
@@ -64,9 +63,7 @@ impl Think for FireFlicker {
     fn think(object: &mut Thinker, _level: &mut LevelState) -> bool {
         let light = object.fire_flick_mut();
         #[cfg(feature = "null_check")]
-        if light.thinker.is_null() {
-            std::panic!("fire flicker thinker was null");
-        }
+        assert!(!light.thinker.is_null(), "fire flicker thinker was null");
 
         light.count -= 1;
         if light.count != 0 {
@@ -78,7 +75,7 @@ impl Think for FireFlicker {
             light.sector.lightlevel = light.max_light - amount;
         }
         if light.sector.lightlevel < light.min_light {
-            light.sector.lightlevel = light.min_light
+            light.sector.lightlevel = light.min_light;
         }
         light.count = 4;
 
@@ -91,9 +88,7 @@ impl Think for FireFlicker {
 
     fn thinker_mut(&mut self) -> &mut Thinker {
         #[cfg(feature = "null_check")]
-        if self.thinker.is_null() {
-            std::panic!("fire flicker thinker was null");
-        }
+        assert!(!self.thinker.is_null(), "fire flicker thinker was null");
         unsafe { Thinker::from_erased(self.thinker) }
     }
 }
@@ -112,7 +107,7 @@ impl LightFlash {
     /// Doom function name `P_SpawnLightFlash`
     pub fn spawn(sector: &mut Sector, level: &mut LevelState) {
         sector.special = 0;
-        let light = LightFlash {
+        let light = Self {
             thinker: null_mut(),
             sector: MapPtr::new(sector),
             count: (p_random() & 64) + 1,
@@ -122,9 +117,9 @@ impl LightFlash {
             min_time: 7,
         };
 
-        let thinker = MapObject::create_thinker(ThinkerData::LightFlash(light), LightFlash::think);
+        let thinker = MapObject::create_thinker(ThinkerData::LightFlash(light), Self::think);
 
-        if let Some(ptr) = level.thinkers.push::<LightFlash>(thinker) {
+        if let Some(ptr) = level.thinkers.push::<Self>(thinker) {
             ptr.set_obj_thinker_ptr();
         }
     }
@@ -134,9 +129,7 @@ impl Think for LightFlash {
     fn think(object: &mut Thinker, _level: &mut LevelState) -> bool {
         let light = object.light_flash_mut();
         #[cfg(feature = "null_check")]
-        if light.thinker.is_null() {
-            std::panic!("light flash thinker was null");
-        }
+        assert!(!light.thinker.is_null(), "light flash thinker was null");
 
         light.count -= 1;
         if light.count != 0 {
@@ -145,10 +138,10 @@ impl Think for LightFlash {
 
         if light.sector.lightlevel == light.max_light {
             light.sector.lightlevel = light.min_light;
-            light.count = (p_random() & light.min_time) + 1
+            light.count = (p_random() & light.min_time) + 1;
         } else {
             light.sector.lightlevel = light.max_light;
-            light.count = (p_random() & light.max_time) + 1
+            light.count = (p_random() & light.max_time) + 1;
         }
 
         false
@@ -160,9 +153,7 @@ impl Think for LightFlash {
 
     fn thinker_mut(&mut self) -> &mut Thinker {
         #[cfg(feature = "null_check")]
-        if self.thinker.is_null() {
-            std::panic!("light flash thinker was null");
-        }
+        assert!(!self.thinker.is_null(), "light flash thinker was null");
         unsafe { Thinker::from_erased(self.thinker) }
     }
 }
@@ -181,7 +172,7 @@ impl StrobeFlash {
     /// Doom function name `P_SpawnStrobeFlash`
     pub fn spawn(sector: &mut Sector, fast_or_slow: i32, in_sync: bool, level: &mut LevelState) {
         sector.special = 0;
-        let mut light = StrobeFlash {
+        let mut light = Self {
             thinker: null_mut(),
             sector: MapPtr::new(sector),
             count: if !in_sync { (p_random() & 7) + 1 } else { 1 },
@@ -195,10 +186,9 @@ impl StrobeFlash {
             light.min_light = 0;
         }
 
-        let thinker =
-            MapObject::create_thinker(ThinkerData::StrobeFlash(light), StrobeFlash::think);
+        let thinker = MapObject::create_thinker(ThinkerData::StrobeFlash(light), Self::think);
 
-        if let Some(ptr) = level.thinkers.push::<StrobeFlash>(thinker) {
+        if let Some(ptr) = level.thinkers.push::<Self>(thinker) {
             ptr.set_obj_thinker_ptr();
         }
     }
@@ -208,9 +198,7 @@ impl Think for StrobeFlash {
     fn think(object: &mut Thinker, _level: &mut LevelState) -> bool {
         let light = object.strobe_flash_mut();
         #[cfg(feature = "null_check")]
-        if light.thinker.is_null() {
-            std::panic!("strobe flash thinker was null");
-        }
+        assert!(!light.thinker.is_null(), "strobe flash thinker was null");
 
         light.count -= 1;
         if light.count != 0 {
@@ -234,9 +222,7 @@ impl Think for StrobeFlash {
 
     fn thinker_mut(&mut self) -> &mut Thinker {
         #[cfg(feature = "null_check")]
-        if self.thinker.is_null() {
-            std::panic!("strobe flash thinker was null");
-        }
+        assert!(!self.thinker.is_null(), "strobe flash thinker was null");
         unsafe { Thinker::from_erased(self.thinker) }
     }
 }
@@ -253,7 +239,7 @@ impl Glow {
     /// Doom function name `P_SpawnGlowingLight`
     pub fn spawn(sector: &mut Sector, level: &mut LevelState) {
         sector.special = 0;
-        let light = Glow {
+        let light = Self {
             thinker: null_mut(),
             sector: MapPtr::new(sector),
             max_light: sector.lightlevel,
@@ -261,9 +247,9 @@ impl Glow {
             direction: -1,
         };
 
-        let thinker = MapObject::create_thinker(ThinkerData::Glow(light), Glow::think);
+        let thinker = MapObject::create_thinker(ThinkerData::Glow(light), Self::think);
 
-        if let Some(ptr) = level.thinkers.push::<Glow>(thinker) {
+        if let Some(ptr) = level.thinkers.push::<Self>(thinker) {
             ptr.set_obj_thinker_ptr();
         }
     }
@@ -275,9 +261,7 @@ impl Think for Glow {
     fn think(object: &mut Thinker, _level: &mut LevelState) -> bool {
         let light = object.glow_mut();
         #[cfg(feature = "null_check")]
-        if light.thinker.is_null() {
-            std::panic!("glow thinker was null");
-        }
+        assert!(!light.thinker.is_null(), "glow thinker was null");
 
         match light.direction {
             -1 => {
@@ -310,9 +294,7 @@ impl Think for Glow {
 
     fn thinker_mut(&mut self) -> &mut Thinker {
         #[cfg(feature = "null_check")]
-        if self.thinker.is_null() {
-            std::panic!("glow thinker was null");
-        }
+        assert!(!self.thinker.is_null(), "glow thinker was null");
         unsafe { Thinker::from_erased(self.thinker) }
     }
 }

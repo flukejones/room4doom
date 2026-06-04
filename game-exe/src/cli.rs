@@ -1,9 +1,11 @@
 use argh::FromArgs;
 use game_config::{GameOptions, Skill};
+#[cfg(feature = "software3d")]
 use software3d::{DebugColourMode, DebugDrawOptions, DebugOverlay};
 
 use crate::config::{self, MusicType, WindowMode};
 
+#[cfg(feature = "software3d")]
 fn parse_debug_draw_mod(input: &str) -> DebugDrawOptions {
     let mut opts = DebugDrawOptions::default();
     for token in input.split(',') {
@@ -23,6 +25,7 @@ fn parse_debug_draw_mod(input: &str) -> DebugDrawOptions {
     opts
 }
 
+#[cfg(feature = "software3d")]
 fn parse_hex_colour(hex: &str) -> Option<u32> {
     let s = hex.strip_prefix('#').unwrap_or(hex);
     if s.len() != 6 {
@@ -87,9 +90,19 @@ pub struct CLIOptions {
     /// select level in episode. If Doom II the episode is ignored
     #[argh(option, short = 'm')]
     pub map: Option<usize>,
-    /// rendering type <software, software3d>
+    /// rendering type <software, software3d, wgpu3d>
     #[argh(option, short = 'r')]
     pub rendering: Option<config::RenderType>,
+    /// scene pixel format <indexed(default), 888, 565>
+    #[argh(option)]
+    pub pixels: Option<config::PixelMode>,
+    /// damage/bonus tint style <vanilla(default), smooth>
+    #[argh(option)]
+    pub palette_fade: Option<config::PaletteFade>,
+    /// post-process chain, comma-separated in order <none(default), stretch, crt>
+    /// e.g. crt, or stretch,crt
+    #[argh(option)]
+    pub post: Option<String>,
     /// music type <opl2(default), opl3, gus>
     #[argh(option, short = 'M')]
     pub music_type: Option<MusicType>,
@@ -103,10 +116,12 @@ pub struct CLIOptions {
     pub frame_interpolation: Option<bool>,
     /// debug overlay mode (mutually exclusive): sector_id, depth, overdraw,
     /// wireframe
+    #[cfg(feature = "software3d")]
     #[argh(option)]
     pub dbg_draw_overlay: Option<DebugOverlay>,
     /// debug draw modifiers (comma-separated): outline, normals, clear_<hex>,
     /// alpha_<0-255>, no_depth
+    #[cfg(feature = "software3d")]
     #[argh(option)]
     pub dbg_draw_mod: Option<String>,
     /// path to voxel directory or PK3 archive containing KVX files
@@ -121,6 +136,7 @@ pub struct CLIOptions {
     pub headless: bool,
 }
 
+#[cfg(feature = "software3d")]
 impl CLIOptions {
     pub fn debug_draw(&self) -> DebugDrawOptions {
         let mut opts = self
@@ -147,7 +163,7 @@ impl CLIOptions {
 
 impl From<CLIOptions> for GameOptions {
     fn from(g: CLIOptions) -> Self {
-        GameOptions {
+        Self {
             iwad: g.iwad,
             pwad: g.pwad,
             no_monsters: g.no_monsters,

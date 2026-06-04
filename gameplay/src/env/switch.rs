@@ -82,11 +82,12 @@ pub fn change_switch_texture(
     snd: &SndServerTx,
     bsp3d: &mut BSP3D,
 ) {
-    let mut sfx = SfxName::Swtchx;
-    if !use_again {
+    let sfx = if !use_again {
         line.special = 0;
-        sfx = SfxName::Swtchn;
-    }
+        SfxName::Swtchn
+    } else {
+        SfxName::Swtchx
+    };
 
     for i in 0..switch_list.len() {
         let sw = switch_list[i];
@@ -165,9 +166,7 @@ pub fn p_use_special_line(_side: i32, line: MapPtr<LineDef>, thing: &mut MapObje
         }
     }
 
-    if thing.level.is_null() {
-        panic!("Thing had a bad level pointer");
-    }
+    assert!(!thing.level.is_null(), "Thing had a bad level pointer");
     let level: &mut LevelState = unsafe { &mut *thing.level };
 
     // BOOM generalized linedef types

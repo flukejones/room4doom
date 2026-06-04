@@ -32,7 +32,7 @@ use gameplay::{
     GameAction, LevelState, MAXPLAYERS, MapObject, Player, PlayerState, respawn_specials, save,
     spawn_specials, update_specials,
 };
-use gamestate_traits::{ConfigKey, GameState, GameTraits, SubsystemTrait, WorldInfo};
+use gamestate_traits::{ConfigKey, GameState, GameTraits as _, SubsystemTrait, WorldInfo};
 use log::{debug, error, info, trace, warn};
 use math::m_clear_random;
 use pic_data::PicData;
@@ -275,9 +275,9 @@ pub fn prepare_wad(mut options: GameOptions, mut wad: WadData) -> (GameOptions, 
 
     if !options.pwad.is_empty() {
         info!("Init PWADfiles");
-        for pwad in options.pwad.iter() {
+        for pwad in &options.pwad {
             wad.add_file(pwad.into());
-            info!("Added: {}", pwad);
+            info!("Added: {pwad}");
         }
     }
 
@@ -290,20 +290,20 @@ pub fn prepare_wad(mut options: GameOptions, mut wad: WadData) -> (GameOptions, 
     match game_type.mode {
         GameMode::Shareware => {
             println!(
-                r#"
+                r"
 ===========================================================================
                             Shareware WAD!
 ===========================================================================
-"#
+"
             );
         }
         _ => {
             println!(
-                r#"
+                r"
 ===========================================================================
                  Commercial WAD - do not distribute!
 ===========================================================================
-"#
+"
             );
         }
     }
@@ -329,13 +329,14 @@ impl Game {
 
         info!("Init playloop state.");
 
-        let mut game_action = GameAction::None;
-        if options.warp {
-            game_action = GameAction::NewGame;
-        }
+        let game_action = if options.warp {
+            GameAction::NewGame
+        } else {
+            GameAction::None
+        };
 
         let umapinfo = wad.map_info();
-        if let Some(ref info) = umapinfo {
+        if let Some(info) = &umapinfo {
             info!("Loaded map info with {} map entries", info.entries().len());
         }
 
@@ -343,7 +344,7 @@ impl Game {
         let page_cache = WadPatch::from_lump(lump);
         let pic_data = PicData::init(&wad, &gameplay::SPRNAMES);
 
-        Game {
+        Self {
             wad_data: wad,
             wad_name,
             level_start_tic: 0,
@@ -501,7 +502,7 @@ impl Game {
         // TODO: mut mobj info for nightmare missile speeds
 
         // force players to be initialized upon first level load
-        for player in self.players.iter_mut() {
+        for player in &mut self.players {
             player.player_state = PlayerState::Reborn;
         }
 
@@ -532,10 +533,12 @@ impl Game {
     /// specials, and set up UMAPINFO overrides.
     fn do_load_level(&mut self) {
         debug!("Entered do_load_level");
-        self.wipe_game_state = GameState::ForceWipe;
+        if self.gamestate == GameState::Level {
+            self.wipe_game_state = GameState::ForceWipe;
+        }
         self.gamestate = GameState::Level;
 
-        for player in self.players.iter_mut() {
+        for player in &mut self.players {
             if player.player_state == PlayerState::Dead {
                 player.player_state = PlayerState::Reborn;
                 for i in 0..player.frags.len() {
@@ -635,13 +638,10 @@ impl Game {
     /// Load a saved game from disk: parse header, reload the level, then
     /// apply the serialized thinker/sector/player state on top.
     fn do_load_game(&mut self) {
-        let name = match self.save_name.take() {
-            Some(n) => n,
-            None => {
-                warn!("do_load_game: no save name set");
-                self.pending_action = GameAction::None;
-                return;
-            }
+        let Some(name) = self.save_name.take() else {
+            warn!("do_load_game: no save name set");
+            self.pending_action = GameAction::None;
+            return;
         };
 
         let path = Self::save_dir().join(format!("{name}.sav"));
@@ -725,16 +725,13 @@ impl Game {
 
     /// G_DoSaveGame
     fn do_save_game(&mut self) {
-        let name = match self.save_name.take() {
-            Some(n) => n,
-            None => {
-                warn!("do_save_game: no save name set");
-                self.pending_action = GameAction::None;
-                return;
-            }
+        let Some(name) = self.save_name.take() else {
+            warn!("do_save_game: no save name set");
+            self.pending_action = GameAction::None;
+            return;
         };
 
-        if let Some(ref level) = self.level {
+        if let Some(level) = &self.level {
             let data = save::save_game_to_bytes(
                 level,
                 &self.players,
@@ -788,7 +785,7 @@ impl Game {
             self.demo.playback = false;
             self.options.netgame = false;
             self.options.deathmatch = 0;
-            for p in self.players_in_game.iter_mut() {
+            for p in &mut self.players_in_game {
                 *p = false;
             }
             self.options.respawn_parm = false;
@@ -951,7 +948,7 @@ impl Game {
             if let Some(byte) = self.demo.buffer.next() {
                 self.consoleplayer = byte as usize;
             }
-            for player in self.players_in_game.iter_mut() {
+            for player in &mut self.players_in_game {
                 if let Some(byte) = self.demo.buffer.next() {
                     *player = byte == 1;
                 }
@@ -1036,7 +1033,7 @@ impl Game {
         }
 
         if !matches!(self.game_type.mode, GameMode::Commercial) && self.options.map == 8 {
-            for p in self.players.iter_mut() {
+            for p in &mut self.players {
                 p.didsecret = true;
             }
         }

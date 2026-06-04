@@ -179,7 +179,7 @@ pub struct BBox {
 
 impl BBox {
     pub fn new(v1: Vec2, v2: Vec2) -> Self {
-        let mut bbox = BBox::default();
+        let mut bbox = Self::default();
 
         if v1.x < v2.x {
             bbox.left = v1.x;
