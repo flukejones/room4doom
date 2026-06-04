@@ -4113,6 +4113,7 @@ name = "software25d"
 version = "1.0.0"
 dependencies = [
  "coarse-prof",
+ "criterion 0.8.2",
  "game-config",
  "gameplay",
  "glam",
@@ -4121,6 +4122,8 @@ dependencies = [
  "math",
  "pic-data",
  "render-common",
+ "test-utils",
+ "wad",
 ]
 
 [[package]]
