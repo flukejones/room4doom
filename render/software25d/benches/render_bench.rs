@@ -1,14 +1,14 @@
-//! software3d render microbenchmarks.
+//! software25d render microbenchmarks.
 //!
-//! Spawns a camera at the player-1 start at eye height and renders the same
-//! frame repeatedly — isolating the rasterizer. Two scenes (doom1 E1M2;
-//! doom + sigil2 E6M6) × two resolutions (320×200, 1280×800), no voxels.
+//! Mirrors the software3d bench: a camera at the player-1 start at eye height
+//! renders the same frame repeatedly. Two scenes (doom1 E1M2; doom + sigil2
+//! E6M6) × two resolutions (320×200, 1280×800). software25d has no voxels.
 
 use criterion::{Criterion, criterion_group, criterion_main};
 use math::{Angle, Bam, FixedT};
 use pic_data::PicData;
 use render_common::{BufferSize, DrawBuffer, RenderPspDef, RenderView};
-use software3d::{DebugDrawOptions, Software3D};
+use software25d::Software25D;
 use std::path::Path;
 use wad::WadData;
 
@@ -16,8 +16,9 @@ use level::LevelData;
 
 const FOV: f32 = std::f32::consts::FRAC_PI_2;
 const VIEWHEIGHT: f32 = 41.0;
-const LOW: (usize, usize) = (320, 200);
-const HI: (usize, usize) = (1280, 800);
+/// (width, height, hi_res). hi_res LUT is required above the 200p base.
+const LOW: (usize, usize, bool) = (320, 200, false);
+const HI: (usize, usize, bool) = (1280, 800, true);
 
 /// Headless framebuffer; indexes by its own width so any resolution works.
 struct HeadlessBuffer {
@@ -124,15 +125,15 @@ fn load_from(wad: WadData, map: &str) -> (LevelData, PicData) {
     (level, pics)
 }
 
-/// Render `map` repeatedly at `(w, h)` under the given bench name.
+/// Render `map` repeatedly at `(w, h, hi_res)` under the given bench name.
 fn bench_scene(
     c: &mut Criterion,
     name: &str,
     level: &mut LevelData,
     pics: &mut PicData,
-    (w, h): (usize, usize),
+    (w, h, hi_res): (usize, usize, bool),
 ) {
-    let mut renderer = Software3D::new(w as f32, h as f32, FOV, DebugDrawOptions::default());
+    let mut renderer = Software25D::new(FOV, w as f32, h as f32, hi_res, false);
     let view = build_view(level);
     let mut buffer = HeadlessBuffer::new(w, h);
 
@@ -147,14 +148,14 @@ fn bench_scene(
 
 fn benches(c: &mut Criterion) {
     if let Some((mut level, mut pics)) = load_iwad(&test_utils::doom1_wad_path(), "E1M2") {
-        bench_scene(c, "sw3d/e1m2/320x200", &mut level, &mut pics, LOW);
-        bench_scene(c, "sw3d/e1m2/1280x800", &mut level, &mut pics, HI);
+        bench_scene(c, "sw25d/e1m2/320x200", &mut level, &mut pics, LOW);
+        bench_scene(c, "sw25d/e1m2/1280x800", &mut level, &mut pics, HI);
     }
     if let Some((mut level, mut pics)) =
         load_pwad(&test_utils::doom_wad_path(), &test_utils::sigil2_wad_path(), "E6M6")
     {
-        bench_scene(c, "sw3d/e6m6/320x200", &mut level, &mut pics, LOW);
-        bench_scene(c, "sw3d/e6m6/1280x800", &mut level, &mut pics, HI);
+        bench_scene(c, "sw25d/e6m6/320x200", &mut level, &mut pics, LOW);
+        bench_scene(c, "sw25d/e6m6/1280x800", &mut level, &mut pics, HI);
     }
 }
 

@@ -25,6 +25,13 @@ render-common.workspace = true
 coarse-prof.workspace = true
 
 [dev-dependencies]
+wad.workspace = true
+test-utils.workspace = true
+criterion = { version = "0.8", features = ["html_reports"] }
+
+[[bench]]
+name = "render_bench"
+harness = false
 
 [lints]
 workspace = true
