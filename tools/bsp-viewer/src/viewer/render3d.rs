@@ -2,9 +2,9 @@ use egui::{ColorImage, TextureHandle, TextureOptions};
 use glam::Vec3;
 use level::LevelData;
 use math::{Angle, Bam, FixedT};
-use pic_data::PicData;
-use render_common::{BufferSize, DrawBuffer, RenderPspDef, RenderView};
-use software3d::{DebugColourMode, DebugDrawOptions, Software3D};
+use pic_data::{ByteOrder, PicData};
+use render_common::{BufferSize, DrawBuffer, PixelTarget, RenderPspDef, RenderView};
+use software3d::Software3D;
 use wad::WadData;
 
 pub const FOV: f32 = std::f32::consts::FRAC_PI_2;
@@ -66,14 +66,13 @@ impl FrameBuffer {
 }
 
 impl DrawBuffer for FrameBuffer {
+    type Pixel = u32;
+
     fn size(&self) -> &BufferSize {
         &self.size
     }
     fn set_pixel(&mut self, x: usize, y: usize, colour: u32) {
         self.data[y * self.w + x] = colour;
-    }
-    fn read_pixel(&self, x: usize, y: usize) -> u32 {
-        self.data[y * self.w + x]
     }
     fn get_buf_index(&self, x: usize, y: usize) -> usize {
         y * self.w + x
@@ -84,7 +83,6 @@ impl DrawBuffer for FrameBuffer {
     fn buf_mut(&mut self) -> &mut [u32] {
         &mut self.data
     }
-    fn debug_flip_and_present(&mut self) {}
 }
 
 pub struct Renderer3D {
@@ -102,7 +100,7 @@ impl Renderer3D {
         // sprite list; one placeholder name suffices.
         let pics = PicData::init(wad, &["TROO"]);
         Self {
-            sw: Software3D::new(w as f32, h as f32, FOV, debug_opts(mode)),
+            sw: Software3D::new(w as f32, h as f32, FOV),
             pics,
             fb: FrameBuffer::new(w, h),
             mode,
@@ -123,7 +121,7 @@ impl Renderer3D {
     ) -> TextureHandle {
         if self.mode != mode {
             self.mode = mode;
-            self.sw = Software3D::new(self.w as f32, self.h as f32, FOV, debug_opts(mode));
+            self.sw = Software3D::new(self.w as f32, self.h as f32, FOV);
         }
         if (self.w, self.h) != size {
             self.w = size.0;
@@ -151,22 +149,13 @@ impl Renderer3D {
     fn render_to_buffer(&mut self, level: &LevelData, cam: &Camera3D) {
         let view = render_view(cam);
         self.fb.data.fill(CLEAR_COLOUR);
-        self.sw
-            .draw_view(&view, level, &mut self.pics, &mut self.fb);
+        let pal_lit = self.pics.build_pal_lit(ByteOrder::Argb);
+        let tint = self.pics.use_palette();
+        let size = BufferSize::new(self.w, self.h);
+        let mut target = PixelTarget::new(&mut self.fb.data, size, self.w, &pal_lit, tint);
+        self.sw.draw_view(&view, level, &mut self.pics, &mut target);
+        self.sw.draw_debug_overlays(&mut target);
     }
-}
-
-fn debug_opts(mode: Render3DMode) -> DebugDrawOptions {
-    let mut opts = DebugDrawOptions {
-        clear_colour: Some(CLEAR_COLOUR),
-        ..Default::default()
-    };
-    match mode {
-        Render3DMode::Textured => {}
-        Render3DMode::SolidSectors => opts.colour_mode = DebugColourMode::SectorId,
-        Render3DMode::Wireframe => opts.wireframe = true,
-    }
-    opts
 }
 
 fn render_view(cam: &Camera3D) -> RenderView {
@@ -230,6 +219,14 @@ mod tests {
         ] {
             let mut r = Renderer3D::new(&wad, mode, 320, 240);
             r.render_to_buffer(&level, &cam);
+            if mode == Render3DMode::Textured {
+                let distinct: std::collections::HashSet<u32> = r.fb.data.iter().copied().collect();
+                assert!(
+                    distinct.len() > 10,
+                    "textured view should render many colours, got {}",
+                    distinct.len()
+                );
+            }
         }
     }
 }

@@ -42,7 +42,7 @@ impl Messages {
         if self.msg_mode == 2 {
             self.start = 0;
             self.current = 0;
-            for l in self.lines.iter_mut() {
+            for l in &mut self.lines {
                 l.clear();
             }
             self.lines[0].replace(line);
@@ -110,7 +110,7 @@ impl Messages {
 
 impl SubsystemTrait for Messages {
     fn init<T: GameTraits + ConfigTraits>(&mut self, _game: &T) {
-        for l in self.lines.iter_mut() {
+        for l in &mut self.lines {
             l.clear();
         }
     }
@@ -125,7 +125,7 @@ impl SubsystemTrait for Messages {
         self.msg_mode = game.config_value(ConfigKey::HudMsgMode);
         self.widescreen = game.config_value(ConfigKey::HudWidth) != 0;
 
-        for l in self.lines.iter_mut() {
+        for l in &mut self.lines {
             if !l.line().is_empty() {
                 l.inc_current_char();
             }
@@ -140,15 +140,11 @@ impl SubsystemTrait for Messages {
             self.count_down = self.count_down_max;
             self.start = 0;
             self.current = 0;
-            for l in self.lines.iter_mut() {
+            for l in &mut self.lines {
                 l.clear();
             }
         }
         false
-    }
-
-    fn get_palette(&self) -> &WadPalette {
-        &self.palette
     }
 
     fn draw(&mut self, buffer: &mut impl DrawBuffer) {
@@ -170,10 +166,10 @@ mod tests {
 
         let mut msgs = Messages::new(&wad);
 
-        msgs.add_line("0".to_string());
-        msgs.add_line("1".to_string());
-        msgs.add_line("2".to_string());
-        msgs.add_line("3".to_string());
+        msgs.add_line("0".to_owned());
+        msgs.add_line("1".to_owned());
+        msgs.add_line("2".to_owned());
+        msgs.add_line("3".to_owned());
 
         assert_eq!(msgs.lines[0].line(), "3");
         assert_eq!(msgs.lines[1].line(), "0");
@@ -183,13 +179,13 @@ mod tests {
         assert_eq!(msgs.lines[msgs.current].line(), "3");
         assert_eq!(msgs.lines[msgs.start].line(), "0");
 
-        msgs.add_line("11".to_string());
+        msgs.add_line("11".to_owned());
         assert_eq!(msgs.lines[msgs.start].line(), "1");
         assert_eq!(msgs.lines[0].line(), "3");
         assert_eq!(msgs.lines[1].line(), "11");
         assert_eq!(msgs.lines[msgs.current].line(), "11");
 
-        msgs.add_line("12".to_string());
+        msgs.add_line("12".to_owned());
         assert_eq!(msgs.lines[msgs.start].line(), "2");
         assert_eq!(msgs.lines[0].line(), "3");
         assert_eq!(msgs.lines[1].line(), "11");

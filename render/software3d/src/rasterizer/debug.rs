@@ -21,18 +21,13 @@ pub(crate) fn write_pixel(
     alpha: Option<u8>,
 ) {
     if let Some(a) = alpha {
-        let dst = buffer.read_pixel(x, y);
         let a = a as u16;
-        let inv_a = 255 - a;
         let sr = (color >> 16) as u8;
         let sg = (color >> 8) as u8;
         let sb = color as u8;
-        let dr = (dst >> 16) as u8;
-        let dg = (dst >> 8) as u8;
-        let db = dst as u8;
-        let r = ((sr as u16 * a + dr as u16 * inv_a) >> 8) as u8;
-        let g = ((sg as u16 * a + dg as u16 * inv_a) >> 8) as u8;
-        let b = ((sb as u16 * a + db as u16 * inv_a) >> 8) as u8;
+        let r = ((sr as u16 * a) >> 8) as u8;
+        let g = ((sg as u16 * a) >> 8) as u8;
+        let b = ((sb as u16 * a) >> 8) as u8;
         buffer.set_pixel(
             x,
             y,
@@ -53,23 +48,20 @@ impl Software3D {
         wall_tex: Option<usize>,
         brightness: usize,
         bounds: (Vec2, Vec2),
-        pic_data: &mut PicData,
+        pic_data: &PicData,
         buffer: &mut impl DrawBuffer,
     ) {
         let screen_poly = ScreenPoly(
             &self.rasterizer.screen_vertices_buffer[..self.rasterizer.screen_vertices_len],
         );
 
-        let interpolator = match TriangleInterpolator::new(
+        let Some(interpolator) = TriangleInterpolator::new(
             screen_poly.0,
             &self.rasterizer.tex_coords_buffer[..self.rasterizer.tex_coords_len],
             &self.rasterizer.inv_w_buffer[..self.rasterizer.inv_w_len],
-        ) {
-            Some(interpolator) => interpolator,
-            None => {
-                self.stats.polygons_early_culled += 1;
-                return;
-            }
+        ) else {
+            self.stats.polygons_early_culled += 1;
+            return;
         };
 
         let sky_pic = pic_data.sky_pic();
@@ -253,13 +245,16 @@ impl Software3D {
                             }
                             let colourmap =
                                 pic_data.base_colourmap(brightness, edge_inv_w * LIGHT_SCALE);
-                            let color = texture_sampler.sample(u, v, colourmap, pic_data);
-                            if color == 0 {
+                            let idx = texture_sampler.sample(u, v, colourmap);
+                            if idx == u16::MAX {
                                 interp_state.step_x();
                                 edge_inv_w += edge_inv_w_dx;
                                 x += 1;
                                 continue;
                             }
+                            // Debug overlays produce true-colour, so resolve the
+                            // index here (this path is not perf-critical).
+                            let color = pic_data.palette()[idx as usize];
                             if !no_depth {
                                 self.rasterizer
                                     .depth_buffer
@@ -288,7 +283,8 @@ impl Software3D {
 
                             let colourmap =
                                 pic_data.base_colourmap(brightness, edge_inv_w * LIGHT_SCALE);
-                            let color = texture_sampler.sample(u, v, colourmap, pic_data);
+                            let idx = texture_sampler.sample(u, v, colourmap);
+                            let color = pic_data.palette()[idx as usize];
 
                             let final_color = self.apply_debug_colour(
                                 color,
@@ -425,7 +421,7 @@ impl Software3D {
     /// Return the current debug overlay text, or empty if timed out.
     pub fn take_debug_line(&mut self) -> String {
         let text = self.debug.current_line().to_ascii_uppercase();
-        text.to_string()
+        text.clone()
     }
 
     /// Set the upper-right debug text overlay line, resetting the 5-second

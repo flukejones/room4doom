@@ -1,8 +1,8 @@
-//! A menu `GameSubsystem` as used by Doom. This loads and uses the Doom assets
-//! to display the menu but because it uses `SubsystemTrait` for the actual
-//! interaction with the rest of the game it ends up being fairly generic - you
-//! could make this fully generic with a little work, or use it as the basis for
-//! a different menu.
+//! A menu `GameSubsystem` as used by Doom.
+//!
+//! Loads the Doom assets to display the menu. Interaction goes through
+//! `SubsystemTrait`, so it is fairly generic — it could be made fully generic
+//! with a little work, or used as the basis for a different menu.
 
 use game_config::{GameMode, Skill};
 use gameplay::english as lang;
@@ -11,7 +11,7 @@ use hud_util::{
     draw_patch, draw_text_line, draw_text_line_tinted, fullscreen_scale, hud_scale,
     measure_text_line,
 };
-use render_common::DrawBuffer;
+use render_common::{ByteOrder, DrawBuffer, PixelFmt};
 use sound_common::SfxName;
 use std::collections::HashMap;
 use wad::WadData;
@@ -250,7 +250,16 @@ const WINDOW_MODE_OPTIONS: &[&str] = &[
     lang::OPT_MODE_BORDERLESS,
     lang::OPT_MODE_EXCLUSIVE,
 ];
-const RENDERER_OPTIONS: &[&str] = &[lang::OPT_REND_CLASSIC, lang::OPT_REND_SOFT3D];
+// Built from the enabled renderers in `RenderType` order, so each option's index
+// equals the renderer's `#[repr(u8)]` discriminant (what the cycle stores).
+const RENDERER_OPTIONS: &[&str] = &[
+    #[cfg(feature = "software25d")]
+    lang::OPT_REND_CLASSIC,
+    #[cfg(feature = "software3d")]
+    lang::OPT_REND_SOFT3D,
+    #[cfg(feature = "wgpu3d")]
+    lang::OPT_REND_HARD3D,
+];
 const HUD_SIZE_OPTIONS: &[&str] = &[lang::OPT_HUD_SIZE_FULL, lang::OPT_HUD_SIZE_BAR];
 const HUD_WIDTH_OPTIONS: &[&str] = &[lang::OPT_HUD_WIDTH_CLASSIC, lang::OPT_HUD_WIDTH_WIDE];
 const HUD_MSG_MODE_OPTIONS: &[&str] = &[
@@ -389,6 +398,10 @@ impl GameMenu {
                 vec![],
                 buf_width / 2 - 160,
                 0,
+                #[allow(
+                    clippy::match_same_arms,
+                    reason = "Retail and default differ in intent though both use HELP1"
+                )]
                 match mode {
                     GameMode::Commercial => vec![MenuItem::new(
                         Status::Ok,
@@ -501,9 +514,13 @@ impl GameMenu {
                         &[lang::OPT_DETAIL_LOW, lang::OPT_DETAIL_HIGH],
                     ),
                     MenuItem::toggle(lang::OPT_FRAME_INTERP, ConfigKey::FrameInterpolation),
+                    MenuItem::toggle(lang::OPT_HEALTH_BLEED, ConfigKey::HealthBleed),
                     MenuItem::toggle(lang::OPT_VOXELS, ConfigKey::Voxels),
                     MenuItem::toggle(lang::OPT_CRT_GAMMA, ConfigKey::CrtGamma),
-                    MenuItem::toggle(lang::OPT_HEALTH_VIG, ConfigKey::HealthVignette),
+                    #[cfg(feature = "wgpu3d")]
+                    MenuItem::slider(lang::OPT_LIGHT_GAMMA, ConfigKey::LightGamma, 80, 160, 10),
+                    #[cfg(feature = "wgpu3d")]
+                    MenuItem::toggle(lang::OPT_DYNAMIC_SKY, ConfigKey::DynamicSky),
                     MenuItem::toggle(lang::OPT_SHOW_FPS, ConfigKey::ShowFps),
                 ],
             ),
@@ -541,35 +558,35 @@ impl GameMenu {
         for menu in &menus {
             for item in &menu.titles {
                 if let Some(lump) = wad.get_lump(&item.patch) {
-                    patches.insert(item.patch.to_string(), WadPatch::from_lump(lump));
+                    patches.insert(item.patch.clone(), WadPatch::from_lump(lump));
                 }
             }
             for item in &menu.items {
                 if !item.patch.is_empty()
                     && let Some(lump) = wad.get_lump(&item.patch)
                 {
-                    patches.insert(item.patch.to_string(), WadPatch::from_lump(lump));
+                    patches.insert(item.patch.clone(), WadPatch::from_lump(lump));
                 }
             }
         }
 
         for patch in SKULLS {
             if let Some(lump) = wad.get_lump(patch) {
-                patches.insert(patch.to_string(), WadPatch::from_lump(lump));
+                patches.insert(patch.to_owned(), WadPatch::from_lump(lump));
             }
         }
 
         // Thermometer (slider) patches
         for name in ["M_THERML", "M_THERMM", "M_THERMR", "M_THERMO"] {
             if let Some(lump) = wad.get_lump(name) {
-                patches.insert(name.to_string(), WadPatch::from_lump(lump));
+                patches.insert(name.to_owned(), WadPatch::from_lump(lump));
             }
         }
 
         // Save/load border decoration patches
         for name in ["M_LSLEFT", "M_LSCNTR", "M_LSRGHT"] {
             if let Some(lump) = wad.get_lump(name) {
-                patches.insert(name.to_string(), WadPatch::from_lump(lump));
+                patches.insert(name.to_owned(), WadPatch::from_lump(lump));
             }
         }
 
@@ -582,7 +599,7 @@ impl GameMenu {
             save_slot: 0,
             save_old: String::new(),
             save_char_idx: 0,
-            save_strings: std::array::from_fn(|_| EMPTY_STRING.to_string()),
+            save_strings: std::array::from_fn(|_| EMPTY_STRING.to_owned()),
             quicksave_slot: QS_UNSET,
             menus,
             current_menu: MenuIndex::TopLevel,
@@ -703,13 +720,7 @@ impl GameMenu {
                 max,
                 step,
             } => (val + dir * step).clamp(*min, *max),
-            ItemKind::Toggle => {
-                if val == 0 {
-                    1
-                } else {
-                    0
-                }
-            }
+            ItemKind::Toggle => i32::from(val == 0),
             ItemKind::Cycle {
                 options,
             } => {
@@ -904,12 +915,12 @@ impl GameMenu {
             if i >= SAVE_SLOT_COUNT {
                 break;
             }
-            self.save_strings[i] = desc.unwrap_or_else(|| EMPTY_STRING.to_string());
+            self.save_strings[i] = desc.unwrap_or_else(|| EMPTY_STRING.to_owned());
         }
     }
 
     /// Open the load game menu, disabling empty slots.
-    fn open_load_menu<T: GameTraits + ConfigTraits>(&mut self, game: &mut T) {
+    fn open_load_menu<T: GameTraits + ConfigTraits>(&mut self, game: &T) {
         self.read_save_strings(game);
         // Determine slot status before borrowing menus mutably
         let statuses: Vec<Status> = self
@@ -931,7 +942,7 @@ impl GameMenu {
     }
 
     /// Open the save game menu (all slots enabled).
-    fn open_save_menu<T: GameTraits + ConfigTraits>(&mut self, game: &mut T) {
+    fn open_save_menu<T: GameTraits + ConfigTraits>(&mut self, game: &T) {
         self.read_save_strings(game);
         self.current_menu = MenuIndex::SaveGame;
     }
@@ -974,17 +985,13 @@ impl GameMenu {
     /// - Draws titles, item patches/labels, skull cursor
     /// - Handles save/load slot rendering with text cursor
     /// - Draws options submenus with sliders, toggles, and cycle values
-    fn draw_pixels(&mut self, pixels: &mut impl DrawBuffer) {
+    fn draw_pixels(&self, pixels: &mut impl DrawBuffer) {
         let (sx, sy) = hud_scale(pixels);
 
         if self.active || self.in_help {
             if self.dim_background {
-                let buf = pixels.buf_mut();
-                for pixel in buf.iter_mut() {
-                    let r = (*pixel >> 16) & 0xFF;
-                    let g = (*pixel >> 8) & 0xFF;
-                    let b = *pixel & 0xFF;
-                    *pixel = 0xFF000000 | ((r >> 1) << 16) | ((g >> 1) << 8) | (b >> 1);
+                for pixel in pixels.buf_mut().iter_mut() {
+                    *pixel = pixel.darken();
                 }
             }
 
@@ -995,7 +1002,8 @@ impl GameMenu {
 
             // Full-screen readthis/help pages: use CRT-correct aspect
             let (draw_sx, draw_sy) = if is_fullscreen {
-                pixels.buf_mut().fill(BLACK);
+                let black = PixelFmt::from_argb(BLACK, ByteOrder::Argb);
+                pixels.buf_mut().fill(black);
                 fullscreen_scale(pixels)
             } else {
                 (sx, sy)
@@ -1005,7 +1013,7 @@ impl GameMenu {
             let x_ofs = (pixels.size().width_f32() - 320.0 * draw_sx) / 2.0;
 
             // Titles
-            for item in active.titles.iter() {
+            for item in &active.titles {
                 draw_patch(
                     self.get_patch(&item.patch),
                     x_ofs + item.x as f32 * draw_sx,
@@ -1115,8 +1123,7 @@ impl GameMenu {
                                 pixels,
                             );
                         }
-                        ItemKind::Label => {}
-                        ItemKind::Patch => {}
+                        ItemKind::Label | ItemKind::Patch => {}
                     }
                     y += LINEHEIGHT as f32 * draw_sy;
                 }
@@ -1133,7 +1140,7 @@ impl GameMenu {
                     );
                 }
             } else {
-                for item in active.items.iter() {
+                for item in &active.items {
                     if !item.patch.is_empty() {
                         draw_patch(
                             self.get_patch(&item.patch),
@@ -1168,7 +1175,7 @@ impl GameMenu {
 
 impl SubsystemTrait for GameMenu {
     fn init<T: GameTraits + ConfigTraits>(&mut self, _game: &T) {
-        for menu in self.menus.iter_mut() {
+        for menu in &mut self.menus {
             if menu.this == MenuIndex::Skill {
                 menu.last_on = 2;
             }
@@ -1223,11 +1230,10 @@ impl SubsystemTrait for GameMenu {
                     self.in_help = !self.in_help;
                     if self.in_help {
                         self.current_menu = MenuIndex::ReadThis1;
-                        game.start_sound(SfxName::Swtchn);
                     } else {
                         self.current_menu = MenuIndex::TopLevel;
-                        game.start_sound(SfxName::Swtchx);
                     }
+                    game.start_sound(SfxName::Swtchn);
                     return true;
                 }
                 KeyCode::F2 => {
@@ -1259,7 +1265,6 @@ impl SubsystemTrait for GameMenu {
                         self.quicksave_slot = QS_PICKING;
                         self.active = true;
                         self.open_save_menu(game);
-                        game.start_sound(SfxName::Swtchn);
                     } else {
                         // Re-save to previously chosen slot
                         let slot = self.quicksave_slot as usize;
@@ -1271,8 +1276,8 @@ impl SubsystemTrait for GameMenu {
                             desc
                         };
                         game.save_game(format!("slot{slot}"), desc);
-                        game.start_sound(SfxName::Swtchn);
                     }
+                    game.start_sound(SfxName::Swtchn);
                     return true;
                 }
                 KeyCode::F9 => {
@@ -1292,6 +1297,7 @@ impl SubsystemTrait for GameMenu {
                 }
                 KeyCode::Escape => {
                     self.enter_menu(game);
+                    game.start_sound(SfxName::Swtchn);
                     return true;
                 }
                 _ => {}
@@ -1423,11 +1429,7 @@ impl SubsystemTrait for GameMenu {
         self.active
     }
 
-    fn get_palette(&self) -> &WadPalette {
-        &self.palette
-    }
-
     fn draw(&mut self, buffer: &mut impl DrawBuffer) {
-        self.draw_pixels(buffer)
+        self.draw_pixels(buffer);
     }
 }

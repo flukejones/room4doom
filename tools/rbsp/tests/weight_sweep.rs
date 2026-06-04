@@ -55,12 +55,12 @@ fn sweep() {
 
     for &(wad_path, map_name) in MAPS {
         if !Path::new(wad_path).exists() {
-            eprintln!("Skipping: {} not found", wad_path);
+            eprintln!("Skipping: {wad_path} not found");
             continue;
         }
 
         let wad_name = wad_path.rsplit('/').next().unwrap();
-        eprintln!("\n=== {} {} ===", wad_name, map_name);
+        eprintln!("\n=== {wad_name} {map_name} ===");
         eprintln!(
             "{:>6} {:>5} {:>5} {:>5} {:>5} {:>5} {:>5}",
             "weight", "ss", "segs", "nodes", "verts", "max_d", "avg_d"

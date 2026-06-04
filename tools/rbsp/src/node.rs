@@ -30,13 +30,12 @@ pub fn build_node(
     bs: &mut BuildState,
     depth: usize,
 ) -> u32 {
-    if depth > 600 {
-        panic!(
-            "BSP recursion too deep ({depth}): {} segs, {} poly verts. Likely infinite loop.",
-            seg_indices.len(),
-            clip_poly.verts.len(),
-        );
-    }
+    assert!(
+        depth <= 600,
+        "BSP recursion too deep ({depth}): {} segs, {} poly verts. Likely infinite loop.",
+        seg_indices.len(),
+        clip_poly.verts.len(),
+    );
 
     // Empty seg list → seg-less subsector
     if seg_indices.is_empty() {
@@ -412,41 +411,40 @@ fn insert_boundary_verts(
                 let old_match = old_edges
                     .iter()
                     .find(|e| e.start_vertex == sv && e.end_vertex == ev);
-                match old_match {
-                    Some(e) => edges.push(*e),
-                    None => {
-                        let seg_match = old_edges.iter().find(|e| {
-                            if e.kind != EdgeKind::Seg {
-                                return false;
-                            }
-                            let es_v = &vertices[e.start_vertex as usize];
-                            let ee_v = &vertices[e.end_vertex as usize];
-                            let edx = ee_v.x - es_v.x;
-                            let edy = ee_v.y - es_v.y;
-                            let elen = (edx * edx + edy * edy).sqrt();
-                            if elen < EPSILON {
-                                return false;
-                            }
-                            let vs = &vertices[sv as usize];
-                            let ve = &vertices[ev as usize];
-                            let d1 = (edx * (vs.y - es_v.y) - edy * (vs.x - es_v.x)).abs() / elen;
-                            let d2 = (edx * (ve.y - es_v.y) - edy * (ve.x - es_v.x)).abs() / elen;
-                            d1 < VERTEX_EPSILON && d2 < VERTEX_EPSILON
-                        });
-                        match seg_match {
-                            Some(e) => edges.push(Edge {
-                                start_vertex: sv,
-                                end_vertex: ev,
-                                ..*e
-                            }),
-                            None => edges.push(Edge {
-                                kind: EdgeKind::Miniseg,
-                                start_vertex: sv,
-                                end_vertex: ev,
-                                seg: Edge::NONE_SEG,
-                                partner_leaf: Edge::NONE_PARTNER,
-                            }),
+                if let Some(e) = old_match {
+                    edges.push(*e);
+                } else {
+                    let seg_match = old_edges.iter().find(|e| {
+                        if e.kind != EdgeKind::Seg {
+                            return false;
                         }
+                        let es_v = &vertices[e.start_vertex as usize];
+                        let ee_v = &vertices[e.end_vertex as usize];
+                        let edx = ee_v.x - es_v.x;
+                        let edy = ee_v.y - es_v.y;
+                        let elen = (edx * edx + edy * edy).sqrt();
+                        if elen < EPSILON {
+                            return false;
+                        }
+                        let vs = &vertices[sv as usize];
+                        let ve = &vertices[ev as usize];
+                        let d1 = (edx * (vs.y - es_v.y) - edy * (vs.x - es_v.x)).abs() / elen;
+                        let d2 = (edx * (ve.y - es_v.y) - edy * (ve.x - es_v.x)).abs() / elen;
+                        d1 < VERTEX_EPSILON && d2 < VERTEX_EPSILON
+                    });
+                    match seg_match {
+                        Some(e) => edges.push(Edge {
+                            start_vertex: sv,
+                            end_vertex: ev,
+                            ..*e
+                        }),
+                        None => edges.push(Edge {
+                            kind: EdgeKind::Miniseg,
+                            start_vertex: sv,
+                            end_vertex: ev,
+                            seg: Edge::NONE_SEG,
+                            partner_leaf: Edge::NONE_PARTNER,
+                        }),
                     }
                 }
             }

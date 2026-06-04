@@ -10,7 +10,8 @@ use crate::{MapPtr, special_encode};
 use glam::Vec2;
 use log::{debug, info, warn};
 use math::{Angle, FixedT};
-use rbsp::LineDefAccess;
+use rbsp::LineDefAccess as _;
+use std::collections::BTreeMap;
 use std::time::Instant;
 
 const CELL_SIZE: f32 = 128.0;
@@ -202,11 +203,11 @@ impl LevelData {
                 );
                 bsp
             } else {
-                info!("{}: RBSP lump invalid, rebuilding", map_name);
-                self.build_bsp(map_name, wad)
+                info!("{map_name}: RBSP lump invalid, rebuilding");
+                Self::build_bsp(map_name, wad)
             }
         } else {
-            self.build_bsp(map_name, wad)
+            Self::build_bsp(map_name, wad)
         };
 
         let wad_linedefs: Vec<WadLineDef> = wad
@@ -482,8 +483,7 @@ impl LevelData {
     fn link_back_subsectors(&mut self) {
         // Group two-sided segments by linedef with owner, side (front sector),
         // and 1D span along the line.
-        let mut by_linedef: std::collections::HashMap<usize, Vec<SegSpan>> =
-            std::collections::HashMap::new();
+        let mut by_linedef: BTreeMap<usize, Vec<SegSpan>> = BTreeMap::new();
         for (si, seg) in self.segments.iter().enumerate() {
             if seg.backsector.is_none() {
                 continue;
@@ -512,7 +512,7 @@ impl LevelData {
         }
     }
 
-    fn build_bsp(&self, map_name: &str, wad: &WadData) -> rbsp::BspOutput {
+    fn build_bsp(map_name: &str, wad: &WadData) -> rbsp::BspOutput {
         let wad_vertices: Vec<WadVertex> = wad
             .map_iter::<WadVertex>(map_name, MapLump::Vertexes)
             .collect();
@@ -578,9 +578,10 @@ impl LevelData {
     }
 
     fn load_sidedefs(&mut self, map_name: &str, wad: &WadData, tex_order: &[WadTexture]) {
-        if self.sectors.is_empty() {
-            panic!("sectors must be loaded before sidedefs");
-        }
+        assert!(
+            !self.sectors.is_empty(),
+            "sectors must be loaded before sidedefs"
+        );
         // dbg!(tex_order.iter().position(|n| n.name == "METAL"));
         self.sidedefs = wad
             .map_iter::<WadSideDef>(map_name, MapLump::SideDefs)
@@ -674,7 +675,7 @@ impl LevelData {
 
     pub fn build_blockmap(&mut self, map_name: &str) {
         if self.linedefs.is_empty() {
-            warn!("{}: No linedefs, cannot build blockmap", map_name);
+            warn!("{map_name}: No linedefs, cannot build blockmap");
             return;
         }
 
@@ -825,7 +826,7 @@ impl LevelData {
             let mut bbox_right = i32::MIN;
             let mut bbox_left = i32::MAX;
 
-            for line in sector.lines.iter() {
+            for line in &sector.lines {
                 let v1x = line.v1.x_fp.to_fixed_raw();
                 let v1y = line.v1.y_fp.to_fixed_raw();
                 let v2x = line.v2.x_fp.to_fixed_raw();
@@ -915,7 +916,7 @@ pub fn set_sector_sound_origin(sector: &mut Sector) {
         }
     };
 
-    for line in sector.lines.iter() {
+    for line in &sector.lines {
         check(line.v1.pos);
         check(line.v2.pos);
     }

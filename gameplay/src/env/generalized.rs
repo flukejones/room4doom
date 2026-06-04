@@ -144,9 +144,8 @@ fn dispatch(
                 let floor = ev_do_floor(line, FloorKind::LowerFloorToLowest, level);
                 return ceil || floor;
             }
-            let kind = match FloorKind::try_from(spec.kind) {
-                Ok(k) => k,
-                Err(_) => return false,
+            let Ok(kind) = FloorKind::try_from(spec.kind) else {
+                return false;
             };
             if matches!(kind, FloorKind::DonutRaise) {
                 return ev_do_donut(line, level);

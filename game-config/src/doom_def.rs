@@ -50,7 +50,6 @@ pub enum WeaponType {
 impl From<WeaponType> for usize {
     fn from(w: WeaponType) -> Self {
         match w {
-            WeaponType::Fist => 0,
             WeaponType::Pistol => 1,
             WeaponType::Shotgun => 2,
             WeaponType::Chaingun => 3,
@@ -70,15 +69,15 @@ impl TryFrom<u8> for WeaponType {
 
     fn try_from(w: u8) -> Result<Self, u8> {
         match w {
-            0 => Ok(WeaponType::Fist),
-            1 => Ok(WeaponType::Pistol),
-            2 => Ok(WeaponType::Shotgun),
-            3 => Ok(WeaponType::Chaingun),
-            4 => Ok(WeaponType::Missile),
-            5 => Ok(WeaponType::Plasma),
-            6 => Ok(WeaponType::BFG),
-            7 => Ok(WeaponType::Chainsaw),
-            8 => Ok(WeaponType::SuperShotgun),
+            0 => Ok(Self::Fist),
+            1 => Ok(Self::Pistol),
+            2 => Ok(Self::Shotgun),
+            3 => Ok(Self::Chaingun),
+            4 => Ok(Self::Missile),
+            5 => Ok(Self::Plasma),
+            6 => Ok(Self::BFG),
+            7 => Ok(Self::Chainsaw),
+            8 => Ok(Self::SuperShotgun),
             _ => Err(w),
         }
     }

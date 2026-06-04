@@ -5,6 +5,12 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[features]
+default = []
+software25d = []
+software3d = []
+wgpu3d = []
+
 [dependencies]
 wad.workspace = true
 gamestate-traits.workspace = true

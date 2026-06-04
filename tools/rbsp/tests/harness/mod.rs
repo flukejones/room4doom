@@ -17,7 +17,7 @@ pub const C_BSP: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../bsp/bsp");
 // ---------------------------------------------------------------------------
 
 pub fn read_wad_lumps(path: &str) -> HashMap<String, Vec<u8>> {
-    let data = std::fs::read(path).unwrap_or_else(|e| panic!("Failed to read {}: {}", path, e));
+    let data = std::fs::read(path).unwrap_or_else(|e| panic!("Failed to read {path}: {e}"));
     assert!(data.len() >= 12, "WAD too small");
 
     let num_lumps = i32::from_le_bytes(data[4..8].try_into().unwrap()) as usize;
@@ -47,9 +47,8 @@ pub fn read_wad_lumps(path: &str) -> HashMap<String, Vec<u8>> {
 
 /// Extract a single level from a multi-level WAD into a standalone PWAD.
 pub fn extract_level(wad_path: &str, level_name: &str, out_path: &str) {
-    let data =
-        std::fs::read(wad_path).unwrap_or_else(|e| panic!("Failed to read {}: {}", wad_path, e));
-    assert!(data.len() >= 12);
+    let data = std::fs::read(wad_path).unwrap_or_else(|e| panic!("Failed to read {wad_path}: {e}"));
+    assert!(data.len() >= 12, "WAD too small for header");
 
     let num_lumps = i32::from_le_bytes(data[4..8].try_into().unwrap()) as usize;
     let dir_offset = i32::from_le_bytes(data[8..12].try_into().unwrap()) as usize;
@@ -83,7 +82,7 @@ pub fn extract_level(wad_path: &str, level_name: &str, out_path: &str) {
     let level_start = entries
         .iter()
         .position(|e| e.clean_name == level_name && e.size == 0)
-        .unwrap_or_else(|| panic!("Level {} not found in {}", level_name, wad_path));
+        .unwrap_or_else(|| panic!("Level {level_name} not found in {wad_path}"));
 
     // Find level end (next level marker or end of file)
     let level_end = entries[level_start + 1..]
@@ -122,8 +121,7 @@ pub fn extract_level(wad_path: &str, level_name: &str, out_path: &str) {
     // Fix header dir_offset
     out[8..12].copy_from_slice(&dir_off.to_le_bytes());
 
-    std::fs::write(out_path, &out)
-        .unwrap_or_else(|e| panic!("Failed to write {}: {}", out_path, e));
+    std::fs::write(out_path, &out).unwrap_or_else(|e| panic!("Failed to write {out_path}: {e}"));
 }
 
 fn is_level_marker(name: &str) -> bool {
@@ -221,8 +219,8 @@ fn parse_blockmap(data: &[u8]) -> (Vec<i16>, Vec<Vec<i16>>) {
 /// `tag` is used to generate unique temp file names.
 pub fn compare_bsp_output(input_wad: &str, tag: &str) {
     let rbsp = env!("CARGO_BIN_EXE_rbsp");
-    let c_output = format!("/tmp/rbsp_test_{}_c.wad", tag);
-    let rust_output = format!("/tmp/rbsp_test_{}_rust.wad", tag);
+    let c_output = format!("/tmp/rbsp_test_{tag}_c.wad");
+    let rust_output = format!("/tmp/rbsp_test_{tag}_rust.wad");
 
     // Run C BSP builder
     let c_result = Command::new(C_BSP)
@@ -276,8 +274,7 @@ pub fn compare_bsp_output(input_wad: &str, tag: &str) {
     for (i, (cp, rp)) in c_parts.iter().zip(r_parts.iter()).enumerate() {
         assert_eq!(
             cp, rp,
-            "Node {} partition line differs: C={:?} Rust={:?}",
-            i, cp, rp
+            "Node {i} partition line differs: C={cp:?} Rust={rp:?}"
         );
     }
 
@@ -302,33 +299,23 @@ pub fn compare_bsp_output(input_wad: &str, tag: &str) {
             let r_extra: Vec<_> = rl.iter().filter(|x| !cl.contains(x)).collect();
             assert!(
                 c_extra.len() <= 1 && r_extra.len() <= 1,
-                "Block {} has major blockmap difference: C_extra={:?}, R_extra={:?}",
-                i,
-                c_extra,
-                r_extra
+                "Block {i} has major blockmap difference: C_extra={c_extra:?}, R_extra={r_extra:?}"
             );
         }
     }
     assert!(
         bm_diffs <= 10,
-        "Too many blockmap differences: {} blocks differ",
-        bm_diffs
+        "Too many blockmap differences: {bm_diffs} blocks differ"
     );
 
     // Summary
-    eprintln!("=== {} comparison results ===", tag);
+    eprintln!("=== {tag} comparison results ===");
     eprintln!("VERTEXES:  MATCH ({} bytes)", c_lumps["VERTEXES"].len());
-    eprintln!("SEGS:      {} segs (same count)", c_seg_count);
-    eprintln!("SSECTORS:  {} ssectors (same count)", c_ss_count);
-    eprintln!(
-        "NODES:     {} nodes, all partition lines match",
-        c_node_count
-    );
+    eprintln!("SEGS:      {c_seg_count} segs (same count)");
+    eprintln!("SSECTORS:  {c_ss_count} ssectors (same count)");
+    eprintln!("NODES:     {c_node_count} nodes, all partition lines match");
     eprintln!("REJECT:    MATCH ({} bytes)", c_lumps["REJECT"].len());
-    eprintln!(
-        "BLOCKMAP:  headers match, {} blocks with minor float diffs",
-        bm_diffs
-    );
+    eprintln!("BLOCKMAP:  headers match, {bm_diffs} blocks with minor float diffs");
 
     let _ = std::fs::remove_file(&c_output);
     let _ = std::fs::remove_file(&rust_output);

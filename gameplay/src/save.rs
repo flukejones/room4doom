@@ -24,7 +24,7 @@ use crate::level::LevelState;
 use crate::pic::Button;
 use crate::player::{Player, PlayerState};
 use crate::thing::MapObject;
-use crate::thinker::{Think, ThinkerData};
+use crate::thinker::{Think as _, ThinkerData};
 use game_config::{Skill, WeaponType};
 
 const SAVE_MAGIC: &[u8; 4] = b"R4DS";
@@ -62,14 +62,14 @@ pub enum SaveError {
 impl fmt::Display for SaveError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SaveError::Io(e) => write!(f, "IO: {e}"),
-            SaveError::BadMagic => write!(f, "bad save magic"),
-            SaveError::VersionMismatch(v) => write!(f, "version mismatch: {v}"),
-            SaveError::Truncated => write!(f, "truncated save data"),
-            SaveError::InvalidThinkerTag(t) => write!(f, "invalid thinker tag: {t}"),
-            SaveError::InvalidStateNum(s) => write!(f, "invalid state num: {s}"),
-            SaveError::InvalidSectorNum(s) => write!(f, "invalid sector num: {s}"),
-            SaveError::InvalidEnum(ty, v) => write!(f, "invalid {ty} discriminant: {v}"),
+            Self::Io(e) => write!(f, "IO: {e}"),
+            Self::BadMagic => write!(f, "bad save magic"),
+            Self::VersionMismatch(v) => write!(f, "version mismatch: {v}"),
+            Self::Truncated => write!(f, "truncated save data"),
+            Self::InvalidThinkerTag(t) => write!(f, "invalid thinker tag: {t}"),
+            Self::InvalidStateNum(s) => write!(f, "invalid state num: {s}"),
+            Self::InvalidSectorNum(s) => write!(f, "invalid sector num: {s}"),
+            Self::InvalidEnum(ty, v) => write!(f, "invalid {ty} discriminant: {v}"),
         }
     }
 }
@@ -78,13 +78,13 @@ impl std::error::Error for SaveError {}
 
 impl From<std::io::Error> for SaveError {
     fn from(e: std::io::Error) -> Self {
-        SaveError::Io(e)
+        Self::Io(e)
     }
 }
 
 /// Convert a state reference to its index in the global STATES array.
 fn state_to_index(state: &'static crate::info::StateData) -> u16 {
-    let base = std::ptr::addr_of!(STATES) as *const crate::info::StateData as usize;
+    let base = std::ptr::addr_of!(STATES).cast::<crate::info::StateData>() as usize;
     let ptr = ptr::from_ref(state) as usize;
     let idx = (ptr - base) / size_of::<crate::info::StateData>();
     idx as u16
@@ -483,7 +483,7 @@ fn load_thinkers(
     players_in_game: &[bool; MAXPLAYERS],
 ) -> Result<(), SaveError> {
     let count = r.read_u32()?;
-    debug!("Loading {} thinkers", count);
+    debug!("Loading {count} thinkers");
 
     for _ in 0..count {
         let tag = r.read_u8()?;
@@ -647,7 +647,7 @@ fn load_vdoor(r: &mut SaveReader, level: &mut LevelState) -> Result<(), SaveErro
     let thinker =
         VerticalDoor::create_thinker(ThinkerData::VerticalDoor(door), VerticalDoor::think);
     if let Some(t) = level.thinkers.push_raw(thinker) {
-        let ptr = ptr::from_mut(t) as *mut ();
+        let ptr = ptr::from_mut(t).cast::<()>();
         let sec = resolve_sector(sector_num, &mut level.level_data)?;
         sec.as_ptr().cast::<Sector>();
         unsafe { (*sec.as_ptr()).specialdata = Some(ptr) };
@@ -684,9 +684,9 @@ fn load_floor(r: &mut SaveReader, level: &mut LevelState) -> Result<(), SaveErro
 
     let thinker = FloorMove::create_thinker(ThinkerData::FloorMove(floor), FloorMove::think);
     if let Some(t) = level.thinkers.push_raw(thinker) {
-        let ptr = ptr::from_mut(t) as *mut ();
+        let ptr = ptr::from_mut(t).cast::<()>();
         unsafe {
-            (*resolve_sector(sector_num, &mut level.level_data)?.as_ptr()).specialdata = Some(ptr)
+            (*resolve_sector(sector_num, &mut level.level_data)?.as_ptr()).specialdata = Some(ptr);
         };
     }
 
@@ -722,9 +722,9 @@ fn load_ceiling(r: &mut SaveReader, level: &mut LevelState) -> Result<(), SaveEr
 
     let thinker = CeilingMove::create_thinker(ThinkerData::CeilingMove(ceil), CeilingMove::think);
     if let Some(t) = level.thinkers.push_raw(thinker) {
-        let ptr = ptr::from_mut(t) as *mut ();
+        let ptr = ptr::from_mut(t).cast::<()>();
         unsafe {
-            (*resolve_sector(sector_num, &mut level.level_data)?.as_ptr()).specialdata = Some(ptr)
+            (*resolve_sector(sector_num, &mut level.level_data)?.as_ptr()).specialdata = Some(ptr);
         };
     }
 
@@ -766,9 +766,9 @@ fn load_platform(r: &mut SaveReader, level: &mut LevelState) -> Result<(), SaveE
 
     let thinker = Platform::create_thinker(ThinkerData::Platform(plat), Platform::think);
     if let Some(t) = level.thinkers.push_raw(thinker) {
-        let ptr = ptr::from_mut(t) as *mut ();
+        let ptr = ptr::from_mut(t).cast::<()>();
         unsafe {
-            (*resolve_sector(sector_num, &mut level.level_data)?.as_ptr()).specialdata = Some(ptr)
+            (*resolve_sector(sector_num, &mut level.level_data)?.as_ptr()).specialdata = Some(ptr);
         };
         // Add to active platforms
         let plat_ptr = ptr::from_mut(t.platform_mut());
@@ -988,27 +988,27 @@ fn load_players(
         s.health = r.read_i32()?;
         s.armorpoints = r.read_i32()?;
         s.armortype = r.read_i32()?;
-        for c in s.cards.iter_mut() {
+        for c in &mut s.cards {
             *c = r.read_bool()?;
         }
-        for wo in s.weaponowned.iter_mut() {
+        for wo in &mut s.weaponowned {
             *wo = r.read_bool()?;
         }
-        for a in s.ammo.iter_mut() {
+        for a in &mut s.ammo {
             *a = r.read_u32()?;
         }
-        for ma in s.maxammo.iter_mut() {
+        for ma in &mut s.maxammo {
             *ma = r.read_u32()?;
         }
         s.backpack = r.read_bool()?;
-        for pw in s.powers.iter_mut() {
+        for pw in &mut s.powers {
             *pw = r.read_i32()?;
         }
         s.damagecount = r.read_i32()?;
         s.bonuscount = r.read_i32()?;
         s.cheats = crate::player::PlayerCheat::from_bits_truncate(r.read_u32()?);
 
-        for f in p.frags.iter_mut() {
+        for f in &mut p.frags {
             *f = r.read_i32()?;
         }
 
@@ -1024,7 +1024,7 @@ fn load_players(
         p.head_bob = r.read_bool()?;
         p.lookdir = r.read_i32()?;
 
-        for psp in p.psprites.iter_mut() {
+        for psp in &mut p.psprites {
             let si = r.read_u16()?;
             psp.state = if si == 0xFFFF {
                 None

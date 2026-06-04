@@ -36,10 +36,9 @@ impl<T: WadRecord> Iterator for RecordIter<'_, T> {
     }
 }
 
-/// An iterator to iter over all items between start and end (exclusive),
-/// skipping zero-sized lumps. This is good for iterating over flats for
-/// example, as each `LumpInfo` also contains the name of the flat and is in
-/// order.
+/// Iterates items between start and end (exclusive), skipping zero-sized lumps.
+///
+/// Good for flats: each `LumpInfo` carries the flat name and is in order.
 ///
 /// When used via the iterator methods such as for flats, with pwads added, then
 /// the iteration returns each flat in each *chunk* if there are multiple, in
@@ -164,9 +163,7 @@ impl WadData {
                 ends.push(i);
             }
         }
-        if starts.is_empty() {
-            panic!("Could not find patches");
-        }
+        assert!(!starts.is_empty(), "Could not find patches");
 
         LumpIter {
             end_lumps: ends,
@@ -195,9 +192,7 @@ impl WadData {
                 debug!("Did not find F_END but found {}", info.name);
             }
         }
-        if starts.is_empty() {
-            panic!("Could not find flats");
-        }
+        assert!(!starts.is_empty(), "Could not find flats");
 
         LumpIter {
             end_lumps: ends,
@@ -235,9 +230,7 @@ impl WadData {
                 debug!("Did not find S_END but found {}", info.name);
             }
         }
-        if starts.is_empty() {
-            panic!("Could not find sprites");
-        }
+        assert!(!starts.is_empty(), "Could not find sprites");
 
         LumpIter {
             start_lumps: starts,

@@ -3,7 +3,7 @@
 use game_config::{GameMission, GameMode, Skill, WeaponType};
 use gameplay::{PlayerCheat, PowerType, english};
 use gamestate::Game;
-use gamestate_traits::{GameTraits, KeyCode};
+use gamestate_traits::{GameTraits as _, KeyCode};
 use log::debug;
 use sound_common::MusTrack;
 
@@ -61,9 +61,7 @@ impl Cheats {
 
     /// Cheats skip the ticcmd system and directly affect a game-exe
     pub fn check_input(&mut self, sc: KeyCode, game: &mut Game) {
-        let key = if let Some(c) = sc.to_char() {
-            c
-        } else {
+        let Some(key) = sc.to_char() else {
             return;
         };
 
@@ -86,7 +84,7 @@ impl Cheats {
                 player.status.armorpoints = 200;
                 player.status.armortype = 2;
 
-                for w in player.status.weaponowned.iter_mut() {
+                for w in &mut player.status.weaponowned {
                     *w = true;
                 }
                 for (i, a) in player.status.ammo.iter_mut().enumerate() {
@@ -98,13 +96,13 @@ impl Cheats {
                 player.status.armorpoints = 200;
                 player.status.armortype = 2;
 
-                for w in player.status.weaponowned.iter_mut() {
+                for w in &mut player.status.weaponowned {
                     *w = true;
                 }
                 for (i, a) in player.status.ammo.iter_mut().enumerate() {
                     *a = player.status.maxammo[i];
                 }
-                for k in player.status.cards.iter_mut() {
+                for k in &mut player.status.cards {
                     *k = true;
                 }
                 player.message = Some(english::STSTR_KFAADDED);
@@ -195,9 +193,9 @@ impl Cheats {
                     let d1 = (d1 - b'0') as usize;
                     let (episode, map, map_name) = if game.game_type.mode == GameMode::Commercial {
                         let map = d0 * 10 + d1;
-                        (1, map, format!("MAP{:02}", map))
+                        (1, map, format!("MAP{map:02}"))
                     } else {
-                        (d0, d1, format!("E{}M{}", d0, d1))
+                        (d0, d1, format!("E{d0}M{d1}"))
                     };
                     if game.wad_data.lump_exists(&map_name) {
                         game.defered_init_new(game.game_skill(), episode, map);

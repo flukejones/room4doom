@@ -35,10 +35,8 @@ impl ScreenPoly<'_> {
 
 pub const MAX_CLIPPED_VERTICES: usize = 64;
 
-const LIGHT_MIN_Z: f32 = 0.001;
-const LIGHT_MAX_Z: f32 = 0.055;
-const LIGHT_RANGE: f32 = 1.0 / (LIGHT_MAX_Z - LIGHT_MIN_Z);
-pub const LIGHT_SCALE: f32 = LIGHT_RANGE * 8.0 * 16.0;
+/// 1/w -> colourmap-scale-index multiplier, shared with wgpu3d via render-common.
+pub use render_common::light::LIGHT_SCALE;
 
 pub struct Rasterizer {
     pub(crate) screen_vertices_buffer: [Vec2; MAX_CLIPPED_VERTICES],

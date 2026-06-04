@@ -12,7 +12,7 @@ struct ButtonDef {
 
 impl ButtonDef {
     const fn new(name1: &'static str, name2: &'static str, episode: i32) -> Self {
-        ButtonDef {
+        Self {
             name1,
             name2,
             episode,
@@ -118,10 +118,7 @@ impl Switches {
                 }
             }
             if added > 0 {
-                info!(
-                    "Extended switch list with {} entries from SWITCHES lump",
-                    added
-                );
+                info!("Extended switch list with {added} entries from SWITCHES lump");
             }
         }
 

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{BufReader, Read};
+use std::io::{BufReader, Read as _};
 use std::path::Path;
 
 use game_config::GameMode;
@@ -13,10 +13,10 @@ pub struct Pk3Voxels {
 
 pub fn extract_voxels(path: &Path, game_mode: GameMode) -> Option<Pk3Voxels> {
     let file = File::open(path)
-        .map_err(|e| log::warn!("Failed to open PK3 {:?}: {}", path, e))
+        .map_err(|e| log::warn!("Failed to open PK3 {path:?}: {e}"))
         .ok()?;
     let mut archive = ZipArchive::new(BufReader::new(file))
-        .map_err(|e| log::warn!("Failed to read PK3 {:?}: {}", path, e))
+        .map_err(|e| log::warn!("Failed to read PK3 {path:?}: {e}"))
         .ok()?;
 
     let filter_prefix = match game_mode {
@@ -26,7 +26,7 @@ pub fn extract_voxels(path: &Path, game_mode: GameMode) -> Option<Pk3Voxels> {
 
     // Collect entry names first to avoid borrow issues
     let names: Vec<String> = (0..archive.len())
-        .filter_map(|i| archive.by_index(i).ok().map(|e| e.name().to_string()))
+        .filter_map(|i| archive.by_index(i).ok().map(|e| e.name().to_owned()))
         .collect();
 
     let mut voxeldef_text = String::new();
@@ -59,7 +59,7 @@ pub fn extract_voxels(path: &Path, game_mode: GameMode) -> Option<Pk3Voxels> {
     }
 
     if voxeldef_text.is_empty() {
-        log::warn!("No VOXELDEF.txt found in PK3 {:?}", path);
+        log::warn!("No VOXELDEF.txt found in PK3 {path:?}");
         return None;
     }
 
@@ -109,10 +109,5 @@ fn kvx_stem(filename: &str) -> Option<String> {
         return None;
     }
     // Strip .kvx extension if present
-    Some(
-        filename
-            .strip_suffix(".kvx")
-            .unwrap_or(filename)
-            .to_string(),
-    )
+    Some(filename.strip_suffix(".kvx").unwrap_or(filename).to_owned())
 }

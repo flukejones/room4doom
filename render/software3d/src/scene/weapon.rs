@@ -1,5 +1,8 @@
 use pic_data::PicData;
-use render_common::{DrawBuffer, FUZZ_TABLE, RenderPspDef, RenderView, fuzz_darken};
+use render_common::light::{
+    LIGHT_LEVELS, WEAPON_LIGHT_BOOST, WEAPON_LIGHT_INDEX_MAX, WEAPON_LIGHT_INDEX_SPAN,
+};
+use render_common::{DrawBuffer as _, FUZZ_TABLE, PixelFmt, PixelTarget, RenderPspDef, RenderView};
 
 use crate::Software3D;
 
@@ -15,9 +18,6 @@ const ORIGINAL_WIDTH: f32 = 320.0;
 const ORIGINAL_HEIGHT: f32 = 200.0;
 const ORIGINAL_HALF_WIDTH: f32 = ORIGINAL_WIDTH / 2.0; // 160.0
 const ORIGINAL_HALF_HEIGHT: f32 = ORIGINAL_HEIGHT / 2.0; // 100.0
-/// Boost applied to weapon-light colourmap index over the proportional value
-/// so the held weapon stays slightly brighter than the surrounding sector.
-const WEAPON_LIGHT_BOOST: f32 = 3.0;
 /// Convert a distance/offset from Doom's 320-wide coordinate space to screen
 /// pixels. Uses height-based scaling (same as menu/title screens) so that the
 /// blit's CRT stretch produces correct proportions.
@@ -37,17 +37,17 @@ impl Software3D {
     /// Draw all active player weapon sprites (weapon + muzzle flash layers).
     /// Called after world sprite rendering so weapons draw on top of
     /// everything.
-    pub(crate) fn draw_player_weapons(
+    pub(crate) fn draw_player_weapons<P: PixelFmt>(
         &mut self,
         view: &RenderView,
-        pic_data: &mut PicData,
-        buffer: &mut impl DrawBuffer,
+        pic_data: &PicData,
+        buffer: &mut PixelTarget<P>,
     ) {
         let sector_light = view.sector_lightlevel >> 4;
         // Weapons get +2 extra light (matching original Doom behaviour)
         let base_brightness = (sector_light + view.extralight + 2).min(15);
 
-        for psp in view.psprites.iter() {
+        for psp in &view.psprites {
             if psp.active {
                 self.draw_player_weapon_sprite(
                     psp,
@@ -66,13 +66,13 @@ impl Software3D {
     /// - Scales from Doom's 320x200 coordinate space to current screen size
     /// - Handles horizontal flip, fullbright frames, and fuzz (shadow)
     ///   rendering
-    fn draw_player_weapon_sprite(
+    fn draw_player_weapon_sprite<P: PixelFmt>(
         &mut self,
         psp: &RenderPspDef,
         base_brightness: usize,
         is_shadow: bool,
-        pic_data: &mut PicData,
-        buffer: &mut impl DrawBuffer,
+        pic_data: &PicData,
+        buffer: &mut PixelTarget<P>,
     ) {
         if !psp.active {
             return;
@@ -138,7 +138,9 @@ impl Software3D {
         // Scale weapon light with sector brightness, then add a couple of
         // steps so it's always slightly brighter than the proportional value.
         // brightness 0..15, colourmap index 0..47.
-        let weapon_light_scale = ((brightness as f32 / 15.0) * 44.0 + WEAPON_LIGHT_BOOST).min(47.0);
+        let weapon_light_scale = ((brightness as f32 / LIGHT_LEVELS) * WEAPON_LIGHT_INDEX_SPAN
+            + WEAPON_LIGHT_BOOST)
+            .min(WEAPON_LIGHT_INDEX_MAX);
         let colourmap = if !is_shadow {
             Some(pic_data.base_colourmap(brightness, weapon_light_scale))
         } else {
@@ -186,17 +188,14 @@ impl Software3D {
                     continue;
                 }
 
+                let pitch = buffer.pitch();
                 if let Some(colourmap) = colourmap {
-                    let lit_index = colourmap[color_index as usize];
-                    if let Some(&color) = pic_data.palette().get(lit_index) {
-                        buffer.set_pixel(x, y, color);
-                    }
+                    let lit = colourmap[color_index as usize] as u16;
+                    buffer.store(y * pitch + x, lit);
                 } else {
-                    let pitch = buffer.pitch();
-                    let buf = buffer.buf_mut();
                     let offset = FUZZ_TABLE[self.fuzz_pos % FUZZ_TABLE.len()];
                     let src_y = (y as i32 + offset).clamp(0, height as i32 - 1) as usize;
-                    buf[y * pitch + x] = fuzz_darken(buf[src_y * pitch + x]);
+                    buffer.fuzz(y * pitch + x, src_y * pitch + x);
                     self.fuzz_pos += 1;
                 }
             }

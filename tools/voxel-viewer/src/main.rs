@@ -3,9 +3,14 @@ use coarse_prof::profile;
 use glam::{Mat4, Vec3};
 use pic_data::voxel::kvx::VoxelModel;
 use pic_data::voxel::slices::{self, VoxelColumn, VoxelSlices};
-use pixels::{Pixels, SurfaceTexture};
+use pic_data::{ByteOrder, PALETTE_LEN, PalLit, WadPalette};
+use render_common::{BufferSize, PixelTarget};
+use softbuffer::{Context, Pixel, Surface};
 use software3d::rasterizer::Rasterizer;
 use software3d::voxel::collect::{VoxelCollectParams, VoxelSliceRef, collect_visible_slices};
+use std::mem::take;
+use std::num::NonZeroU32;
+use std::slice::from_raw_parts_mut;
 use std::sync::Arc;
 use std::time::Instant;
 use winit::application::ApplicationHandler;
@@ -46,7 +51,7 @@ impl Camera {
         (pos, look_dir, rt, up)
     }
 
-    fn view_proj(&self, _pos: Vec3, fwd: Vec3, _up: Vec3) -> Mat4 {
+    fn view_proj(_pos: Vec3, fwd: Vec3, _up: Vec3) -> Mat4 {
         // Eye at origin — collection pipeline handles camera translation
         let view = Mat4::look_to_rh(Vec3::ZERO, fwd, Vec3::Z);
         let vfov = 2.0 * (H as f32 * 0.5 / FOV_SCALE).atan();
@@ -57,16 +62,17 @@ impl Camera {
 
 struct App {
     window: Option<Arc<Window>>,
-    pixels: Option<Pixels<'static>>,
+    surface: Option<Surface<Arc<Window>, Arc<Window>>>,
+    /// `W*H` compose buffer; presented 1:1 into the softbuffer surface.
+    frame: Vec<u32>,
     model: VoxelModel,
     slices: VoxelSlices,
     palette: [(u8, u8, u8); 256],
-    palette_u32: [u32; 256],
+    pal_lit: PalLit<u32>,
     use_slices: bool,
     wireframe: u8,      // 0=off, 1=all quads, 2=collected only
     single_slice: bool, // view one slice at a time
     slice_index: usize, // current slice index on the selected axis
-    vsync: bool,
     rasterizer: Rasterizer,
     camera: Camera,
     mouse_dragging: bool,
@@ -84,16 +90,16 @@ impl App {
     fn render(&mut self) {
         #[cfg(feature = "hprof")]
         profile!("render");
-        let pixels = match self.pixels.as_mut() {
-            Some(p) => p,
-            None => return,
-        };
-
-        let frame = pixels.frame_mut();
-        // Clear to dark grey
-        for pixel in frame.chunks_exact_mut(4) {
-            pixel.copy_from_slice(&[30, 30, 35, 255]);
+        if self.surface.is_none() {
+            return;
         }
+
+        // Take the compose buffer so `self.rasterizer`/`self.pal_lit` can be
+        // borrowed disjointly during render; restored before present.
+        let mut owned = take(&mut self.frame);
+        let frame: &mut [u32] = &mut owned;
+        // Clear to dark grey (0xAARRGGBB).
+        frame.fill(0xFF1E_1E23);
 
         if self.camera.auto_rotate {
             self.camera.yaw += 0.02;
@@ -160,15 +166,12 @@ impl App {
         } else {
             #[cfg(feature = "hprof")]
             profile!("slice_render");
-            let view_proj = self.camera.view_proj(cam_pos, fwd, up);
+            let view_proj = Camera::view_proj(cam_pos, fwd, up);
             let half_w = W as f32 * 0.5;
             let half_h = H as f32 * 0.5;
             let identity_map: Vec<usize> = (0..256).collect();
             let colourmaps: Vec<&[usize]> = vec![&identity_map; 48];
             self.rasterizer.depth_buffer_mut().reset();
-            let frame_u32: &mut [u32] = unsafe {
-                std::slice::from_raw_parts_mut(frame.as_mut_ptr() as *mut u32, (W * H) as usize)
-            };
 
             // Collect visible slices using the shared pipeline
             let params = VoxelCollectParams {
@@ -258,30 +261,33 @@ impl App {
             // Sort front-to-back for optimal depth rejection
             voxel_slices.sort_unstable_by(|a, b| a.depth.total_cmp(&b.depth));
 
-            for vq in &voxel_slices {
-                let columns = vq.columns;
-                self.rasterizer.rasterize_voxel_texels(
-                    vq.origin,
-                    vq.u_vec,
-                    vq.v_vec,
-                    columns,
-                    vq.width,
-                    vq.height,
-                    &view_proj,
-                    cam_pos,
-                    &colourmaps,
-                    &self.palette_u32,
-                    frame_u32,
-                    W as usize,
-                );
-                rendered += 1;
+            {
+                let size = BufferSize::new(W as usize, H as usize);
+                let mut target = PixelTarget::new(&mut *frame, size, W as usize, &self.pal_lit, 0);
+                for vq in &voxel_slices {
+                    let columns = vq.columns;
+                    self.rasterizer.rasterize_voxel_texels(
+                        vq.origin,
+                        vq.u_vec,
+                        vq.v_vec,
+                        columns,
+                        vq.width,
+                        vq.height,
+                        &view_proj,
+                        cam_pos,
+                        &colourmaps,
+                        &mut target,
+                        W as usize,
+                    );
+                    rendered += 1;
+                }
             }
 
             // Wireframe overlay: w=1 all quads, w=2 collected (backface-culled) only
             if self.wireframe > 0 {
+                let axis_colors: [u32; 3] = [0xFF0000FF, 0xFF00FF00, 0xFFFF0000];
                 if self.wireframe == 2 {
                     // Draw outlines of collected slices (same as rendered), coloured by axis
-                    let axis_colors: [u32; 3] = [0xFF0000FF, 0xFF00FF00, 0xFFFF0000];
                     for vq in &voxel_slices {
                         let color = axis_colors[vq.axis as usize];
                         let w = vq.width as f32;
@@ -307,13 +313,12 @@ impl App {
                             .collect();
                         for i in 0..4 {
                             if let (Some(a), Some(b)) = (proj[i], proj[(i + 1) % 4]) {
-                                draw_line(frame_u32, W as i32, H as i32, a.0, a.1, b.0, b.1, color);
+                                draw_line(frame, W as i32, H as i32, a.0, a.1, b.0, b.1, color);
                             }
                         }
                     }
                 } else {
                     // Draw all non-empty quads, coloured per axis
-                    let axis_colors: [u32; 3] = [0xFF0000FF, 0xFF00FF00, 0xFFFF0000];
                     for (axis, color) in axis_colors.iter().enumerate() {
                         for quad in &self.slices.slices[axis] {
                             for &d in &[quad.depth, quad.depth + 1.0] {
@@ -354,8 +359,7 @@ impl App {
                                 for i in 0..4 {
                                     if let (Some(a), Some(b)) = (proj[i], proj[(i + 1) % 4]) {
                                         draw_line(
-                                            frame_u32, W as i32, H as i32, a.0, a.1, b.0, b.1,
-                                            *color,
+                                            frame, W as i32, H as i32, a.0, a.1, b.0, b.1, *color,
                                         );
                                     }
                                 }
@@ -366,7 +370,8 @@ impl App {
             }
         }
 
-        pixels.render().ok();
+        self.frame = owned;
+        self.present();
 
         let frame_ms = self.last_frame.elapsed().as_secs_f32() * 1000.0;
         self.last_frame = Instant::now();
@@ -388,6 +393,36 @@ impl App {
             self.last_print = Instant::now();
         }
     }
+
+    /// Copy the `W*H` compose buffer 1:1 into the softbuffer surface and present.
+    fn present(&mut self) {
+        let Some(surface) = self.surface.as_mut() else {
+            return;
+        };
+        surface
+            .resize(NonZeroU32::new(W).unwrap(), NonZeroU32::new(H).unwrap())
+            .expect("resize softbuffer surface");
+        let mut buf = surface.next_buffer().expect("acquire softbuffer buffer");
+        let stride = buf.byte_stride().get() as usize / size_of::<Pixel>();
+        let dst = pixels_as_u32_mut(buf.pixels());
+        let w = W as usize;
+        if stride == w {
+            dst.copy_from_slice(&self.frame);
+        } else {
+            for y in 0..H as usize {
+                dst[y * stride..y * stride + w].copy_from_slice(&self.frame[y * w..y * w + w]);
+            }
+        }
+        buf.present().expect("present softbuffer");
+    }
+}
+
+/// Reinterpret softbuffer's `&mut [Pixel]` as `&mut [u32]`.
+fn pixels_as_u32_mut(pixels: &mut [Pixel]) -> &mut [u32] {
+    let len = pixels.len();
+    // SAFETY: softbuffer `Pixel` is `repr(C, align(4))` of four u8 — same layout
+    // as u32; length preserved.
+    unsafe { from_raw_parts_mut(pixels.as_mut_ptr().cast::<u32>(), len) }
 }
 
 fn draw_line(buf: &mut [u32], w: i32, h: i32, x0: f32, y0: f32, x1: f32, y1: f32, color: u32) {
@@ -418,7 +453,7 @@ fn draw_line(buf: &mut [u32], w: i32, h: i32, x0: f32, y0: f32, x1: f32, y1: f32
 }
 
 fn draw_rect(
-    frame: &mut [u8],
+    frame: &mut [u32],
     depth: &mut [f32],
     sx: f32,
     sy: f32,
@@ -429,6 +464,7 @@ fn draw_rect(
     g: u8,
     b: u8,
 ) {
+    let colour = 0xFF00_0000 | ((r as u32) << 16) | ((g as u32) << 8) | b as u32;
     let (x0, y0) = (sx as i32, sy as i32);
     for py in y0..y0 + h {
         if py < 0 || py >= H as i32 {
@@ -441,10 +477,7 @@ fn draw_rect(
             let idx = py as usize * W as usize + px as usize;
             if z < depth[idx] {
                 depth[idx] = z;
-                let p = idx * 4;
-                frame[p] = r;
-                frame[p + 1] = g;
-                frame[p + 2] = b;
+                frame[idx] = colour;
             }
         }
     }
@@ -481,21 +514,15 @@ impl ApplicationHandler for App {
                 "Voxel Viewer [DIRECT]"
             })
             .with_inner_size(LogicalSize::new(W, H))
-            .with_resizable(true);
+            .with_resizable(false);
         let window = Arc::new(event_loop.create_window(attrs).unwrap());
-        let phys = window.inner_size();
-        // Pass the `Arc<Window>` (owned, `'static`) into the surface so `Pixels`
-        // genuinely outlives nothing it borrows — no lifetime transmute needed.
-        let surface = SurfaceTexture::new(phys.width, phys.height, window.clone());
-        let px = if self.vsync {
-            Pixels::new(W, H, surface).unwrap()
-        } else {
-            pixels::PixelsBuilder::new(W, H, surface)
-                .present_mode(pixels::wgpu::PresentMode::AutoNoVsync)
-                .build()
-                .unwrap()
-        };
-        self.pixels = Some(px);
+        // Leak the context: one display for the process lifetime, and `Surface`
+        // borrows `&Context` (same pattern as the game softbuffer backend).
+        let context: &'static Context<Arc<Window>> = Box::leak(Box::new(
+            Context::new(window.clone()).expect("softbuffer context"),
+        ));
+        let surface = Surface::new(context, window.clone()).expect("softbuffer surface");
+        self.surface = Some(surface);
         self.window = Some(window);
     }
 
@@ -516,11 +543,6 @@ impl ApplicationHandler for App {
                     if self.frame_count % 120 == 0 {
                         coarse_prof::write(&mut std::io::stdout()).unwrap();
                     }
-                }
-            }
-            WindowEvent::Resized(new_size) => {
-                if let Some(pixels) = self.pixels.as_mut() {
-                    pixels.resize_surface(new_size.width, new_size.height).ok();
                 }
             }
             WindowEvent::MouseInput {
@@ -571,7 +593,7 @@ impl ApplicationHandler for App {
                 Key::Named(NamedKey::ArrowRight) => self.camera.pan_x += 1.0,
                 Key::Named(NamedKey::ArrowUp) => self.camera.pan_y += 1.0,
                 Key::Named(NamedKey::ArrowDown) => self.camera.pan_y -= 1.0,
-                Key::Character(ref c) => match c.as_str() {
+                Key::Character(c) => match c.as_str() {
                     "=" | "+" => self.camera.zoom = (self.camera.zoom - 0.1).max(0.1),
                     "-" => self.camera.zoom += 0.1,
                     "r" => self.camera.auto_rotate = !self.camera.auto_rotate,
@@ -594,18 +616,17 @@ impl ApplicationHandler for App {
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 {
-        eprintln!("Usage: voxel-viewer <kvx-file> [--slices] [--no-vsync] [palette.lmp]");
+        eprintln!("Usage: voxel-viewer <kvx-file> [--slices] [palette.lmp]");
         std::process::exit(1);
     }
 
     let use_slices = args.iter().any(|a| a == "--slices");
-    let vsync = !args.iter().any(|a| a == "--no-vsync");
     let kvx_data = std::fs::read(&args[1]).unwrap_or_else(|e| {
         eprintln!("Failed to read {}: {}", args[1], e);
         std::process::exit(1);
     });
     let mut model = VoxelModel::load(&kvx_data).unwrap_or_else(|e| {
-        eprintln!("Failed to parse KVX: {}", e);
+        eprintln!("Failed to parse KVX: {e}");
         std::process::exit(1);
     });
 
@@ -617,7 +638,7 @@ fn main() {
         .and_then(|p| std::fs::read(p).ok());
 
     let mut palette = [(128u8, 128u8, 128u8); 256];
-    if let Some(ref data) = ext_pal {
+    if let Some(data) = &ext_pal {
         if data.len() >= 768 {
             model.remap_to_doom_palette(data);
             for i in 0..256 {
@@ -625,7 +646,7 @@ fn main() {
             }
             eprintln!("Using external Doom palette (remapped KVX indices)");
         }
-    } else if let Some(ref kvx_pal) = model.palette {
+    } else if let Some(kvx_pal) = &model.palette {
         for i in 0..256.min(kvx_pal.len() / 3) {
             let (r, g, b) = (kvx_pal[i * 3], kvx_pal[i * 3 + 1], kvx_pal[i * 3 + 2]);
             palette[i] = (
@@ -676,12 +697,15 @@ fn main() {
         );
     }
 
-    // Build u32 palette (0xAABBGGRR little-endian = RGBA byte order)
+    // Build u32 palette (0xAARRGGBB) and fold it into a single-tint PalLit for
+    // the PixelTarget store path.
     let mut palette_u32 = [0u32; 256];
     for i in 0..256 {
         let (r, g, b) = palette[i];
-        palette_u32[i] = 0xFF000000 | ((b as u32) << 16) | ((g as u32) << 8) | r as u32;
+        palette_u32[i] = 0xFF000000 | ((r as u32) << 16) | ((g as u32) << 8) | b as u32;
     }
+    let pal_lit: PalLit<u32> =
+        PalLit::new(&[WadPalette(palette_u32); PALETTE_LEN], ByteOrder::Argb);
 
     // Focus midway between pivot origin and AABB center
     let hx = slices.xpivot;
@@ -697,16 +721,16 @@ fn main() {
     event_loop.set_control_flow(winit::event_loop::ControlFlow::Poll);
     let mut app = App {
         window: None,
-        pixels: None,
+        surface: None,
+        frame: vec![0u32; (W * H) as usize],
         model,
         slices,
         palette,
-        palette_u32,
+        pal_lit,
         use_slices,
         wireframe: 0,
         single_slice: false,
         slice_index: 0,
-        vsync,
         rasterizer: Rasterizer::new(W, H),
         camera: Camera {
             yaw: 0.5,

@@ -1,433 +1,407 @@
-#[cfg(feature = "hprof")]
-use coarse_prof::profile;
+//! Render backend — wires a display backend to a renderer behind one
+//! consumer-facing [`RenderStack`], so `game-exe` drives every backend×renderer
+//! combo through the same API.
+//!
+//! # The two axes
+//!
+//! - **Backend** — *how a frame reaches the window*. `SoftbufferBackend` (CPU
+//!   blit), `Sdl2Backend` (streaming texture, or wgpu on the SDL2 window), or
+//!   `WgpuBackend` (GPU). Compile-time feature choice; exactly one is active per
+//!   build, aliased as [`ActiveBackend`].
+//! - **Renderer** — *how the player view is drawn*. Runtime choice
+//!   ([`RenderType`]) held in [`WorldRenderer`]: the *software* renderers draw
+//!   into a CPU `[P]` buffer; the *hardware* renderer (`wgpu3d`) records into GPU
+//!   textures.
+//!
+//! Renderer and backend are mutually agnostic; they meet through the two present
+//! traits ([`RenderKind`]) in the `backend` module. A backend implements
+//! whichever kinds it hosts (softbuffer: software only; sdl2/wgpu: both). An
+//! unsupported pair is reported via [`RenderStack::supports`], not a panic.
+//!
+//! # The shared middle layer
+//!
+//! The CPU framebuffer, double-buffering, melt-wipe, and the `DrawBuffer` impl
+//! UI/overlays draw through live in [`Frame`], owned by [`RenderStack`]. Both
+//! kinds draw their UI into the *same* `Frame`: software streams its `front`
+//! pixels; hardware uploads `front` as the UI texture and composites it over the
+//! recorded scene. Backend files carry zero presentation policy.
+//!
+//! # Per-frame flow (driven by `game-exe`'s `d_display`)
+//!
+//! [`RenderStack`] exposes ONE uniform per-step API; the render kind is hidden:
+//!
+//! 1. [`start_wipe`](RenderStack::start_wipe) — seed the melt on a gamestate change.
+//! 2. [`set_screen_effects`](RenderStack::set_screen_effects) — tint/bleed (GPU only).
+//! 3. [`render_player_view`](RenderStack::render_player_view) — CPU draws the
+//!    scene into `Frame`; GPU records it into the encoder.
+//! 4. [`ui_frame`](RenderStack::ui_frame) — UI subsystems draw into the shared `Frame`.
+//! 5. [`do_wipe`](RenderStack::do_wipe) — CPU melts pixels; GPU steps the offsets.
+//! 6. [`present`](RenderStack::present) — CPU streams `Frame`; GPU composites +
+//!    melts + presents.
+//!
+//! See `examples/minimal.rs` for the presentation lifecycle.
 
-use hud_util::{draw_text_line, hud_scale, measure_text_line};
-use level::LevelData;
-use pic_data::{PicData, VoxelManager};
-use render_common::wipe::Wipe;
-use render_common::{
-    BufferSize, DrawBuffer as DrawBufferTrait, GameRenderer, RenderView, build_vignette_alpha_lut,
-};
-use software3d::{DebugDrawOptions, Software3D};
-use software25d::Software25D;
 use std::sync::Arc;
 
-const CRT_STRETCH: f32 = 240.0 / 200.0;
+use level::LevelData;
+#[cfg(feature = "cpu-render")]
+use pic_data::{ByteOrder, PalLitCache};
+use pic_data::{PicData, PixelFmt, VoxelManager};
+use render_common::{BufferSize, RenderView};
+
+mod frame;
+pub use frame::Frame;
+
+mod backend;
+use backend::Backend as _;
+#[cfg(all(feature = "display-sdl2", feature = "wgpu3d"))]
+pub use backend::new_sdl2_hardware;
+#[cfg(feature = "display-sdl2")]
+pub use backend::new_sdl2_software;
+#[cfg(all(
+    feature = "display-softbuffer",
+    not(feature = "display-wgpu"),
+    not(feature = "display-sdl2")
+))]
+pub use backend::new_softbuffer;
+#[cfg(all(feature = "display-wgpu", not(feature = "display-sdl2")))]
+pub use backend::new_wgpu;
+pub use backend::{ActiveBackend, RenderKind};
+
+#[cfg(feature = "wgpu3d")]
+use backend::HardwarePresent;
+#[cfg(feature = "wgpu3d")]
+pub use backend::ScreenEffects;
+#[cfg(feature = "cpu-render")]
+use backend::SoftwarePresent;
+
+mod renderer;
+pub use renderer::WorldRenderer;
 
 #[cfg(feature = "display-sdl2")]
 mod sdl2_backend;
-
 #[cfg(feature = "display-softbuffer")]
 mod softbuffer_backend;
+#[cfg(feature = "display-wgpu")]
+mod wgpu_backend;
+#[cfg(feature = "display-wgpu")]
+pub use wgpu_backend::PostEffect;
 
-#[cfg(feature = "display-pixels")]
-mod pixels_backend;
+/// The 1.2× pixel aspect OG Doom presents at; the buffer width is chosen so the
+/// compositor's buffer→window scale reproduces it.
+const CRT_STRETCH: f32 = 240.0 / 200.0;
 
-#[derive(Debug, Default, PartialEq, PartialOrd, Clone, Copy)]
+/// The active renderer kind. A bare selector — the live renderer lives in
+/// [`WorldRenderer`]; this is the user/config-facing choice.
+#[derive(Debug, PartialEq, PartialOrd, Clone, Copy)]
 pub enum RenderType {
-    /// Purely software. Typically used with blitting a framebuffer maintained
-    /// in memory directly to screen using SDL2
-    #[default]
+    /// Purely software (software25d). Blits a CPU framebuffer to screen.
+    #[cfg(feature = "software25d")]
     Software,
     /// Fully 3D software rendering.
+    #[cfg(feature = "software3d")]
     Software3D,
+    /// Hardware GPU rendering (wgpu3d). Requires a hardware-capable backend.
+    #[cfg(feature = "wgpu3d")]
+    Wgpu3D,
 }
 
-pub enum Renderer {
-    /// Purely software. Typically used with blitting a framebuffer maintained
-    /// in memory directly to screen using SDL2
-    Software(Box<Software25D>),
-    /// Fully 3D software rendering.
-    Software3D(Box<Software3D>),
+impl Default for RenderType {
+    fn default() -> Self {
+        #[cfg(feature = "software3d")]
+        return Self::Software3D;
+        #[cfg(all(not(feature = "software3d"), feature = "software25d"))]
+        return Self::Software;
+        #[cfg(all(
+            not(feature = "software3d"),
+            not(feature = "software25d"),
+            feature = "wgpu3d"
+        ))]
+        return Self::Wgpu3D;
+        #[cfg(all(
+            not(feature = "software3d"),
+            not(feature = "software25d"),
+            not(feature = "wgpu3d")
+        ))]
+        compile_error!("no renderer feature enabled (software25d / software3d / wgpu3d)");
+    }
 }
 
-/// Backend-agnostic display presentation.
-pub enum DisplayBackend {
-    #[cfg(feature = "display-sdl2")]
-    Sdl2(sdl2_backend::Sdl2Display),
-    #[cfg(feature = "display-softbuffer")]
-    Softbuffer(softbuffer_backend::SoftbufferDisplay),
-    #[cfg(feature = "display-pixels")]
-    Pixels(pixels_backend::PixelsDisplay),
-}
-
-impl DisplayBackend {
-    /// Create an SDL2 display backend from a canvas.
-    #[cfg(feature = "display-sdl2")]
-    pub fn new_sdl2(canvas: sdl2::render::Canvas<sdl2::video::Window>) -> Self {
-        DisplayBackend::Sdl2(sdl2_backend::Sdl2Display::from_canvas(canvas))
-    }
-
-    /// Create a softbuffer display backend from a winit window.
-    #[cfg(feature = "display-softbuffer")]
-    pub fn new_softbuffer(window: Arc<winit::window::Window>) -> Self {
-        DisplayBackend::Softbuffer(softbuffer_backend::SoftbufferDisplay::new(window))
-    }
-
-    /// Create a pixels (wgpu) display backend from a winit window.
-    #[cfg(feature = "display-pixels")]
-    pub fn new_pixels(window: std::sync::Arc<winit::window::Window>, vsync: bool) -> Self {
-        DisplayBackend::Pixels(pixels_backend::PixelsDisplay::new(window, vsync))
-    }
-
-    /// Present the buffer to the screen.
-    fn blit(&mut self, buffer: &DrawBuffer) {
+impl RenderType {
+    /// The render kind this type needs from a backend.
+    pub fn kind(self) -> RenderKind {
         match self {
-            #[cfg(feature = "display-sdl2")]
-            DisplayBackend::Sdl2(d) => d.blit(buffer),
-            #[cfg(feature = "display-softbuffer")]
-            DisplayBackend::Softbuffer(d) => d.blit(buffer),
-            #[cfg(feature = "display-pixels")]
-            DisplayBackend::Pixels(d) => d.blit(buffer),
+            #[cfg(feature = "wgpu3d")]
+            Self::Wgpu3D => RenderKind::Hardware,
+            #[allow(unreachable_patterns)]
+            _ => RenderKind::Software,
         }
+    }
+}
+
+/// The byte order the `Frame`/`PalLit` are baked in. Every backend presents
+/// `0xAARRGGBB`-derived bytes, so it is always ARGB.
+fn byte_order() -> ByteOrder {
+    ByteOrder::Argb
+}
+
+/// The consumer-facing render target: a backend + an active renderer + the shared
+/// CPU [`Frame`] + the engine UI-layout state ([`Self::set_statusbar_height`]).
+///
+/// Generic over the surface pixel type `P` (`u32` ARGB; `u16` RGB565 on sdl2-565).
+pub struct RenderStack<P: PixelFmt> {
+    backend: ActiveBackend<P>,
+    world_renderer: WorldRenderer,
+    /// The shared CPU framebuffer + melt-wipe (the software present path draws
+    /// here; the hardware path leaves it idle).
+    frame: Frame<P>,
+    /// Buffer dimensions the renderer + frame were built for.
+    size: BufferSize,
+    render_type: RenderType,
+    /// Palette block table (`P` pixels) for the CPU direct-write path, rebuilt
+    /// only on palette/gamma change.
+    #[cfg(feature = "cpu-render")]
+    pal_lit: PalLitCache<P>,
+    /// The GPU renderer's light-falloff exponent (user config; row→intensity).
+    /// Set via [`Self::set_light_gamma`]; the software renderers ignore it.
+    #[cfg(feature = "wgpu3d")]
+    light_gamma: f32,
+    /// Whether the GPU frame's UI plane (the shared [`Frame`]) has been cleared to
+    /// transparent for the frame in flight. Cleared once on the first scene/UI
+    /// access, reset at [`Self::present`]. CPU path unused (the scene fills it).
+    #[cfg(feature = "wgpu3d")]
+    gpu_frame_open: bool,
+}
+
+impl<P: PixelFmt> RenderStack<P> {
+    /// Build a screen for `render_type` over `backend`. `double` selects the
+    /// 400px hi-res buffer; the width is chosen for the 1.2× CRT pixel aspect.
+    pub fn new(double: bool, backend: ActiveBackend<P>, render_type: RenderType) -> Self {
+        let (win_w, win_h) = backend.window_size();
+        let buf_height = if double { 400u32 } else { 200u32 };
+        let buf_width = ((win_w as f32 * buf_height as f32 * CRT_STRETCH / win_h as f32).round()
+            as u32)
+            .max(buf_height);
+        let (w, h) = (buf_width as usize, buf_height as usize);
+        let world_renderer = WorldRenderer::new(render_type, buf_width as f32, buf_height as f32);
+        Self {
+            backend,
+            world_renderer,
+            frame: Frame::new(buf_width, buf_height, byte_order()),
+            size: BufferSize::new(w, h),
+            render_type,
+            #[cfg(feature = "cpu-render")]
+            pal_lit: PalLitCache::new(),
+            #[cfg(feature = "wgpu3d")]
+            light_gamma: 1.0,
+            #[cfg(feature = "wgpu3d")]
+            gpu_frame_open: false,
+        }
+    }
+
+    /// Set the GPU renderer's light-falloff exponent (user config). No-op for the
+    /// software renderers. Call after [`Self::new`]/[`Self::resize`] and on a
+    /// config change (the value is not preserved across a rebuild).
+    #[cfg(feature = "wgpu3d")]
+    pub fn set_light_gamma(&mut self, light_gamma: f32) {
+        self.light_gamma = light_gamma;
+    }
+
+    /// Rebuild for a new buffer mode / renderer, reusing the backend.
+    pub fn resize(self, double: bool, render_type: RenderType) -> Self {
+        Self::new(double, self.backend, render_type)
+    }
+
+    /// The active renderer kind.
+    pub fn render_type(&self) -> RenderType {
+        self.render_type
+    }
+
+    /// True if the GPU (`wgpu3d`) renderer is active.
+    pub fn is_hardware_renderer(&self) -> bool {
+        self.world_renderer.is_wgpu3d()
+    }
+
+    /// Whether the backend can host the given renderer kind.
+    pub fn supports(&self, kind: RenderKind) -> bool {
+        self.backend.supports(kind)
+    }
+
+    /// Buffer dimensions (the renderer's draw resolution, = the present size).
+    pub fn buffer_size(&self) -> &BufferSize {
+        &self.size
+    }
+
+    /// Window size in physical pixels (for config persistence / fullscreen).
+    pub fn window_size(&self) -> (u32, u32) {
+        self.backend.window_size()
     }
 
     /// Set fullscreen mode: 0=windowed, 1=borderless, 2=exclusive.
     pub fn set_fullscreen(&mut self, mode: u8) {
-        match self {
-            #[cfg(feature = "display-sdl2")]
-            DisplayBackend::Sdl2(d) => d.set_fullscreen(mode),
-            #[cfg(feature = "display-softbuffer")]
-            DisplayBackend::Softbuffer(d) => d.set_fullscreen(mode),
-            #[cfg(feature = "display-pixels")]
-            DisplayBackend::Pixels(d) => d.set_fullscreen(mode),
-        }
+        self.backend.set_fullscreen(mode);
     }
 
-    /// Query the window/drawable size for buffer sizing.
-    fn window_size(&self) -> (u32, u32) {
-        match self {
-            #[cfg(feature = "display-sdl2")]
-            DisplayBackend::Sdl2(d) => d.window_size(),
-            #[cfg(feature = "display-softbuffer")]
-            DisplayBackend::Softbuffer(d) => d.window_size(),
-            #[cfg(feature = "display-pixels")]
-            DisplayBackend::Pixels(d) => d.window_size(),
-        }
-    }
-}
-
-/// Owns the active renderer and framebuffer; bridges display backend to render
-/// pipeline.
-pub struct RenderTarget {
-    renderer: Renderer,
-    framebuffer: FrameBuffer,
-    /// Radial-distance LUT for the health vignette, keyed by the
-    /// `(width, view_height)` it was built for; rebuilt on size change.
-    vignette_lut: Vec<f32>,
-    vignette_dims: (usize, usize),
-    /// Quantised distance→alpha table; rebuilt only when `vignette_health`
-    /// changes.
-    vignette_alpha_lut: [u32; 256],
-    vignette_health: i32,
-}
-
-impl RenderTarget {
-    pub fn new(
-        double: bool,
-        debug: bool,
-        debug_draw: &DebugDrawOptions,
-        display: DisplayBackend,
-        render_type: RenderType,
-    ) -> RenderTarget {
-        let size = display.window_size();
-        // Buffer height is fixed at 200 (or 400 hi-res). Buffer width is chosen
-        // so that when the blit scales buf_width->win_width and buf_height->win_height,
-        // pixels appear 1.2x taller than wide (CRT aspect):
-        //   (win_h / buf_h) / (win_w / buf_w) = 1.2
-        //   buf_w = win_w * buf_h * 1.2 / win_h
-        let buf_height = if double { 400u32 } else { 200u32 };
-        let buf_width = ((size.0 as f32 * buf_height as f32 * CRT_STRETCH / size.1 as f32).round()
-            as u32)
-            .max(buf_height);
-
-        Self {
-            framebuffer: FrameBuffer {
-                wipe: Wipe::new(buf_width as i32, buf_height as i32),
-                buffer: DrawBuffer::new(buf_width as usize, buf_height as usize),
-                display,
-            },
-            renderer: match render_type {
-                RenderType::Software => Renderer::Software(Box::new(Software25D::new(
-                    90f32.to_radians(),
-                    buf_width as f32,
-                    buf_height as f32,
-                    double,
-                    debug,
-                ))),
-                RenderType::Software3D => Renderer::Software3D(Box::new(Software3D::new(
-                    buf_width as f32,
-                    buf_height as f32,
-                    90.0_f32.to_radians(),
-                    debug_draw.clone(),
-                ))),
-            },
-            vignette_lut: Vec::new(),
-            vignette_dims: (0, 0),
-            vignette_alpha_lut: [0; 256],
-            vignette_health: 100,
-        }
+    /// Update the statusbar height (OG 200px-space pixels); recompute the view
+    /// height and push it to the renderer.
+    pub fn set_statusbar_height(&mut self, og_height: i32) {
+        let scale = self.size.height() / 200;
+        self.size.set_statusbar_height(og_height * scale);
+        self.world_renderer.set_view_height(self.size.view_height());
     }
 
-    /// Forward a debug overlay line to the active renderer. No-op for non-3D.
-    pub fn set_debug_line(&mut self, s: String) {
-        if let Renderer::Software3D(r) = &mut self.renderer {
-            r.set_debug_line(s);
-        }
-    }
-
-    /// Set the voxel manager on the Software3D renderer. No-op for non-3D.
+    /// Set the voxel manager on the active renderer (software3d / wgpu3d only).
     pub fn set_voxel_manager(&mut self, mgr: Arc<VoxelManager>) {
-        if let Renderer::Software3D(r) = &mut self.renderer {
-            r.set_voxel_manager(mgr);
-        }
+        self.world_renderer.set_voxel_manager(mgr);
     }
 
     pub fn clear_voxel_manager(&mut self) {
-        if let Renderer::Software3D(r) = &mut self.renderer {
-            r.clear_voxel_manager();
+        self.world_renderer.clear_voxel_manager();
+    }
+
+    #[cfg(feature = "wgpu3d")]
+    pub fn set_dynamic_sky(&mut self, dynamic: bool) {
+        self.world_renderer.set_dynamic_sky(dynamic);
+    }
+
+    /// Whether a melt-wipe is in progress (CPU frame wipe, or the GPU melt). One
+    /// uniform query regardless of render kind.
+    pub fn is_wiping(&self) -> bool {
+        #[cfg(feature = "wgpu3d")]
+        if self.is_hardware_renderer() {
+            return HardwarePresent::is_wiping(&self.backend);
+        }
+        #[cfg(feature = "cpu-render")]
+        {
+            return self.frame.is_wiping();
+        }
+        #[allow(unreachable_code)]
+        false
+    }
+
+    /// Begin a melt-wipe over the last presented frame. CPU re-seeds the frame's
+    /// column offsets; GPU seeds the melt-shader offsets and snapshots the last
+    /// frame on the next present.
+    pub fn start_wipe(&mut self) {
+        #[cfg(feature = "wgpu3d")]
+        if self.is_hardware_renderer() {
+            let (w, h) = (self.size.width() as u32, self.size.height() as u32);
+            HardwarePresent::start_wipe(&mut self.backend, w, h);
+            return;
+        }
+        #[cfg(feature = "cpu-render")]
+        self.frame.start_wipe();
+    }
+
+    /// Reset the health-bleed pattern (new game/level). GPU only; CPU has none.
+    pub fn reset_health_bleed(&mut self) {
+        #[cfg(feature = "wgpu3d")]
+        self.backend.reset_health_bleed();
+    }
+
+    /// Resolve the frame's screen effects (player tint, health bleed) for the GPU
+    /// composite. No-op on the software path (the renderer applies them per pixel).
+    /// Call in the Level state before [`Self::render_player_view`].
+    #[cfg(feature = "wgpu3d")]
+    pub fn set_screen_effects(&mut self, effects: ScreenEffects) {
+        if self.is_hardware_renderer() {
+            let (w, h) = (self.size.width() as u32, self.size.height() as u32);
+            HardwarePresent::set_screen_effects(&mut self.backend, effects, w, h);
         }
     }
 
-    pub fn set_fullscreen(&mut self, mode: u8) {
-        self.framebuffer.display.set_fullscreen(mode);
-    }
-
-    pub fn window_size(&self) -> (u32, u32) {
-        self.framebuffer.display.window_size()
-    }
-
-    /// Rebuild the render target, reusing the display backend.
-    pub fn resize(
-        self,
-        double: bool,
-        debug: bool,
-        debug_draw: &DebugDrawOptions,
-        render_type: RenderType,
-    ) -> Self {
-        let display = self.framebuffer.display;
-        Self::new(double, debug, debug_draw, display, render_type)
-    }
-
-    /// Update the statusbar height (in OG 200px-space pixels).
-    /// Recomputes renderer view bounds without a full rebuild.
-    pub fn set_statusbar_height(&mut self, og_height: i32) {
-        let scale = self.framebuffer.buffer.size.height() / 200;
-        let bar_h = og_height * scale;
-        self.framebuffer.buffer.size.set_statusbar_height(bar_h);
-        let vh = self.framebuffer.buffer.size.view_height();
-        match &mut self.renderer {
-            Renderer::Software(r) => r.set_view_height(vh as usize),
-            Renderer::Software3D(r) => r.set_view_height(vh as f32),
-        }
-    }
-}
-
-impl GameRenderer for RenderTarget {
-    fn render_player_view(
+    /// Render the player view (and software3d debug overlays) for the frame in
+    /// flight. CPU draws into the `Frame`; GPU records the scene into the held
+    /// encoder. UI draws follow via [`Self::ui_frame`].
+    pub fn render_player_view(
         &mut self,
         view: &RenderView,
         level_data: &LevelData,
         pic_data: &mut PicData,
     ) {
-        let f = &mut self.framebuffer;
-        match &mut self.renderer {
-            Renderer::Software(r) => r.draw_view(view, level_data, pic_data, f),
-            Renderer::Software3D(r) => {
-                r.draw_view(view, level_data, pic_data, f);
-                let text = r.take_debug_line();
-                if !text.is_empty() {
-                    let (sx, sy) = hud_scale(f);
-                    let palette = pic_data.wad_palette();
-                    let width = measure_text_line(&text, sx);
-                    let x = f.size().width_f32() - width - 4.0 * sx;
-                    draw_text_line(&text, x, 2.0, sx, sy, palette, f);
-                }
-            }
-        }
-    }
-
-    fn frame_buffer(&mut self) -> &mut impl render_common::DrawBuffer {
-        &mut self.framebuffer
-    }
-
-    fn flip_and_present(&mut self) {
-        #[cfg(feature = "hprof")]
-        profile!("flip_and_present");
-        self.framebuffer.blit();
-    }
-
-    fn start_wipe(&mut self) {
-        if self.framebuffer.wipe.is_wiping() {
+        #[cfg(feature = "wgpu3d")]
+        if self.is_hardware_renderer() {
+            self.gpu_open_frame();
+            let (w, h) = (self.size.width() as u32, self.size.height() as u32);
+            let light_gamma = self.light_gamma;
+            let mut handle = HardwarePresent::begin_scene(&mut self.backend, w, h);
+            self.world_renderer
+                .draw_view_gpu(view, level_data, pic_data, light_gamma, &mut handle);
             return;
         }
-        let pixel_count = self.framebuffer.buffer.size.width_usize()
-            * self.framebuffer.buffer.size.height_usize();
-        self.framebuffer
-            .wipe
-            .start(&self.framebuffer.buffer.buffer[..pixel_count]);
-    }
-
-    fn do_wipe(&mut self) -> bool {
-        self.framebuffer.do_wipe()
-    }
-
-    fn is_wiping(&self) -> bool {
-        self.framebuffer.wipe.is_wiping()
-    }
-
-    fn buffer_size(&self) -> &BufferSize {
-        &self.framebuffer.buffer.size
-    }
-
-    fn vignette_lut(&mut self) -> &[f32] {
-        let size = &self.framebuffer.buffer.size;
-        let dims = (size.width_usize(), size.view_height_usize());
-        if self.vignette_dims != dims {
-            self.vignette_lut = self.build_vignette_lut();
-            self.vignette_dims = dims;
-        }
-        &self.vignette_lut
-    }
-
-    fn draw_health_vignette(&mut self, health: i32) {
-        let Some((start, max_alpha)) = Self::vignette_params(health) else {
-            return;
-        };
-        // Rebuild the distance LUT on a size change and the alpha LUT on a
-        // health change; both cached. Then hoist the disjoint field borrows
-        // for the blend.
-        self.vignette_lut();
-        if self.vignette_health != health {
-            self.vignette_alpha_lut = build_vignette_alpha_lut(start, max_alpha);
-            self.vignette_health = health;
-        }
-        let size = &self.framebuffer.buffer.size;
-        let (width, view_height) = (size.width_usize(), size.view_height_usize());
-        let pitch = self.framebuffer.buffer.pitch();
-        Self::blend_vignette(
-            &mut self.framebuffer.buffer.buffer,
-            &self.vignette_lut,
-            &self.vignette_alpha_lut,
-            pitch,
-            width,
-            view_height,
-            health > 100,
-        );
-    }
-}
-
-pub(crate) struct DrawBuffer {
-    pub(crate) size: BufferSize,
-    /// Pixel buffer in `0xFFRRGGBB` format (ARGB, fully opaque).
-    pub(crate) buffer: Vec<u32>,
-}
-
-impl DrawBuffer {
-    fn new(width: usize, height: usize) -> Self {
-        Self {
-            size: BufferSize::new(width, height),
-            buffer: vec![0xFF_00_00_00; width * height + 1],
-        }
-    }
-}
-
-impl DrawBuffer {
-    /// Read the colour of a single pixel at `(x, y)`.
-    #[inline(always)]
-    pub fn read_pixel(&self, x: usize, y: usize) -> u32 {
-        let pos = y * self.size.width_usize() + x;
-        self.buffer[pos]
-    }
-
-    #[inline(always)]
-    pub fn set_pixel(&mut self, x: usize, y: usize, colour: u32) {
-        #[cfg(feature = "hprof")]
-        profile!("set_pixel");
-        #[cfg(feature = "safety_check")]
-        if x >= self.size.width_usize() || y >= self.size.height_usize() {
-            dbg!(x, self.size.width_usize(), y, self.size.height_usize());
-            panic!();
-        }
-
-        let pos = y * self.size.width_usize() + x;
-        #[cfg(not(feature = "safety_check"))]
-        unsafe {
-            *self.buffer.get_unchecked_mut(pos) = colour;
-        }
-        #[cfg(feature = "safety_check")]
+        #[cfg(feature = "cpu-render")]
         {
-            self.buffer[pos] = colour;
+            let pal_lit = self.pal_lit.get(
+                pic_data.palette_generation(),
+                pic_data.palettes(),
+                ByteOrder::Argb,
+            );
+            let tint = pic_data.use_palette();
+            let mut buf = self.frame.pixel_target(pal_lit, tint);
+            self.world_renderer
+                .draw_view(view, level_data, pic_data, &mut buf);
+            self.world_renderer.draw_debug_overlays(pic_data, &mut buf);
         }
     }
 
-    #[inline(always)]
-    pub fn pitch(&self) -> usize {
-        self.size.width_usize()
-    }
-
-    #[inline(always)]
-    pub fn get_buf_index(&self, x: usize, y: usize) -> usize {
-        y * self.size.width_usize() + x
-    }
-}
-
-pub struct FrameBuffer {
-    wipe: Wipe,
-    buffer: DrawBuffer,
-    display: DisplayBackend,
-}
-
-impl FrameBuffer {
-    /// Present the buffer to the screen via the display backend.
-    fn blit(&mut self) {
-        self.display.blit(&self.buffer);
-    }
-
-    /// Overdraw old-frame columns on top of the current buffer, then present.
-    /// Returns true when the melt is complete.
-    fn do_wipe(&mut self) -> bool {
-        let pitch = self.buffer.pitch();
-        let done = self.wipe.do_melt_pixels(&mut self.buffer.buffer, pitch);
-        if done {
-            self.wipe.reset();
+    /// The shared [`Frame`] as a `DrawBuffer` for ONE UI subsystem draw — the
+    /// same target for both render kinds (the GPU path uploads it as the UI
+    /// texture). Reborrow per subsystem: `statusbar.draw(&mut screen.ui_frame())`.
+    pub fn ui_frame(&mut self) -> &mut Frame<P> {
+        #[cfg(feature = "wgpu3d")]
+        if self.is_hardware_renderer() {
+            self.gpu_open_frame();
         }
-        done
-    }
-}
-
-impl render_common::DrawBuffer for FrameBuffer {
-    #[inline]
-    fn buf_mut(&mut self) -> &mut [u32] {
-        &mut self.buffer.buffer
+        &mut self.frame
     }
 
-    #[inline]
-    fn get_buf_index(&self, x: usize, y: usize) -> usize {
-        self.buffer.get_buf_index(x, y)
+    /// Advance the melt-wipe one step. CPU melts the previous frame over the
+    /// just-rendered front; GPU advances the melt-shader offsets (the pixel melt
+    /// runs at [`Self::present`]). Returns `true` once the melt completes.
+    pub fn do_wipe(&mut self) -> bool {
+        #[cfg(feature = "wgpu3d")]
+        if self.is_hardware_renderer() {
+            return HardwarePresent::advance_wipe(&mut self.backend);
+        }
+        #[cfg(feature = "cpu-render")]
+        {
+            return self.frame.do_wipe();
+        }
+        #[allow(unreachable_code)]
+        false
     }
 
-    #[inline]
-    fn pitch(&self) -> usize {
-        self.buffer.pitch()
+    /// Present the frame in flight. CPU streams the `Frame` (swapping front/back
+    /// when not wiping so the just-presented frame seeds the next wipe); GPU
+    /// composites the UI (the `Frame`) over the recorded scene, melts at the
+    /// current offsets when `wiping`, and presents.
+    pub fn present(&mut self, wiping: bool) {
+        #[cfg(feature = "wgpu3d")]
+        if self.is_hardware_renderer() {
+            self.gpu_open_frame();
+            let (w, h) = (self.frame.width(), self.frame.height());
+            HardwarePresent::finish_frame(&mut self.backend, self.frame.front(), w, h, wiping);
+            self.gpu_frame_open = false;
+            return;
+        }
+        #[cfg(feature = "cpu-render")]
+        {
+            if !wiping {
+                self.frame.flip();
+            }
+            let (w, h) = (self.frame.width(), self.frame.height());
+            SoftwarePresent::present(&mut self.backend, self.frame.front(), w, h);
+        }
     }
 
-    #[inline]
-    fn size(&self) -> &BufferSize {
-        &self.buffer.size
-    }
-
-    #[inline]
-    fn set_pixel(&mut self, x: usize, y: usize, colour: u32) {
-        self.buffer.set_pixel(x, y, colour);
-    }
-
-    #[inline]
-    fn read_pixel(&self, x: usize, y: usize) -> u32 {
-        self.buffer.read_pixel(x, y)
-    }
-
-    fn debug_flip_and_present(&mut self) {
-        self.blit();
+    /// Clear the shared [`Frame`]'s UI plane to transparent on the first scene/UI
+    /// access of a GPU frame, so the composite shows the recorded scene through
+    /// the unwritten UI texels. Idempotent within a frame.
+    #[cfg(feature = "wgpu3d")]
+    fn gpu_open_frame(&mut self) {
+        if !self.gpu_frame_open {
+            self.frame.clear_transparent();
+            self.gpu_frame_open = true;
+        }
     }
 }

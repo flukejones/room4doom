@@ -9,6 +9,17 @@ license.workspace = true
 log.workspace = true
 flate2.workspace = true
 
+# Test-only markers gating WAD-dependent tests by the WAD they load. The WADs
+# are not in-repo (commercial / size); enable a group to run its tests:
+#   cargo test -p wad --features wad-doom
+[features]
+wad-doom = []
+wad-doom2 = []
+wad-sigil = []
+wad-eviternity = []
+wad-sunder = []
+wad-all = ["wad-doom", "wad-doom2", "wad-sigil", "wad-eviternity", "wad-sunder"]
+
 [dev-dependencies]
 test-utils.workspace = true
 serde_json.workspace = true

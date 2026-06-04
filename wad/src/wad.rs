@@ -1,19 +1,17 @@
 use std::collections::hash_map::DefaultHasher;
 use std::fmt::Display;
-use std::fs::File;
-use std::hash::{Hash, Hasher};
-use std::io::prelude::*;
+use std::hash::{Hash as _, Hasher as _};
 use std::path::{Path, PathBuf};
-use std::{fmt, str};
+use std::{fmt, fs, str};
 
 use crate::types::WadBlockMap;
 
 const FRACUNIT: f32 = (1 << 16) as f32;
 
-/// Used as an index to find a specific lump, typically combined
-/// with an offset for example: find the index for lump named "E1M1"
-/// in `self.wad_dirs` then combine this index with a `LumpIndex`
-/// variant to get a specific lump.
+/// Index used to find a specific lump.
+///
+/// Typically combined with an offset: find the index for lump "E1M1" in
+/// `self.wad_dirs`, then add a `LumpIndex` variant to reach a specific lump.
 #[allow(
     dead_code,
     reason = "complete WAD map-lump enum; not every variant is referenced yet"
@@ -56,17 +54,17 @@ pub enum MapLump {
 impl Display for MapLump {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            MapLump::Things => write!(f, "THINGS"),
-            MapLump::LineDefs => write!(f, "LINEDEFS"),
-            MapLump::SideDefs => write!(f, "SIDEDEFS"),
-            MapLump::Vertexes => write!(f, "VERTEXES"),
-            MapLump::Segs => write!(f, "SEGS"),
-            MapLump::SubSectors => write!(f, "SSECTORS"),
-            MapLump::Nodes => write!(f, "NODES"),
-            MapLump::Sectors => write!(f, "SECTORS"),
-            MapLump::Reject => write!(f, "REJECT"),
-            MapLump::Blockmap => write!(f, "BLOCKMAP"),
-            MapLump::Count => write!(f, "COUNT"),
+            Self::Things => write!(f, "THINGS"),
+            Self::LineDefs => write!(f, "LINEDEFS"),
+            Self::SideDefs => write!(f, "SIDEDEFS"),
+            Self::Vertexes => write!(f, "VERTEXES"),
+            Self::Segs => write!(f, "SEGS"),
+            Self::SubSectors => write!(f, "SSECTORS"),
+            Self::Nodes => write!(f, "NODES"),
+            Self::Sectors => write!(f, "SECTORS"),
+            Self::Reject => write!(f, "REJECT"),
+            Self::Blockmap => write!(f, "BLOCKMAP"),
+            Self::Count => write!(f, "COUNT"),
         }
     }
 }
@@ -189,28 +187,14 @@ impl fmt::Debug for WadData {
 
 impl WadData {
     /// Load and cache all lumps from a WAD file at `file_path`.
-    pub fn new(file_path: &Path) -> WadData {
-        let mut wad = WadData {
+    pub fn new(file_path: &Path) -> Self {
+        let mut wad = Self {
             lumps: Vec::new(),
             file_path: file_path.into(),
         };
 
-        let mut file = File::open(file_path)
-            .unwrap_or_else(|_| panic!("Could not open wad file: {:?}", &file_path));
-
-        let file_len = file
-            .metadata()
-            .expect("failed to read WAD file metadata")
-            .len();
-        let mut file_data = Vec::with_capacity(file_len as usize);
-
-        let wad_len = file
-            .read_to_end(&mut file_data)
-            .unwrap_or_else(|_| panic!("Could not read {:?}", &file_path));
-
-        if wad_len != file_len as usize {
-            panic!("Did not read complete WAD")
-        }
+        let file_data = fs::read(file_path)
+            .unwrap_or_else(|_| panic!("Could not read wad file: {:?}", &file_path));
 
         wad.cache_lumps(&file_data);
         wad
@@ -219,22 +203,8 @@ impl WadData {
     /// Append lumps from an additional WAD file (PWAD). Later lumps override
     /// earlier ones with the same name.
     pub fn add_file(&mut self, file_path: PathBuf) {
-        let mut file =
-            File::open(&file_path).unwrap_or_else(|_| panic!("Could not open {:?}", &file_path));
-
-        let file_len = file
-            .metadata()
-            .expect("failed to read WAD file metadata")
-            .len();
-        let mut file_data = Vec::with_capacity(file_len as usize);
-
-        let wad_len = file
-            .read_to_end(&mut file_data)
-            .unwrap_or_else(|_| panic!("Could not read {:?}", &file_path));
-
-        if wad_len != file_len as usize {
-            panic!("Did not read complete WAD")
-        }
+        let file_data =
+            fs::read(&file_path).unwrap_or_else(|_| panic!("Could not read {:?}", &file_path));
 
         self.cache_lumps(&file_data);
     }
@@ -259,7 +229,7 @@ impl WadData {
     fn read_dir_data(ofs: usize, file: &[u8]) -> Lump {
         let mut n = [b'\n'; 8]; // length is 8 slots total
         for (i, slot) in n.iter_mut().enumerate() {
-            *slot = file[ofs + 8 + i]
+            *slot = file[ofs + 8 + i];
         }
 
         let size = i32::from_le_bytes([file[ofs + 4], file[ofs + 5], file[ofs + 6], file[ofs + 7]])
@@ -304,7 +274,7 @@ impl WadData {
                 return info;
             }
         }
-        panic!("Could not find lump {}", name);
+        panic!("Could not find lump {name}");
     }
 
     /// Find a map marker by name and return the lump at the given offset.
@@ -347,7 +317,7 @@ impl WadData {
         match crate::umapinfo::parse(text) {
             Ok(info) => Some(info),
             Err(e) => {
-                log::warn!("Failed to parse UMAPINFO: {}", e);
+                log::warn!("Failed to parse UMAPINFO: {e}");
                 None
             }
         }
@@ -360,7 +330,7 @@ impl WadData {
         match crate::umapinfo::parse_mapinfo(text) {
             Ok(info) => Some(info),
             Err(e) => {
-                log::warn!("Failed to parse MAPINFO: {}", e);
+                log::warn!("Failed to parse MAPINFO: {e}");
                 None
             }
         }
@@ -373,7 +343,7 @@ impl WadData {
         match crate::umapinfo::parse(text) {
             Ok(info) => Some(info),
             Err(e) => {
-                log::warn!("Failed to parse ZMAPINFO: {}", e);
+                log::warn!("Failed to parse ZMAPINFO: {e}");
                 None
             }
         }
@@ -467,16 +437,13 @@ impl WadData {
 #[cfg(test)]
 mod tests {
     use crate::wad::WadData;
-    use std::fs::File;
-    use std::io::Read;
+    use std::fs;
     use std::path::PathBuf;
+
     use test_utils::doom1_wad_path;
 
     fn read_file(file_path: PathBuf) -> Vec<u8> {
-        let mut file = File::open(&file_path).unwrap();
-        let mut data = Vec::new();
-        file.read_to_end(&mut data).unwrap();
-        data
+        fs::read(&file_path).unwrap()
     }
 
     #[test]

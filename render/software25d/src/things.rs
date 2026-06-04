@@ -9,12 +9,12 @@ use log::{error, warn};
 use math::{ANG45, FRACBITS, FRACUNIT, FixedT, r_point_to_angle};
 
 use pic_data::PicData;
-use render_common::{DrawBuffer, FUZZ_TABLE, RenderPspDef, RenderView, fuzz_darken};
+use render_common::{DrawBuffer as _, FUZZ_TABLE, PixelFmt, PixelTarget, RenderPspDef, RenderView};
 
 use super::bsp::Software25D;
-use super::defs::DrawSeg;
-use super::utilities::inner_to_i32;
+use super::defs::{DrawSeg, SIL_BOTTOM, SIL_TOP};
 use super::segs::SegRender;
+use super::utilities::inner_to_i32;
 
 const FF_FULLBRIGHT: u32 = 0x8000;
 const FF_FRAMEMASK: u32 = 0x7FFF;
@@ -47,7 +47,7 @@ pub struct VisSprite {
 }
 
 impl PartialOrd for VisSprite {
-    fn partial_cmp(&self, other: &VisSprite) -> Option<cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
@@ -182,8 +182,7 @@ impl Software25D {
         let sprite_frame = sprite_def.frames[frame as usize];
         let patch;
         let patch_index;
-        let flip;
-        if sprite_frame.rotate == 1 {
+        let flip = if sprite_frame.rotate == 1 {
             // OG: ang = R_PointToAngle(thing->x, thing->y) - thing->angle;
             //     rot = (ang + (unsigned)(ANG45/2)*9) >> 29;
             let ang = r_point_to_angle(thing.x - view.x, thing.y - view.y)
@@ -191,12 +190,12 @@ impl Software25D {
             let rot = (ang.wrapping_add((ANG45 / 2).wrapping_mul(9)) >> 29) as usize;
             patch_index = sprite_frame.lump[rot] as u32 as usize;
             patch = pic_data.sprite_patch(patch_index);
-            flip = sprite_frame.flip[rot];
+            sprite_frame.flip[rot]
         } else {
             patch_index = sprite_frame.lump[0] as u32 as usize;
             patch = pic_data.sprite_patch(patch_index);
-            flip = sprite_frame.flip[0];
-        }
+            sprite_frame.flip[0]
+        };
 
         if flip > 0 {
             tx -= FixedT::from((patch.data.len() - patch.left_offset as u32 as usize) as i32);
@@ -277,13 +276,13 @@ impl Software25D {
     ///   arrays
     /// - Dispatches to `draw_fuzz_column` for spectre/shadow things, otherwise
     ///   `draw_masked_column`
-    fn draw_vissprite(
+    fn draw_vissprite<P: PixelFmt>(
         &mut self,
         vis: &VisSprite,
         clip_bottom: &[FixedT],
         clip_top: &[FixedT],
         pic_data: &PicData,
-        rend: &mut impl DrawBuffer,
+        rend: &mut PixelTarget<P>,
     ) {
         let patch = pic_data.sprite_patch(vis.patch);
 
@@ -342,7 +341,6 @@ impl Software25D {
                         dc_texmid,
                         top,
                         bottom,
-                        pic_data,
                         rend,
                     );
                 }
@@ -363,12 +361,12 @@ impl Software25D {
     ///   arrays
     /// - Unclipped columns default to full screen height
     /// - Finally delegates to `draw_vissprite` with the computed clip arrays
-    fn draw_sprite(
+    fn draw_sprite<P: PixelFmt>(
         &mut self,
         view: &RenderView,
         vis: &VisSprite,
         pic_data: &PicData,
-        rend: &mut impl DrawBuffer,
+        rend: &mut PixelTarget<P>,
     ) {
         let size = *rend.size();
         let mut clip_bottom = vec![FixedT::from(-2); size.width_usize()];
@@ -379,7 +377,7 @@ impl Software25D {
         for seg in segs.iter().rev() {
             if seg.x1 > vis.x2
                 || seg.x2 < vis.x1
-                || (seg.silhouette == 0 && seg.maskedtexturecol == FixedT::ZERO)
+                || (seg.silhouette == 0 && seg.maskedtexturecol == FixedT::from(-1))
             {
                 continue;
             }
@@ -414,8 +412,17 @@ impl Software25D {
                 }
             }
 
+            let mut silhouette = seg.silhouette;
+            if vis.gz >= seg.bsilheight {
+                silhouette &= !SIL_BOTTOM;
+            }
+            if vis.gzt <= seg.tsilheight {
+                silhouette &= !SIL_TOP;
+            }
+
             for r in r1.to_i32() as usize..=r2.to_i32() as usize {
-                if clip_bottom[r] == FixedT::from(-2)
+                if silhouette & SIL_BOTTOM != 0
+                    && clip_bottom[r] == FixedT::from(-2)
                     && let Some(bottom_clip) = seg.sprbottomclip
                 {
                     let i = (bottom_clip + FixedT::from(r as i32)).to_i32() as usize;
@@ -426,7 +433,8 @@ impl Software25D {
                         }
                     }
                 }
-                if clip_top[r] == FixedT::from(-2)
+                if silhouette & SIL_TOP != 0
+                    && clip_top[r] == FixedT::from(-2)
                     && let Some(top_clip) = seg.sprtopclip
                 {
                     let i = (top_clip + FixedT::from(r as i32)).to_i32() as usize;
@@ -452,14 +460,14 @@ impl Software25D {
         self.draw_vissprite(vis, &clip_bottom, &clip_top, pic_data, rend);
     }
 
-    fn draw_player_sprites(
+    fn draw_player_sprites<P: PixelFmt>(
         &mut self,
         view: &RenderView,
         pic_data: &PicData,
-        rend: &mut impl DrawBuffer,
+        rend: &mut PixelTarget<P>,
     ) {
         let light = (view.sector_lightlevel >> 4) + view.extralight;
-        for sprite in view.psprites.iter() {
+        for sprite in &view.psprites {
             if sprite.active {
                 self.draw_player_sprite(sprite, light, view.is_shadow, pic_data, rend);
             }
@@ -473,13 +481,13 @@ impl Software25D {
     /// - Builds a `VisSprite` with no `wide_ratio` correction (weapon fills
     ///   screen width)
     /// - Uses unclipped full-screen clip bounds (weapon always draws on top)
-    fn draw_player_sprite(
+    fn draw_player_sprite<P: PixelFmt>(
         &mut self,
         sprite: &RenderPspDef,
         light: usize,
         is_shadow: bool,
         pic_data: &PicData,
-        rend: &mut impl DrawBuffer,
+        rend: &mut PixelTarget<P>,
     ) {
         let size = *rend.size();
         let f = size.height() / 200;
@@ -548,7 +556,7 @@ impl Software25D {
 
         let clip_bottom = vec![FixedT::ZERO; size.width_usize()];
         let clip_top = vec![FixedT::from(size.view_height()); size.width_usize()];
-        self.draw_vissprite(&vis, &clip_top, &clip_bottom, pic_data, rend)
+        self.draw_vissprite(&vis, &clip_top, &clip_bottom, pic_data, rend);
     }
 
     /// Sort vissprites by depth and draw all masked (transparent) geometry.
@@ -558,11 +566,11 @@ impl Software25D {
     /// - Draws remaining masked wall textures (e.g., midtextures on 2-sided
     ///   lines)
     /// - Draws player weapon sprites last (always on top)
-    pub(crate) fn draw_masked(
+    pub(crate) fn draw_masked<P: PixelFmt>(
         &mut self,
         view: &RenderView,
         pic_data: &PicData,
-        rend: &mut impl DrawBuffer,
+        rend: &mut PixelTarget<P>,
     ) {
         // Sort only the vissprites used
         self.vissprites[..self.next_vissprite].sort();
@@ -600,14 +608,14 @@ impl Software25D {
     /// - Clips each column against floor and ceiling clip values from the
     ///   drawseg
     /// - Marks rendered openings as `MAX` to prevent double-drawing
-    fn render_masked_seg_range(
+    fn render_masked_seg_range<P: PixelFmt>(
         seg_renderer: &mut SegRender,
         view: &RenderView,
         ds: &DrawSeg,
         x1: FixedT,
         x2: FixedT,
         pic_data: &PicData,
-        rend: &mut impl DrawBuffer,
+        rend: &mut PixelTarget<P>,
     ) {
         let size = *rend.size();
         let seg = unsafe { ds.curline.as_ref() };
@@ -704,7 +712,6 @@ impl Software25D {
                         dc_texturemid,
                         top,
                         bottom,
-                        pic_data,
                         rend,
                     );
 
@@ -721,7 +728,7 @@ impl Software25D {
 /// Iterates texels top-to-bottom, skipping transparent pixels (`u16::MAX`),
 /// mapping through the colourmap for lighting, and writing to the framebuffer.
 #[allow(clippy::too_many_arguments)]
-fn draw_masked_column(
+fn draw_masked_column<P: PixelFmt>(
     texture_column: &[u16],
     colourmap: &[usize],
     fracstep: FixedT,
@@ -730,13 +737,12 @@ fn draw_masked_column(
     dc_texturemid: FixedT,
     yl: FixedT,
     mut yh: FixedT,
-    pic_data: &PicData,
-    pixels: &mut impl DrawBuffer,
+    pixels: &mut PixelTarget<P>,
 ) {
     if yh >= FixedT::from(pixels.size().height()) {
         yh = FixedT::from(pixels.size().height()) - 1;
     }
-    let pal = pic_data.palette();
+    let pitch = pixels.pitch();
     let mut frac = dc_texturemid + (yl - centery) * fracstep;
     for y in yl.to_i32() as usize..=yh.to_i32() as usize {
         let select = frac.to_i32() as usize;
@@ -747,8 +753,8 @@ fn draw_masked_column(
             frac += fracstep;
             continue;
         }
-        let c = pal[colourmap[texture_column[select] as usize]];
-        pixels.set_pixel(dc_x, y, c);
+        let lit = colourmap[texture_column[select] as usize] as u16;
+        pixels.store(y * pitch + dc_x, lit);
         frac += fracstep;
     }
 }
@@ -759,7 +765,7 @@ fn draw_masked_column(
 /// using a pseudo-random offset table (`FUZZ_TABLE`) to produce the
 /// partial-invisibility shimmer.
 #[allow(clippy::too_many_arguments)]
-fn draw_fuzz_column(
+fn draw_fuzz_column<P: PixelFmt>(
     texture_column: &[u16],
     fracstep: FixedT,
     centery: FixedT,
@@ -767,7 +773,7 @@ fn draw_fuzz_column(
     dc_texturemid: FixedT,
     yl: FixedT,
     mut yh: FixedT,
-    pixels: &mut impl DrawBuffer,
+    pixels: &mut PixelTarget<P>,
     fuzz_pos: &mut usize,
 ) {
     let height = pixels.size().height_usize();
@@ -785,10 +791,9 @@ fn draw_fuzz_column(
             frac += fracstep;
             continue;
         }
-        let buf = pixels.buf_mut();
         let offset = FUZZ_TABLE[*fuzz_pos % FUZZ_TABLE.len()];
         let src_y = (y as i32 + offset).clamp(0, height as i32 - 1) as usize;
-        buf[y * pitch + dc_x] = fuzz_darken(buf[src_y * pitch + dc_x]);
+        pixels.fuzz(y * pitch + dc_x, src_y * pitch + dc_x);
         *fuzz_pos += 1;
         frac += fracstep;
     }

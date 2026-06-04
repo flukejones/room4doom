@@ -46,7 +46,7 @@ pub use level::env_query::{
 };
 
 /// OG `P_ChangeSector` -- iterate blockmap cells in sector's bounding box.
-fn change_sector(sector: &Sector, crunch: bool, level: &mut LevelState) -> bool {
+fn change_sector(sector: &Sector, crunch: bool, level: &LevelState) -> bool {
     let mut no_fit = false;
 
     let bm = level.level_data.blockmap();
@@ -103,46 +103,29 @@ pub fn move_plane(
                         "move_plane: floor: down: {} to {} at speed {}",
                         sector.floorheight, dest, speed
                     );
+                    let last_pos = sector.floorheight;
                     if sector.floorheight - speed < dest {
-                        let last_pos = sector.floorheight;
                         sector.floorheight = dest;
-                        bsp3d.move_surface(
-                            sector_num,
-                            MovementType::Floor,
-                            dest.to_f32(),
-                            sector.floorpic,
-                        );
+                        bsp3d.move_surface(sector_num, MovementType::Floor, dest.to_f32());
 
                         if change_sector(&sector, crush, level) {
                             sector.floorheight = last_pos;
-                            bsp3d.move_surface(
-                                sector_num,
-                                MovementType::Floor,
-                                last_pos.to_f32(),
-                                sector.floorpic,
-                            );
+                            bsp3d.move_surface(sector_num, MovementType::Floor, last_pos.to_f32());
                             change_sector(&sector, crush, level);
                         }
                         return PlaneResult::PastDest;
                     } else {
                         // COULD GET CRUSHED
-                        let last_pos = sector.floorheight;
                         sector.floorheight -= speed;
                         bsp3d.move_surface(
                             sector_num,
                             MovementType::Floor,
                             sector.floorheight.to_f32(),
-                            sector.floorpic,
                         );
                         // OG: floor-down always reverts on collision (no crush check)
                         if change_sector(&sector, crush, level) {
                             sector.floorheight = last_pos;
-                            bsp3d.move_surface(
-                                sector_num,
-                                MovementType::Floor,
-                                last_pos.to_f32(),
-                                sector.floorpic,
-                            );
+                            bsp3d.move_surface(sector_num, MovementType::Floor, last_pos.to_f32());
                             change_sector(&sector, crush, level);
                             return PlaneResult::Crushed;
                         }
@@ -154,53 +137,36 @@ pub fn move_plane(
                         "move_plane: floor: up: {} to {} at speed {}",
                         sector.floorheight, dest, speed
                     );
+                    let last_pos = sector.floorheight;
                     if sector.floorheight + speed > dest {
-                        let last_pos = sector.floorheight;
                         sector.floorheight = dest;
-                        bsp3d.move_surface(
-                            sector_num,
-                            MovementType::Floor,
-                            dest.to_f32(),
-                            sector.floorpic,
-                        );
+                        bsp3d.move_surface(sector_num, MovementType::Floor, dest.to_f32());
 
                         if change_sector(&sector, crush, level) {
                             sector.floorheight = last_pos;
-                            bsp3d.move_surface(
-                                sector_num,
-                                MovementType::Floor,
-                                last_pos.to_f32(),
-                                sector.floorpic,
-                            );
+                            bsp3d.move_surface(sector_num, MovementType::Floor, last_pos.to_f32());
                             change_sector(&sector, crush, level);
                         }
                         return PlaneResult::PastDest;
                     } else {
-                        let last_pos = sector.floorheight;
                         sector.floorheight += speed;
                         bsp3d.move_surface(
                             sector_num,
                             MovementType::Floor,
                             sector.floorheight.to_f32(),
-                            sector.floorpic,
                         );
                         if change_sector(&sector, crush, level) {
                             if crush {
                                 return PlaneResult::Crushed;
                             }
                             sector.floorheight = last_pos;
-                            bsp3d.move_surface(
-                                sector_num,
-                                MovementType::Floor,
-                                last_pos.to_f32(),
-                                sector.floorpic,
-                            );
+                            bsp3d.move_surface(sector_num, MovementType::Floor, last_pos.to_f32());
                             change_sector(&sector, crush, level);
                             return PlaneResult::Crushed;
                         }
                     }
                 }
-                _ => error!("Invalid floor direction: {}", direction),
+                _ => error!("Invalid floor direction: {direction}"),
             }
         }
         1 => {
@@ -212,15 +178,10 @@ pub fn move_plane(
                         "move_plane: ceiling: down: {} to {} at speed {}",
                         sector.ceilingheight, dest, speed
                     );
+                    let last_pos = sector.ceilingheight;
                     if sector.ceilingheight - speed < dest {
-                        let last_pos = sector.ceilingheight;
                         sector.ceilingheight = dest;
-                        bsp3d.move_surface(
-                            sector_num,
-                            MovementType::Ceiling,
-                            dest.to_f32(),
-                            sector.ceilingpic,
-                        );
+                        bsp3d.move_surface(sector_num, MovementType::Ceiling, dest.to_f32());
 
                         if change_sector(&sector, crush, level) {
                             sector.ceilingheight = last_pos;
@@ -228,20 +189,17 @@ pub fn move_plane(
                                 sector_num,
                                 MovementType::Ceiling,
                                 last_pos.to_f32(),
-                                sector.ceilingpic,
                             );
                             change_sector(&sector, crush, level);
                         }
                         return PlaneResult::PastDest;
                     } else {
                         // COULD GET CRUSHED
-                        let last_pos = sector.ceilingheight;
                         sector.ceilingheight -= speed;
                         bsp3d.move_surface(
                             sector_num,
                             MovementType::Ceiling,
                             sector.ceilingheight.to_f32(),
-                            sector.ceilingpic,
                         );
 
                         if change_sector(&sector, crush, level) {
@@ -253,7 +211,6 @@ pub fn move_plane(
                                 sector_num,
                                 MovementType::Ceiling,
                                 last_pos.to_f32(),
-                                sector.ceilingpic,
                             );
                             change_sector(&sector, crush, level);
                             return PlaneResult::Crushed;
@@ -270,12 +227,7 @@ pub fn move_plane(
                     if sector.ceilingheight + speed > dest {
                         let last_pos = sector.ceilingheight;
                         sector.ceilingheight = dest;
-                        bsp3d.move_surface(
-                            sector_num,
-                            MovementType::Ceiling,
-                            dest.to_f32(),
-                            sector.ceilingpic,
-                        );
+                        bsp3d.move_surface(sector_num, MovementType::Ceiling, dest.to_f32());
 
                         if change_sector(&sector, crush, level) {
                             sector.ceilingheight = last_pos;
@@ -283,7 +235,6 @@ pub fn move_plane(
                                 sector_num,
                                 MovementType::Ceiling,
                                 last_pos.to_f32(),
-                                sector.ceilingpic,
                             );
                             change_sector(&sector, crush, level);
                         }
@@ -294,15 +245,14 @@ pub fn move_plane(
                             sector_num,
                             MovementType::Ceiling,
                             sector.ceilingheight.to_f32(),
-                            sector.ceilingpic,
                         );
                         change_sector(&sector, crush, level);
                     }
                 }
-                _ => error!("Invalid ceiling direction: {}", direction),
+                _ => error!("Invalid ceiling direction: {direction}"),
             }
         }
-        _ => error!("Invalid floor_or_ceiling: {}", floor_or_ceiling),
+        _ => error!("Invalid floor_or_ceiling: {floor_or_ceiling}"),
     }
 
     PlaneResult::Ok
@@ -347,9 +297,7 @@ pub fn cross_special_line(side: usize, mut line: MapPtr<LineDef>, thing: &mut Ma
         }
     }
 
-    if thing.level.is_null() {
-        panic!("Thing had a bad level pointer");
-    }
+    assert!(!thing.level.is_null(), "Thing had a bad level pointer");
     let level: &mut LevelState = unsafe { &mut *thing.level };
 
     // BOOM generalized linedef types
@@ -697,10 +645,8 @@ pub fn cross_special_line(side: usize, mut line: MapPtr<LineDef>, thing: &mut Ma
             if thing.player().is_none() => {
                 teleport(line.clone(), side, thing, level);
             }
-        114 | 103 => {
-            // Ignore. It's a switch
-        }
         _ => {
+            // Ignore 114 | 103 . It's a switch
             //warn!("Invalid or unimplemented line special: {}", line.special);
         }
     }
@@ -712,9 +658,7 @@ pub fn cross_special_line(side: usize, mut line: MapPtr<LineDef>, thing: &mut Ma
 pub fn shoot_special_line(line: MapPtr<LineDef>, thing: &mut MapObject) {
     let mut ok = false;
 
-    if thing.level.is_null() {
-        panic!("Thing had a bad level pointer");
-    }
+    assert!(!thing.level.is_null(), "Thing had a bad level pointer");
     let level: &mut LevelState = unsafe { &mut *thing.level };
 
     if thing.player().is_none() {
@@ -869,12 +813,12 @@ pub fn update_specials(level: &mut LevelState, pic_data: &mut PicData) {
     }
 
     // Flats and wall texture animations (switching between series)
-    for anim in level.animations.iter_mut() {
+    for anim in &mut level.animations {
         anim.update(pic_data, level.level_time as usize);
     }
 
     // Animate switches
-    for b in level.button_list.iter_mut() {
+    for b in &mut level.button_list {
         if b.timer != 0 {
             b.timer -= 1;
             if b.timer == 0 {
@@ -915,11 +859,17 @@ pub fn update_specials(level: &mut LevelState, pic_data: &mut PicData) {
             }
         }
     }
-    for line in level.line_special_list.iter_mut() {
+    for i in 0..level.line_special_list.len() {
+        let line = &mut level.line_special_list[i];
         line.front_sidedef.textureoffset += 1;
         if line.front_sidedef.textureoffset == FixedT::MAX {
             line.front_sidedef.textureoffset = FixedT::ZERO;
         }
+        // Special-48 scrollers start at offset 0 (the build-baked UV), so the
+        // live offset is the scroll delta (matches software25d).
+        let num = line.num;
+        let scroll = f32::from(line.front_sidedef.textureoffset);
+        level.level_data.bsp_3d.set_wall_scroll(num, scroll);
     }
 }
 
@@ -997,5 +947,85 @@ pub fn respawn_specials(level: &mut LevelState) {
         // OG: mobj->angle = ANG45 * (mthing->angle/45)
         thing.angle = Angle::from_bam(math::ANG45.wrapping_mul((mthing.1.angle as u32) / 45));
         thing.spawnpoint = mthing.1;
+    }
+}
+
+#[cfg(test)]
+mod env_tests {
+    use crate::MapObjKind;
+    use crate::env::specials::cross_special_line;
+    use crate::test_support::{TestLevel, rng_guard};
+    use level::MapPtr;
+    use math::get_prndindex;
+
+    fn tag_sector(level: &TestLevel, tag: i16) -> usize {
+        level
+            .level_data()
+            .sectors
+            .iter()
+            .position(|s| s.tag == tag)
+            .expect("sector with tag")
+    }
+
+    /// E1M1 ld195: walk-triggered lift (tag 2). Pins the lower/hold/return cycle.
+    #[test]
+    fn e1m1_lift_lowers_then_returns() {
+        let _g = rng_guard();
+        let make = || {
+            let mut level = TestLevel::load("E1M1");
+            let player = level.spawn_ptr(1056, -3616, MapObjKind::MT_PLAYER);
+            let ld = MapPtr::new(&mut level.level_data_mut().linedefs[195]);
+            cross_special_line(0, ld, unsafe { &mut *player });
+            level
+        };
+        let sec = tag_sector(&make(), 2);
+
+        let mut a = make();
+        a.run_level_tics(16);
+        assert_eq!(
+            a.level_data().sectors[sec].floorheight.to_f32(),
+            40.0,
+            "descending"
+        );
+
+        let mut b = make();
+        b.run_level_tics(70);
+        assert_eq!(
+            b.level_data().sectors[sec].floorheight.to_f32(),
+            -48.0,
+            "bottom"
+        );
+
+        let mut c = make();
+        c.run_level_tics(245);
+        assert_eq!(
+            c.level_data().sectors[sec].floorheight.to_f32(),
+            104.0,
+            "returned"
+        );
+    }
+
+    /// E1M1 sector 44 glow (special 8): deterministic light ramp, 8/tic.
+    #[test]
+    fn e1m1_glow_light_ramps_deterministically() {
+        let _g = rng_guard();
+        let mut level = TestLevel::load("E1M1");
+        level.spawn_level_specials();
+        assert_eq!(level.level_data().sectors[44].lightlevel, 255);
+        level.run_level_tics(1);
+        assert_eq!(level.level_data().sectors[44].lightlevel, 247);
+        level.run_level_tics(1);
+        assert_eq!(level.level_data().sectors[44].lightlevel, 239);
+    }
+
+    /// E1M1 sector 40 flicker (special 1): RNG-driven. Pins light + RNG index.
+    #[test]
+    fn e1m1_flicker_light_rng_fingerprint() {
+        let _g = rng_guard();
+        let mut level = TestLevel::load("E1M1");
+        level.spawn_level_specials();
+        level.run_level_tics(4);
+        assert_eq!(level.level_data().sectors[40].lightlevel, 144);
+        assert_eq!(get_prndindex(), 2);
     }
 }

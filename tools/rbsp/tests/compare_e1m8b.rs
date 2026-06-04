@@ -10,7 +10,7 @@ const INPUT_WAD: &str = "/Users/lukejones/DOOM/e1m8b.wad";
 #[test]
 fn compare_bsp_output_e1m8b() {
     if !Path::new(INPUT_WAD).exists() {
-        eprintln!("Skipping test: {} not found", INPUT_WAD);
+        eprintln!("Skipping test: {INPUT_WAD} not found");
         return;
     }
     if !Path::new(harness::C_BSP).exists() {

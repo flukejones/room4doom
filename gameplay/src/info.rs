@@ -52,7 +52,7 @@ Count,
 }
 impl Default for SpriteNum {
     fn default() -> Self {
-        SpriteNum::TROO
+        Self::TROO
     }
 }
 impl TryFrom<u16> for SpriteNum {
@@ -60,10 +60,10 @@ impl TryFrom<u16> for SpriteNum {
     type Error = u16;
 
     fn try_from(v: u16) -> Result<Self, u16> {
-        if v < SpriteNum::Count as u16 {
+        if v < Self::Count as u16 {
             // Sound: `#[repr(u16)]` with contiguous `0..Count` discriminants,
             // and `v` is bounds-checked against that range above.
-            Ok(unsafe { std::mem::transmute::<u16, SpriteNum>(v) })
+            Ok(unsafe { std::mem::transmute::<u16, Self>(v) })
         } else {
             Err(v)
         }
@@ -198,9 +198,7 @@ Count,
 }
 impl From<u16> for StateNum {
     fn from(w: u16) -> Self {
-        if w >= StateNum::Count as u16 {
-            panic!("{} is not a variant of StateNum", w);
-        }
+        assert!(w < Self::Count as u16, "{w} is not a variant of StateNum");
         unsafe { std::mem::transmute(w) }
     }
 }
@@ -269,9 +267,7 @@ impl MapObjKind {
 
 impl From<u16> for MapObjKind {
     fn from(i: u16) -> Self {
-        if i >= MapObjKind::Count as u16 {
-            panic!("{} is not a variant of MapObjKind", i);
-        }
+        assert!(i < Self::Count as u16, "{i} is not a variant of MapObjKind");
         unsafe { std::mem::transmute(i) }
     }
 }

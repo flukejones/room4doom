@@ -41,7 +41,7 @@ pub struct DrawSeg {
 
 impl DrawSeg {
     pub fn new(seg: NonNull<Segment>) -> Self {
-        DrawSeg {
+        Self {
             curline: seg,
             x1: FixedT::ZERO,
             x2: FixedT::ZERO,
@@ -53,7 +53,7 @@ impl DrawSeg {
             tsilheight: FixedT::ZERO,
             sprtopclip: None,
             sprbottomclip: None,
-            maskedtexturecol: FixedT::ZERO,
+            maskedtexturecol: FixedT::from(-1),
         }
     }
 }
@@ -79,7 +79,7 @@ pub struct PortalClip {
 
 impl PortalClip {
     pub fn new(screen_width: usize, view_height: usize) -> Self {
-        PortalClip {
+        Self {
             floorclip: vec![FixedT::ZERO; screen_width + 1],
             ceilingclip: vec![FixedT::ZERO; screen_width + 1],
             view_height,

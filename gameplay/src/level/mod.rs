@@ -24,10 +24,10 @@ use crate::env::platforms::{PlatStatus, Platform};
 use crate::pic::Button;
 use crate::thinker::ThinkerAlloc;
 
-/// The level is considered a `World` or sorts. One that exists only
-/// while the player is in it. Another benefit of this structure is
-/// it makes it easier for all involved thinkers and functions to
-/// work with the data, as much of it is interlinked.
+/// The world the player is in; exists only while the player is in it.
+///
+/// Groups the interlinked level data so thinkers and functions can work
+/// with it together.
 pub struct LevelState {
     pub map_name: String,
     /// All the data required to build and display a level
@@ -121,7 +121,7 @@ impl LevelState {
     ) -> Self {
         let level_data = LevelData::default();
 
-        LevelState {
+        Self {
             map_name: String::new(),
             level_data,
             thinkers: unsafe { ThinkerAlloc::new(0) },
@@ -155,7 +155,7 @@ impl LevelState {
     }
 
     pub(super) fn stop_platform(&mut self, tag: i16) {
-        for plat in self.active_platforms.iter_mut() {
+        for plat in &mut self.active_platforms {
             let plat = unsafe { &mut **plat };
             if plat.tag == tag && plat.status != PlatStatus::InStasis {
                 plat.old_status = plat.status;
@@ -165,7 +165,7 @@ impl LevelState {
     }
 
     pub(super) fn activate_platform_in_stasis(&mut self, tag: i16) {
-        for plat in self.active_platforms.iter_mut() {
+        for plat in &mut self.active_platforms {
             let plat = unsafe { &mut **plat };
             if plat.tag == tag && plat.status == PlatStatus::InStasis {
                 plat.status = plat.old_status;

@@ -9,12 +9,12 @@ impl Intermission {
         self.inter_text.inc_current_char();
     }
 
-    pub(crate) fn draw_inter_text(&mut self, buffer: &mut impl DrawBuffer) {
+    pub(crate) fn draw_inter_text(&self, buffer: &mut impl DrawBuffer) {
         let (sx, sy) = hud_scale(buffer);
         let w = buffer.size().width();
         let h = buffer.size().height();
 
-        if let Some(ref flat) = self.inter_text_bg {
+        if let Some(flat) = &self.inter_text_bg {
             let pal = &self.palette;
             for tile_x in (0..w).step_by(64) {
                 for tile_y in (0..h).step_by(64) {

@@ -1,118 +1,122 @@
-//! Softbuffer display backend — presents pixels via winit + softbuffer.
+//! Softbuffer backend — shows the engine's CPU frame via winit + softbuffer.
+//!
+//! Software-present only (softbuffer is a CPU-framebuffer→window blitter; it has
+//! no GPU device, so it cannot host the hardware renderer). The shared
+//! [`Frame`](crate::frame::Frame) owns the pixels + wipe; this backend copies the
+//! frame's `front` into softbuffer's persistent buffer and presents. `u32`-only.
 
 use std::num::NonZeroU32;
 use std::sync::Arc;
 
-#[cfg(feature = "hprof")]
-use coarse_prof::profile;
-use softbuffer::{Context, Pixel, Surface};
+use pic_data::PixelFmt;
+use softbuffer::{AlphaMode, Context, Pixel, Surface};
 use winit::window::{Fullscreen, Window};
 
-use crate::DrawBuffer;
+use crate::backend::{Backend, RenderKind, SoftwarePresent};
 
-/// Reinterpret a `&mut [Pixel]` as `&mut [u32]` for bulk pixel operations.
-///
-/// # Safety
-/// `Pixel` is `#[repr(C, align(4))]` with four `u8` fields — identical size
-/// (4) and alignment (4) to `u32` — so the slice's length and element layout
-/// are preserved. This is the cast softbuffer documents for fast blits.
 #[inline(always)]
-fn pixels_as_u32_mut(pixels: &mut [Pixel]) -> &mut [u32] {
-    let len = pixels.len();
-    let ptr = pixels.as_mut_ptr().cast::<u32>();
-    // SAFETY: layout-identical (see above); `len` elements, same alignment.
-    unsafe { std::slice::from_raw_parts_mut(ptr, len) }
+fn nz(v: u32) -> NonZeroU32 {
+    NonZeroU32::new(v).unwrap_or(NonZeroU32::new(1).unwrap())
 }
 
-/// Softbuffer display: owns the surface and a reference to the window.
-///
-/// The `Context` is leaked (`Box::leak`) to satisfy `Surface`'s borrow of
-/// `&Context`. This is fine — there is exactly one display for the lifetime
-/// of the process.
-pub struct SoftbufferDisplay {
+/// Softbuffer backend. The `Context` is leaked (`Box::leak`) to satisfy
+/// `Surface`'s `&Context` borrow — one backend for the process lifetime. `u32`-
+/// only; the `P` parameter (always `u32` here) keeps `ActiveBackend<P>` uniform.
+pub struct SoftbufferBackend<P: PixelFmt> {
     surface: Surface<Arc<Window>, Arc<Window>>,
     window: Arc<Window>,
+    /// Buffer dimensions the surface is configured for.
+    size: (u32, u32),
+    _p: std::marker::PhantomData<P>,
 }
 
-impl SoftbufferDisplay {
-    /// Create from a winit window. The window must be wrapped in `Arc`.
-    pub fn new(window: Arc<Window>) -> Self {
+impl<P: PixelFmt> SoftbufferBackend<P> {
+    pub(crate) fn new(window: Arc<Window>) -> Self {
         let ctx: &'static Context<Arc<Window>> = Box::leak(Box::new(
             Context::new(window.clone()).expect("failed to create softbuffer context"),
         ));
-        let surface: Surface<Arc<Window>, Arc<Window>> =
+        let surface =
             Surface::new(ctx, window.clone()).expect("failed to create softbuffer surface");
         Self {
             surface,
             window,
+            size: (0, 0),
+            _p: std::marker::PhantomData,
         }
     }
 
-    /// Present the draw buffer to the screen. The surface is sized to match
-    /// the buffer; the compositor scales to fill the window.
-    pub(crate) fn blit(&mut self, buffer: &DrawBuffer) {
-        #[cfg(feature = "hprof")]
-        profile!("softbuffer_blit");
-        let buf_w = buffer.size.width_usize() as u32;
-        let buf_h = buffer.size.height_usize() as u32;
-
-        self.surface
-            .resize(
-                NonZeroU32::new(buf_w).unwrap_or(NonZeroU32::new(1).unwrap()),
-                NonZeroU32::new(buf_h).unwrap_or(NonZeroU32::new(1).unwrap()),
-            )
-            .expect("failed to resize softbuffer surface");
-
-        let mut sb = self
-            .surface
-            .next_buffer()
-            .expect("failed to get softbuffer buffer");
-
-        // IOSurface rows may be padded for cache-line alignment, so the
-        // surface pitch can exceed the logical width.
-        let stride_bytes = sb.byte_stride().get() as usize;
-        let stride_px = stride_bytes / size_of::<Pixel>();
-        let w = buf_w as usize;
-        let dst = pixels_as_u32_mut(sb.pixels());
-
-        if stride_px == w {
-            let pixel_count = (buf_w * buf_h) as usize;
-            dst[..pixel_count].copy_from_slice(&buffer.buffer[..pixel_count]);
+    /// Configure the surface to `w`×`h`. `AlphaMode::Ignored` is preferred so
+    /// undrawn alpha bytes don't trip softbuffer's `Opaque` debug check; falls
+    /// back to `Opaque` where `Ignored` is unsupported (e.g. Core Graphics).
+    fn configure_surface(&mut self, w: u32, h: u32) {
+        if self.size == (w, h) {
+            return;
+        }
+        let mode = if self.surface.supports_alpha_mode(AlphaMode::Ignored) {
+            AlphaMode::Ignored
         } else {
-            for y in 0..buf_h as usize {
-                let dst_row = &mut dst[y * stride_px..y * stride_px + w];
-                let src_row = &buffer.buffer[y * w..y * w + w];
-                dst_row.copy_from_slice(src_row);
-            }
-        }
+            AlphaMode::Opaque
+        };
+        self.surface
+            .configure(nz(w), nz(h), mode)
+            .expect("failed to configure softbuffer surface");
+        self.size = (w, h);
+    }
+}
 
-        {
-            #[cfg(feature = "hprof")]
-            profile!("softbuffer_present");
-            sb.present().expect("failed to present softbuffer");
-        }
+impl<P: PixelFmt> Backend for SoftbufferBackend<P> {
+    fn window_size(&self) -> (u32, u32) {
+        let s = self.window.inner_size();
+        (s.width, s.height)
     }
 
-    /// Window size in logical pixels.
-    pub fn window_size(&self) -> (u32, u32) {
-        let size = self.window.inner_size();
-        (size.width, size.height)
-    }
-
-    pub(crate) fn set_fullscreen(&mut self, mode: u8) {
+    fn set_fullscreen(&mut self, mode: u8) {
         let fs = match mode {
             1 => Some(Fullscreen::Borderless(None)),
-            2 => {
-                let monitor = self
-                    .window
-                    .current_monitor()
-                    .or_else(|| self.window.primary_monitor());
-                monitor
-                    .and_then(|m| m.video_modes().next())
-                    .map(Fullscreen::Exclusive)
-            }
+            2 => self
+                .window
+                .current_monitor()
+                .or_else(|| self.window.primary_monitor())
+                .and_then(|m| m.video_modes().next())
+                .map(Fullscreen::Exclusive),
             _ => None,
         };
         self.window.set_fullscreen(fs);
     }
+
+    fn supports(&self, kind: RenderKind) -> bool {
+        kind == RenderKind::Software
+    }
+}
+
+impl<P: PixelFmt> SoftwarePresent<P> for SoftbufferBackend<P> {
+    fn present(&mut self, front: &[P], w: u32, h: u32) {
+        debug_assert_eq!(size_of::<P>(), 4, "softbuffer is u32-only");
+        self.configure_surface(w, h);
+        let mut buf = self.surface.next_buffer().expect("softbuffer next_buffer");
+        let stride = buf.byte_stride().get() as usize / size_of::<Pixel>();
+        let dst = as_u32_mut(buf.pixels());
+        // SAFETY: P == u32 (asserted); `front` is tight `w*h`, the surface may be
+        // padded (stride >= w), so copy row by row.
+        let src: &[u32] =
+            unsafe { std::slice::from_raw_parts(front.as_ptr().cast::<u32>(), front.len()) };
+        let w = w as usize;
+        for y in 0..h as usize {
+            dst[y * stride..y * stride + w].copy_from_slice(&src[y * w..y * w + w]);
+        }
+        buf.present().expect("failed to present softbuffer");
+    }
+}
+
+/// Reinterpret a `&mut [Pixel]` as `&mut [u32]`.
+///
+/// # Safety
+/// `Pixel` is `#[repr(C, align(4))]` (four `u8`s) — size/align identical to
+/// `u32`, length and layout preserved.
+#[inline(always)]
+fn as_u32_mut(pixels: &mut [Pixel]) -> &mut [u32] {
+    let len = pixels.len();
+    let ptr = pixels.as_mut_ptr().cast::<u32>();
+    // SAFETY: layout-identical (see above).
+    unsafe { std::slice::from_raw_parts_mut(ptr, len) }
 }

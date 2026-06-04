@@ -20,7 +20,7 @@ pub struct InputConfig {
 
 impl Default for InputConfig {
     fn default() -> Self {
-        InputConfig {
+        Self {
             key_right: KeyCode::Right as i32,
             key_left: KeyCode::Left as i32,
 

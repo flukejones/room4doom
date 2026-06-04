@@ -7,8 +7,6 @@ license.workspace = true
 build = "../../build.rs"
 
 [dependencies]
-glam.workspace = true
-level.workspace = true
 math.workspace = true
 pic-data.workspace = true
 

@@ -1,4 +1,4 @@
-use std::io::Read;
+use std::io::Read as _;
 
 use flate2::read::ZlibDecoder;
 use log::{info, warn};
@@ -19,20 +19,11 @@ pub enum ExtendedNodeType {
 
 impl ExtendedNodeType {
     pub fn is_uncompressed(&self) -> bool {
-        matches!(
-            self,
-            ExtendedNodeType::XGL2 | ExtendedNodeType::XGLN | ExtendedNodeType::XNOD
-        )
+        matches!(self, Self::XGL2 | Self::XGLN | Self::XNOD)
     }
 
     pub fn is_gl(&self) -> bool {
-        matches!(
-            self,
-            ExtendedNodeType::XGL2
-                | ExtendedNodeType::XGLN
-                | ExtendedNodeType::ZGL2
-                | ExtendedNodeType::ZGLN
-        )
+        matches!(self, Self::XGL2 | Self::XGLN | Self::ZGL2 | Self::ZGLN)
     }
 }
 
@@ -169,7 +160,7 @@ impl WadExtendedMap {
             vertexes.push(WadVertex::new(v1, v2));
             ofs += 8;
         }
-        debug_assert_eq!(vertexes.len(), num_new_vertices);
+        debug_assert_eq!(vertexes.len(), num_new_vertices, "vertex count mismatch");
 
         let num_subs = lump.read_u32(ofs) as usize;
         ofs += 4;
@@ -186,7 +177,7 @@ impl WadExtendedMap {
             });
             start_seg += seg_count;
         }
-        debug_assert_eq!(subsectors.len(), num_subs);
+        debug_assert_eq!(subsectors.len(), num_subs, "subsector count mismatch");
 
         let num_segs = lump.read_u32(ofs) as usize;
         ofs += 4;
@@ -201,7 +192,7 @@ impl WadExtendedMap {
             ));
             ofs += 11;
         }
-        debug_assert_eq!(segments.len(), num_segs);
+        debug_assert_eq!(segments.len(), num_segs, "segment count mismatch");
 
         let num_nodes = lump.read_u32(ofs) as usize;
         ofs += 4;
@@ -230,9 +221,9 @@ impl WadExtendedMap {
                 lump.read_u32(ofs + 24), // right child index
                 lump.read_u32(ofs + 28), // left child index
             ));
-            ofs += 32
+            ofs += 32;
         }
-        debug_assert_eq!(nodes.len(), num_nodes);
+        debug_assert_eq!(nodes.len(), num_nodes, "node count mismatch");
 
         Self {
             node_type: etype,

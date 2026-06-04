@@ -142,7 +142,7 @@ impl MapObject {
         let trace_y = FixedT::from_fixed(oy);
         let trace_dx = xy2_x - trace_x;
         let trace_dy = xy2_y - trace_y;
-        let mut shoot_traverse = ShootTraverse::new(
+        let shoot_traverse = ShootTraverse::new(
             aim_slope,
             attack_range,
             damage,
@@ -206,7 +206,7 @@ impl MapObject {
     }
 
     /// Cause damage to other thing if in radius of self
-    fn radius_damage_other(&mut self, other: &mut MapObject, damage: i32, valid: usize) -> bool {
+    fn radius_damage_other(&mut self, other: &mut Self, damage: i32, valid: usize) -> bool {
         if other.valid_count == valid {
             return true;
         }
@@ -415,7 +415,7 @@ impl MapObject {
     /// Check if there is a clear line of sight to the selected target object.
     /// This checks the '2D top-down' nature of Doom, followed by the Z
     /// (height) axis.
-    pub(crate) fn check_sight_target(&mut self, target: &MapObject) -> bool {
+    pub(crate) fn check_sight_target(&mut self, target: &Self) -> bool {
         #[cfg(feature = "hprof")]
         profile!("check_sight_target");
 
@@ -567,7 +567,7 @@ impl SubSectTraverse {
 
     /// Process a single aim intercept, updating slope bounds and recording
     /// hits.
-    fn check_aim(&mut self, shooter: &mut MapObject, intercept: &mut Intercept) -> bool {
+    fn check_aim(&mut self, shooter: &MapObject, intercept: &mut Intercept) -> bool {
         if let Some(line) = intercept.line.as_mut() {
             if !line.flags.contains(LineDefFlags::TwoSided) {
                 return false;
@@ -695,7 +695,7 @@ impl ShootTraverse {
     /// - Lines: activates specials, checks portal slopes, spawns puffs on walls
     /// - Things: skips self and non-shootable, spawns blood/puff and applies
     ///   damage
-    fn resolve(&mut self, shooter: &mut MapObject, intercept: &mut Intercept) -> bool {
+    fn resolve(&self, shooter: &mut MapObject, intercept: &mut Intercept) -> bool {
         if let Some(line) = intercept.line.as_mut() {
             if line.special != 0 {
                 shoot_special_line(line.clone(), shooter);
@@ -758,7 +758,7 @@ impl ShootTraverse {
                     .fixed_mul(frac_adj.fixed_mul(self.attack_range));
 
             if thing.flags.contains(MapObjFlag::Noblood) {
-                MapObject::spawn_puff(x, y, z, self.attack_range, unsafe { &mut *thing.level })
+                MapObject::spawn_puff(x, y, z, self.attack_range, unsafe { &mut *thing.level });
             } else {
                 MapObject::spawn_blood(x, y, z, self.damage, unsafe { &mut *thing.level });
             }
@@ -894,9 +894,8 @@ fn cross_subsector(
         }
 
         let front = &seg.frontsector;
-        let back = match seg.backsector.as_ref() {
-            Some(b) => b,
-            None => return false,
+        let Some(back) = seg.backsector.as_ref() else {
+            return false;
         };
 
         let front_floor = front.floorheight;
@@ -951,4 +950,87 @@ fn cross_subsector(
     }
 
     true
+}
+
+#[cfg(test)]
+mod shooting_tests {
+    use crate::MapObjKind;
+    use crate::bsp_trace::BSPTrace;
+    use crate::test_support::{TestLevel, rng_guard};
+    use crate::thing::MapObjFlag;
+    use math::{FixedT, get_prndindex};
+
+    fn trace() -> BSPTrace {
+        BSPTrace::new_line(
+            FixedT::ZERO,
+            FixedT::ZERO,
+            FixedT::ONE,
+            FixedT::ZERO,
+            FixedT::ZERO,
+        )
+    }
+
+    #[test]
+    fn explode_missile_zeroes_momentum_and_clears_flag() {
+        let _g = rng_guard();
+        let mut level = TestLevel::load("E1M1");
+        let shot = level.spawn(1056, -3616, MapObjKind::MT_TROOPSHOT);
+        shot.momx = FixedT::from(10);
+        shot.momy = FixedT::from(-10);
+        shot.momz = FixedT::from(5);
+
+        let before = get_prndindex();
+        shot.p_explode_missile();
+
+        assert_eq!(shot.momx.to_f32(), 0.0);
+        assert_eq!(shot.momy.to_f32(), 0.0);
+        assert_eq!(shot.momz.to_f32(), 0.0);
+        assert!(!shot.flags.contains(MapObjFlag::Missile));
+        assert!(shot.tics >= 1);
+        assert!(get_prndindex() > before, "death-tic randomisation uses RNG");
+    }
+
+    /// Co-located: dist clamps to 0 -> target takes the full blast damage.
+    #[test]
+    fn radius_attack_applies_full_damage_at_zero_distance() {
+        let _g = rng_guard();
+        let mut level = TestLevel::load("E1M1");
+        // Target via raw ptr so it survives spawning the bomb.
+        let target = level.spawn_ptr(1056, -3616, MapObjKind::MT_POSSESSED);
+        let target_health = unsafe { (*target).health };
+        let bomb = level.spawn(1056, -3616, MapObjKind::MT_BARREL);
+
+        bomb.radius_attack(10);
+
+        assert_eq!(unsafe { (*target).health }, target_health - 10);
+    }
+
+    /// Inaccurate shot costs exactly two more p_random (the angle spread),
+    /// independent of what the trace hits.
+    #[test]
+    fn gun_shot_spread_costs_two_extra_rng() {
+        let mut level = TestLevel::load("E1M1");
+        let shooter = level.spawn(1056, -3616, MapObjKind::MT_PLAYER);
+
+        let accurate_cost = {
+            let _g = rng_guard();
+            let mut bt = trace();
+            let before = get_prndindex();
+            shooter.gun_shot(true, FixedT::from(2048), None, &mut bt);
+            get_prndindex().wrapping_sub(before)
+        };
+        let inaccurate_cost = {
+            let _g = rng_guard();
+            let mut bt = trace();
+            let before = get_prndindex();
+            shooter.gun_shot(false, FixedT::from(2048), None, &mut bt);
+            get_prndindex().wrapping_sub(before)
+        };
+
+        assert_eq!(
+            inaccurate_cost,
+            accurate_cost + 2,
+            "spread adds exactly two p_random calls (accurate={accurate_cost}, inaccurate={inaccurate_cost})"
+        );
+    }
 }

@@ -1,12 +1,14 @@
+pub mod light;
+pub mod scene_target;
+pub mod voxel_transform;
 pub mod wipe;
 
-use level::LevelData;
-use math::{Angle, Bam, FixedT};
-use pic_data::PicData;
+pub use pic_data::{ByteOrder, PalLit, PixelFmt};
 
-// =============================================================================
-// Constants
-// =============================================================================
+use math::{Angle, Bam, FixedT, m_random};
+
+pub use scene_target::PixelTarget;
+pub use voxel_transform::{VoxelTransform, VoxelTransformIn, voxel_transform};
 
 /// OG Doom's original resolution.
 const OG_WIDTH: f32 = 320.0;
@@ -22,272 +24,333 @@ pub const FUZZ_TABLE: [i32; 50] = [
     -1, 1, -1, 1, 1, -1, -1, 1, 1, -1, -1, -1, -1, 1, 1, 1, 1, -1, 1, 1, -1, 1,
 ];
 
-// --- Health vignette tuning ---
+// Health-bleed tuning. The effect: red columns hang from the top, longer the
+// lower the health, jagged with occasional tall peaks biased toward the edges.
 
-/// Tint colour red channel (0x00–0xFF). Green and blue are always 0.
-const VIG_TINT_R: u32 = 0x30;
-/// Max blend alpha at 99 HP (subtle edge tint).
-const VIG_ALPHA_MIN: f32 = 0.55;
-/// Max blend alpha at 0 HP (heavy vignette).
-const VIG_ALPHA_MAX: f32 = 0.95;
-/// Normalised radial distance where tint begins at 0 HP (0=center, 1=edge).
-const VIG_START_DEATH: f32 = 0.1;
-/// Normalised radial distance where tint begins at 99 HP (barely visible).
-const VIG_START_FULL: f32 = 0.85;
-/// Overhealth glow max alpha (at 200 HP).
-const VIG_GLOW_ALPHA: f32 = 0.15;
-/// Overhealth glow radial start (normalised distance from center).
-const VIG_GLOW_START: f32 = 0.6;
-/// Overhealth glow tint colour (warm gold).
-const VIG_GLOW_R: u32 = 0xFF;
-const VIG_GLOW_G: u32 = 0xD0;
-const VIG_GLOW_B: u32 = 0x40;
-/// Max radial distance (view corner) for the vignette LUT.
-const VIG_DIST_MAX: f32 = 1.414;
-/// Distance→alpha-table index scale: maps `[0, VIG_DIST_MAX]` onto `[0, 255]`.
-const VIG_DIST_QUANT: f32 = 255.0 / VIG_DIST_MAX;
+/// `COUNT` red palette bands run light (top) to dark (count).
+const BLEED_PAL_COUNT: usize = 3;
+/// Tallest a peak column can reach (screen height fraction).
+const BLEED_MAX_FRAC: f32 = 1.0;
+/// Resting length of a non-peak column (screen height fraction).
+const BLEED_BASE_FRAC: f32 = 0.03;
+/// Baseline roughness amplitude (screen height fraction).
+const BLEED_BASE_JITTER: f32 = 0.24;
+/// Scales the baseline field, lower = shorter (multiplier, 0..1).
+const BLEED_BASE_SCALE: f32 = 0.85;
+/// Value-noise control-point spacing, larger = broader curves (pixels).
+const BLEED_NOISE_STEP: usize = 14;
+/// Depth of one palette band (screen height fraction).
+const BLEED_BAND_FRAC: f32 = 0.02;
+/// Peaks occur roughly 1 column in N (count).
+const BLEED_PEAK_RATE: i32 = 50;
+/// Columns each side of a peak that taper it into the baseline hump (pixels).
+const BLEED_PEAK_BLEND: usize = 4;
+/// Peak height at screen centre vs the edge (multiplier, 0..1).
+const BLEED_CENTER_SHORT: f32 = 0.5;
+/// Edge→centre shortening curve, >1 stays tall toward edges (exponent).
+const BLEED_EDGE_POW: f32 = 2.0;
 
-// =============================================================================
-// Traits
-// =============================================================================
+/// Jagged red columns hanging from the top of the screen as health drops.
+///
+/// Grown to `target[x] * (100 - health) / 100`, banded top-darkest to
+/// bottom-lightest. `target`/`band_off` are built once per size; only `shown`
+/// is recomputed when health changes.
+pub struct HealthBleed {
+    /// Per-column max length, px (the full jagged shape: baseline + peaks).
+    target: Vec<u16>,
+    /// Per-column current length, px, for the active health.
+    shown: Vec<u16>,
+    /// Per-column `from_edge` thresholds where each band ends (the last band
+    /// runs to the top). Precomputed per health change so the hot path is a
+    /// couple of compares — no per-pixel divide, multiply or jitter lookup.
+    bound: Vec<[u16; BLEED_PAL_COUNT - 1]>,
+    /// Per-column band offset, shifting where the palette boundaries fall so
+    /// the transitions are ragged across columns.
+    band_off: Vec<i32>,
+    /// Depth of one palette band, px.
+    band_px: usize,
+    /// Health the `shown`/`bound` caches were computed for; `update` is a no-op
+    /// when it (and the size) are unchanged.
+    last_health: i32,
+    width: usize,
+    height: usize,
+    active: bool,
+}
 
-pub trait GameRenderer {
-    /// Render the 3D view from the given viewpoint.
-    fn render_player_view(
-        &mut self,
-        view: &RenderView,
-        level_data: &LevelData,
-        pic_data: &mut PicData,
-    );
-
-    /// Present the current buffer to screen.
-    fn flip_and_present(&mut self);
-
-    /// Get the framebuffer used for direct draw access.
-    fn frame_buffer(&mut self) -> &mut impl DrawBuffer;
-
-    /// Capture the current buffer as the wipe source (old frame).
-    fn start_wipe(&mut self);
-
-    /// Overdraw old-frame columns on the current buffer. Returns true when
-    /// the melt is complete.
-    fn do_wipe(&mut self) -> bool;
-
-    /// Whether a wipe transition is currently in progress.
-    fn is_wiping(&self) -> bool;
-
-    fn buffer_size(&self) -> &BufferSize;
-
-    /// Return the cached radial-distance LUT for the health vignette,
-    /// rebuilding it (via [`GameRenderer::build_vignette_lut`]) when the view
-    /// size changes. Impls own the cache storage.
-    fn vignette_lut(&mut self) -> &[f32];
-
-    /// Draw the cached health vignette for the current view. Impls hoist their
-    /// disjoint framebuffer / LUT field borrows and call
-    /// [`Self::blend_vignette`].
-    fn draw_health_vignette(&mut self, health: i32);
-
-    /// Build the per-pixel radial-distance LUT for the health vignette, sized
-    /// to the current view. `lut[y * width + x]` is the normalised distance
-    /// from the view centre — geometry only, so impls cache it and rebuild
-    /// only when the view size changes.
-    fn build_vignette_lut(&self) -> Vec<f32> {
-        let size = self.buffer_size();
-        let width = size.width_usize();
-        let view_height = size.view_height_usize();
-        let half_w = width as f32 * 0.5;
-        let half_h = view_height as f32 * 0.5;
-        let inv_half_w = 1.0 / half_w;
-        let inv_half_h = 1.0 / half_h;
-
-        let mut lut = vec![0.0f32; width * view_height];
-        for y in 0..view_height {
-            let dy = (y as f32 - half_h) * inv_half_h;
-            let dy2 = dy * dy;
-            let row = y * width;
-            for x in 0..width {
-                let dx = (x as f32 - half_w) * inv_half_w;
-                lut[row + x] = (dx * dx + dy2).sqrt();
-            }
-        }
-        lut
-    }
-
-    /// Apply a health-based vignette to the view area using a pre-built
-    /// radial-distance `lut` (from [`GameRenderer::build_vignette_lut`], sized
-    /// `width * view_height`).
-    /// - 100 HP: no effect
-    /// - 0–99 HP: dark red vignette creeping inward (stronger at lower health)
-    /// - 101–200 HP: subtle gold glow at edges (stronger at higher overhealth)
-    ///
-    /// `self`-free so the caller can hoist disjoint `&mut buf` / `&lut`
-    /// borrows from its own fields without the borrow checker conflating them.
-    fn blend_vignette(
-        buf: &mut [u32],
-        dist_lut: &[f32],
-        alpha_lut: &[u32; 256],
-        pitch: usize,
-        width: usize,
-        view_height: usize,
-        glow: bool,
-    ) {
-        if glow {
-            for y in 0..view_height {
-                let row = y * pitch;
-                let lut_row = y * width;
-                for x in 0..width {
-                    let idx = (dist_lut[lut_row + x] * VIG_DIST_QUANT) as usize;
-                    let a256 = alpha_lut[idx.min(255)];
-                    if a256 == 0 {
-                        continue;
-                    }
-                    let inv = 256 - a256;
-                    let pixel = buf[row + x];
-                    let new = glow_blend_pixel(pixel, inv, a256);
-                    buf[row + x] = new;
-                }
-            }
-        } else {
-            // Tint is a convex blend (inv + a256 == 256, no per-channel
-            // saturation), so R+B and G can be blended two-at-a-time via SWAR:
-            // products stay within their byte lanes and never overflow u32.
-            for y in 0..view_height {
-                let row = y * pitch;
-                let lut_row = y * width;
-                for x in 0..width {
-                    let idx = (dist_lut[lut_row + x] * VIG_DIST_QUANT) as usize;
-                    let a256 = alpha_lut[idx.min(255)];
-                    if a256 == 0 {
-                        continue;
-                    }
-                    let inv = 256 - a256;
-                    buf[row + x] = tint_blend_pixel(buf[row + x], inv, a256);
-                }
-            }
-        }
-    }
-
-    /// Compute the `(start, max_alpha)` blend parameters for `health`, or
-    /// `None` at 100 HP (no vignette).
-    fn vignette_params(health: i32) -> Option<(f32, f32)> {
-        if health == 100 {
-            None
-        } else if health < 100 {
-            let t = health.max(0) as f32 / 100.0;
-            Some((
-                VIG_START_DEATH + VIG_START_FULL * t * t,
-                VIG_ALPHA_MIN + (VIG_ALPHA_MAX - VIG_ALPHA_MIN) * (1.0 - t),
-            ))
-        } else {
-            let excess = ((health - 100) as f32 / 100.0).min(1.0);
-            Some((
-                VIG_GLOW_START + (VIG_START_FULL - VIG_GLOW_START) * (1.0 - excess),
-                VIG_GLOW_ALPHA * excess,
-            ))
+impl Default for HealthBleed {
+    fn default() -> Self {
+        Self {
+            target: Vec::new(),
+            shown: Vec::new(),
+            bound: Vec::new(),
+            band_off: Vec::new(),
+            band_px: 1,
+            last_health: 100,
+            width: 0,
+            height: 0,
+            active: false,
         }
     }
 }
 
-/// Convex damage-tint blend of one `0x00RRGGBB` pixel (R+B and G blended
-/// two-at-a-time via SWAR; the red tint is added into R's slot). No per-channel
-/// saturation is needed — `inv + a256 == 256`, so each channel stays ≤ 255 and
-/// the byte-lane products never overflow `u32`. Output is `0xFFRRGGBB`.
-#[inline]
-fn tint_blend_pixel(pixel: u32, inv: u32, a256: u32) -> u32 {
-    let rb = pixel & 0x00FF_00FF;
-    let g = pixel & 0x0000_FF00;
-    let rb = ((rb * inv + ((VIG_TINT_R * a256) << 16)) >> 8) & 0x00FF_00FF;
-    let g = ((g * inv) >> 8) & 0x0000_FF00;
-    0xFF00_0000 | rb | g
+impl HealthBleed {
+    pub fn update(&mut self, health: i32, width: usize, height: usize) {
+        let health = health.clamp(0, 100);
+        if self.target.is_empty() || width != self.width || height != self.height {
+            self.rebuild(width, height);
+            self.last_health = -1; // force the recompute below
+        }
+        // Caches only depend on health; skip the recompute when it is unchanged.
+        if health == self.last_health {
+            return;
+        }
+        self.last_health = health;
+        self.active = health < 100;
+        if !self.active {
+            self.shown.fill(0);
+            return;
+        }
+        let drop = (100 - health) as u32;
+        for x in 0..self.width {
+            let shown = (self.target[x] as u32 * drop / 100) as usize;
+            self.shown[x] = shown as u16;
+            // Band depth: fixed for short columns, stretched for tall peaks so
+            // the gradient spans the whole column. Thresholds = band end depths.
+            let eff = self.band_px.max(shown / BLEED_PAL_COUNT) as i32;
+            let off = self.band_off[x];
+            for b in 0..BLEED_PAL_COUNT - 1 {
+                self.bound[x][b] = (((b as i32 + 1) * eff) + off).clamp(0, u16::MAX as i32) as u16;
+            }
+        }
+    }
+
+    /// Regenerate the random column pattern on the next `update` — call on a new
+    /// game / level load so each level gets a fresh bleed shape.
+    pub fn reset(&mut self) {
+        self.target.clear();
+    }
+
+    /// Build the per-column targets, band depth and jittered boundaries for a
+    /// given size (cold path: size change or [`Self::reset`]).
+    fn rebuild(&mut self, width: usize, height: usize) {
+        self.target = build_column_targets(width, height);
+        self.shown = vec![0u16; width];
+        self.bound = vec![[0u16; BLEED_PAL_COUNT - 1]; width];
+        self.band_px = (height as f32 * BLEED_BAND_FRAC).max(1.0) as usize;
+        // Per-column boundary jitter, centred on zero (±band_px/2).
+        let amp = self.band_px as i32;
+        self.band_off = smooth_noise(width, amp, BLEED_NOISE_STEP)
+            .into_iter()
+            .map(|v| v - amp / 2)
+            .collect();
+        self.width = width;
+        self.height = height;
+    }
 }
 
-/// Additive overhealth-glow blend of one `0x00RRGGBB` pixel. `inv = 256 -
-/// a256`. Per-channel `.min(255)` saturation (the glow is additive, not
-/// convex) makes SWAR more costly than it saves, so this stays scalar. Output
-/// is `0xFFRRGGBB`.
-#[inline]
-fn glow_blend_pixel(pixel: u32, inv: u32, a256: u32) -> u32 {
-    let nr = (((pixel >> 16) & 0xFF) * inv + VIG_GLOW_R * a256) >> 8;
-    let ng = (((pixel >> 8) & 0xFF) * inv + VIG_GLOW_G * a256) >> 8;
-    let nb = ((pixel & 0xFF) * inv + VIG_GLOW_B * a256) >> 8;
-    0xFF00_0000 | (nr.min(255) << 16) | (ng.min(255) << 8) | nb.min(255)
+impl HealthBleed {
+    #[inline(always)]
+    pub fn is_active(&self) -> bool {
+        self.active
+    }
+
+    /// Per-column `[shown, bound0, bound1, _]` (px), for a GPU shader that
+    /// selects the red palette band per scanline. `BLEED_PAL_COUNT - 1` bounds
+    /// (= 2). Owned scratch is cleared and refilled (no per-frame alloc).
+    pub fn gpu_columns(&self, out: &mut Vec<[f32; 4]>) {
+        out.clear();
+        out.extend(
+            self.shown
+                .iter()
+                .zip(&self.bound)
+                .map(|(&shown, bounds)| [shown as f32, bounds[0] as f32, bounds[1] as f32, 0.0]),
+        );
+    }
+
+    /// Number of red bands the bleed darkens through (top darkest).
+    pub const fn band_count() -> usize {
+        BLEED_PAL_COUNT
+    }
 }
 
-/// Build the 256-entry blend-weight (`a256`, 0..=256) table indexed by
-/// quantised radial distance (`d * VIG_DIST_QUANT`). Entries at or below
-/// `start` are 0 so those pixels are skipped by the caller.
-pub fn build_vignette_alpha_lut(start: f32, max_alpha: f32) -> [u32; 256] {
-    let inv_span = 1.0 / (VIG_DIST_MAX - start);
-    let mut lut = [0u32; 256];
-    for (idx, a) in lut.iter_mut().enumerate() {
-        let d = idx as f32 / VIG_DIST_QUANT;
-        if d <= start {
+/// Build the full per-column max-length shape: a smooth value-noise baseline,
+/// then sharp peaks placed on top — each swelling the baseline into a soft
+/// crest so it rises out of a hump, not an arbitrary baseline height.
+fn build_column_targets(width: usize, height: usize) -> Vec<u16> {
+    let max_len = (height as f32 * BLEED_MAX_FRAC) as i32;
+    let base_len = (height as f32 * BLEED_BASE_FRAC) as i32;
+    let span = (max_len - base_len).max(1);
+    let jitter = (height as f32 * BLEED_BASE_JITTER).max(1.0) as i32;
+
+    let mut len: Vec<i32> = smooth_noise(width, jitter, BLEED_NOISE_STEP)
+        .into_iter()
+        .map(|n| ((base_len + n) as f32 * BLEED_BASE_SCALE) as i32)
+        .collect();
+
+    // Place a peak at column `cx` of height `rise`: a wide soft cosine crest
+    // under it, then the sharp feathered spike on top.
+    let crest_radius = BLEED_NOISE_STEP.max(1);
+    let crest = base_len + jitter;
+    let place_peak = |len: &mut [i32], cx: usize, rise: i32| {
+        for d in 0..=crest_radius {
+            let t = d as f32 / crest_radius as f32;
+            let hump = (base_len as f32
+                + (crest - base_len) as f32 * (1.0 + (t * std::f32::consts::PI).cos()) * 0.5)
+                as i32;
+            if cx >= d {
+                len[cx - d] = len[cx - d].max(hump);
+            }
+            if cx + d < width {
+                len[cx + d] = len[cx + d].max(hump);
+            }
+        }
+        for d in 0..=BLEED_PEAK_BLEND {
+            let frac = 1.0 - 0.5 * d as f32 / BLEED_PEAK_BLEND as f32;
+            let lift = base_len + (rise as f32 * frac) as i32;
+            if cx >= d {
+                len[cx - d] = len[cx - d].max(lift);
+            }
+            if cx + d < width {
+                len[cx + d] = len[cx + d].max(lift);
+            }
+        }
+    };
+
+    // Random peaks, shorter toward the centre (see BLEED_CENTER_SHORT/EDGE_POW).
+    let half_w = (width as f32 * 0.5).max(1.0);
+    for x in 0..width {
+        if m_random() % BLEED_PEAK_RATE != 0 {
             continue;
         }
-        let raw = ((d - start) * inv_span).clamp(0.0, 1.0);
-        *a = (raw * max_alpha * 256.0) as u32;
+        let edge = (x as f32 - half_w).abs() / half_w; // 0 centre .. 1 edge
+        let scale = BLEED_CENTER_SHORT + (1.0 - BLEED_CENTER_SHORT) * edge.powf(BLEED_EDGE_POW);
+        let rise = ((span / 2 + (m_random() % (span / 2).max(1))) as f32 * scale) as i32;
+        place_peak(&mut len, x, rise);
     }
-    lut
+
+    // Fixed full-height peaks anchoring each screen edge.
+    for &x in &[1usize, width.wrapping_sub(2)] {
+        if x < width {
+            place_peak(&mut len, x, max_len - base_len);
+        }
+    }
+
+    len.iter().map(|&l| l.clamp(0, max_len) as u16).collect()
 }
 
 #[cfg(test)]
-mod vignette_tests {
-    /// `tint_blend_pixel` (SWAR convex blend) must match the scalar
-    /// per-channel reference for every channel value and blend weight.
+mod bleed_tests {
+    use super::HealthBleed;
+
+    const W: usize = 64;
+    const H: usize = 120;
+
+    /// Full health: bleed inactive (no columns shown).
     #[test]
-    fn tint_swar_matches_scalar() {
-        for a256 in 0u32..=256 {
-            let inv = 256 - a256;
-            for pixel in (0u32..=0x00FF_FFFF).step_by(0x4321) {
-                let pr = (pixel >> 16) & 0xFF;
-                let pg = (pixel >> 8) & 0xFF;
-                let pb = pixel & 0xFF;
-                let nr = (pr * inv + super::VIG_TINT_R * a256) >> 8;
-                let ng = (pg * inv) >> 8;
-                let nb = (pb * inv) >> 8;
-                let scalar = 0xFF00_0000 | (nr << 16) | (ng << 8) | nb;
-                let swar = super::tint_blend_pixel(pixel, inv, a256);
-                assert_eq!(swar, scalar, "pixel {pixel:#010X}, a256 {a256}");
-            }
-        }
+    fn full_health_inactive() {
+        let mut v = HealthBleed::default();
+        v.update(100, W, H);
+        assert!(!v.is_active());
     }
 
-    /// `glow_blend_pixel` (u64 SWAR + per-lane saturation) must match the
-    /// scalar `.min(255)` reference for every channel value and blend weight,
-    /// including overflowing channels.
+    /// Taking damage activates the bleed.
     #[test]
-    fn glow_swar_matches_scalar() {
-        for a256 in 0u32..=256 {
-            let inv = 256 - a256;
-            for pixel in (0u32..=0x00FF_FFFF).step_by(0x4321) {
-                let pr = (pixel >> 16) & 0xFF;
-                let pg = (pixel >> 8) & 0xFF;
-                let pb = pixel & 0xFF;
-                let nr = ((pr * inv + super::VIG_GLOW_R * a256) >> 8).min(255);
-                let ng = ((pg * inv + super::VIG_GLOW_G * a256) >> 8).min(255);
-                let nb = ((pb * inv + super::VIG_GLOW_B * a256) >> 8).min(255);
-                let scalar = 0xFF00_0000 | (nr << 16) | (ng << 8) | nb;
-                let swar = super::glow_blend_pixel(pixel, inv, a256);
-                assert_eq!(swar, scalar, "pixel {pixel:#010X}, a256 {a256}");
-            }
-        }
+    fn damage_activates() {
+        let mut v = HealthBleed::default();
+        v.update(20, W, H);
+        assert!(v.is_active());
+    }
+
+    /// Lower health grows the columns (the GPU upload sees longer `shown`).
+    #[test]
+    fn lower_health_grows_columns() {
+        let total = |health: i32| -> u32 {
+            let mut v = HealthBleed::default();
+            v.update(health, W, H);
+            let mut out = Vec::new();
+            v.gpu_columns(&mut out);
+            out.iter().map(|c| c[0] as u32).sum()
+        };
+        assert!(total(20) > total(80), "lower health => longer columns");
+    }
+
+    /// Restoring to 100 clears the effect.
+    #[test]
+    fn clears_when_restored() {
+        let mut v = HealthBleed::default();
+        v.update(10, W, H);
+        assert!(v.is_active());
+        v.update(100, W, H);
+        assert!(!v.is_active());
     }
 }
 
+/// Value noise: a random control point in `0..amplitude` every `step` columns,
+/// cosine-interpolated between them. Smooth undulation with no per-column
+/// alternation; `step` is the feature size (larger = broader curves).
+fn smooth_noise(width: usize, amplitude: i32, step: usize) -> Vec<i32> {
+    let step = step.max(1);
+    let ctrl: Vec<f32> = (0..width / step + 2)
+        .map(|_| (m_random() % amplitude.max(1)) as f32)
+        .collect();
+
+    (0..width)
+        .map(|x| {
+            let i = x / step;
+            let t = (x % step) as f32 / step as f32;
+            let t = (1.0 - (t * std::f32::consts::PI).cos()) * 0.5;
+            (ctrl[i] + (ctrl[i + 1] - ctrl[i]) * t) as i32
+        })
+        .collect()
+}
+
+/// A draw surface of final pixels of type [`Self::Pixel`] (`u16` 565 / `u32`
+/// ARGB).
+///
+/// UI and debug overlays write `set_pixel`/`buf_mut`. The display surface may be
+/// strided — always step by `pitch`.
 pub trait DrawBuffer {
+    /// The surface pixel format (`u16` RGB565, `u32` `0xAARRGGBB`).
+    type Pixel: PixelFmt;
+
     fn size(&self) -> &BufferSize;
-    fn set_pixel(&mut self, x: usize, y: usize, colour: u32);
-    fn read_pixel(&self, x: usize, y: usize) -> u32;
-    fn get_buf_index(&self, x: usize, y: usize) -> usize;
+    /// Row stride in elements (the buffer width; the display surface may be
+    /// padded wider, hidden behind the pixel accessors).
     fn pitch(&self) -> usize;
-    fn buf_mut(&mut self) -> &mut [u32];
-    fn debug_flip_and_present(&mut self);
+    /// Flat position of `(x, y)` (`y * pitch() + x`).
+    fn get_buf_index(&self, x: usize, y: usize) -> usize;
+    /// Write a `0xAARRGGBB` colour (UI/overlays), converted to `Self::Pixel`.
+    fn set_pixel(&mut self, x: usize, y: usize, colour: u32);
+    /// The whole surface, for bulk fills/clears.
+    fn buf_mut(&mut self) -> &mut [Self::Pixel];
 }
 
-// =============================================================================
-// Types
-// =============================================================================
+/// A `&mut` to a `DrawBuffer` is itself a `DrawBuffer` — lets callers pass an
+/// already-borrowed buffer (`&mut Frame`) where `&mut impl DrawBuffer` is wanted.
+impl<T: DrawBuffer + ?Sized> DrawBuffer for &mut T {
+    type Pixel = T::Pixel;
+
+    #[inline]
+    fn size(&self) -> &BufferSize {
+        (**self).size()
+    }
+    #[inline]
+    fn pitch(&self) -> usize {
+        (**self).pitch()
+    }
+    #[inline]
+    fn get_buf_index(&self, x: usize, y: usize) -> usize {
+        (**self).get_buf_index(x, y)
+    }
+    #[inline]
+    fn set_pixel(&mut self, x: usize, y: usize, colour: u32) {
+        (**self).set_pixel(x, y, colour);
+    }
+    #[inline]
+    fn buf_mut(&mut self) -> &mut [Self::Pixel] {
+        (**self).buf_mut()
+    }
+}
 
 /// Pre-resolved weapon sprite for rendering. Extracted from gameplay's PspDef
 /// so render-common doesn't depend on StateData/SpriteNum.
@@ -334,7 +397,7 @@ pub struct RenderView {
     pub extralight: usize,
     /// Whether the player mobj has the Shadow flag (partial invisibility).
     pub is_shadow: bool,
-    /// Pre-resolved subsector index into `LevelData::subsectors()`.
+    /// Pre-resolved subsector index into the level's subsectors.
     pub subsector_id: usize,
     /// Weapon overlay sprites.
     pub psprites: [RenderPspDef; 2],
@@ -421,7 +484,7 @@ impl BufferSize {
         self.height - self.statusbar_height
     }
     pub const fn view_height_usize(&self) -> usize {
-        (self.height - self.statusbar_height) as usize
+        (self.height - self.statusbar_height) as u32 as usize
     }
     pub const fn view_height_f32(&self) -> f32 {
         (self.height - self.statusbar_height) as f32
@@ -434,14 +497,11 @@ impl BufferSize {
     }
 }
 
-// =============================================================================
-// Projection
-// =============================================================================
-
-/// Derive FOV and focal length for a given buffer size, keeping the view
-/// proportional to OG Doom's 320x200 at the specified base hfov (90°).
-/// Scales with buffer height so hi-res (400p) works correctly.
-/// Returns `(hfov, vfov, focal_length)` in radians / pixels.
+/// Derive FOV and focal length for a given buffer size.
+///
+/// Keeps the view proportional to OG Doom's 320x200 at the given base hfov
+/// (90°), scaling with buffer height so hi-res (400p) works. Returns
+/// `(hfov, vfov, focal_length)` in radians / pixels.
 pub fn og_projection(base_hfov: f32, buf_width: f32, buf_height: f32) -> (f32, f32, f32) {
     let scale = buf_height / OG_HEIGHT;
     let og_half_w = (OG_WIDTH / 2.0) * scale;
@@ -449,42 +509,4 @@ pub fn og_projection(base_hfov: f32, buf_width: f32, buf_height: f32) -> (f32, f
     let hfov = 2.0 * ((buf_width / 2.0) / focal_length).atan();
     let vfov = 2.0 * ((buf_height / 2.0) / focal_length).atan();
     (hfov, vfov, focal_length)
-}
-
-// =============================================================================
-// Pixel effects
-// =============================================================================
-
-/// Darken a pixel to ~6/16 brightness (approximates colourmap 6).
-#[inline(always)]
-pub fn fuzz_darken(pixel: u32) -> u32 {
-    let r = (pixel >> 16) & 0xFF;
-    let g = (pixel >> 8) & 0xFF;
-    let b = pixel & 0xFF;
-    let shift = 3;
-    0xFF000000 | (((r * 6) >> shift) << 16) | (((g * 6) >> shift) << 8) | ((b * 6) >> shift)
-}
-
-/// Apply fuzz effect to a horizontal span of the framebuffer. For each pixel
-/// in `x_start..=x_end`, reads the pixel at a Y-offset from `FUZZ_TABLE`,
-/// darkens it, and writes to `(x, y)`. `fuzz_pos` is the running table index
-/// and is updated in place so consecutive spans stay in phase.
-pub fn fuzz_span(
-    buf: &mut [u32],
-    pitch: usize,
-    height: usize,
-    y: usize,
-    x_start: usize,
-    x_end: usize,
-    fuzz_pos: &mut usize,
-) {
-    let row_base = y * pitch;
-    for x in x_start..=x_end {
-        let offset = FUZZ_TABLE[*fuzz_pos % FUZZ_TABLE.len()];
-        let src_y = (y as i32 + offset).clamp(0, height as i32 - 1) as usize;
-        let src_idx = src_y * pitch + x;
-        let darkened = fuzz_darken(buf[src_idx]);
-        buf[row_base + x] = darkened;
-        *fuzz_pos += 1;
-    }
 }

@@ -2,15 +2,16 @@
 use coarse_prof::profile;
 use glam::{Mat4, Vec2, Vec3, Vec4};
 use level::{
-    AABB, BSP3D, LevelData, Sector, SurfaceKind, SurfacePolygon, WallFace, WallTexPin, WallType,
-    is_subsector, subsector_index,
+    AABB, BSP3D, LevelData, Sector, SurfaceKind, SurfacePolygon, is_subsector, light_band,
+    subsector_index,
 };
 #[cfg(feature = "bench")]
 use math::Angle;
-use pic_data::{PicData, VoxelManager};
-use render_common::{DrawBuffer, RenderView};
+use pic_data::sky::{SKY_TILES, SKY_V_STRETCH, build_sky_extended, nearest_palette_index};
+use pic_data::{ByteOrder, PicData, PixelFmt, VoxelManager};
+use render_common::{DrawBuffer as _, PixelTarget, RenderView};
 
-use std::f32::consts::PI;
+use std::f32::consts::{PI, TAU};
 use std::sync::Arc;
 
 mod frustum;
@@ -79,8 +80,7 @@ impl std::str::FromStr for DebugOverlay {
             "overdraw" => Ok(Self::Overdraw),
             "wireframe" => Ok(Self::Wireframe),
             other => Err(format!(
-                "unknown overlay '{}'. Expected: sector_id, depth, overdraw, wireframe",
-                other
+                "unknown overlay '{other}'. Expected: sector_id, depth, overdraw, wireframe"
             )),
         }
     }
@@ -111,15 +111,6 @@ impl DebugDrawOptions {
 
 /// Seconds before an unrefreshed debug overlay line is auto-cleared.
 const DEBUG_LINE_TIMEOUT_SECS: f32 = 5.0;
-
-/// Fake contrast: brightness adjustment for axis-aligned walls.
-/// Positive = lighten, negative = darken. Applied to the 0–15 light level.
-const FAKE_CONTRAST_LIGHTER: i32 = 1;
-const FAKE_CONTRAST_DARKER: i32 = -1;
-const FAKE_CONTRAST_NORTH: i32 = FAKE_CONTRAST_DARKER;
-const FAKE_CONTRAST_SOUTH: i32 = FAKE_CONTRAST_DARKER;
-const FAKE_CONTRAST_EAST: i32 = FAKE_CONTRAST_LIGHTER;
-const FAKE_CONTRAST_WEST: i32 = FAKE_CONTRAST_LIGHTER;
 
 // ============================================================================
 // SUB-STRUCTS
@@ -224,14 +215,11 @@ pub(crate) struct SkyRend {
     last_pic: usize,
     /// Horizontal FOV in radians, derived from the projection matrix.
     pub(crate) h_fov: f32,
-    /// Combined RGBA sky buffer (column-major): original rows + extensions.
-    pub(crate) extended: Vec<u32>,
+    /// Combined sky buffer of palette indices (column-major): original rows +
+    /// extensions, gradient quantized to nearest palette index.
+    pub(crate) extended: Vec<u8>,
     /// Height of the original sky texture.
     pub(crate) tex_height: usize,
-    /// Generated rows above the original texture.
-    pub(crate) extended_rows: usize,
-    /// Generated rows below the original texture.
-    pub(crate) down_rows: usize,
     /// Width of the sky texture in columns.
     pub(crate) tex_width: usize,
 }
@@ -247,8 +235,6 @@ impl SkyRend {
             h_fov: 0.0,
             extended: Vec::new(),
             tex_height: 0,
-            extended_rows: 0,
-            down_rows: 0,
             tex_width: 0,
         }
     }
@@ -272,19 +258,20 @@ struct DebugDraw {
     line_set_at: std::time::Instant,
 }
 
-impl DebugDraw {
-    fn new(options: DebugDrawOptions) -> Self {
-        let has_active = options.is_active();
+impl Default for DebugDraw {
+    fn default() -> Self {
         Self {
-            options,
-            has_active,
-            polygon_outlines: Vec::new(),
-            normal_lines: Vec::new(),
-            line: String::new(),
+            options: Default::default(),
+            has_active: Default::default(),
+            polygon_outlines: Default::default(),
+            normal_lines: Default::default(),
+            line: Default::default(),
             line_set_at: std::time::Instant::now(),
         }
     }
+}
 
+impl DebugDraw {
     /// Replace the debug overlay text and reset the auto-clear timer.
     fn set_line(&mut self, s: String) {
         self.line = s;
@@ -350,7 +337,7 @@ pub struct Software3D {
 }
 
 impl Software3D {
-    pub fn new(width: f32, height: f32, fov: f32, debug_draw: DebugDrawOptions) -> Self {
+    pub fn new(width: f32, height: f32, fov: f32) -> Self {
         let mut s = Self {
             width: width as u32,
             height: height as u32,
@@ -376,7 +363,7 @@ impl Software3D {
             sprite_quads: Vec::with_capacity(64),
             stats: RenderStats::new(),
             sky: SkyRend::new(),
-            debug: DebugDraw::new(debug_draw),
+            debug: DebugDraw::default(),
             fuzz_pos: 0,
             voxel_manager: None,
         };
@@ -397,7 +384,7 @@ impl Software3D {
     }
 
     /// Update the 3D view height (for statusbar toggle). Recomputes projection.
-    pub fn set_view_height(&mut self, vh: f32) {
+    pub fn set_view_height(&mut self, vh: i32) {
         self.view_height = vh as u32;
         self.rasterizer.view_height = vh as u32;
         self.set_fov(self.fov);
@@ -435,24 +422,23 @@ impl Software3D {
 
         // Horizontal step: sky tiles SKY_TILES times per full 360°, columns
         // decrease left-to-right (matches 2.5d screen_to_angle convention).
-        self.sky.x_step = -(self.sky.h_fov * sky_w as f32 * scene::sky::SKY_TILES)
-            / (screen_w * std::f32::consts::TAU);
+        self.sky.x_step = -(self.sky.h_fov * sky_w as f32 * SKY_TILES) / (screen_w * TAU);
 
         // Vertical scale: texture is SKY_V_STRETCH times taller than the view.
-        self.sky.v_scale = sky_h as f32 / (view_h * scene::sky::SKY_V_STRETCH);
+        self.sky.v_scale = sky_h as f32 / (view_h * SKY_V_STRETCH);
 
-        // Build combined RGBA buffer: original texture rows + generated extension.
-        self.sky.extended = scene::sky::build_sky_combined(
+        // Extended sky as palette indices for the index plane (transparent -> 0).
+        let palette = pic_data.palette();
+        self.sky.extended = build_sky_extended(
             &sky.data,
             sky_w,
             sky_h,
             pic_data.colourmap(0),
-            pic_data.palette(),
+            palette,
+            |c| nearest_palette_index(c, palette),
         );
         self.sky.tex_height = sky_h;
         self.sky.tex_width = sky_w;
-        self.sky.extended_rows = scene::sky::SKY_EXTEND_ROWS;
-        self.sky.down_rows = scene::sky::SKY_DOWN_ROWS;
 
         self.sky.last_pic = sky_pic;
     }
@@ -471,8 +457,7 @@ impl Software3D {
 
         // Horizontal offset: left edge of screen = angle + hfov/2 (decreasing
         // rightward).
-        self.sky.x_offset = (angle_rad + self.sky.h_fov * 0.5) * sky_w * scene::sky::SKY_TILES
-            / std::f32::consts::TAU;
+        self.sky.x_offset = (angle_rad + self.sky.h_fov * 0.5) * sky_w * SKY_TILES / TAU;
 
         // Vertical center + pitch offset: sky_h/2 sits at view center when
         // pitch = 0; positive pitch (looking up) shifts rows toward the zenith.
@@ -486,7 +471,7 @@ impl Software3D {
     /// Runs after all polygons and sprites are rendered. Pixels at depth
     /// <= SKY_DEPTH (sky-marked walls or never-written -1.0) get the sky
     /// sampled at screen coordinates.
-    fn draw_sky_fill(&self, _pic_data: &PicData, buffer: &mut impl DrawBuffer) {
+    fn draw_sky_fill<P: PixelFmt>(&self, _pic_data: &PicData, buffer: &mut PixelTarget<P>) {
         if self.sky.extended.is_empty() {
             return;
         }
@@ -497,16 +482,17 @@ impl Software3D {
 
         let w = self.width as usize;
         let vh = self.view_height as usize;
+        let pitch = buffer.pitch();
         for y in 0..vh {
             let sky_r = (y as f32 * self.sky.v_scale + self.sky.pitch_offset) as i32;
             for x in 0..w {
                 if self.rasterizer.depth_buffer.peek_depth_unchecked(x, y) <= SKY_DEPTH {
                     let sky_col = (self.sky.x_offset + x as f32 * self.sky.x_step)
                         .rem_euclid(sky_w as f32) as usize;
-                    if let Some(color) =
+                    if let Some(idx) =
                         sample_sky_pixel(sky_col, sky_r, sky_tex_height, sky_combined)
                     {
-                        buffer.set_pixel(x, y, color);
+                        buffer.store(y * pitch + x, idx as u16);
                     }
                 }
             }
@@ -733,14 +719,15 @@ impl Software3D {
     /// Transform, clip, and rasterize a surface polygon. Clip-space frustum
     /// cull, Sutherland-Hodgman clip, perspective divide, hi-Z test, then
     /// draw_polygon dispatch.
-    fn render_surface_polygon(
+    fn render_surface_polygon<P: PixelFmt>(
         &mut self,
+        poly_idx: usize,
         polygon: &SurfacePolygon,
         bsp3d: &BSP3D,
         sectors: &[Sector],
-        pic_data: &mut PicData,
+        pic_data: &PicData,
         player_light: usize,
-        buffer: &mut impl DrawBuffer,
+        buffer: &mut PixelTarget<P>,
     ) {
         self.rasterizer.screen_vertices_len = 0;
         self.rasterizer.tex_coords_len = 0;
@@ -765,38 +752,26 @@ impl Software3D {
 
         // Transform vertices to clip space and setup for clipping
         let vert_count = polygon.vertices.len();
-        assert!(vert_count <= MAX_CLIPPED_VERTICES);
+        assert!(
+            vert_count <= MAX_CLIPPED_VERTICES,
+            "polygon exceeds clip buffer"
+        );
         let mut input_vertices = [Vec4::ZERO; MAX_CLIPPED_VERTICES];
         let mut input_tex_coords = [Vec3::ZERO; MAX_CLIPPED_VERTICES];
 
-        // Pre-compute wall z-range once — used by all vertices in
-        // calculate_tex_coords
-        let wall_z_range = if wall_face.is_some() {
-            polygon.vertices.iter().fold(
-                (f32::INFINITY, f32::NEG_INFINITY),
-                |(min_z, max_z), &v| {
-                    let z = bsp3d.vertex_get(v).z;
-                    (min_z.min(z), max_z.max(z))
-                },
-            )
-        } else {
-            (0.0, 0.0)
-        };
+        // UV is prebaked per polygon vertex in BSP3D (texel space, front face);
+        // normalise by the texture's dims. Recomputed on move in BSP3D, so no
+        // per-frame texcoord math here.
+        let (tex_w, tex_h) = Self::poly_texture_dims(poly_idx, bsp3d, pic_data);
+        let (uv_start, _) = bsp3d.poly_vertex_range[poly_idx];
+        let scroll = bsp3d.poly_scroll[poly_idx];
 
         for (i, &vertex_idx) in polygon.vertices.iter().enumerate() {
             let (_, clip_pos) = self.get_transformed_vertex(vertex_idx, bsp3d);
-            let vertex = bsp3d.vertex_get(vertex_idx);
-            let (u, v) = self.calculate_tex_coords(
-                vertex,
-                polygon,
-                wall_face,
-                bsp3d,
-                pic_data,
-                wall_z_range,
-            );
+            let [tu, tv] = bsp3d.poly_vertex_uv[uv_start as usize + i];
 
             input_vertices[i] = clip_pos;
-            input_tex_coords[i] = Vec3::new(u, v, clip_pos.w);
+            input_tex_coords[i] = Vec3::new((tu + scroll) / tex_w, tv / tex_h, clip_pos.w);
         }
 
         // Apply Sutherland-Hodgman clipping against all six frustum planes
@@ -897,27 +872,11 @@ impl Software3D {
             }
         }
 
-        let mut brightness = ((sectors[polygon.sector_id].lightlevel >> 4) + player_light).min(15);
-        // Fake contrast: axis-aligned walls get a brightness nudge.
-        // Normal along +Y = north-facing, -Y = south, +X = east, -X = west.
-        if polygon.normal.z.abs() < 0.01 {
-            let adjust = if polygon.normal.x.abs() < 0.001 {
-                if polygon.normal.y > 0.0 {
-                    FAKE_CONTRAST_NORTH
-                } else {
-                    FAKE_CONTRAST_SOUTH
-                }
-            } else if polygon.normal.y.abs() < 0.001 {
-                if polygon.normal.x > 0.0 {
-                    FAKE_CONTRAST_EAST
-                } else {
-                    FAKE_CONTRAST_WEST
-                }
-            } else {
-                0
-            };
-            brightness = (brightness as i32 + adjust).clamp(0, 15) as usize;
-        }
+        let brightness = light_band(
+            sectors[polygon.sector_id].lightlevel,
+            player_light,
+            polygon.normal,
+        ) as usize;
         let bounds = (
             Vec2::new(scr_min_x, scr_min_y),
             Vec2::new(scr_max_x, scr_max_y),
@@ -983,110 +942,32 @@ impl Software3D {
         }
     }
 
-    fn calculate_tex_coords(
-        &self,
-        world_pos: Vec3,
-        surface: &SurfacePolygon,
-        wall_face: Option<&WallFace>,
-        bsp3d: &BSP3D,
-        pic_data: &PicData,
-        wall_z_range: (f32, f32),
-    ) -> (f32, f32) {
-        if surface.vertices.len() < 2 {
-            return (0.0, 0.0);
+    /// Texture dimensions for normalising a polygon's prebaked texel UV. Uses the
+    /// front-face texture (matches `BSP3D::poly_vertex_uv`). `(1,1)` when
+    /// untextured so division is a no-op.
+    fn poly_texture_dims(poly_idx: usize, bsp3d: &BSP3D, pic_data: &PicData) -> (f32, f32) {
+        let tex = bsp3d.poly_tex[poly_idx];
+        if tex == u32::MAX {
+            return (1.0, 1.0);
         }
-
-        match &surface.surface_kind {
-            SurfaceKind::Vertical {
-                wall_tex_pin,
-                wall_type,
-                ..
-            } => {
-                let WallFace {
-                    texture: Some(tex_id),
-                    tex_x_offset,
-                    tex_y_offset,
-                    texture_direction,
-                    ceiling_z: front_ceiling_z,
-                } = wall_face.expect("vertical surface reaches here only with a visible face")
-                else {
-                    return (0.0, 0.0);
-                };
-                let texture = pic_data.get_texture(*tex_id);
-                let tex_width = texture.width as f32;
-                let tex_height = texture.height as f32;
-
-                let v1 = bsp3d.vertex_get(surface.vertices[0]);
-                let pos_from_start = world_pos - v1;
-                let u =
-                    pos_from_start.x * texture_direction.x + pos_from_start.y * texture_direction.y;
-
-                let (wall_bottom_z, wall_top_z) = wall_z_range;
-
-                let unpeg_condition = match wall_type {
-                    WallType::Upper => {
-                        matches!(wall_tex_pin, WallTexPin::UnpegTop | WallTexPin::UnpegBoth)
-                    }
-                    WallType::Middle => !matches!(
-                        wall_tex_pin,
-                        WallTexPin::UnpegBottom | WallTexPin::UnpegBoth
-                    ),
-                    WallType::Lower => matches!(
-                        wall_tex_pin,
-                        WallTexPin::UnpegBottom | WallTexPin::UnpegBoth
-                    ),
-                };
-
-                let anchor_z = if unpeg_condition {
-                    match wall_type {
-                        // Middle walls anchor at the polygon's actual top, which
-                        // for two-sided walls is min(front_ceil, back_ceil), not
-                        // always front_ceiling_z.
-                        WallType::Middle => wall_top_z,
-                        _ => *front_ceiling_z,
-                    }
-                } else {
-                    match wall_type {
-                        WallType::Upper | WallType::Middle => wall_bottom_z + tex_height,
-                        WallType::Lower => wall_top_z,
-                    }
-                };
-
-                let v = -world_pos.z + anchor_z;
-
-                (
-                    (u + tex_x_offset) / tex_width,
-                    (v + tex_y_offset) / tex_height,
-                )
-            }
-            SurfaceKind::Horizontal {
-                texture,
-                tex_cos,
-                tex_sin,
-            } => {
-                let flat = pic_data.get_flat(*texture);
-                let tex_width = flat.width as f32;
-                let tex_height = flat.height as f32;
-
-                // Step 1: Use world coordinates as base (always vary properly)
-                let world_u = world_pos.x;
-                let world_v = world_pos.y;
-
-                // Step 2: Apply texture direction transformation
-                let final_u = world_u * tex_cos - world_v * tex_sin;
-                let final_v = world_u * tex_sin + world_v * tex_cos;
-
-                (final_u / tex_width, final_v / tex_height)
-            }
+        if bsp3d.poly_is_flat[poly_idx] {
+            let flat = pic_data.get_flat(tex as usize);
+            (flat.width as f32, flat.height as f32)
+        } else {
+            let t = pic_data.get_texture(tex as usize);
+            (t.width as f32, t.height as f32)
         }
     }
 
-    pub fn draw_view(
+    /// Rasterize the scene, writing final pixels directly into `buffer`. Debug
+    /// outline/normal overlays are drawn separately — see
+    /// [`Self::draw_debug_overlays`].
+    pub fn draw_view<P: PixelFmt>(
         &mut self,
         view: &RenderView,
         level_data: &LevelData,
         pic_data: &mut PicData,
-        buffer: &mut impl DrawBuffer,
+        buffer: &mut PixelTarget<P>,
     ) {
         self.prepare_vertex_cache(&level_data.bsp_3d);
         self.current_frame_id = self.current_frame_id.wrapping_add(1);
@@ -1101,7 +982,8 @@ impl Software3D {
         self.update_view_matrix(view);
 
         if let Some(colour) = self.debug.options.clear_colour {
-            buffer.buf_mut().fill(colour);
+            let c = P::from_argb(colour, ByteOrder::Argb);
+            buffer.buf_mut().fill(c);
         }
 
         self.stats.reset();
@@ -1142,16 +1024,6 @@ impl Software3D {
             // Draw player weapon overlay on top of everything
             self.draw_player_weapons(view, pic_data, buffer);
 
-            // Debug: draw polygon outlines / wireframe as post-render overlay
-            if self.debug.options.outline || self.debug.options.wireframe {
-                self.draw_debug_polygon_outlines(buffer);
-            }
-
-            // Debug: draw normal direction lines
-            if self.debug.options.normals {
-                self.draw_debug_normal_lines(buffer);
-            }
-
             #[cfg(feature = "render_stats")]
             {
                 self.stats.frames_since_print += 1;
@@ -1189,18 +1061,29 @@ impl Software3D {
         }
     }
 
+    /// Draw the debug outline/normal overlays onto the pixel buffer. Geometry
+    /// was captured during `draw_view`; this only rasterizes the cached lines.
+    pub fn draw_debug_overlays<P: PixelFmt>(&mut self, buffer: &mut PixelTarget<P>) {
+        if self.debug.options.outline || self.debug.options.wireframe {
+            self.draw_debug_polygon_outlines(buffer);
+        }
+        if self.debug.options.normals {
+            self.draw_debug_normal_lines(buffer);
+        }
+    }
+
     /// Headless render entry point for benchmarks. Bypasses Player/Level in
     /// favour of raw camera parameters and a pre-known subsector ID.
     /// Skips sprite and weapon overlay rendering.
     #[cfg(feature = "bench")]
-    pub fn draw_view_bench(
+    pub fn draw_view_bench<P: PixelFmt>(
         &mut self,
         pos: Vec3,
         angle_rad: f32,
         pitch_rad: f32,
         level_data: &LevelData,
         pic_data: &mut PicData,
-        buffer: &mut impl DrawBuffer,
+        buffer: &mut PixelTarget<P>,
     ) {
         let LevelData {
             sectors,
@@ -1242,9 +1125,10 @@ impl Software3D {
         );
     }
 
-    /// Front-to-back BSP traversal with immediate rendering, frustum culling
-    /// (`inside` subtrees skip further tests) and Hi-Z AABB rejection.
-    fn render_bsp(
+    /// Front-to-back BSP traversal with immediate rendering and Hi-Z AABB
+    /// node rejection. Depth buffer fills as we go, enabling `is_full()`
+    /// early-out and Hi-Z rejection of entire subtrees.
+    fn render_bsp<P: PixelFmt>(
         &mut self,
         node_id: u32,
         bsp3d: &BSP3D,
@@ -1253,7 +1137,7 @@ impl Software3D {
         player_light: usize,
         inside: bool,
         pic_data: &mut PicData,
-        buffer: &mut impl DrawBuffer,
+        buffer: &mut PixelTarget<P>,
     ) {
         if self.rasterizer.depth_buffer.is_full() {
             return;
@@ -1299,6 +1183,7 @@ impl Software3D {
                 {
                     self.stats.polygons_submitted += 1;
                     self.render_surface_polygon(
+                        gi,
                         poly_surface,
                         bsp3d,
                         sectors,

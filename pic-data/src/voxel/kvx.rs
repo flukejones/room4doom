@@ -22,10 +22,7 @@ impl VoxelModel {
     /// KVX palette is 6-bit per channel (0-63). Each index is matched
     /// to the closest Doom palette entry.
     pub fn remap_to_doom_palette(&mut self, doom_palette: &[u8]) {
-        let kvx_pal = match &self.palette {
-            Some(p) => p,
-            None => return, // no embedded palette, indices are already Doom palette
-        };
+        let Some(kvx_pal) = &self.palette else { return };
         if doom_palette.len() < 768 || kvx_pal.len() < 768 {
             return;
         }
@@ -90,10 +87,7 @@ impl VoxelModel {
             return Err("KVX dimensions are zero".into());
         }
         if xsiz > 1024 || ysiz > 1024 || zsiz > 1024 {
-            return Err(format!(
-                "KVX dimensions too large: {}x{}x{}",
-                xsiz, ysiz, zsiz
-            ));
+            return Err(format!("KVX dimensions too large: {xsiz}x{ysiz}x{zsiz}"));
         }
 
         let hdr = 28;
@@ -172,7 +166,7 @@ impl VoxelModel {
             None
         };
 
-        Ok(VoxelModel {
+        Ok(Self {
             xsiz,
             ysiz,
             zsiz,

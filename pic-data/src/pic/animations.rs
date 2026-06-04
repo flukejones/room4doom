@@ -28,7 +28,7 @@ impl PicAnimation {
 
     /// Initialise animated texture/flat definitions from WAD data. OG:
     /// P_InitPicAnims.
-    pub fn init(pic_data: &PicData, wad: &WadData) -> Vec<PicAnimation> {
+    pub fn init(pic_data: &PicData, wad: &WadData) -> Vec<Self> {
         let mut anims = Vec::with_capacity(ANIM_DEFS.len());
 
         for def in ANIM_DEFS {
@@ -76,10 +76,7 @@ impl PicAnimation {
                 }
             }
             if added > 0 {
-                info!(
-                    "Extended animation list with {} entries from ANIMATED lump",
-                    added
-                );
+                info!("Extended animation list with {added} entries from ANIMATED lump");
             }
         }
 
@@ -93,7 +90,7 @@ impl PicAnimation {
         start_name: &str,
         end_name: &str,
         speed: usize,
-    ) -> Option<PicAnimation> {
+    ) -> Option<Self> {
         let (basepic, picnum) = if is_texture {
             let start = pic_data.wallpic_num_for_name(start_name)?;
             let end = pic_data.wallpic_num_for_name(end_name)?;
@@ -106,14 +103,11 @@ impl PicAnimation {
 
         let numpics = picnum - basepic + 1;
         if numpics < 2 {
-            warn!(
-                "init_animations: bad cycle from {} to {} ({} frames)",
-                start_name, end_name, numpics
-            );
+            warn!("init_animations: bad cycle from {start_name} to {end_name} ({numpics} frames)");
             return None;
         }
 
-        Some(PicAnimation {
+        Some(Self {
             is_texture,
             basepic,
             numpics,

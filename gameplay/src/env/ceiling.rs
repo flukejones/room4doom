@@ -5,7 +5,7 @@ use std::ptr::null_mut;
 
 use sound_common::SfxName;
 
-use crate::SectorExt;
+use crate::SectorExt as _;
 use crate::env::specials::{PlaneResult, find_highest_ceiling_surrounding, move_plane};
 use crate::env::switch::start_sector_sound;
 use crate::level::LevelState;
@@ -123,9 +123,7 @@ impl Think for CeilingMove {
     fn think(object: &mut Thinker, level: &mut LevelState) -> bool {
         let ceiling = object.ceiling_mut();
         #[cfg(feature = "null_check")]
-        if object.ceiling.is_null() {
-            std::panic!("ceiling thinker was null");
-        }
+        assert!(!ceiling.thinker.is_null(), "ceiling thinker was null");
         let line = ceiling.sector.lines[0].as_ref();
 
         if level.level_time & 7 == 0 && !matches!(ceiling.kind, CeilKind::SilentCrushAndRaise) {
@@ -192,7 +190,7 @@ impl Think for CeilingMove {
                             ceiling.direction = 1;
                             start_sector_sound(line, SfxName::Pstop, &level.snd_command);
                         }
-                        _ => {}
+                        CeilKind::RaiseToHighest => {}
                     }
                 } else if matches!(res, PlaneResult::Crushed) {
                     match ceiling.kind {
@@ -218,9 +216,7 @@ impl Think for CeilingMove {
 
     fn thinker_mut(&mut self) -> &mut Thinker {
         #[cfg(feature = "null_check")]
-        if self.thinker.is_null() {
-            std::panic!("ceiling thinker was null");
-        }
+        assert!(!self.thinker.is_null(), "ceiling thinker was null");
         unsafe { Thinker::from_erased(self.thinker) }
     }
 }

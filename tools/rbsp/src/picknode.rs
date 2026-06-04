@@ -209,7 +209,7 @@ pub fn select_best_partition(
     options: &BspOptions,
     block: &SuperBlock,
 ) -> Option<usize> {
-    debug_assert!(!seg_indices.is_empty());
+    debug_assert!(!seg_indices.is_empty(), "no segs to partition");
 
     let representatives = group_by_plane(seg_indices, segs, vertices);
     let w = options.split_weight;
@@ -237,7 +237,7 @@ pub fn ranked_partitions(
     options: &BspOptions,
     block: &SuperBlock,
 ) -> Vec<usize> {
-    debug_assert!(!seg_indices.is_empty());
+    debug_assert!(!seg_indices.is_empty(), "no segs to partition");
 
     let representatives = group_by_plane(seg_indices, segs, vertices);
     let w = options.split_weight;

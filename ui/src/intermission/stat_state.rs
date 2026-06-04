@@ -119,7 +119,7 @@ impl Intermission {
     }
 
     pub(super) fn draw_stats_pixels(
-        &mut self,
+        &self,
         x_ofs: f32,
         sx: f32,
         sy: f32,

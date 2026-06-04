@@ -323,17 +323,17 @@ impl Player {
                     mobj.x.to_f32(),
                     mobj.y.to_f32(),
                     ptr::from_ref(self) as usize, /* pointer cast as a UID */
-                )
+                );
             }
         }
     }
 
     /// Doom function `G_PlayerFinishLevel`, mostly.
     pub fn finish_level(&mut self) {
-        for card in self.status.cards.iter_mut() {
+        for card in &mut self.status.cards {
             *card = false;
         }
-        for power in self.status.powers.iter_mut() {
+        for power in &mut self.status.powers {
             *power = 0;
         }
 
@@ -773,8 +773,7 @@ impl Player {
             PowerType::Infrared => {
                 self.status.powers[power as usize] = PowerDuration::Infrared as i32;
             }
-            PowerType::NumPowers => {}
-            PowerType::Allmap => {}
+            PowerType::NumPowers | PowerType::Allmap => {}
         }
         true
     }
@@ -818,35 +817,35 @@ impl Player {
                 && self.status.ammo[AmmoType::Cell as usize] != 0
             // TODO: && (gamemode != shareware)
             {
-                self.pendingweapon = WeaponType::Plasma
+                self.pendingweapon = WeaponType::Plasma;
             } else if self.status.weaponowned[WeaponType::SuperShotgun as usize]
                 && self.status.ammo[AmmoType::Shell as usize] > 2
             // TODO: && (gamemode == commercial)
             {
-                self.pendingweapon = WeaponType::SuperShotgun
+                self.pendingweapon = WeaponType::SuperShotgun;
             } else if self.status.weaponowned[WeaponType::Chaingun as usize]
                 && self.status.ammo[AmmoType::Clip as usize] != 0
             {
-                self.pendingweapon = WeaponType::Chaingun
+                self.pendingweapon = WeaponType::Chaingun;
             } else if self.status.weaponowned[WeaponType::Shotgun as usize]
                 && self.status.ammo[AmmoType::Shell as usize] != 0
             {
-                self.pendingweapon = WeaponType::Shotgun
+                self.pendingweapon = WeaponType::Shotgun;
             } else if self.status.ammo[AmmoType::Clip as usize] != 0 {
-                self.pendingweapon = WeaponType::Pistol
+                self.pendingweapon = WeaponType::Pistol;
             } else if self.status.weaponowned[WeaponType::Chainsaw as usize] {
-                self.pendingweapon = WeaponType::Chainsaw
+                self.pendingweapon = WeaponType::Chainsaw;
             } else if self.status.weaponowned[WeaponType::Missile as usize]
                 && self.status.ammo[AmmoType::Missile as usize] != 0
             {
-                self.pendingweapon = WeaponType::Missile
+                self.pendingweapon = WeaponType::Missile;
             } else if self.status.weaponowned[WeaponType::BFG as usize]
                 && self.status.ammo[AmmoType::Cell as usize] >= 40
             // TODO: && (gamemode != shareware)
             {
-                self.pendingweapon = WeaponType::BFG
+                self.pendingweapon = WeaponType::BFG;
             } else {
-                self.pendingweapon = WeaponType::Fist
+                self.pendingweapon = WeaponType::Fist;
             }
 
             if self.pendingweapon != WeaponType::NoChange {

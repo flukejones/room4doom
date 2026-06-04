@@ -260,7 +260,10 @@ mod tests {
 
     use super::*;
 
-    #[allow(trivial_numeric_casts, reason = "f64 -> Float narrows only with f32 feature")]
+    #[allow(
+        trivial_numeric_casts,
+        reason = "f64 -> Float narrows only with f32 feature"
+    )]
     fn make_test_output() -> BspOutput {
         BspOutput {
             vertices: vec![
@@ -381,7 +384,7 @@ mod tests {
                 offset,
                 buf.len()
             );
-            assert_eq!(count, expected_counts[i], "section {} count mismatch", i);
+            assert_eq!(count, expected_counts[i], "section {i} count mismatch");
         });
     }
 

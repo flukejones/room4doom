@@ -400,6 +400,7 @@ impl Div<FixedT> for f32 {
     clippy::suspicious_arithmetic_impl,
     reason = "i32 operand is scaled to fixed-point (<< FRACBITS); mixed ops are intentional"
 )]
+#[allow(clippy::use_self, reason = "Self is i32 here, not FixedT")]
 impl Sub<FixedT> for i32 {
     type Output = FixedT;
     #[inline]
@@ -412,6 +413,7 @@ impl Sub<FixedT> for i32 {
     clippy::suspicious_arithmetic_impl,
     reason = "i32 operand is scaled to fixed-point (<< FRACBITS); mixed ops are intentional"
 )]
+#[allow(clippy::use_self, reason = "Self is i32 here, not FixedT")]
 impl Div<FixedT> for i32 {
     type Output = FixedT;
     #[inline]
@@ -450,21 +452,21 @@ impl From<f32> for FixedT {
 
 impl From<FixedT> for f32 {
     #[inline]
-    fn from(v: FixedT) -> f32 {
+    fn from(v: FixedT) -> Self {
         v.to_f32()
     }
 }
 
 impl From<FixedT> for i32 {
     #[inline]
-    fn from(v: FixedT) -> i32 {
+    fn from(v: FixedT) -> Self {
         v.to_i32()
     }
 }
 
 impl From<FixedT> for f64 {
     #[inline]
-    fn from(v: FixedT) -> f64 {
+    fn from(v: FixedT) -> Self {
         v.to_f64()
     }
 }
@@ -483,9 +485,11 @@ impl fmt::Display for FixedT {
 }
 
 #[inline]
-/// OG Doom `P_AproxDistance` — cheap distance estimate. The subtractive form
-/// (`a + b - (min >> 1)`) is exact to OG: `ceil` rounding on the halved term
-/// differs from `min.shr(1) + max` by one unit when the smaller delta is odd.
+/// OG Doom `P_AproxDistance` — cheap distance estimate.
+///
+/// The subtractive form (`a + b - (min >> 1)`) is exact to OG: `ceil` rounding
+/// on the halved term differs from `min.shr(1) + max` by one unit when the
+/// smaller delta is odd.
 pub fn p_aprox_distance(dx: FixedT, dy: FixedT) -> FixedT {
     let dx = dx.doom_abs();
     let dy = dy.doom_abs();

@@ -44,7 +44,9 @@ pub fn point_on_side(trace: Trace, v2: Vec2) -> usize {
     1
 }
 
-/// OG Doom `R_PointOnSide` — raw 16.16 fixed-point side test for a directed
+/// OG Doom `R_PointOnSide`
+///
+/// raw 16.16 fixed-point side test for a directed
 /// line from origin `(nx, ny)` along delta `(ndx, ndy)`, all in raw 16.16.
 /// Pre-shifts the delta by `FRACBITS` before multiplying so long lines cannot
 /// overflow the intermediate (a full `FixedMul` would). Returns 0 for the
@@ -109,7 +111,7 @@ pub fn point_on_divline_side(x: FixedT, y: FixedT, line: &DivLineFixed) -> usize
     let pdx = dx.to_fixed_raw();
     let pdy = dy.to_fixed_raw();
     if (ldy ^ ldx ^ pdx ^ pdy) < 0 {
-        return if (ldy ^ pdx) < 0 { 1 } else { 0 };
+        return usize::from((ldy ^ pdx) < 0);
     }
 
     // OG: left = FixedMul(line->dy >> 8, dx >> 8)
@@ -118,7 +120,7 @@ pub fn point_on_divline_side(x: FixedT, y: FixedT, line: &DivLineFixed) -> usize
     {
         let left = ((line.dy.to_fixed_raw() >> 8) as i64 * (dx.to_fixed_raw() >> 8) as i64) >> 16;
         let right = ((dy.to_fixed_raw() >> 8) as i64 * (line.dx.to_fixed_raw() >> 8) as i64) >> 16;
-        if right < left { 0 } else { 1 }
+        usize::from(right >= left)
     }
     #[cfg(any(feature = "fixed64", feature = "fixed64hd"))]
     {
@@ -183,7 +185,10 @@ mod tests {
     #[test]
     fn axis_aligned_segs() {
         // vertical seg (0,0)->(0,4000): point to the right is front (0).
-        assert_eq!(r_point_on_side_raw(64 * FU, 2000 * FU, 0, 0, 0, 4000 * FU), 0);
+        assert_eq!(
+            r_point_on_side_raw(64 * FU, 2000 * FU, 0, 0, 0, 4000 * FU),
+            0
+        );
         assert_eq!(
             r_point_on_side_raw(-64 * FU, 2000 * FU, 0, 0, 0, 4000 * FU),
             1

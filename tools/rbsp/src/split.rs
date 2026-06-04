@@ -86,7 +86,10 @@ pub struct SplitResult {
 /// vertices are polygon vertices.
 // Intersections compute in f64; storing as `Float` narrows only under the f32
 // feature (no-op when Float = f64).
-#[allow(trivial_numeric_casts, reason = "f64 -> Float narrows only with f32 feature")]
+#[allow(
+    trivial_numeric_casts,
+    reason = "f64 -> Float narrows only with f32 feature"
+)]
 pub fn split_segs_and_poly(
     seg_indices: &[usize],
     partition: &Seg,

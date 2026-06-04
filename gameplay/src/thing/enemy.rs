@@ -20,7 +20,7 @@ use crate::info::{MOBJINFO, StateNum};
 use crate::level::LevelState;
 use crate::thing::{MapObjFlag, MapObject, MoveDir};
 use crate::thinker::ThinkerData;
-use crate::{MAXPLAYERS, MapObjKind, SectorExt, teleport_move};
+use crate::{MAXPLAYERS, MapObjKind, SectorExt as _, teleport_move};
 use game_config::{GameMode, Skill};
 use level::map_defs::{LineDef, SlopeType};
 use level::{LineDefFlags, MapPtr, Sector};
@@ -67,7 +67,7 @@ fn sound_flood(
     sector.soundtraversed = sound_blocks + 1;
     sector.set_sound_target_thinker(target.thinker);
 
-    for line in sector.lines.iter() {
+    for line in &sector.lines {
         if !line.flags.contains(LineDefFlags::TwoSided) {
             continue;
         }
@@ -357,7 +357,7 @@ pub(crate) fn a_keendie(actor: &mut MapObject) {
     });
     if !dead {
         return;
-    };
+    }
 
     let sidedef = actor.subsector.sector.lines[0].front_sidedef.clone();
     let sector = actor.subsector.sector.clone();
@@ -411,7 +411,7 @@ pub(crate) fn a_brainawake(actor: &mut MapObject) {
             if t.mobj().kind == MapObjKind::MT_BOSSTARGET {
                 // eeeesssh...
                 // TODO: fix this
-                targets.push(ptr::from_mut(t))
+                targets.push(ptr::from_mut(t));
             }
         }
         false
@@ -568,7 +568,7 @@ pub(crate) fn a_vilestart(actor: &mut MapObject) {
     actor.start_sound(SfxName::Vilatk);
 }
 
-fn vile_raise_check(actor: &mut MapObject, obj: &mut MapObject) -> bool {
+fn vile_raise_check(actor: &MapObject, obj: &mut MapObject) -> bool {
     if !obj.flags.contains(MapObjFlag::Corpse) {
         return true; // not a monster
     }
@@ -1187,7 +1187,7 @@ fn trigger_boss_line_special(special: i32, tag: i16, actor: &MapObject, level: &
             ev_do_door(MapPtr::new(&mut junk), DoorKind::BlazeOpen, level);
         }
         _ => {
-            log::warn!("UMAPINFO bossaction: unsupported line special {}", special);
+            log::warn!("UMAPINFO bossaction: unsupported line special {special}");
         }
     }
 }
@@ -1303,12 +1303,12 @@ pub(crate) fn a_firecrackle(actor: &mut MapObject) {
 }
 
 pub(crate) fn a_playerscream(actor: &mut MapObject) {
-    let mut sound = SfxName::Pldeth;
-
-    if actor.level().game_mode == GameMode::Commercial && actor.health < -50 {
+    let sound = if actor.level().game_mode == GameMode::Commercial && actor.health < -50 {
         // IF THE PLAYER DIES LESS THAN -50% WITHOUT GIBBING
-        sound = SfxName::Pdiehi;
-    }
+        SfxName::Pdiehi
+    } else {
+        SfxName::Pldeth
+    };
 
     actor.start_sound(sound);
 }

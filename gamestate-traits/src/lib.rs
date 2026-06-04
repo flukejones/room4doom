@@ -11,7 +11,6 @@ use gameplay::{MAXPLAYERS, PlayerStatus, WorldEndPlayerInfo};
 use render_common::DrawBuffer;
 use sound_common::{MusTrack, SfxName};
 use wad::WadData;
-use wad::types::WadPalette;
 
 /// The current state of the game-exe: whether we are playing, gazing at the
 /// intermission screen, the game-exe final animation, or a demo.
@@ -52,15 +51,17 @@ pub enum ConfigKey {
     Renderer,
     HiRes,
     FrameInterpolation,
+    DynamicSky,
     Voxels,
     CrtGamma,
+    LightGamma,
     ShowFps,
     MenuDim,
     HudSize,
     HudWidth,
     HudMsgMode,
     HudMsgTime,
-    HealthVignette,
+    HealthBleed,
     MouseSensitivity,
     InvertY,
     KeyCount,
@@ -101,6 +102,5 @@ pub trait SubsystemTrait {
     fn init<T: GameTraits + ConfigTraits>(&mut self, game: &T);
     fn responder<T: GameTraits + ConfigTraits>(&mut self, sc: KeyCode, game: &mut T) -> bool;
     fn ticker<T: GameTraits + ConfigTraits>(&mut self, game: &mut T) -> bool;
-    fn get_palette(&self) -> &WadPalette;
     fn draw(&mut self, buffer: &mut impl DrawBuffer);
 }

@@ -9,7 +9,7 @@ use hud_util::{
 };
 use log::warn;
 use math::m_random;
-use render_common::DrawBuffer;
+use render_common::{ByteOrder, DrawBuffer, PixelFmt};
 use sound_common::MusTrack;
 use std::collections::HashMap;
 use wad::WadData;
@@ -171,21 +171,21 @@ impl Intermission {
         let mut umapinfo_names = HashMap::new();
         if let Some(info) = umapinfo {
             for entry in info.entries() {
-                if let Some(ref pic) = entry.level_pic
+                if let Some(pic) = &entry.level_pic
                     && let Some(lump) = wad.get_lump(pic)
                 {
                     umapinfo_patches.insert(entry.map_name.clone(), WadPatch::from_lump(lump));
                 }
-                if let Some(ref name) = entry.level_name {
+                if let Some(name) = &entry.level_name {
                     umapinfo_names.insert(entry.map_name.clone(), name.clone());
                 }
-                if let Some(ref pic) = entry.exit_pic {
+                if let Some(pic) = &entry.exit_pic {
                     let key = format!("__exitpic_{}", entry.map_name);
                     if let Some(lump) = wad.get_lump(pic) {
                         umapinfo_patches.insert(key, WadPatch::from_lump(lump));
                     }
                 }
-                if let Some(ref pic) = entry.enter_pic {
+                if let Some(pic) = &entry.enter_pic {
                     let key = format!("__enterpic_{}", entry.map_name);
                     if let Some(lump) = wad.get_lump(pic) {
                         umapinfo_patches.insert(key, WadPatch::from_lump(lump));
@@ -221,13 +221,14 @@ impl Intermission {
     /// Draw the fullscreen background patch, clearing the buffer first and
     /// centering.
     pub(crate) fn draw_bg(&self, x_offset: f32, sx: f32, sy: f32, buffer: &mut impl DrawBuffer) {
-        buffer.buf_mut().fill(BLACK);
+        let black = PixelFmt::from_argb(BLACK, ByteOrder::Argb);
+        buffer.buf_mut().fill(black);
         draw_patch(self.get_bg(), x_offset, 0.0, sx, sy, &self.palette, buffer);
     }
 
     pub(crate) fn get_bg(&self) -> &WadPatch {
         let completed_map = self.map_name_for(self.level_info.episode, self.level_info.last);
-        let exit_key = format!("__exitpic_{}", completed_map);
+        let exit_key = format!("__exitpic_{completed_map}");
         if let Some(patch) = self.umapinfo_patches.get(&exit_key) {
             return patch;
         }
@@ -288,7 +289,7 @@ impl Intermission {
             return;
         }
 
-        for anim in self.animations[self.level_info.episode].iter_mut() {
+        for anim in &mut self.animations[self.level_info.episode] {
             anim.counter = -1;
             // Next time to draw?
             match anim.kind {
@@ -347,7 +348,7 @@ impl Intermission {
             return;
         }
 
-        for anim in self.animations[self.level_info.episode].iter() {
+        for anim in &self.animations[self.level_info.episode] {
             if anim.counter >= 0 {
                 draw_patch(
                     &anim.patches[anim.counter as usize],
@@ -404,7 +405,7 @@ impl SubsystemTrait for Intermission {
             let wad = game.get_wad_data();
             if let Some(lump) = wad.get_lump(backdrop) {
                 self.inter_text_bg = Some(WadFlat {
-                    name: backdrop.to_string(),
+                    name: backdrop.to_owned(),
                     data: lump.data.clone(),
                 });
             }
@@ -468,10 +469,6 @@ impl SubsystemTrait for Intermission {
         }
 
         false
-    }
-
-    fn get_palette(&self) -> &WadPalette {
-        &self.palette
     }
 
     fn draw(&mut self, buffer: &mut impl DrawBuffer) {

@@ -1,10 +1,10 @@
+use crate::Software3D;
 use crate::rasterizer::MAX_CLIPPED_VERTICES;
-use crate::{DebugDrawOptions, Software3D};
 use glam::{Vec3, Vec4};
 
 #[test]
 fn test_frustum_clipping() {
-    let mut renderer = Software3D::new(800.0, 600.0, 0.8, DebugDrawOptions::default());
+    let mut renderer = Software3D::new(800.0, 600.0, 0.8);
 
     // Test triangle partially outside frustum (clip-space: inside means x,y,z in
     // [-w, w]) w=3.0 so frustum bounds are [-3, 3] on each axis
@@ -57,7 +57,7 @@ fn test_frustum_clipping() {
 
 #[test]
 fn test_frustum_clipping_completely_outside() {
-    let mut renderer = Software3D::new(800.0, 600.0, 0.8, DebugDrawOptions::default());
+    let mut renderer = Software3D::new(800.0, 600.0, 0.8);
 
     // Triangle completely outside frustum (all beyond right plane: x > w)
     let vertices = [
@@ -82,7 +82,7 @@ fn test_frustum_clipping_completely_outside() {
 
 #[test]
 fn test_frustum_clipping_completely_inside() {
-    let mut renderer = Software3D::new(800.0, 600.0, 0.8, DebugDrawOptions::default());
+    let mut renderer = Software3D::new(800.0, 600.0, 0.8);
 
     // Triangle completely inside frustum (all coords well within [-w, w])
     let vertices = [
@@ -118,7 +118,7 @@ fn test_frustum_clipping_completely_inside() {
 
 #[test]
 fn test_clip_against_single_plane() {
-    let mut renderer = Software3D::new(800.0, 600.0, 0.8, DebugDrawOptions::default());
+    let mut renderer = Software3D::new(800.0, 600.0, 0.8);
 
     // Setup a triangle crossing the left plane (x = -w)
     // Left plane eq: x + w >= 0, so dot with (1,0,0,1)
@@ -165,9 +165,7 @@ fn test_clip_against_single_plane() {
         let distance = left_plane.dot(v);
         assert!(
             distance >= -0.001,
-            "Vertex {} failed plane test: {}",
-            i,
-            distance
+            "Vertex {i} failed plane test: {distance}"
         );
     }
 }

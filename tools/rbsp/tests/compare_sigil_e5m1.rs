@@ -10,7 +10,7 @@ const SIGIL_WAD: &str = "/Users/lukejones/DOOM/sigil.wad";
 #[test]
 fn compare_bsp_output_sigil_e5m1() {
     if !Path::new(SIGIL_WAD).exists() {
-        eprintln!("Skipping test: {} not found", SIGIL_WAD);
+        eprintln!("Skipping test: {SIGIL_WAD} not found");
         return;
     }
     if !Path::new(harness::C_BSP).exists() {

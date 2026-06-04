@@ -65,7 +65,7 @@ pub enum GusMemSize {
     Perfect,
 }
 use std::fs::{File, OpenOptions, create_dir};
-use std::io::{Error as IoError, ErrorKind, Read, Write};
+use std::io::{Error as IoError, ErrorKind, Read as _, Write as _};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
@@ -115,27 +115,51 @@ fn get_cfg_file() -> PathBuf {
     dir.join("user.toml")
 }
 
-#[derive(Debug, Default, PartialEq, PartialOrd, Clone, Copy, DeRon, SerRon)]
+/// `#[repr(u8)]` natural order: a disabled renderer's variant is removed and the
+/// later ones shift down, so the discriminant always matches the menu cycle's
+/// option index (built from the same feature gates, in the same order).
+#[derive(Debug, PartialEq, PartialOrd, Clone, Copy, DeRon, SerRon)]
+#[repr(u8)]
 pub enum RenderType {
-    /// Purely software. Typically used with blitting a framebuffer maintained
-    /// in memory directly to screen using SDL2
+    /// Purely software (software25d).
+    #[cfg(feature = "software25d")]
     Software,
-    /// Full 3D software rendering
-    #[default]
+    /// Full 3D software rendering.
+    #[cfg(feature = "software3d")]
     Software3D,
+    /// Hardware GPU rendering. Requires the `display-wgpu` backend.
+    #[cfg(feature = "wgpu3d")]
+    Wgpu3D,
+}
+
+impl Default for RenderType {
+    fn default() -> Self {
+        #[cfg(feature = "software3d")]
+        return Self::Software3D;
+        #[cfg(all(not(feature = "software3d"), feature = "software25d"))]
+        return Self::Software;
+        #[cfg(all(
+            not(feature = "software3d"),
+            not(feature = "software25d"),
+            feature = "wgpu3d"
+        ))]
+        return Self::Wgpu3D;
+    }
 }
 
 impl FromStr for RenderType {
     type Err = IoError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let unsupported = || IoError::new(ErrorKind::Unsupported, "renderer not built in");
         match s.to_ascii_lowercase().as_str() {
+            #[cfg(feature = "software25d")]
             "software" => Ok(Self::Software),
+            #[cfg(feature = "software3d")]
             "software3d" => Ok(Self::Software3D),
-            _ => Err(IoError::new(
-                ErrorKind::Unsupported,
-                "Invalid rendering type",
-            )),
+            #[cfg(feature = "wgpu3d")]
+            "wgpu3d" => Ok(Self::Wgpu3D),
+            _ => Err(unsupported()),
         }
     }
 }
@@ -143,10 +167,102 @@ impl FromStr for RenderType {
 impl From<RenderType> for render_backend::RenderType {
     fn from(val: RenderType) -> Self {
         match val {
-            RenderType::Software => render_backend::RenderType::Software,
-            RenderType::Software3D => render_backend::RenderType::Software3D,
+            #[cfg(feature = "software25d")]
+            RenderType::Software => Self::Software,
+            #[cfg(feature = "software3d")]
+            RenderType::Software3D => Self::Software3D,
+            #[cfg(feature = "wgpu3d")]
+            RenderType::Wgpu3D => Self::Wgpu3D,
         }
     }
+}
+
+/// Surface pixel format. Selects the surface element type `P` on the SDL2 path
+/// (`Rgb888` → `u32`, `Rgb565` → `u16`); the winit providers are u32-only and
+/// ignore it. Renderers always write final pixels (no index/resolve pass).
+#[derive(Debug, Default, PartialEq, PartialOrd, Clone, Copy, DeRon, SerRon)]
+pub enum PixelMode {
+    #[default]
+    Rgb888,
+    Rgb565,
+}
+
+impl FromStr for PixelMode {
+    type Err = IoError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "888" | "rgb888" | "u32" => Ok(Self::Rgb888),
+            "565" | "rgb565" | "u16" => Ok(Self::Rgb565),
+            _ => Err(IoError::new(ErrorKind::Unsupported, "Invalid pixel mode")),
+        }
+    }
+}
+
+/// Damage/bonus/radsuit tint style. `Vanilla` = discrete PLAYPAL steps;
+/// `Smooth` = continuous Quake-style cshift blend.
+#[derive(Debug, Default, PartialEq, PartialOrd, Clone, Copy, DeRon, SerRon)]
+pub enum PaletteFade {
+    #[default]
+    Vanilla,
+    Smooth,
+}
+
+impl FromStr for PaletteFade {
+    type Err = IoError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "vanilla" => Ok(Self::Vanilla),
+            "smooth" => Ok(Self::Smooth),
+            _ => Err(IoError::new(ErrorKind::Unsupported, "Invalid palette fade")),
+        }
+    }
+}
+
+impl From<PaletteFade> for pic_data::PaletteFade {
+    fn from(val: PaletteFade) -> Self {
+        match val {
+            PaletteFade::Vanilla => Self::Vanilla,
+            PaletteFade::Smooth => Self::Smooth,
+        }
+    }
+}
+
+/// A single post-process effect (wgpu backend). Chained in order. Consumed only
+/// by the winit display path.
+#[cfg(any(feature = "display-softbuffer", feature = "display-wgpu"))]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, DeRon, SerRon)]
+pub enum PostEffect {
+    Stretch,
+    Crt,
+}
+
+#[cfg(any(feature = "display-softbuffer", feature = "display-wgpu"))]
+impl FromStr for PostEffect {
+    type Err = IoError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "stretch" => Ok(Self::Stretch),
+            "crt" => Ok(Self::Crt),
+            _ => Err(IoError::new(ErrorKind::Unsupported, "Invalid post effect")),
+        }
+    }
+}
+
+/// Parse a comma-separated post chain (e.g. `"crt"`, `"stretch,crt"`). `"none"`
+/// or empty yields an empty chain (backend defaults to nearest-neighbour
+/// stretch). Unknown names are an error.
+#[cfg(any(feature = "display-softbuffer", feature = "display-wgpu"))]
+pub fn parse_post_chain(s: &str) -> Result<Vec<PostEffect>, IoError> {
+    let s = s.trim();
+    if s.is_empty() || s.eq_ignore_ascii_case("none") {
+        return Ok(Vec::new());
+    }
+    s.split(',')
+        .map(|p| p.trim().parse::<PostEffect>())
+        .collect()
 }
 
 /// Window display mode.
@@ -229,7 +345,11 @@ pub struct UserConfig {
     pub gus_mem_size: GusMemSize,
     pub input: InputConfig,
     pub frame_interpolation: bool,
+    /// wgpu3d procedural cloud sky instead of the static SKY1 texture.
+    pub dynamic_sky: bool,
     pub crt_gamma: bool,
+    /// wgpu3d diminishing-light row->intensity gamma, stored ×100 (50..=150).
+    pub light_gamma: i32,
     pub voxels: bool,
     pub voxels_path: String,
     pub show_fps: bool,
@@ -238,7 +358,7 @@ pub struct UserConfig {
     pub hud_width: HudWidth,
     pub hud_msg_mode: HudMsgMode,
     pub hud_msg_time: i32,
-    pub health_vignette: bool,
+    pub health_bleed: bool,
     pub mouse_sensitivity: i32,
     pub invert_y: bool,
     pub sf2_path: String,
@@ -264,24 +384,26 @@ impl UserConfig {
             }
         };
         let mut buf = String::new();
+        // Read+write handle reused below to write defaults; can't use fs::read_to_string.
+        #[allow(clippy::verbose_file_reads, reason = "handle reused for write-back")]
         if let Ok(read_len) = file.read_to_string(&mut buf) {
             if read_len == 0 {
-                return UserConfig::create_default(&mut file);
+                return Self::create_default(&mut file);
             } else {
-                if let Ok(data) = UserConfig::deserialize_ron(&buf) {
+                if let Ok(data) = Self::deserialize_ron(&buf) {
                     info!(target: LOG_TAG, "Loaded user config file: {path:?}");
                     return data;
                 }
-                warn!("Could not deserialise {:?} recreating config", path);
+                warn!("Could not deserialise {path:?} recreating config");
             }
         }
-        UserConfig::create_default(&mut file)
+        Self::create_default(&mut file)
     }
 
     /// The in-memory default config, with auto-detected IWAD/voxel paths.
     /// Does not touch the filesystem.
     fn default_config() -> Self {
-        UserConfig {
+        Self {
             width: 640,
             height: 480,
             hi_res: true,
@@ -293,13 +415,14 @@ impl UserConfig {
             menu_dim: true,
             hud_width: HudWidth::Classic,
             hud_msg_time: 2,
-            health_vignette: true,
+            health_bleed: true,
             mouse_sensitivity: 5,
             invert_y: false,
-            sf2_path: "gm.sf2".to_string(),
+            light_gamma: 120,
+            sf2_path: "gm.sf2".to_owned(),
             voxels_path: find_voxel_pk3(),
             iwad: find_iwad(),
-            ..UserConfig::default()
+            ..Self::default()
         }
     }
 
@@ -324,7 +447,7 @@ impl UserConfig {
         };
         let data = pretty_ron(&self.serialize_ron());
         file.write_all(data.as_bytes())
-            .unwrap_or_else(|err| error!("Could not write config: {}", err));
+            .unwrap_or_else(|err| error!("Could not write config: {err}"));
     }
 
     pub fn to_config_array(&self) -> [i32; ConfigKey::KeyCount as usize] {
@@ -342,14 +465,13 @@ impl UserConfig {
             WindowMode::Exclusive => 2,
         };
         a[ConfigKey::VSync as usize] = self.vsync as i32;
-        a[ConfigKey::Renderer as usize] = match self.renderer {
-            RenderType::Software => 0,
-            RenderType::Software3D => 1,
-        };
+        a[ConfigKey::Renderer as usize] = self.renderer as u8 as i32;
         a[ConfigKey::HiRes as usize] = self.hi_res as i32;
         a[ConfigKey::FrameInterpolation as usize] = self.frame_interpolation as i32;
+        a[ConfigKey::DynamicSky as usize] = self.dynamic_sky as i32;
         a[ConfigKey::Voxels as usize] = self.voxels as i32;
         a[ConfigKey::CrtGamma as usize] = self.crt_gamma as i32;
+        a[ConfigKey::LightGamma as usize] = self.light_gamma;
         a[ConfigKey::ShowFps as usize] = self.show_fps as i32;
         a[ConfigKey::MenuDim as usize] = self.menu_dim as i32;
         a[ConfigKey::HudSize as usize] = self.hud_size;
@@ -363,7 +485,7 @@ impl UserConfig {
             HudMsgMode::Overwrite => 2,
         };
         a[ConfigKey::HudMsgTime as usize] = self.hud_msg_time;
-        a[ConfigKey::HealthVignette as usize] = self.health_vignette as i32;
+        a[ConfigKey::HealthBleed as usize] = self.health_bleed as i32;
         a[ConfigKey::MouseSensitivity as usize] = self.mouse_sensitivity;
         a[ConfigKey::InvertY as usize] = self.invert_y as i32;
         a
@@ -383,14 +505,23 @@ impl UserConfig {
             _ => WindowMode::Windowed,
         };
         self.vsync = vals[ConfigKey::VSync as usize] != 0;
+        // The stored value is the `#[repr(u8)]` discriminant; match it against the
+        // compiled variants' discriminants (gated in the same order as the enum).
         self.renderer = match vals[ConfigKey::Renderer as usize] {
-            1 => RenderType::Software3D,
-            _ => RenderType::Software,
+            #[cfg(feature = "software25d")]
+            v if v == RenderType::Software as i32 => RenderType::Software,
+            #[cfg(feature = "software3d")]
+            v if v == RenderType::Software3D as i32 => RenderType::Software3D,
+            #[cfg(feature = "wgpu3d")]
+            v if v == RenderType::Wgpu3D as i32 => RenderType::Wgpu3D,
+            _ => RenderType::default(),
         };
         self.hi_res = vals[ConfigKey::HiRes as usize] != 0;
         self.frame_interpolation = vals[ConfigKey::FrameInterpolation as usize] != 0;
+        self.dynamic_sky = vals[ConfigKey::DynamicSky as usize] != 0;
         self.voxels = vals[ConfigKey::Voxels as usize] != 0;
         self.crt_gamma = vals[ConfigKey::CrtGamma as usize] != 0;
+        self.light_gamma = vals[ConfigKey::LightGamma as usize];
         self.show_fps = vals[ConfigKey::ShowFps as usize] != 0;
         self.menu_dim = vals[ConfigKey::MenuDim as usize] != 0;
         self.hud_size = vals[ConfigKey::HudSize as usize];
@@ -404,7 +535,7 @@ impl UserConfig {
             _ => HudMsgMode::Stack,
         };
         self.hud_msg_time = vals[ConfigKey::HudMsgTime as usize];
-        self.health_vignette = vals[ConfigKey::HealthVignette as usize] != 0;
+        self.health_bleed = vals[ConfigKey::HealthBleed as usize] != 0;
         self.mouse_sensitivity = vals[ConfigKey::MouseSensitivity as usize];
         self.invert_y = vals[ConfigKey::InvertY as usize] != 0;
     }
@@ -497,7 +628,7 @@ impl UserConfig {
             cli.crt_gamma = Some(self.crt_gamma);
         }
 
-        if let Some(ref path) = cli.voxels {
+        if let Some(path) = &cli.voxels {
             self.voxels_path = path.clone();
             self.voxels = true;
         } else {

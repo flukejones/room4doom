@@ -8,6 +8,7 @@ publish = false
 
 [dependencies]
 dirs.workspace = true
+glam.workspace = true
 level.workspace = true
 wad.workspace = true
 

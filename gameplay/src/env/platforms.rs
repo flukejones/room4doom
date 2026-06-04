@@ -7,7 +7,7 @@ use std::ptr::null_mut;
 
 use sound_common::SfxName;
 
-use crate::SectorExt;
+use crate::SectorExt as _;
 use crate::doom_def::TICRATE;
 use crate::env::specials::{
     PlaneResult, find_highest_floor_surrounding, find_lowest_floor_surrounding,
@@ -17,8 +17,8 @@ use crate::env::switch::start_sector_sound;
 use crate::level::LevelState;
 use crate::thing::MapObject;
 use crate::thinker::{Think, Thinker, ThinkerData};
-use level::MapPtr;
 use level::map_defs::{LineDef, Sector, SectorHeight};
+use level::{MapPtr, MovementType};
 use math::p_random;
 
 const PLATSPEED: SectorHeight = SectorHeight::ONE;
@@ -38,10 +38,10 @@ impl TryFrom<u8> for PlatStatus {
 
     fn try_from(v: u8) -> Result<Self, u8> {
         match v {
-            0 => Ok(PlatStatus::Up),
-            1 => Ok(PlatStatus::Down),
-            2 => Ok(PlatStatus::Waiting),
-            3 => Ok(PlatStatus::InStasis),
+            0 => Ok(Self::Up),
+            1 => Ok(Self::Down),
+            2 => Ok(Self::Waiting),
+            3 => Ok(Self::InStasis),
             _ => Err(v),
         }
     }
@@ -119,6 +119,11 @@ pub fn ev_do_platform(
                 platform.status = PlatStatus::Up;
                 sec.special = 0;
                 sec.floorpic = line.frontsector.floorpic;
+                level.level_data.bsp_3d.update_flat_texture(
+                    sec.num as usize,
+                    MovementType::Floor,
+                    sec.floorpic,
+                );
                 start_sector_sound(&line, SfxName::Stnmov, &level.snd_command);
             }
             PlatKind::RaiseAndChange => {
@@ -127,6 +132,11 @@ pub fn ev_do_platform(
                 platform.wait = 0;
                 platform.status = PlatStatus::Up;
                 sec.floorpic = line.frontsector.floorpic;
+                level.level_data.bsp_3d.update_flat_texture(
+                    sec.num as usize,
+                    MovementType::Floor,
+                    sec.floorpic,
+                );
                 start_sector_sound(&line, SfxName::Stnmov, &level.snd_command);
             }
 
@@ -201,7 +211,7 @@ impl Think for Platform {
     fn think(object: &mut Thinker, level: &mut LevelState) -> bool {
         let platform = object.platform_mut();
         #[cfg(feature = "null_check")]
-        if platform.is_null() {
+        if platform.thinker.is_null() {
             std::panic!("platform thinker was null");
         }
         let line = platform.sector.lines[0].as_ref();
@@ -236,19 +246,16 @@ impl Think for Platform {
                     start_sector_sound(line, SfxName::Pstop, &level.snd_command);
 
                     match platform.kind {
-                        PlatKind::BlazeDWUS | PlatKind::DownWaitUpStay => {
+                        PlatKind::BlazeDWUS
+                        | PlatKind::DownWaitUpStay
+                        | PlatKind::RaiseAndChange
+                        | PlatKind::RaiseToNearestAndChange => {
                             platform.sector.specialdata = None; // TODO: remove when tracking active?
                             unsafe {
                                 level.remove_active_platform(platform);
                             }
                         }
-                        PlatKind::RaiseAndChange | PlatKind::RaiseToNearestAndChange => {
-                            platform.sector.specialdata = None; // TODO: remove when tracking active?
-                            unsafe {
-                                level.remove_active_platform(platform);
-                            }
-                        }
-                        _ => {}
+                        PlatKind::PerpetualRaise => {}
                     }
                 }
             }
@@ -292,9 +299,7 @@ impl Think for Platform {
 
     fn thinker_mut(&mut self) -> &mut Thinker {
         #[cfg(feature = "null_check")]
-        if self.thinker.is_null() {
-            std::panic!("platform thinker was null");
-        }
+        assert!(!self.thinker.is_null(), "platform thinker was null");
         unsafe { Thinker::from_erased(self.thinker) }
     }
 }

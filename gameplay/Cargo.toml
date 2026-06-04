@@ -12,6 +12,13 @@ safety_check = []
 hprof = []
 fixed64 = ["math/fixed64"]
 fixed64hd = ["math/fixed64hd"]
+# Test-only marker gating sunder.wad node tests (WAD not in-repo):
+#   cargo test -p gameplay --features wad-sunder
+wad-sunder = []
+wad-all = ["wad-sunder"]
+software25d = []
+software3d = []
+wgpu3d = []
 
 [dependencies]
 game-config.workspace = true

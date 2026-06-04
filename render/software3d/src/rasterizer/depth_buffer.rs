@@ -4,9 +4,11 @@ use std::f32;
 use coarse_prof::profile;
 
 const TILE_SIZE: usize = 8;
-/// Depth value written for sky pixels. Positive but smaller than any real
-/// geometry 1/w, so solid surfaces always overwrite sky via the normal
-/// `depth > old` test. Sky pixels do not count toward occlusion coverage.
+/// Depth value written for sky pixels.
+///
+/// Positive but smaller than any real geometry 1/w, so solid surfaces always
+/// overwrite sky via the normal `depth > old` test. Sky pixels do not count
+/// toward occlusion coverage.
 pub const SKY_DEPTH: f32 = f32::EPSILON;
 
 /// Depth buffer with single-level Hi-Z tile rejection.

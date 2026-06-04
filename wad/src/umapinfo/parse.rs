@@ -199,8 +199,7 @@ impl Parser {
 
     fn expect_string(&mut self) -> Result<String, ParseError> {
         match self.advance() {
-            Some(Token::Str(s)) => Ok(s.clone()),
-            Some(Token::Ident(s)) => Ok(s.clone()),
+            Some(Token::Str(s) | Token::Ident(s)) => Ok(s.clone()),
             _ => Err(ParseError {
                 line: self.line(),
                 message: "expected string".into(),
@@ -214,11 +213,11 @@ impl Parser {
             Some(t) if t == expected => Ok(()),
             Some(t) => Err(ParseError {
                 line,
-                message: format!("expected {:?}, got {:?}", expected, t),
+                message: format!("expected {expected:?}, got {t:?}"),
             }),
             None => Err(ParseError {
                 line,
-                message: format!("expected {:?}, got EOF", expected),
+                message: format!("expected {expected:?}, got EOF"),
             }),
         }
     }
@@ -317,10 +316,11 @@ impl Parser {
         let (episode, map) = parse_map_name(&map_name);
 
         // ZMAPINFO: optional quoted level name before brace
-        let mut level_name = None;
-        if matches!(self.peek(), Some(Token::Str(_))) {
-            level_name = Some(self.expect_string()?);
-        }
+        let level_name = if matches!(self.peek(), Some(Token::Str(_))) {
+            Some(self.expect_string()?)
+        } else {
+            None
+        };
 
         self.expect(&Token::BraceOpen)?;
 
@@ -406,7 +406,7 @@ impl Parser {
                     self.skip_value();
                 }
                 unknown => {
-                    log::warn!("MAPINFO line {}: unknown key '{}'", key_line, unknown);
+                    log::warn!("MAPINFO line {key_line}: unknown key '{unknown}'");
                     self.skip_value();
                 }
             }
@@ -764,7 +764,7 @@ map E6M9
                 assert_eq!(lines[6], "");
                 assert_eq!(lines[7], "Prepare for HELLION!");
             }
-            other => panic!("expected Text, got {:?}", other),
+            other => panic!("expected Text, got {other:?}"),
         }
         assert!(matches!(&e6m8.boss_actions, Some(BossActions::Clear)));
 
@@ -827,7 +827,7 @@ map MAP01
             Some(TextOrClear::Text(t)) => {
                 assert_eq!(t, "Line one\nLine two\nLine three");
             }
-            other => panic!("expected Text, got {:?}", other),
+            other => panic!("expected Text, got {other:?}"),
         }
         assert_eq!(entry.episode, 0);
         assert_eq!(entry.map, 1);
@@ -835,12 +835,12 @@ map MAP01
 
     #[test]
     fn test_intertext_clear() {
-        let input = r#"
+        let input = r"
 map MAP06
 {
     intertext = clear
 }
-"#;
+";
         let info = parse(input).expect("parse failed");
         let entry = info.get("MAP06").expect("MAP06 missing");
         assert!(matches!(&entry.inter_text, Some(TextOrClear::Clear)));
@@ -848,13 +848,13 @@ map MAP06
 
     #[test]
     fn test_boss_actions() {
-        let input = r#"
+        let input = r"
 map E1M8
 {
     bossaction = BaronOfHell, 23, 666
     bossaction = Cyberdemon, 30, 1
 }
-"#;
+";
         let info = parse(input).expect("parse failed");
         let entry = info.get("E1M8").expect("E1M8 missing");
         match &entry.boss_actions {
@@ -865,7 +865,7 @@ map E1M8
                 assert_eq!(actions[0].tag, 666);
                 assert_eq!(actions[1].thing_type, "Cyberdemon");
             }
-            other => panic!("expected Actions, got {:?}", other),
+            other => panic!("expected Actions, got {other:?}"),
         }
     }
 
