@@ -809,6 +809,12 @@ impl PicData {
         self.walls.len()
     }
 
+    /// Height in pixels of a wall texture by index (OG `textureheight`).
+    #[inline(always)]
+    pub fn texture_height(&self, texture: usize) -> i32 {
+        self.wall_pic(texture).height as i32
+    }
+
     #[inline(always)]
     pub fn sprite_def(&self, sprite_num: usize) -> &SpriteDef {
         #[cfg(not(feature = "safety_check"))]

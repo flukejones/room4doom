@@ -164,9 +164,7 @@ pub fn ev_do_floor(line: MapPtr<LineDef>, kind: FloorKind, level: &mut LevelStat
                 for line in sec.lines.iter() {
                     if line.flags.contains(LineDefFlags::TwoSided) {
                         if let Some(bottomtexture) = line.front_sidedef.bottomtexture {
-                            let tmp = SectorHeight::from(
-                                level.animations[bottomtexture].num_pics() as i32,
-                            );
+                            let tmp = SectorHeight::from(level.texture_heights[bottomtexture]);
                             if tmp < min {
                                 min = tmp;
                             }
@@ -174,9 +172,7 @@ pub fn ev_do_floor(line: MapPtr<LineDef>, kind: FloorKind, level: &mut LevelStat
                         if let Some(side) = line.back_sidedef.as_ref()
                             && let Some(bottomtexture) = side.bottomtexture
                         {
-                            let tmp = SectorHeight::from(
-                                level.animations[bottomtexture].num_pics() as i32,
-                            );
+                            let tmp = SectorHeight::from(level.texture_heights[bottomtexture]);
                             if tmp < min {
                                 min = tmp;
                             }
