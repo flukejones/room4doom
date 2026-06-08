@@ -67,6 +67,8 @@ pub struct LevelState {
     pub animations: Vec<PicAnimation>,
     /// List of switch textures in ordered pairs
     pub switch_list: Vec<usize>,
+    /// Wall texture pixel heights indexed by texture number (OG `textureheight`)
+    pub(crate) texture_heights: Vec<i32>,
     /// List of used buttons. Typically these buttons or switches are timed.
     pub(crate) button_list: Vec<Button>,
     /// Scrolling walls
@@ -137,6 +139,7 @@ impl LevelState {
             secret_exit: false,
             valid_count: 0,
             switch_list: Default::default(),
+            texture_heights: Default::default(),
             animations: Default::default(),
             button_list: Vec::with_capacity(50),
             line_special_list: Vec::with_capacity(50),
@@ -235,6 +238,9 @@ impl LevelState {
         self.map_name = map_name.to_owned();
         self.animations = animations;
         self.switch_list = switch_list;
+        self.texture_heights = (0..pic_data.num_textures())
+            .map(|i| pic_data.texture_height(i))
+            .collect();
 
         // Allocate blockmap thing chains
         let bm = self.level_data.blockmap();
