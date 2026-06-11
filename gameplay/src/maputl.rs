@@ -1,12 +1,12 @@
-//! Many helper functions related to traversing the map, crossing or finding
-//! lines.
+//! Map traversal utilities: line/divline side tests, intercept collection and
+//! traversal, portal openings. Doom source name `p_maputl`.
 
 use crate::thing::{MapObject, PT_ADDLINES, PT_ADDTHINGS, PT_EARLYOUT};
 
 use crate::level::LevelState;
 use level::MapPtr;
 use level::level_data::LevelData;
-use level::map_defs::{LineDef, Node, SlopeType, is_subsector, subsector_index};
+use level::map_defs::{LineDef, SlopeType};
 #[cfg(any(feature = "fixed64", feature = "fixed64hd"))]
 use math::fixed_point::{FRACBITS, WideInner};
 use math::{DivLineFixed, FixedT, intercept_vector, point_on_divline_side};
@@ -186,95 +186,6 @@ pub fn p_divline_side_raw(
         2
     } else {
         1
-    }
-}
-
-/// Wrapper for BSP node side test (converts Node f32 fields to fixed).
-#[inline]
-fn p_divline_side(x: FixedT, y: FixedT, node: &Node) -> usize {
-    p_divline_side_raw(
-        x,
-        y,
-        FixedT::from_f32(node.xy.x),
-        FixedT::from_f32(node.xy.y),
-        FixedT::from_f32(node.delta.x),
-        FixedT::from_f32(node.delta.y),
-    )
-}
-
-/// BSP traversal trace using fixed-point coordinates matching OG Doom's
-/// `R_PointOnSide`. Finds which subsectors a line or radius query intersects.
-pub struct BSPTrace {
-    pub origin_x: FixedT,
-    pub origin_y: FixedT,
-    pub endpoint_x: FixedT,
-    pub endpoint_y: FixedT,
-    pub nodes: Vec<u32>,
-}
-
-impl BSPTrace {
-    #[inline]
-    pub fn new_line(
-        origin_x: FixedT,
-        origin_y: FixedT,
-        endpoint_x: FixedT,
-        endpoint_y: FixedT,
-        radius: FixedT,
-    ) -> Self {
-        let dx = endpoint_x - origin_x;
-        let dy = endpoint_y - origin_y;
-        let fwd_bam = math::r_point_to_angle(dx, dy);
-        let back_bam = fwd_bam.wrapping_add(math::ANG180);
-
-        let offset = |bam: u32| -> (FixedT, FixedT) {
-            (radius * math::fine_cos(bam), radius * math::fine_sin(bam))
-        };
-
-        let (fwd_dx, fwd_dy) = offset(fwd_bam);
-        let (back_dx, back_dy) = offset(back_bam);
-
-        Self {
-            origin_x: origin_x + back_dx,
-            origin_y: origin_y + back_dy,
-            endpoint_x: endpoint_x + fwd_dx,
-            endpoint_y: endpoint_y + fwd_dy,
-            nodes: Vec::with_capacity(50),
-        }
-    }
-
-    #[inline]
-    pub fn find_intercepts(&mut self, node_id: u32, map: &LevelData, count: &mut u32) {
-        self.find_line_inner(node_id, map, count);
-    }
-
-    /// Trace a line through the BSP from origin to endpoint using fixed-point
-    /// `R_PointOnSide` for node side determination.
-    #[inline]
-    fn find_line_inner(&mut self, node_id: u32, map: &LevelData, count: &mut u32) {
-        *count += 1;
-        if is_subsector(node_id) {
-            let ss_idx = subsector_index(node_id) as u32;
-            if !self.nodes.contains(&ss_idx) {
-                self.nodes.push(ss_idx);
-            }
-            return;
-        }
-
-        let node = &map.get_nodes()[node_id as usize];
-
-        // OG P_CrossBSPNode: determine which side origin is on, cross it first,
-        // then cross the other side only if the endpoint is on it.
-        let mut side1 = p_divline_side(self.origin_x, self.origin_y, node);
-        if side1 == 2 {
-            side1 = 0; // on the partition line — treat as front, cross both
-        }
-
-        self.find_line_inner(node.children[side1], map, count);
-
-        let side2 = p_divline_side(self.endpoint_x, self.endpoint_y, node);
-        if side2 != side1 {
-            self.find_line_inner(node.children[side1 ^ 1], map, count);
-        }
     }
 }
 

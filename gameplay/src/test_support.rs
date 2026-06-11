@@ -46,6 +46,11 @@ impl TestLevel {
     /// global RNG) must hold [`rng_guard`] for its whole body so it does not
     /// race other tests on the shared RNG.
     pub fn load(map_name: &str) -> Self {
+        Self::load_wad(&WadData::new(&doom1_wad_path()), map_name)
+    }
+
+    /// Like [`Self::load`] but from a caller-provided WAD (e.g. a UDMF map).
+    pub fn load_wad(wad: &WadData, map_name: &str) -> Self {
         let (tx, rx): (SndServerTx, Receiver<SoundAction>) = channel();
         let mut players_in_game = Box::new([false; MAXPLAYERS]);
         players_in_game[0] = true;
@@ -70,8 +75,7 @@ impl TestLevel {
 
         // Load the real map straight into level_data (the PicData-driven
         // LevelState::load path is bypassed; flats aren't needed for physics).
-        let wad = WadData::new(&doom1_wad_path());
-        level.level_data.load(map_name, |_| None, &wad, None, None);
+        level.level_data.load(map_name, |_| None, wad, None, None);
 
         // Replicate LevelState::load's tail: blockmap thing-chains + a thinker
         // arena sized to the thing count.

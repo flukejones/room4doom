@@ -146,9 +146,8 @@ fn shoot_bullet(player: &mut Player) {
         mobj.start_sound(SfxName::Pistol);
         mobj.set_state(StateNum::PLAY_ATK2);
 
-        let mut bsp_trace = mobj.get_shoot_bsp_trace(distance);
-        let bullet_slope = mobj.bullet_slope(distance, &mut bsp_trace);
-        mobj.gun_shot(refire == 0, distance, bullet_slope, &mut bsp_trace);
+        let bullet_slope = mobj.bullet_slope(distance);
+        mobj.gun_shot(refire == 0, distance, bullet_slope);
     }
 }
 
@@ -168,11 +167,10 @@ pub(crate) fn a_fireshotgun(player: &mut Player, _pspr: &mut PspDef) {
         mobj.start_sound(SfxName::Shotgn);
         mobj.set_state(StateNum::PLAY_ATK2);
 
-        let mut bsp_trace = mobj.get_shoot_bsp_trace(distance);
-        let bullet_slope = mobj.bullet_slope(distance, &mut bsp_trace);
+        let bullet_slope = mobj.bullet_slope(distance);
 
         for _ in 0..7 {
-            mobj.gun_shot(false, distance, bullet_slope.clone(), &mut bsp_trace);
+            mobj.gun_shot(false, distance, bullet_slope.clone());
         }
     }
 
@@ -190,8 +188,7 @@ pub(crate) fn a_fireshotgun2(player: &mut Player, _pspr: &mut PspDef) {
         mobj.start_sound(SfxName::Dshtgn);
         mobj.set_state(StateNum::PLAY_ATK2);
 
-        let mut bsp_trace = mobj.get_shoot_bsp_trace(distance);
-        let bullet_slope = mobj.bullet_slope(distance, &mut bsp_trace);
+        let bullet_slope = mobj.bullet_slope(distance);
 
         for _ in 0..20 {
             let damage = 5 * (p_random() % 3 + 1);
@@ -204,7 +201,7 @@ pub(crate) fn a_fireshotgun2(player: &mut Player, _pspr: &mut PspDef) {
                 res.aimslope += adj;
                 res
             });
-            mobj.line_attack(damage, distance, angle, slope_adj, &mut bsp_trace);
+            mobj.line_attack(damage, distance, angle, slope_adj);
         }
     }
 
@@ -295,10 +292,9 @@ pub(crate) fn a_bfgspray(player: &mut MapObject) {
             .wrapping_sub(ANG90 / 2)
             .wrapping_add((ANG90 / 40) * i);
         let angle = Angle::from_bam(bam);
-        let mut bsp_trace = player.get_shoot_bsp_trace(distance);
         let old_angle = player.angle;
         player.angle = angle;
-        let aim = player.aim_line_attack(distance, &mut bsp_trace);
+        let aim = player.aim_line_attack(distance);
         player.angle = old_angle;
         if let Some(aim) = aim {
             let mut lt = aim.line_target;
@@ -339,13 +335,12 @@ pub(crate) fn a_punch(player: &mut Player, _pspr: &mut PspDef) {
         let angle = Angle::from_bam(mobj.angle.to_bam().wrapping_add(spread));
 
         let melee: FixedT = MELEERANGE.into();
-        let mut bsp_trace = mobj.get_shoot_bsp_trace(melee);
         // OG: aim uses spread angle
         let old_angle = mobj.angle;
         mobj.angle = angle;
-        let slope = mobj.aim_line_attack(melee, &mut bsp_trace);
+        let slope = mobj.aim_line_attack(melee);
         mobj.angle = old_angle;
-        mobj.line_attack(damage, melee, angle, slope.clone(), &mut bsp_trace);
+        mobj.line_attack(damage, melee, angle, slope.clone());
 
         if let Some(res) = slope {
             let target = res.line_target;
@@ -384,13 +379,12 @@ pub(crate) fn a_saw(player: &mut Player, _pspr: &mut PspDef) {
         let angle = Angle::from_bam(mobj.angle.to_bam().wrapping_add(spread));
 
         let melee: FixedT = (MELEERANGE + 1).into();
-        let mut bsp_trace = mobj.get_shoot_bsp_trace(melee);
         // OG: aim uses spread angle
         let old_angle = mobj.angle;
         mobj.angle = angle;
-        let slope = mobj.aim_line_attack(melee, &mut bsp_trace);
+        let slope = mobj.aim_line_attack(melee);
         mobj.angle = old_angle;
-        mobj.line_attack(damage, melee, angle, slope.clone(), &mut bsp_trace);
+        mobj.line_attack(damage, melee, angle, slope.clone());
 
         if slope.is_none() {
             mobj.start_sound(SfxName::Sawful);

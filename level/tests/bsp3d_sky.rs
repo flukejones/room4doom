@@ -8,7 +8,7 @@
 
 use std::collections::HashSet;
 
-use level::{SurfaceKind, WallType};
+use level::{BSP3D, PolyFlags, WallSlot};
 use test_utils::{doom2_wad_path, eviternity_wad_path, load_map_with_flats};
 use wad::types::WadSector;
 use wad::{MapLump, WadData};
@@ -42,12 +42,9 @@ fn map04_no_sky_ceiling_polygons() {
         sky_ids.len()
     );
 
-    let violations: Vec<usize> = bsp3d
-        .subsector_leaves
-        .iter()
-        .flat_map(|leaf| &leaf.ceiling_polygons)
-        .filter(|&&ci| sky_ids.contains(&bsp3d.polygons[ci].sector_id))
-        .copied()
+    let violations: Vec<usize> = (0..bsp3d.leaves.len())
+        .flat_map(|ss| bsp3d.leaf_ceiling_polys(ss).collect::<Vec<_>>())
+        .filter(|&ci| sky_ids.contains(&(bsp3d.polygons[ci].sector.num as usize)))
         .collect();
     assert!(
         violations.is_empty(),
@@ -62,11 +59,9 @@ fn map04_sky_sectors_have_floors() {
     let bsp3d = &map.bsp_3d;
     let sky_ids = sky_sector_ids(&map, sky_num);
 
-    let with_floors = bsp3d
-        .subsector_leaves
-        .iter()
-        .flat_map(|leaf| &leaf.floor_polygons)
-        .filter(|&&fi| sky_ids.contains(&bsp3d.polygons[fi].sector_id))
+    let with_floors = (0..bsp3d.leaves.len())
+        .flat_map(|ss| bsp3d.leaf_floor_polys(ss).collect::<Vec<_>>())
+        .filter(|&fi| sky_ids.contains(&(bsp3d.polygons[fi].sector.num as usize)))
         .count();
     assert!(with_floors > 0, "sky sectors should have floor polygons");
 }
@@ -100,17 +95,9 @@ fn map04_no_sky_textured_ceiling_polygons() {
     let (_wad, map, sky_num) = load_map04();
     let bsp3d = &map.bsp_3d;
 
-    let violations: Vec<usize> = bsp3d
-        .subsector_leaves
-        .iter()
-        .flat_map(|leaf| &leaf.ceiling_polygons)
-        .filter(|&&ci| {
-            matches!(
-                bsp3d.polygons[ci].surface_kind,
-                SurfaceKind::Horizontal { texture, .. } if texture == sky_num
-            )
-        })
-        .copied()
+    let violations: Vec<usize> = (0..bsp3d.leaves.len())
+        .flat_map(|ss| bsp3d.leaf_ceiling_polys(ss).collect::<Vec<_>>())
+        .filter(|&ci| bsp3d.poly_tex[ci] == sky_num as u32)
         .collect();
     assert!(
         violations.is_empty(),
@@ -131,7 +118,7 @@ fn map04_linedef1572_sky_wall() {
 fn map04_linedef1581_no_upper_wall() {
     // Two-sided, both sectors F_SKY1 — upper wall skipped.
     let (_wad, map, _sky_num) = load_map04();
-    let found = wall_exists(&map.bsp_3d, 1581, Some(WallType::Upper));
+    let found = wall_exists(&map.bsp_3d, 1581, Some(WallSlot::Upper));
     assert!(
         !found,
         "ld1581 (both sides F_SKY1) should have NO upper wall"
@@ -142,7 +129,7 @@ fn map04_linedef1581_no_upper_wall() {
 fn map04_linedef1351_has_upper_wall() {
     // Two-sided, one side F_SKY1 — upper wall exists.
     let (_wad, map, _sky_num) = load_map04();
-    let found = wall_exists(&map.bsp_3d, 1351, Some(WallType::Upper));
+    let found = wall_exists(&map.bsp_3d, 1351, Some(WallSlot::Upper));
     assert!(
         found,
         "ld1351 (sky/non-sky border) should have an upper wall"
@@ -166,18 +153,10 @@ fn map04_no_upper_walls_between_sky_sectors() {
         .map(|(i, _)| i)
         .collect();
 
-    let violations: Vec<usize> = bsp3d
-        .subsector_leaves
+    let violations: Vec<usize> = both_sky
         .iter()
-        .flat_map(|leaf| &leaf.polygon_indices)
-        .filter_map(|&gi| match &bsp3d.polygons[gi].surface_kind {
-            SurfaceKind::Vertical {
-                linedef_id,
-                wall_type: WallType::Upper,
-                ..
-            } if both_sky.contains(linedef_id) => Some(*linedef_id),
-            _ => None,
-        })
+        .filter(|&&ld| wall_exists(bsp3d, ld, Some(WallSlot::Upper)))
+        .copied()
         .collect();
     assert!(
         violations.is_empty(),
@@ -186,18 +165,11 @@ fn map04_no_upper_walls_between_sky_sectors() {
     );
 }
 
-/// Whether any polygon on `ld` exists (optionally filtered to `wall_type`).
-fn wall_exists(bsp3d: &level::BSP3D, ld: usize, wall_type: Option<WallType>) -> bool {
-    bsp3d.subsector_leaves.iter().any(|leaf| {
-        leaf.polygon_indices
-            .iter()
-            .any(|&gi| match &bsp3d.polygons[gi].surface_kind {
-                SurfaceKind::Vertical {
-                    linedef_id,
-                    wall_type: wt,
-                    ..
-                } if *linedef_id == ld => wall_type.is_none_or(|want| *wt == want),
-                _ => false,
-            })
+/// Whether any non-sky-filler polygon on `ld` exists (optionally filtered to
+/// `slot`).
+fn wall_exists(bsp3d: &BSP3D, ld: usize, slot: Option<WallSlot>) -> bool {
+    bsp3d.linedef_wall_polys[ld].iter().any(|&gi| {
+        !bsp3d.poly_flags[gi].contains(PolyFlags::SKY_FILLER)
+            && slot.is_none_or(|want| bsp3d.wall_slot(gi) == Some(want))
     })
 }

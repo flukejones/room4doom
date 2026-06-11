@@ -10,6 +10,7 @@ publish = false
 dirs.workspace = true
 glam.workspace = true
 level.workspace = true
+math.workspace = true
 wad.workspace = true
 
 [lints]

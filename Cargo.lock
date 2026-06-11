@@ -2295,6 +2295,7 @@ version = "1.0.0"
 dependencies = [
  "bitflags 2.13.0",
  "coarse-prof",
+ "dirs",
  "glam",
  "log",
  "math",
@@ -3504,7 +3505,9 @@ name = "rbsp"
 version = "1.0.0"
 dependencies = [
  "argh",
+ "bitflags 2.13.0",
  "criterion 0.5.1",
+ "glam",
  "log",
  "simplelog",
  "wad",
@@ -4188,6 +4191,7 @@ dependencies = [
  "dirs",
  "glam",
  "level",
+ "math",
  "wad",
 ]
 

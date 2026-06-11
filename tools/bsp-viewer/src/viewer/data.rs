@@ -1,6 +1,6 @@
 use egui::Color32;
 use glam::Vec2;
-use level::{LevelData, SurfaceKind, is_subsector, subsector_index};
+use level::{BSP3D, LevelData, Node3D, is_leaf, leaf_index};
 use wad::WadData;
 use wad::types::WadPalette;
 
@@ -204,54 +204,41 @@ pub fn extract_viewer_data(map_name: &str, level_data: &LevelData, wad: &WadData
         .collect();
 
     let bsp = &level_data.bsp_3d;
-    let subsectors: Vec<ViewSubsector> = bsp
-        .carved_polygons
-        .iter()
-        .enumerate()
-        .zip(bsp.subsector_leaves.iter())
-        .map(|((i, verts), leaf)| {
-            let sector_id = leaf.sector_id;
+    let subsectors: Vec<ViewSubsector> = (0..bsp.leaves.len())
+        .map(|i| {
+            let leaf = &bsp.leaves[i];
+            let sector_id = leaf.sector.num as usize;
+            let verts = subsector_floor_outline(bsp, i);
             if verts.len() >= 3 {
-                validate_polygon(i, sector_id, verts);
+                validate_polygon(i, sector_id, &verts);
             }
-            let mut wall_linedef_ids: Vec<usize> = leaf
-                .polygon_indices
-                .iter()
-                .filter_map(|&gi| match &bsp.polygons[gi].surface_kind {
-                    SurfaceKind::Vertical {
-                        linedef_id,
-                        ..
-                    } => Some(*linedef_id),
-                    _ => None,
-                })
+            let mut wall_linedef_ids: Vec<usize> = bsp
+                .leaf_poly_indices(i)
+                .filter_map(|gi| bsp.polygons[gi].linedef.as_ref().map(|ld| ld.num))
                 .collect();
             wall_linedef_ids.sort_unstable();
             wall_linedef_ids.dedup();
-            let view_polys: Vec<ViewPolygon> = leaf
-                .polygon_indices
-                .iter()
-                .map(|&gi| {
+            let view_polys: Vec<ViewPolygon> = bsp
+                .leaf_poly_indices(i)
+                .map(|gi| {
                     let p = &bsp.polygons[gi];
-                    let kind = match &p.surface_kind {
-                        SurfaceKind::Vertical {
-                            wall_type,
-                            linedef_id,
-                            ..
-                        } => {
-                            format!("{:?} ld={}", wall_type, linedef_id)
+                    let kind = match &p.linedef {
+                        Some(ld) => {
+                            format!("{:?} ld={}", bsp.wall_slot(gi).expect("wall"), ld.num)
                         }
-                        SurfaceKind::Horizontal {
-                            ..
-                        } => {
-                            if leaf.floor_polygons.contains(&gi) {
+                        None => {
+                            if p.normal.z > 0.0 {
                                 "floor".into()
                             } else {
                                 "ceiling".into()
                             }
                         }
                     };
-                    let vertices: Vec<glam::Vec3> =
-                        p.vertices.iter().map(|&vi| bsp.vertices[vi]).collect();
+                    let vertices: Vec<glam::Vec3> = bsp
+                        .poly_vert_indices(gi)
+                        .iter()
+                        .map(|&vi| bsp.vertices[vi])
+                        .collect();
                     ViewPolygon {
                         kind,
                         vertices,
@@ -261,7 +248,7 @@ pub fn extract_viewer_data(map_name: &str, level_data: &LevelData, wad: &WadData
             ViewSubsector {
                 index: i,
                 sector_id,
-                vertices: verts.clone(),
+                vertices: verts,
                 polygons: view_polys,
                 aabb_min: leaf.aabb.min.truncate(),
                 aabb_max: leaf.aabb.max.truncate(),
@@ -273,8 +260,8 @@ pub fn extract_viewer_data(map_name: &str, level_data: &LevelData, wad: &WadData
     let mut divlines = Vec::new();
     let mut ss_divline_path = vec![Vec::new(); level_data.subsectors.len()];
     collect_divline_paths(
-        level_data.start_node,
-        &level_data.nodes,
+        level_data.bsp_3d.root_node(),
+        level_data.bsp_3d.nodes(),
         &mut divlines,
         &mut Vec::new(),
         &mut ss_divline_path,
@@ -298,17 +285,13 @@ pub fn extract_viewer_data(map_name: &str, level_data: &LevelData, wad: &WadData
 
 fn collect_divline_paths(
     node_id: u32,
-    nodes: &[level::map_defs::Node],
+    nodes: &[Node3D],
     divlines: &mut Vec<ViewDivline>,
     path: &mut Vec<usize>,
     ss_paths: &mut [Vec<usize>],
 ) {
-    if is_subsector(node_id) {
-        let ss_id = if node_id == u32::MAX {
-            0
-        } else {
-            subsector_index(node_id)
-        };
+    if is_leaf(node_id) {
+        let ss_id = leaf_index(node_id);
         if ss_id < ss_paths.len() {
             ss_paths[ss_id] = path.clone();
         }
@@ -320,13 +303,33 @@ fn collect_divline_paths(
     let divline_idx = divlines.len();
     divlines.push(ViewDivline {
         index: node_id as usize,
-        origin: Vec2::new(node.xy.x, node.xy.y),
-        dir: Vec2::new(node.delta.x, node.delta.y),
+        origin: Vec2::new(node.xy_fp[0].to_f32(), node.xy_fp[1].to_f32()),
+        dir: Vec2::new(node.delta_fp[0].to_f32(), node.delta_fp[1].to_f32()),
     });
     path.push(divline_idx);
     collect_divline_paths(node.children[0], nodes, divlines, path, ss_paths);
     collect_divline_paths(node.children[1], nodes, divlines, path, ss_paths);
     path.pop();
+}
+
+/// A subsector's floor polygon projected to XY (replaces the build-time carved
+/// polygon, which no longer survives to runtime). Empty when the leaf has no
+/// floor polygon (sky floor or degenerate subsector).
+pub fn subsector_floor_outline(bsp3d: &BSP3D, subsector_id: usize) -> Vec<Vec2> {
+    bsp3d
+        .leaf_floor_polys(subsector_id)
+        .next()
+        .map(|fi| {
+            bsp3d
+                .poly_vert_indices(fi)
+                .iter()
+                .map(|&vi| {
+                    let v = bsp3d.vertices[vi];
+                    Vec2::new(v.x, v.y)
+                })
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 fn validate_polygon(subsector_id: usize, sector_id: usize, verts: &[Vec2]) {

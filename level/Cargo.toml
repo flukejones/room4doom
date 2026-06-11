@@ -30,6 +30,7 @@ wad-all = [
 
 [dependencies]
 coarse-prof.workspace = true
+dirs.workspace = true
 math.workspace = true
 wad.workspace = true
 rbsp.workspace = true

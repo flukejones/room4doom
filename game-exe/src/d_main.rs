@@ -26,7 +26,6 @@ use gamestate::subsystems::GameSubsystem;
 use gamestate_traits::{GameState, KeyCode, SubsystemTrait};
 use hud_util::{draw_patch, draw_text_line, fullscreen_scale, hud_scale, measure_text_line};
 use input::InputState;
-use level::LevelData;
 use log::error;
 use math::{Angle, Bam, FixedT};
 #[cfg(feature = "wgpu3d")]
@@ -46,17 +45,8 @@ use crate::cheats::Cheats;
 
 /// Build a render view from the current player state.
 /// Returns `None` when the player has no map object (e.g. during intermission).
-fn build_render_view(
-    player: &Player,
-    level_data: &LevelData,
-    frac: f32,
-    game_tic: u32,
-) -> Option<RenderView> {
+fn build_render_view(player: &Player, frac: f32, game_tic: u32) -> Option<RenderView> {
     let mobj = player.mobj()?;
-    let subsector_id = level_data
-        .subsectors
-        .iter()
-        .position(|ss| ptr::eq(ss, &*mobj.subsector))?;
     let prev = &player.prev_render;
 
     // f32 boundary: frac originates from Timestep (Instant timing division)
@@ -97,7 +87,6 @@ fn build_render_view(
         fixedcolormap: player.fixedcolormap as usize,
         extralight: player.extralight,
         is_shadow: mobj.flags.contains(MapObjFlag::Shadow),
-        subsector_id,
         psprites,
         sector_lightlevel: mobj.subsector.sector.lightlevel,
         player_mobj_id: ptr::from_ref(mobj) as usize,
@@ -328,9 +317,7 @@ pub(crate) fn d_display<P: PixelFmt>(
             {
                 level.level_data.apply_render_interpolation(frac);
                 let player = &game.players[game.consoleplayer];
-                if let Some(view) =
-                    build_render_view(player, &level.level_data, frac, game.game_tic)
-                {
+                if let Some(view) = build_render_view(player, frac, game.game_tic) {
                     game.pic_data.set_player_palette(
                         player.status.damagecount,
                         player.status.bonuscount,

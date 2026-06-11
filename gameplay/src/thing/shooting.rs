@@ -9,13 +9,13 @@ use math::{
 };
 use sound_common::SfxName;
 
-use crate::bsp_trace::{BSPTrace, Intercept, PortalZ, p_divline_side_raw, path_traverse_blockmap};
 use crate::doom_def::{MAXPLAYERS, MAXRADIUS, MELEERANGE};
 use crate::env::specials::shoot_special_line;
 use crate::info::{MOBJINFO, StateNum};
+use crate::maputl::{Intercept, PortalZ, p_divline_side_raw, path_traverse_blockmap};
 use crate::{MapObjKind, MapObject};
-use level::map_defs::{LineDef, is_subsector, subsector_index};
-use level::{LevelData, LineDefFlags, MapPtr};
+use level::map_defs::LineDef;
+use level::{LevelData, LineDefFlags, MapPtr, is_leaf, leaf_index};
 use math::Angle;
 
 use super::{MapObjFlag, PT_ADDLINES, PT_ADDTHINGS};
@@ -47,33 +47,12 @@ impl MapObject {
         }
     }
 
-    /// Build a `BSPTrace` along this object's facing angle out to `distance`.
-    /// Used to pre-collect intersected subsectors for shooting/aiming.
-    pub(crate) fn get_shoot_bsp_trace(&self, distance: FixedT) -> BSPTrace {
-        let bam = self.angle.to_bam();
-        let cos = math::fine_cos(bam);
-        let sin = math::fine_sin(bam);
-        // OG: x + (distance >> FRACBITS) * finecosine[angle]
-        let ex = self.x + cos * distance.to_i32();
-        let ey = self.y + sin * distance.to_i32();
-        // Radius captures overlapping demons in adjacent subsectors
-        let mut bsp_trace = BSPTrace::new_line(self.x, self.y, ex, ey, FixedT::from_f32(20.0));
-        let mut count = 0;
-        let level = unsafe { &mut *self.level };
-        bsp_trace.find_intercepts(level.level_data.start_node(), &level.level_data, &mut count);
-        bsp_trace
-    }
-
     /// Auto-aim traversal along the shooter's facing angle (`P_AimLineAttack`).
     ///
     /// Walks the blockmap collecting line and thing intercepts, narrowing
     /// the vertical slope window at each two-sided line portal. Returns
     /// the first shootable thing hit (with its aim slope) or `None`.
-    pub(crate) fn aim_line_attack(
-        &mut self,
-        distance: FixedT,
-        _bsp_trace: &mut BSPTrace,
-    ) -> Option<AimResult> {
+    pub(crate) fn aim_line_attack(&mut self, distance: FixedT) -> Option<AimResult> {
         let shootz = self.z + self.height.shr(1) + 8;
         let mut aim_traverse = SubSectTraverse::new(
             // OG: topslope = 100*FRACUNIT/160, bottomslope = -100*FRACUNIT/160
@@ -107,8 +86,7 @@ impl MapObject {
     /// Fire a hitscan line attack along `angle` with fixed `aim_slope`
     /// (`P_LineAttack`).
     ///
-    /// Preceded by `aim_line_attack` in many cases, so `BSPTrace` can be
-    /// shared. Walks the blockmap, spawning puffs on walls or blood/damage
+    /// Walks the blockmap, spawning puffs on walls or blood/damage
     /// on things. Nudges the trace origin to avoid blockmap cell-boundary
     /// edge cases.
     pub(crate) fn shoot_line_attack(
@@ -117,7 +95,6 @@ impl MapObject {
         angle: Angle<Bam>,
         aim_slope: FixedT,
         damage: i32,
-        _bsp_trace: &mut BSPTrace,
     ) {
         let shootz = self.z + self.height.shr(1) + 8;
         // OG: x + (distance >> FRACBITS) * finecosine[angle]
@@ -247,21 +224,17 @@ impl MapObject {
     ///
     /// Tries auto-aim at the current angle, then +/- 5.625 degrees.
     /// Restores the original angle after probing.
-    pub(crate) fn bullet_slope(
-        &mut self,
-        distance: FixedT,
-        bsp_trace: &mut BSPTrace,
-    ) -> Option<AimResult> {
-        let mut bullet_slope = self.aim_line_attack(distance, bsp_trace);
+    pub(crate) fn bullet_slope(&mut self, distance: FixedT) -> Option<AimResult> {
+        let mut bullet_slope = self.aim_line_attack(distance);
         let old_angle = self.angle;
         if bullet_slope.is_none() {
             // OG: an += 1<<26 (ANG90/16 = 5.625 degrees)
             self.angle = Angle::from_bam(self.angle.to_bam().wrapping_add(1 << 26));
-            bullet_slope = self.aim_line_attack(distance, bsp_trace);
+            bullet_slope = self.aim_line_attack(distance);
             if bullet_slope.is_none() {
                 // OG: an -= 2<<26
                 self.angle = Angle::from_bam(self.angle.to_bam().wrapping_sub(2 << 26));
-                bullet_slope = self.aim_line_attack(distance, bsp_trace);
+                bullet_slope = self.aim_line_attack(distance);
             }
         }
         self.angle = old_angle;
@@ -277,7 +250,6 @@ impl MapObject {
         accurate: bool,
         distance: FixedT,
         bullet_slope: Option<AimResult>,
-        bsp_trace: &mut BSPTrace,
     ) {
         let damage = 5 * (p_random() % 3 + 1);
         let mut angle = self.angle;
@@ -289,26 +261,24 @@ impl MapObject {
         }
 
         if let Some(res) = bullet_slope {
-            self.shoot_line_attack(distance, angle, res.aimslope, damage, bsp_trace);
+            self.shoot_line_attack(distance, angle, res.aimslope, damage);
         } else {
-            self.shoot_line_attack(distance, angle, FixedT::ZERO, damage, bsp_trace);
+            self.shoot_line_attack(distance, angle, FixedT::ZERO, damage);
         }
     }
 
-    /// Fire a line attack along the given angle using the previous `AimResult`
-    /// and `BSPTrace`.
+    /// Fire a line attack along the given angle using the previous `AimResult`.
     pub(crate) fn line_attack(
         &mut self,
         damage: i32,
         distance: FixedT,
         angle: Angle<Bam>,
         bullet_slope: Option<AimResult>,
-        bsp_trace: &mut BSPTrace,
     ) {
         if let Some(res) = bullet_slope {
-            self.shoot_line_attack(distance, angle, res.aimslope, damage, bsp_trace);
+            self.shoot_line_attack(distance, angle, res.aimslope, damage);
         } else {
-            self.shoot_line_attack(distance, angle, FixedT::ZERO, damage, bsp_trace);
+            self.shoot_line_attack(distance, angle, FixedT::ZERO, damage);
         }
     }
 
@@ -342,7 +312,7 @@ impl MapObject {
         let valid = level.valid_count;
 
         cross_bsp_node(
-            level.level_data.start_node(),
+            level.level_data.bsp_3d.root_node(),
             &strace,
             t2x,
             t2y,
@@ -788,10 +758,15 @@ fn cross_bsp_node(
     level_data: &LevelData,
     valid: usize,
 ) -> bool {
-    if is_subsector(node_id) {
-        let ss_idx = subsector_index(node_id);
+    if is_leaf(node_id) || node_id >= level_data.bsp_3d.first_plane_node() {
+        let leaf_id = if is_leaf(node_id) {
+            leaf_index(node_id)
+        } else {
+            level_data.bsp_3d.subtree_leaf(node_id)
+        };
+        let leaf = &level_data.bsp_3d.leaves[leaf_id];
         return cross_subsector(
-            ss_idx,
+            leaf.subsector,
             strace,
             t2x,
             t2y,
@@ -803,11 +778,9 @@ fn cross_bsp_node(
         );
     }
 
-    let node = &level_data.get_nodes()[node_id as usize];
-    let nx = FixedT::from_f32(node.xy.x);
-    let ny = FixedT::from_f32(node.xy.y);
-    let ndx = FixedT::from_f32(node.delta.x);
-    let ndy = FixedT::from_f32(node.delta.y);
+    let node = &level_data.bsp_3d.nodes()[node_id as usize];
+    let [nx, ny] = node.xy_fp;
+    let [ndx, ndy] = node.delta_fp;
 
     let mut side = p_divline_side_raw(strace.x, strace.y, nx, ny, ndx, ndy);
     if side == 2 {
@@ -955,20 +928,9 @@ fn cross_subsector(
 #[cfg(test)]
 mod shooting_tests {
     use crate::MapObjKind;
-    use crate::bsp_trace::BSPTrace;
     use crate::test_support::{TestLevel, rng_guard};
     use crate::thing::MapObjFlag;
     use math::{FixedT, get_prndindex};
-
-    fn trace() -> BSPTrace {
-        BSPTrace::new_line(
-            FixedT::ZERO,
-            FixedT::ZERO,
-            FixedT::ONE,
-            FixedT::ZERO,
-            FixedT::ZERO,
-        )
-    }
 
     #[test]
     fn explode_missile_zeroes_momentum_and_clears_flag() {
@@ -1014,16 +976,14 @@ mod shooting_tests {
 
         let accurate_cost = {
             let _g = rng_guard();
-            let mut bt = trace();
             let before = get_prndindex();
-            shooter.gun_shot(true, FixedT::from(2048), None, &mut bt);
+            shooter.gun_shot(true, FixedT::from(2048), None);
             get_prndindex().wrapping_sub(before)
         };
         let inaccurate_cost = {
             let _g = rng_guard();
-            let mut bt = trace();
             let before = get_prndindex();
-            shooter.gun_shot(false, FixedT::from(2048), None, &mut bt);
+            shooter.gun_shot(false, FixedT::from(2048), None);
             get_prndindex().wrapping_sub(before)
         };
 

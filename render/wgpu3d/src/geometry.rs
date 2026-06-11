@@ -64,13 +64,13 @@ impl Mesh {
 }
 
 /// Per-polygon corner ranges: a fan of n vertices = `(n-2)*3` corners, in
-/// `fan_corner_attr` order.
-fn poly_corner_ranges(poly_vertex_range: &[(u32, u32)]) -> Vec<(u32, u32)> {
+/// `fan_corner_attr` order. u32 by contract — these become GPU index ranges.
+fn poly_corner_ranges(poly_vertex_range: &[(usize, usize)]) -> Vec<(u32, u32)> {
     let mut ranges = Vec::with_capacity(poly_vertex_range.len());
     let mut cursor = 0u32;
     for &(start, end) in poly_vertex_range {
         let n = end - start;
-        let count = if n < 3 { 0 } else { (n - 2) * 3 };
+        let count = if n < 3 { 0 } else { ((n - 2) * 3) as u32 };
         ranges.push((cursor, count));
         cursor += count;
     }
@@ -82,10 +82,10 @@ fn poly_corner_ranges(poly_vertex_range: &[(u32, u32)]) -> Vec<(u32, u32)> {
 pub fn corner_attr_of(bsp3d: &BSP3D, p: usize) -> CornerAttr {
     CornerAttr {
         tex: bsp3d.poly_tex[p],
-        is_flat: bsp3d.poly_is_flat[p] as u32,
-        sector: bsp3d.polygons[p].sector_id as u32,
+        is_flat: bsp3d.poly_is_flat(p) as u32,
+        sector: bsp3d.polygons[p].sector.num as u32,
         contrast_adjust: contrast_adjust(bsp3d.polygons[p].normal),
-        is_sky: bsp3d.poly_is_sky[p] as u32,
-        is_masked_mid: bsp3d.polygons[p].is_masked_middle() as u32,
+        is_sky: bsp3d.poly_is_sky(p) as u32,
+        is_masked_mid: bsp3d.poly_is_masked_middle(p) as u32,
     }
 }

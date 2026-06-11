@@ -2,7 +2,8 @@ use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 use glam::Vec3;
-use level::{BSP3D, LevelData, SurfacePolygon};
+use level::{BSP3D, LevelData, MovementType};
+use math::FixedT;
 use wad::WadData;
 
 /// Path to the shareware Doom1 WAD included in the repo under `data/`.
@@ -45,8 +46,21 @@ pub fn kvx_path(name: &str) -> PathBuf {
     user_wad_dir().join("cheello_voxels/voxels").join(name)
 }
 
+/// Point the engine's rbsp sidecar cache at a per-process temp dir so tests
+/// never read stale entries from (or pollute) the user's real cache. Repeat
+/// loads within one test binary still exercise the cache-hit path.
+fn isolate_rbsp_cache() {
+    static ONCE: std::sync::Once = std::sync::Once::new();
+    ONCE.call_once(|| {
+        let dir = std::env::temp_dir().join(format!("room4doom-test-cache-{}", std::process::id()));
+        // Tests run threaded, but Once runs before any load touches the var.
+        unsafe { std::env::set_var("ROOM4DOOM_CACHE_DIR", &dir) };
+    });
+}
+
 /// Load a map with a no-op flat lookup (BSP/PVS tests don't need real flats).
 pub fn load_map(wad_path: &Path, map_name: &str) -> LevelData {
+    isolate_rbsp_cache();
     let wad = WadData::new(wad_path);
     let mut map = LevelData::default();
     map.load(map_name, |_| None, &wad, None, None);
@@ -55,6 +69,7 @@ pub fn load_map(wad_path: &Path, map_name: &str) -> LevelData {
 
 /// Load a map from a base WAD with a PWAD merged.
 pub fn load_map_with_pwad(base_wad: &Path, pwad: &Path, map_name: &str) -> LevelData {
+    isolate_rbsp_cache();
     let mut wad = WadData::new(base_wad);
     wad.add_file(pwad.into());
     let mut map = LevelData::default();
@@ -73,14 +88,32 @@ pub enum Surface {
     Ceiling,
 }
 
+/// Move a sector surface the way gameplay does: the sector height is mutated
+/// first, then the bsp3d event fires (wall slot/texture resolution reads the
+/// live sector heights).
+pub fn move_sector_surface(
+    map: &mut LevelData,
+    sector_id: usize,
+    movement: MovementType,
+    height: f32,
+) {
+    let h = FixedT::from_f32(height);
+    match movement {
+        MovementType::Floor => map.sectors[sector_id].floorheight = h,
+        MovementType::Ceiling => map.sectors[sector_id].ceilingheight = h,
+        MovementType::None => {}
+    }
+    map.bsp_3d.move_surface(sector_id, movement, h.to_f32());
+}
+
 /// Signed shoelace area of a polygon's XY projection. Positive = CCW (floor),
 /// negative = CW (ceiling).
-pub fn shoelace(poly: &SurfacePolygon, verts: &[Vec3]) -> f32 {
-    let n = poly.vertices.len();
+pub fn shoelace(indices: &[usize], verts: &[Vec3]) -> f32 {
+    let n = indices.len();
     (0..n)
         .map(|i| {
-            let a = verts[poly.vertices[i]];
-            let b = verts[poly.vertices[(i + 1) % n]];
+            let a = verts[indices[i]];
+            let b = verts[indices[(i + 1) % n]];
             a.x * b.y - b.x * a.y
         })
         .sum()
@@ -92,18 +125,13 @@ pub fn collect_sector_vertices(
     sector_id: usize,
     surface: Surface,
 ) -> BTreeSet<usize> {
-    bsp3d.sector_subsectors[sector_id]
+    let polys = match surface {
+        Surface::Floor => &bsp3d.sector_floor_polys[sector_id],
+        Surface::Ceiling => &bsp3d.sector_ceiling_polys[sector_id],
+    };
+    polys
         .iter()
-        .flat_map(|&ssid| {
-            let leaf = &bsp3d.subsector_leaves[ssid];
-            let polys = match surface {
-                Surface::Floor => &leaf.floor_polygons,
-                Surface::Ceiling => &leaf.ceiling_polygons,
-            };
-            polys
-                .iter()
-                .flat_map(|&pi| bsp3d.polygons[pi].vertices.iter().copied())
-        })
+        .flat_map(|&gi| bsp3d.poly_vert_indices(gi).iter().copied())
         .collect()
 }
 
@@ -132,47 +160,47 @@ pub fn assert_floor_ceiling_normals(map: &LevelData) {
     let verts = &bsp3d.vertices;
     let mut failures = Vec::new();
 
-    for (ssid, leaf) in bsp3d.subsector_leaves.iter().enumerate() {
-        if leaf.polygon_indices.is_empty() {
+    for ssid in 0..bsp3d.leaves.len() {
+        if bsp3d.leaf_poly_indices(ssid).next().is_none() {
             continue;
         }
-        let has_floor = !leaf.floor_polygons.is_empty();
-        let has_ceil = !leaf.ceiling_polygons.is_empty();
+        let floors: Vec<usize> = bsp3d.leaf_floor_polys(ssid).collect();
+        let ceils: Vec<usize> = bsp3d.leaf_ceiling_polys(ssid).collect();
         // Sky subsectors may lack a floor or ceiling.
-        if !has_floor || !has_ceil {
+        if floors.is_empty() || ceils.is_empty() {
             continue;
         }
-        if leaf.floor_polygons.len() != 1 {
-            failures.push(format!(
-                "ss={ssid}: {} floor polygons",
-                leaf.floor_polygons.len()
-            ));
+        if floors.len() != 1 {
+            failures.push(format!("ss={ssid}: {} floor polygons", floors.len()));
             continue;
         }
-        if leaf.ceiling_polygons.len() != 1 {
-            failures.push(format!(
-                "ss={ssid}: {} ceiling polygons",
-                leaf.ceiling_polygons.len()
-            ));
+        if ceils.len() != 1 {
+            failures.push(format!("ss={ssid}: {} ceiling polygons", ceils.len()));
             continue;
         }
 
-        let floor = &bsp3d.polygons[leaf.floor_polygons[0]];
-        let ceil = &bsp3d.polygons[leaf.ceiling_polygons[0]];
+        let floor_verts = bsp3d.poly_vert_indices(floors[0]);
+        let ceil_verts = bsp3d.poly_vert_indices(ceils[0]);
 
-        if floor.normal != Vec3::new(0.0, 0.0, 1.0) {
-            failures.push(format!("ss={ssid}: floor normal {:?}", floor.normal));
+        if bsp3d.polygons[floors[0]].normal != Vec3::new(0.0, 0.0, 1.0) {
+            failures.push(format!(
+                "ss={ssid}: floor normal {:?}",
+                bsp3d.polygons[floors[0]].normal
+            ));
         }
-        if ceil.normal != Vec3::new(0.0, 0.0, -1.0) {
-            failures.push(format!("ss={ssid}: ceiling normal {:?}", ceil.normal));
+        if bsp3d.polygons[ceils[0]].normal != Vec3::new(0.0, 0.0, -1.0) {
+            failures.push(format!(
+                "ss={ssid}: ceiling normal {:?}",
+                bsp3d.polygons[ceils[0]].normal
+            ));
         }
-        if floor.vertices.len() < 3 || ceil.vertices.len() < 3 {
+        if floor_verts.len() < 3 || ceil_verts.len() < 3 {
             failures.push(format!("ss={ssid}: degenerate floor/ceiling (< 3 verts)"));
             continue;
         }
 
-        let floor_area = shoelace(floor, verts);
-        let ceil_area = shoelace(ceil, verts);
+        let floor_area = shoelace(floor_verts, verts);
+        let ceil_area = shoelace(ceil_verts, verts);
         if floor_area <= 0.0 {
             failures.push(format!(
                 "ss={ssid}: floor shoelace={floor_area:.2} (expected > 0)"
@@ -186,14 +214,14 @@ pub fn assert_floor_ceiling_normals(map: &LevelData) {
 
         // Smaller polygon's XY must be a subset of the larger (epsilon: mover
         // sectors separate vertices to slightly different positions).
-        let xy = |p: &SurfacePolygon| -> Vec<(f32, f32)> {
-            p.vertices
+        let xy = |indices: &[usize]| -> Vec<(f32, f32)> {
+            indices
                 .iter()
                 .map(|&vi| (verts[vi].x, verts[vi].y))
                 .collect()
         };
-        let floor_xy = xy(floor);
-        let ceil_xy = xy(ceil);
+        let floor_xy = xy(floor_verts);
+        let ceil_xy = xy(ceil_verts);
         let (smaller, larger) = if floor_xy.len() <= ceil_xy.len() {
             (&floor_xy, &ceil_xy)
         } else {
@@ -223,6 +251,7 @@ pub fn assert_floor_ceiling_normals(map: &LevelData) {
 /// Uses manual lump scan for flat list (LumpIter has a bug with multi-chunk
 /// flat sections where IWAD flats get dropped when PWAD has its own section).
 pub fn load_map_with_flats(wad: &WadData, map_name: &str) -> (LevelData, Option<usize>) {
+    isolate_rbsp_cache();
     let mut flats = Vec::new();
     let mut in_flats = false;
     for l in wad.lumps() {

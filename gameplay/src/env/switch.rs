@@ -19,7 +19,7 @@ use crate::lang::english::{PD_BLUEO, PD_REDO, PD_YELLOWO};
 use crate::level::LevelState;
 use crate::pic::{Button, ButtonWhere};
 use level::MapPtr;
-use level::bsp3d::{BSP3D, WallType};
+use level::bsp3d::BSP3D;
 use level::flags::LineDefFlags;
 use level::map_defs::LineDef;
 
@@ -97,7 +97,7 @@ pub fn change_switch_texture(
             start_sector_sound(&line, sfx, snd);
             let new_tex = switch_list[i ^ 1];
             line.front_sidedef.toptexture = Some(new_tex);
-            bsp3d.update_wall_texture(line.num, WallType::Upper, new_tex);
+            bsp3d.update_wall_texture(line.num);
             if use_again {
                 start_button(
                     line,
@@ -115,7 +115,7 @@ pub fn change_switch_texture(
             start_sector_sound(&line, sfx, snd);
             let new_tex = switch_list[i ^ 1];
             line.front_sidedef.midtexture = Some(new_tex);
-            bsp3d.update_wall_texture(line.num, WallType::Middle, new_tex);
+            bsp3d.update_wall_texture(line.num);
             if use_again {
                 start_button(
                     line,
@@ -133,7 +133,7 @@ pub fn change_switch_texture(
             start_sector_sound(&line, sfx, snd);
             let new_tex = switch_list[i ^ 1];
             line.front_sidedef.bottomtexture = Some(new_tex);
-            bsp3d.update_wall_texture(line.num, WallType::Lower, new_tex);
+            bsp3d.update_wall_texture(line.num);
             if use_again {
                 start_button(
                     line,

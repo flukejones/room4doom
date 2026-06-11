@@ -108,8 +108,8 @@ const MAXRADIUS_FIXED: i32 = 32 << 16;
 /// Doom function name `P_TeleportMove`
 pub fn teleport_move(x: FixedT, y: FixedT, thing: &mut MapObject, level: &mut LevelState) -> bool {
     let new_subsect = &mut *level.level_data.point_in_subsector(x, y);
-    let floorz = new_subsect.sector.floorheight;
-    let ceilzz = new_subsect.sector.ceilingheight;
+    let floorz = new_subsect.sector.floor_z(x, y);
+    let ceilzz = new_subsect.sector.ceil_z(x, y);
 
     // OG P_TeleportMove: iterate blockmap cells with MAXRADIUS extension
     let bm = level.level_data.blockmap();

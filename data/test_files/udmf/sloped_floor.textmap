@@ -1,0 +1,33 @@
+namespace = "zdoom";
+
+// 256x256 square room, player start in the middle.
+
+thing { x = 128.0; y = 128.0; angle = 90; type = 1; single = true; coop = true; dm = true;
+        skill1 = true; skill2 = true; skill3 = true; skill4 = true; skill5 = true; }
+
+vertex { x = 0.0;   y = 0.0;   }
+vertex { x = 256.0; y = 0.0;   }
+vertex { x = 256.0; y = 256.0; }
+vertex { x = 0.0;   y = 256.0; }
+
+linedef { v1 = 0; v2 = 1; sidefront = 0; blocking = true; }
+linedef { v1 = 1; v2 = 2; sidefront = 1; blocking = true; }
+linedef { v1 = 2; v2 = 3; sidefront = 2; blocking = true; }
+linedef { v1 = 3; v2 = 0; sidefront = 3; blocking = true; }
+
+sidedef { sector = 0; texturemiddle = "STONE2"; }
+sidedef { sector = 0; texturemiddle = "STONE2"; }
+sidedef { sector = 0; texturemiddle = "STONE2"; }
+sidedef { sector = 0; texturemiddle = "STONE2"; }
+
+sector {
+    heightfloor = 0;
+    heightceiling = 128;
+    texturefloor = "FLAT5";
+    textureceiling = "CEIL3_5";
+    // Floor rises along +x: z = 0.25 * x  (-0.25x + z = 0, normal up).
+    floorplane_a = -0.25;
+    floorplane_b = 0.0;
+    floorplane_c = 1.0;
+    floorplane_d = 0.0;
+}

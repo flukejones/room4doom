@@ -2,6 +2,7 @@ use crate::MapPtr;
 use crate::flags::LineDefFlags;
 use glam::Vec2;
 use math::{Angle, FixedT, p_aprox_distance, r_point_on_side_raw};
+use rbsp::SlopePlane;
 
 /// Sector floor/ceiling height type: fixed-point for deterministic gameplay.
 pub type SectorHeight = FixedT;
@@ -103,6 +104,11 @@ pub struct Sector {
     /// thing that made a sound (or null) (opaque pointer to Thinker in
     /// gameplay)
     pub sound_target: Option<*mut ()>,
+
+    /// Sloped floor plane (UDMF); `None` = flat at `floorheight`.
+    pub floor_plane: Option<SlopePlane>,
+    /// Sloped ceiling plane (UDMF); `None` = flat at `ceilingheight`.
+    pub ceil_plane: Option<SlopePlane>,
 }
 
 impl std::fmt::Debug for Sector {
@@ -149,6 +155,23 @@ impl Sector {
 
     pub fn set_sound_target(&mut self, target: *mut ()) {
         self.sound_target = Some(target);
+    }
+
+    /// Floor z at `(x, y)`: the slope plane when sloped, else `floorheight`.
+    /// `x`/`y` are fixed-point map coords; plane eval crosses to f32 and back.
+    pub fn floor_z(&self, x: FixedT, y: FixedT) -> FixedT {
+        match self.floor_plane {
+            Some(p) => FixedT::from_f32(p.z_at(x.to_f32(), y.to_f32())),
+            None => self.floorheight,
+        }
+    }
+
+    /// Ceiling z at `(x, y)`: the slope plane when sloped, else `ceilingheight`.
+    pub fn ceil_z(&self, x: FixedT, y: FixedT) -> FixedT {
+        match self.ceil_plane {
+            Some(p) => FixedT::from_f32(p.z_at(x.to_f32(), y.to_f32())),
+            None => self.ceilingheight,
+        }
     }
 }
 
@@ -323,47 +346,6 @@ pub struct SubSector {
     pub seg_count: u32,
     /// The `Segment` to start with
     pub start_seg: u32,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct Node {
-    /// Where the line used for splitting the level starts
-    pub xy: Vec2,
-    /// Where the line used for splitting the level ends
-    pub delta: Vec2,
-    /// Coordinates of the bounding boxes:
-    /// - [0][0] == right box, top-left
-    /// - [0][1] == right box, bottom-right
-    /// - [1][0] == left box, top-left
-    /// - [1][1] == left box, bottom-right
-    pub bboxes: [[Vec2; 2]; 2],
-    /// The node children. Doom uses a clever trick where if one node is
-    /// selected then the other can also be checked with the same/minimal
-    /// code by inverting the last bit.
-    /// The final 'leaf' is bitmasked to find the index to subsector array
-    pub children: [u32; 2],
-}
-
-/// Bitmask that flags a BSP node ID as a subsector leaf rather than an
-/// internal node.
-pub const IS_SSECTOR_MASK: u32 = 0x8000_0000;
-
-/// Returns true if this node ID refers to a subsector leaf.
-#[inline]
-pub const fn is_subsector(node_id: u32) -> bool {
-    node_id & IS_SSECTOR_MASK != 0
-}
-
-/// Extracts the subsector index from a node ID (strips the flag bit).
-#[inline]
-pub const fn subsector_index(node_id: u32) -> usize {
-    (node_id & !IS_SSECTOR_MASK) as usize
-}
-
-/// Marks a node ID as a subsector leaf.
-#[inline]
-pub const fn mark_subsector(index: u32) -> u32 {
-    index | IS_SSECTOR_MASK
 }
 
 /// OG Doom blockmap: 128×128 unit grid for spatial line/thing queries.

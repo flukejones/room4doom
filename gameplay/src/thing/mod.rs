@@ -27,9 +27,9 @@ use log::{debug, error, trace, warn};
 use math::{Bam, FixedT, p_aprox_distance, r_point_to_angle};
 use wad::types::WadThing;
 
-use crate::bsp_trace::BestSlide;
 use crate::doom_def::{MAXPLAYERS, MTF_AMBUSH, ONCEILINGZ, ONFLOORZ, TICRATE, VIEWHEIGHT};
 use crate::info::{MOBJINFO, MapObjInfo, MapObjKind, STATES, SpriteNum, StateData, StateNum};
+use crate::maputl::BestSlide;
 use crate::player::{Player, PlayerState};
 use level::map_defs::SubSector;
 use math::{ANG45, Angle, p_random, p_subrandom};
@@ -729,17 +729,16 @@ impl MapObject {
         let mut an = orig_angle;
         // OG uses 16*64*FRACUNIT (not MISSILERANGE which is 32*64*FRACUNIT)
         let distance: FixedT = (16 * 64_i32).into();
-        let mut bsp_trace = source.get_shoot_bsp_trace(distance);
-        let mut slope = source.aim_line_attack(distance, &mut bsp_trace);
+        let mut slope = source.aim_line_attack(distance);
 
         if slope.is_none() {
             an += Angle::from_bam(1 << 26);
             source.angle = an;
-            slope = source.aim_line_attack(distance, &mut bsp_trace);
+            slope = source.aim_line_attack(distance);
             if slope.is_none() {
                 an -= Angle::from_bam(2 << 26);
                 source.angle = an;
-                slope = source.aim_line_attack(distance, &mut bsp_trace);
+                slope = source.aim_line_attack(distance);
             }
             if slope.is_none() {
                 an = orig_angle;
@@ -874,11 +873,11 @@ impl MapObject {
                 // Sets the subsector link and links in sector
                 thing.set_thing_position();
                 if !thing.subsector.is_null() {
-                    // Now that we have a subsector this is safe
-                    thing.floorz =
-                        FixedT::from_fixed(thing.subsector.sector.floorheight.to_fixed_raw());
-                    thing.ceilingz =
-                        FixedT::from_fixed(thing.subsector.sector.ceilingheight.to_fixed_raw());
+                    // Now that we have a subsector this is safe. floor_z/ceil_z
+                    // evaluate the slope plane at (x,y) for UDMF sloped sectors
+                    // and return the scalar height otherwise.
+                    thing.floorz = thing.subsector.sector.floor_z(thing.x, thing.y);
+                    thing.ceilingz = thing.subsector.sector.ceil_z(thing.x, thing.y);
 
                     if z == ONFLOORZ {
                         thing.z = thing.floorz;
@@ -1127,7 +1126,7 @@ impl MapObject {
         }
 
         let ss = self.level_mut().level_data.point_in_subsector(sp_x, sp_y);
-        let floor = ss.sector.floorheight.to_i32();
+        let floor = ss.sector.floor_z(sp_x, sp_y).to_i32();
         let fog = unsafe {
             &mut *Self::spawn_map_object(
                 sp_x,

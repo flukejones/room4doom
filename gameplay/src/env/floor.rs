@@ -147,11 +147,10 @@ pub fn ev_do_floor(line: MapPtr<LineDef>, kind: FloorKind, level: &mut LevelStat
                 floor.destheight = sec.floorheight + 24;
                 sec.floorpic = line.frontsector.floorpic;
                 sec.special = line.frontsector.special;
-                level.level_data.bsp_3d.update_flat_texture(
-                    sec.num as usize,
-                    MovementType::Floor,
-                    sec.floorpic,
-                );
+                level
+                    .level_data
+                    .bsp_3d
+                    .update_flat_texture(sec.num as usize, MovementType::Floor);
             }
             FloorKind::RaiseFloorCrush => {
                 floor.direction = 1;
@@ -215,11 +214,10 @@ impl Think for FloorMove {
             {
                 floor.sector.special = floor.newspecial;
                 floor.sector.floorpic = floor.texture;
-                level.level_data.bsp_3d.update_flat_texture(
-                    floor.sector.num as usize,
-                    MovementType::Floor,
-                    floor.texture,
-                );
+                level
+                    .level_data
+                    .bsp_3d
+                    .update_flat_texture(floor.sector.num as usize, MovementType::Floor);
             }
 
             floor.sector.specialdata = None;

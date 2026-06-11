@@ -11,6 +11,7 @@ use std::path::Path;
 use wad::WadData;
 use wad::wad::MapLump;
 
+use crate::bsp3d::{Bsp3dBuilder, Bsp3dInput};
 use crate::rbsp_lump::write_rbsp_lump;
 use crate::types::*;
 use crate::{BspOutput, build_bsp};
@@ -55,7 +56,10 @@ pub fn find_maps(wad: &WadData) -> Vec<String> {
 }
 
 /// Load BSP input geometry from a WAD map.
-pub fn load_input(wad: &WadData, map_name: &str) -> BspInput {
+pub fn load_input(
+    wad: &WadData,
+    map_name: &str,
+) -> BspInput<WadVertex, WadLineDef, WadSideDef, WadSector> {
     BspInput {
         vertices: wad.map_iter(map_name, MapLump::Vertexes).collect(),
         linedefs: wad.map_iter(map_name, MapLump::LineDefs).collect(),
@@ -65,7 +69,13 @@ pub fn load_input(wad: &WadData, map_name: &str) -> BspInput {
 }
 
 /// Process all maps in a WAD and write a PWAD with rebuilt BSP data.
-pub fn process_wad(input_path: &Path, output_path: &Path, options: &BspOptions) -> io::Result<()> {
+/// `sky_flat` marks sky surfaces for the 3D geometry (typically `F_SKY1`).
+pub fn process_wad(
+    input_path: &Path,
+    output_path: &Path,
+    options: &BspOptions,
+    sky_flat: Option<&str>,
+) -> io::Result<()> {
     let wad = WadData::new(input_path);
     let maps = find_maps(&wad);
 
@@ -83,7 +93,16 @@ pub fn process_wad(input_path: &Path, output_path: &Path, options: &BspOptions) 
 
         let input = load_input(&wad, map_name);
         let num_sectors = input.sectors.len();
-        let output = build_bsp(input, options);
+        let output = build_bsp(&input, options);
+        let bsp3d_input = Bsp3dInput::new(
+            &input.linedefs,
+            &input.sidedefs,
+            &input.sectors,
+            &output,
+            sky_flat,
+            sky_flat.is_some(),
+        );
+        let bsp3d = Bsp3dBuilder::build(&bsp3d_input, &output.nodes);
 
         // Level marker.
         all_lumps.push(OutputLump::marker(map_name));
@@ -103,7 +122,10 @@ pub fn process_wad(input_path: &Path, output_path: &Path, options: &BspOptions) 
         all_lumps.push(OutputLump::new("REJECT", write_reject(num_sectors)));
         // TODO: BLOCKMAP from blockmap.rs
         all_lumps.push(OutputLump::new("BLOCKMAP", Vec::new()));
-        all_lumps.push(OutputLump::new("RBSP", write_rbsp_lump(&output)));
+        all_lumps.push(OutputLump::new(
+            "RBSP",
+            write_rbsp_lump(&output, &bsp3d, options.classic_nodes),
+        ));
     }
 
     // Sort lumps within each level to standard order.

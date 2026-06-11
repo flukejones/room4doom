@@ -47,7 +47,6 @@ fn build_view(level: &mut LevelData) -> RenderView {
         fixedcolormap: 0,
         extralight: 0,
         is_shadow: false,
-        subsector_id: 0,
         psprites: [RenderPspDef::default(); 2],
         sector_lightlevel: 0,
         player_mobj_id: 0,

@@ -1,10 +1,10 @@
 //! Cross-map BSP3D geometry invariants: floor/ceiling normals & winding,
 //! degenerate polygons, flat coplanarity, generated blockmap coverage.
 
-use level::MovementType;
+use level::{MovementType, PolyFlags};
 use test_utils::{
     assert_floor_ceiling_normals, doom_wad_path, doom1_wad_path, load_map, load_map_with_pwad,
-    sigil2_wad_path,
+    move_sector_surface, sigil2_wad_path,
 };
 
 // ---------------------------------------------------------------------------
@@ -46,31 +46,30 @@ fn e1m2_no_degenerate_polygons() {
     let verts = &bsp3d.vertices;
     let mut failures = Vec::new();
 
-    for (ssid, leaf) in bsp3d.subsector_leaves.iter().enumerate() {
-        for (label, indices) in [
-            ("floor", &leaf.floor_polygons),
-            ("ceil", &leaf.ceiling_polygons),
-        ] {
+    for ssid in 0..bsp3d.leaves.len() {
+        let floors: Vec<usize> = bsp3d.leaf_floor_polys(ssid).collect();
+        let ceils: Vec<usize> = bsp3d.leaf_ceiling_polys(ssid).collect();
+        for (label, indices) in [("floor", &floors), ("ceil", &ceils)] {
             for &pi in indices {
-                let poly = &bsp3d.polygons[pi];
-                let n = poly.vertices.len();
+                let poly_verts = bsp3d.poly_vert_indices(pi);
+                let n = poly_verts.len();
                 if n < 3 {
                     failures.push(format!("ss={ssid} {label}: < 3 vertices ({n})"));
                     continue;
                 }
                 for i in 0..n {
                     for j in (i + 1)..n {
-                        if poly.vertices[i] == poly.vertices[j] {
+                        if poly_verts[i] == poly_verts[j] {
                             failures.push(format!(
                                 "ss={ssid} {label}: duplicate index {} at {i},{j}",
-                                poly.vertices[i]
+                                poly_verts[i]
                             ));
                         }
                     }
                 }
                 for i in 0..n {
-                    let a = verts[poly.vertices[i]];
-                    let b = verts[poly.vertices[(i + 1) % n]];
+                    let a = verts[poly_verts[i]];
+                    let b = verts[poly_verts[(i + 1) % n]];
                     let dist = ((a.x - b.x).powi(2) + (a.y - b.y).powi(2)).sqrt();
                     if dist < 0.01 {
                         failures.push(format!(
@@ -101,27 +100,20 @@ fn e6m1_no_degenerate_floor_polygons() {
     let verts = &bsp3d.vertices;
     let mut failures = Vec::new();
 
-    for (ssid, leaf) in bsp3d.subsector_leaves.iter().enumerate() {
-        for &fp_idx in &leaf.floor_polygons {
-            let poly = &bsp3d.polygons[fp_idx];
-            let n = poly.vertices.len();
+    for ssid in 0..bsp3d.leaves.len() {
+        for fp_idx in bsp3d.leaf_floor_polys(ssid) {
+            let poly_verts = bsp3d.poly_vert_indices(fp_idx);
+            let n = poly_verts.len();
             if n < 3 {
                 failures.push(format!("ss={ssid} fp={fp_idx}: < 3 vertices"));
                 continue;
             }
-            let has_dup =
-                (0..n).any(|i| ((i + 1)..n).any(|j| poly.vertices[i] == poly.vertices[j]));
+            let has_dup = (0..n).any(|i| ((i + 1)..n).any(|j| poly_verts[i] == poly_verts[j]));
             if has_dup {
                 failures.push(format!("ss={ssid} fp={fp_idx}: duplicate vertex index"));
                 continue;
             }
-            let area: f32 = (0..n)
-                .map(|i| {
-                    let a = verts[poly.vertices[i]];
-                    let b = verts[poly.vertices[(i + 1) % n]];
-                    a.x * b.y - b.x * a.y
-                })
-                .sum();
+            let area = test_utils::shoelace(poly_verts, verts);
             if area <= 0.0 {
                 failures.push(format!(
                     "ss={ssid} fp={fp_idx}: shoelace={area:.2} (expected > 0)"
@@ -149,18 +141,17 @@ fn e1m2_flat_polygon_coplanarity() {
     let verts = &bsp3d.vertices;
     let mut failures = Vec::new();
 
-    for (ssid, leaf) in bsp3d.subsector_leaves.iter().enumerate() {
-        for (label, indices) in [
-            ("floor", &leaf.floor_polygons),
-            ("ceil", &leaf.ceiling_polygons),
-        ] {
+    for ssid in 0..bsp3d.leaves.len() {
+        let floors: Vec<usize> = bsp3d.leaf_floor_polys(ssid).collect();
+        let ceils: Vec<usize> = bsp3d.leaf_ceiling_polys(ssid).collect();
+        for (label, indices) in [("floor", &floors), ("ceil", &ceils)] {
             for &pi in indices {
-                let poly = &bsp3d.polygons[pi];
-                if poly.vertices.is_empty() {
+                let poly_verts = bsp3d.poly_vert_indices(pi);
+                if poly_verts.is_empty() {
                     continue;
                 }
-                let z0 = verts[poly.vertices[0]].z;
-                for &vi in &poly.vertices[1..] {
+                let z0 = verts[poly_verts[0]].z;
+                for &vi in &poly_verts[1..] {
                     let z = verts[vi].z;
                     if (z - z0).abs() > 0.01 {
                         failures.push(format!(
@@ -194,32 +185,25 @@ fn e6m1_subsector_2587_polygon() {
     let verts = &bsp3d.vertices;
 
     assert!(
-        bsp3d.subsector_leaves.len() > 2587,
+        bsp3d.leaves.len() > 2587,
         "map must have >= 2588 subsectors, got {}",
-        bsp3d.subsector_leaves.len()
+        bsp3d.leaves.len()
     );
 
-    let leaf = &bsp3d.subsector_leaves[2587];
-    for &fp_idx in &leaf.floor_polygons {
-        let poly = &bsp3d.polygons[fp_idx];
-        let n = poly.vertices.len();
+    for fp_idx in bsp3d.leaf_floor_polys(2587) {
+        let poly_verts = bsp3d.poly_vert_indices(fp_idx);
+        let n = poly_verts.len();
         assert!(n >= 3, "floor polygon must have >= 3 vertices, got {n}");
         for i in 0..n {
             for j in (i + 1)..n {
                 assert_ne!(
-                    poly.vertices[i], poly.vertices[j],
+                    poly_verts[i], poly_verts[j],
                     "duplicate vertex index {} at {i},{j}",
-                    poly.vertices[i]
+                    poly_verts[i]
                 );
             }
         }
-        let area: f32 = (0..n)
-            .map(|i| {
-                let a = verts[poly.vertices[i]];
-                let b = verts[poly.vertices[(i + 1) % n]];
-                a.x * b.y - b.x * a.y
-            })
-            .sum();
+        let area = test_utils::shoelace(poly_verts, verts);
         assert!(area > 0.0, "floor shoelace must be positive, got {area}");
     }
 }
@@ -284,14 +268,13 @@ fn e1m1_triangulation_covers_polygons() {
     let map = load_map(&doom1_wad_path(), "E1M1");
     let bsp3d = &map.bsp_3d;
 
-    // Existing n-poly output is untouched: polygons still present and intact.
     assert!(!bsp3d.polygons.is_empty(), "E1M1 produced no polygons");
 
     // Triangle count == sum(n-2) over all polygons.
     let expected: usize = bsp3d
-        .polygons
+        .poly_vertex_range
         .iter()
-        .map(|p| p.vertices.len().saturating_sub(2))
+        .map(|&(s, e)| (e - s).saturating_sub(2))
         .sum();
     assert_eq!(
         bsp3d.triangles.len(),
@@ -299,19 +282,21 @@ fn e1m1_triangulation_covers_polygons() {
         "triangle count must equal sum of (verts-2) over polygons"
     );
 
-    let nverts = bsp3d.vertices.len() as u32;
+    let nverts = bsp3d.vertices.len();
     let mut cursor = 0usize;
-    for (poly_idx, poly) in bsp3d.polygons.iter().enumerate() {
-        if poly.vertices.len() < 3 {
+    for poly_idx in 0..bsp3d.polygons.len() {
+        let poly_verts = bsp3d.poly_vert_indices(poly_idx);
+        if poly_verts.len() < 3 {
             continue;
         }
-        let v0 = poly.vertices[0] as u32;
-        for i in 1..poly.vertices.len() - 1 {
-            let tri = bsp3d.triangles[cursor];
+        let v0 = poly_verts[0];
+        for i in 1..poly_verts.len() - 1 {
+            // The triangle list is u32 (GPU index buffer); widen to compare.
+            let tri = bsp3d.triangles[cursor].map(|v| v as usize);
             // Reproduces the fan (v0, vi, vi+1) in global vertex indices.
             assert_eq!(
                 tri,
-                [v0, poly.vertices[i] as u32, poly.vertices[i + 1] as u32],
+                [v0, poly_verts[i], poly_verts[i + 1]],
                 "triangle {cursor} is not the expected fan for polygon {poly_idx}"
             );
             // Indices are valid global vertices.
@@ -327,39 +312,44 @@ fn e1m1_triangulation_covers_polygons() {
 #[test]
 fn e1m1_triangulation_survives_movers() {
     let mut map = load_map(&doom1_wad_path(), "E1M1");
-    let bsp3d = &mut map.bsp_3d;
 
     // A mover sector: pick the first polygon flagged as moving and its sector.
-    let Some(mover) = bsp3d.polygons.iter().find(|p| p.moves) else {
+    let Some(gi) = (0..map.bsp_3d.polygons.len())
+        .find(|&gi| map.bsp_3d.poly_flags[gi].contains(PolyFlags::MOVES))
+    else {
         // E1M1 always has movers (doors/lifts); fail loudly if not.
         panic!("E1M1 has no mover polygons");
     };
-    let sector_id = mover.sector_id;
+    let sector_id = map.bsp_3d.polygons[gi].sector.num as usize;
 
-    let triangles_before = bsp3d.triangles.clone();
+    let triangles_before = map.bsp_3d.triangles.clone();
 
-    bsp3d.move_surface(sector_id, MovementType::Floor, -64.0);
+    move_sector_surface(&mut map, sector_id, MovementType::Floor, -64.0);
 
     // Topology is stable: index buffer unchanged across the move.
+    let bsp3d = &map.bsp_3d;
     assert_eq!(
         bsp3d.triangles, triangles_before,
         "move_surface must not change triangle indices"
     );
 
     // The triangles still index valid, moved vertices (z changed for the sector).
-    let nverts = bsp3d.vertices.len() as u32;
+    let nverts = bsp3d.vertices.len();
     for tri in &bsp3d.triangles {
         for &vi in tri {
-            assert!(vi < nverts, "triangle index {vi} out of range after move");
+            assert!(
+                (vi as usize) < nverts,
+                "triangle index {vi} out of range after move"
+            );
         }
     }
 }
 
 // ---------------------------------------------------------------------------
-// M2.7 — wgpu3d fans per-corner UV from poly_vertex_uv at upload (the stored
-// corner_uv array was dropped). This guards the fan against drift: it must
-// reproduce the (v0, vi, vi+1) fan in triangles order, byte-for-byte, and stay
-// stable across a no-op mover (proving renderer input data did not change).
+// wgpu3d fans per-corner UV from poly_vertex_uv at upload. This guards the fan
+// against drift: it must reproduce the (v0, vi, vi+1) fan in triangles order,
+// byte-for-byte, and stay stable across a no-op mover (proving renderer input
+// data did not change).
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -381,33 +371,29 @@ fn e1m1_fan_corner_uv_aligns_with_triangles() {
     // corner references — verified independently against the triangle's global
     // vertex indices, not by replaying the same fan loop.
     let mut corner = 0usize;
-    for (poly_idx, poly) in bsp3d.polygons.iter().enumerate() {
+    for poly_idx in 0..bsp3d.polygons.len() {
         let (start, end) = bsp3d.poly_vertex_range[poly_idx];
-        let base = start as usize;
-        let n = (end - start) as usize;
+        let n = end - start;
         if n < 3 {
             continue;
         }
+        let poly_verts = bsp3d.poly_vert_indices(poly_idx);
         for i in 1..n - 1 {
-            let tri = bsp3d.triangles[corner / 3];
+            let tri = bsp3d.triangles[corner / 3].map(|v| v as usize);
             // Triangle's global vertices fan as (v0, vi, vi+1).
             assert_eq!(
                 tri,
-                [
-                    poly.vertices[0] as u32,
-                    poly.vertices[i] as u32,
-                    poly.vertices[i + 1] as u32
-                ],
+                [poly_verts[0], poly_verts[i], poly_verts[i + 1]],
                 "triangle {} not the expected fan for polygon {poly_idx}",
                 corner / 3
             );
             // Fanned UV at each corner == that vertex's poly_vertex_uv slot.
             assert_eq!(
-                fanned[corner], bsp3d.poly_vertex_uv[base],
+                fanned[corner], bsp3d.poly_vertex_uv[start],
                 "corner {corner} UV"
             );
-            assert_eq!(fanned[corner + 1], bsp3d.poly_vertex_uv[base + i]);
-            assert_eq!(fanned[corner + 2], bsp3d.poly_vertex_uv[base + i + 1]);
+            assert_eq!(fanned[corner + 1], bsp3d.poly_vertex_uv[start + i]);
+            assert_eq!(fanned[corner + 2], bsp3d.poly_vertex_uv[start + i + 1]);
             corner += 3;
         }
     }
@@ -419,7 +405,7 @@ fn e1m1_fan_corner_uv_stable_across_noop_move() {
     let mut map = load_map(&doom1_wad_path(), "E1M1");
     let sector_id = map
         .bsp_3d
-        .sector_wall_polygons
+        .sector_wall_polys
         .iter()
         .position(|w| !w.is_empty())
         .expect("E1M1 has a sector with walls");
@@ -441,7 +427,7 @@ fn e1m1_move_to_same_height_keeps_wall_uv() {
     // Moving a sector's floor to its current height reproduces the baked UV.
     let sector_id = map
         .bsp_3d
-        .sector_wall_polygons
+        .sector_wall_polys
         .iter()
         .position(|w| !w.is_empty())
         .expect("E1M1 has a sector with walls");
@@ -456,23 +442,20 @@ fn e1m1_move_to_same_height_keeps_wall_uv() {
 }
 
 #[test]
-fn e1m1_sector_wall_polygons_are_vertical() {
+fn e1m1_sector_wall_polys_are_vertical() {
     let map = load_map(&doom1_wad_path(), "E1M1");
     let bsp3d = &map.bsp_3d;
     assert_eq!(
-        bsp3d.sector_wall_polygons.len(),
-        bsp3d.sector_subsectors.len(),
-        "sector_wall_polygons must be parallel to sectors"
+        bsp3d.sector_wall_polys.len(),
+        bsp3d.sector_leaves.len(),
+        "sector_wall_polys must be parallel to sectors"
     );
     let mut total = 0;
-    for walls in &bsp3d.sector_wall_polygons {
+    for walls in &bsp3d.sector_wall_polys {
         for &gi in walls {
             assert!(
-                matches!(
-                    bsp3d.polygons[gi].surface_kind,
-                    level::SurfaceKind::Vertical { .. }
-                ),
-                "sector_wall_polygons must only list vertical polygons"
+                !bsp3d.poly_is_flat(gi),
+                "sector_wall_polys must only list wall polygons"
             );
             total += 1;
         }

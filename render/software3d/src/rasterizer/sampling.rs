@@ -1,4 +1,3 @@
-use level::SurfaceKind;
 use pic_data::sky::{SKY_DOWN_ROWS, SKY_EXTEND_ROWS};
 use pic_data::{FlatPic, PicData, WallPic};
 
@@ -64,48 +63,43 @@ pub(crate) enum TextureSampler<'a> {
 }
 
 impl<'a> TextureSampler<'a> {
+    /// `is_sky` is the resolved SKY flag bit (sky fillers carry no texture);
+    /// a wall textured with the sky pic or a flat with the sky flat also
+    /// samples as sky, matching the per-face decision before flags existed.
     #[inline(always)]
     pub(crate) fn new(
-        surface_kind: &SurfaceKind,
-        wall_tex: Option<usize>,
+        is_flat: bool,
+        is_sky: bool,
+        tex: Option<u32>,
         pic_data: &'a PicData,
         sky_pic: usize,
         sky_num: usize,
     ) -> Self {
-        match surface_kind {
-            SurfaceKind::Vertical {
-                ..
-            } => {
-                let Some(tex_id) = wall_tex else {
-                    return TextureSampler::Untextured;
-                };
-                if tex_id == sky_pic {
-                    TextureSampler::Sky
-                } else {
-                    let texture = pic_data.wall_pic(tex_id);
-                    let width_f32 = texture.width as f32;
-                    let height_f32 = texture.height as f32;
-                    TextureSampler::Vertical {
-                        texture,
-                        width: width_f32,
-                        height: height_f32,
-                        width_mask: texture.width,
-                        height_mask: texture.height,
-                    }
+        if is_sky {
+            return TextureSampler::Sky;
+        }
+        let Some(tex_id) = tex else {
+            return TextureSampler::Untextured;
+        };
+        let tex_id = tex_id as usize;
+        if is_flat {
+            if tex_id == sky_num {
+                TextureSampler::Sky
+            } else {
+                TextureSampler::Horizontal {
+                    texture: pic_data.get_flat(tex_id),
                 }
             }
-            SurfaceKind::Horizontal {
+        } else if tex_id == sky_pic {
+            TextureSampler::Sky
+        } else {
+            let texture = pic_data.wall_pic(tex_id);
+            TextureSampler::Vertical {
                 texture,
-                ..
-            } => {
-                if *texture == sky_num {
-                    TextureSampler::Sky
-                } else {
-                    let texture = pic_data.get_flat(*texture);
-                    TextureSampler::Horizontal {
-                        texture,
-                    }
-                }
+                width: texture.width as f32,
+                height: texture.height as f32,
+                width_mask: texture.width,
+                height_mask: texture.height,
             }
         }
     }

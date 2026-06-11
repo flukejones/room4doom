@@ -5,7 +5,7 @@
 //! over the BSP3D polygons and returns the nearest hit's sector.
 
 use glam::Vec3;
-use level::{BSP3D, SurfaceKind};
+use level::BSP3D;
 
 use super::render3d::{Camera3D, FOV};
 
@@ -31,26 +31,18 @@ pub fn pick_sector(
 ) -> Option<PickHit> {
     let (origin, dir) = ray_from_cursor(cam, cursor_x, cursor_y, w, h);
     let mut best: Option<(f32, usize, Option<usize>)> = None;
-    for poly in bsp3d.polygons.iter() {
-        if poly.vertices.len() < 3 {
+    for (gi, poly) in bsp3d.polygons.iter().enumerate() {
+        let indices = bsp3d.poly_vert_indices(gi);
+        if indices.len() < 3 {
             continue;
         }
-        // No AABB pre-reject: `poly.aabb` is not refreshed by `move_surface`,
-        // so a moved surface would be wrongly culled. Ray-vs-polygon directly.
-        let verts: Vec<Vec3> = poly.vertices.iter().map(|&i| bsp3d.vertex_get(i)).collect();
+        // Ray-vs-polygon directly — no per-polygon AABB exists to pre-reject.
+        let verts: Vec<Vec3> = indices.iter().map(|&i| bsp3d.vertex_get(i)).collect();
         if let Some(t) = ray_hits_polygon(origin, dir, &verts, poly.normal)
             && best.is_none_or(|(bt, ..)| t < bt)
         {
-            let linedef_id = match &poly.surface_kind {
-                SurfaceKind::Vertical {
-                    linedef_id,
-                    ..
-                } => Some(*linedef_id),
-                SurfaceKind::Horizontal {
-                    ..
-                } => None,
-            };
-            best = Some((t, poly.sector_id, linedef_id));
+            let linedef_id = poly.linedef.as_ref().map(|ld| ld.num);
+            best = Some((t, poly.sector.num as usize, linedef_id));
         }
     }
     best.map(|(_, sector_id, linedef_id)| PickHit {

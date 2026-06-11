@@ -24,7 +24,7 @@ use crate::pic::ButtonWhere;
 use crate::thing::MapObject;
 use crate::{MapObjFlag, TICRATE};
 use level::map_defs::{LineDef, Sector, SectorHeight};
-use level::{MapPtr, MovementType, WallType};
+use level::{MapPtr, MovementType};
 use log::{debug, error, trace};
 use math::{Angle, FixedT};
 use pic_data::PicData;
@@ -828,33 +828,19 @@ pub fn update_specials(level: &mut LevelState, pic_data: &mut PicData) {
                         if let Some(t) = b.line.front_sidedef.toptexture.as_mut() {
                             *t = b.texture;
                         }
-                        level.level_data.bsp_3d.update_wall_texture(
-                            b.line.num,
-                            WallType::Upper,
-                            b.texture,
-                        );
                     }
                     ButtonWhere::Middle => {
                         if let Some(t) = b.line.front_sidedef.midtexture.as_mut() {
                             *t = b.texture;
                         }
-                        level.level_data.bsp_3d.update_wall_texture(
-                            b.line.num,
-                            WallType::Middle,
-                            b.texture,
-                        );
                     }
                     ButtonWhere::Bottom => {
                         if let Some(t) = b.line.front_sidedef.bottomtexture.as_mut() {
                             *t = b.texture;
                         }
-                        level.level_data.bsp_3d.update_wall_texture(
-                            b.line.num,
-                            WallType::Lower,
-                            b.texture,
-                        );
                     }
                 }
+                level.level_data.bsp_3d.update_wall_texture(b.line.num);
                 start_sector_sound(&b.line, SfxName::Swtchn, &level.snd_command);
             }
         }

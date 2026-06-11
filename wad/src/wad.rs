@@ -310,6 +310,13 @@ impl WadData {
         false
     }
 
+    /// The `TEXTMAP` lump bytes for a UDMF map, or `None` for a classic map.
+    /// UDMF maps store `TEXTMAP` immediately after the map marker.
+    pub fn read_textmap(&self, map_name: &str) -> Option<&[u8]> {
+        let lump = self.find_lump_for_map(map_name, MapLump::Things)?;
+        (lump.name == "TEXTMAP").then_some(lump.data.as_slice())
+    }
+
     /// Parse the UMAPINFO lump if present.
     pub fn umapinfo(&self) -> Option<crate::umapinfo::UMapInfo> {
         let lump = self.get_lump("UMAPINFO")?;

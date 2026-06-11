@@ -8,6 +8,7 @@ use std::collections::HashMap;
 
 use level::env_target::mover_targets_for_sector;
 use level::{LevelData, MovementType};
+use math::FixedT;
 
 /// Travel speed of a lerping surface, in map units per second.
 const LERP_SPEED: f32 = 200.0;
@@ -101,9 +102,18 @@ impl MoverState {
                     if (s.current - goal).abs() < 0.01 {
                         s.current = goal;
                     }
+                    // Sector height first, like gameplay: surface resolution
+                    // reads the live heights (quantized through FixedT so the
+                    // slot equality holds).
+                    let h = FixedT::from_f32(s.current);
+                    let sec = &mut level.sectors[s.sector_id];
+                    match s.movement {
+                        MovementType::Ceiling => sec.ceilingheight = h,
+                        _ => sec.floorheight = h,
+                    }
                     level
                         .bsp_3d
-                        .move_surface(s.sector_id, s.movement, s.current);
+                        .move_surface(s.sector_id, s.movement, h.to_f32());
                     if s.current != goal {
                         active = true;
                     }

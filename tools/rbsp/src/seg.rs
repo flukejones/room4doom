@@ -5,9 +5,9 @@ use crate::types::*;
 /// Make the initial segs list from linedefs. Each linedef becomes one or two
 /// full-length segs (one per valid sidedef). Returns (global seg array, seg
 /// index list).
-pub fn create_segs(
-    linedefs: &[WadLineDef],
-    sidedefs: &[WadSideDef],
+pub fn create_segs<L: LineDefAccess, S: SideDefAccess>(
+    linedefs: &[L],
+    sidedefs: &[S],
     vertices: &[Vertex],
 ) -> (Vec<Seg>, Vec<usize>) {
     let mut segs = Vec::new();

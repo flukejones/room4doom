@@ -397,8 +397,6 @@ pub struct RenderView {
     pub extralight: usize,
     /// Whether the player mobj has the Shadow flag (partial invisibility).
     pub is_shadow: bool,
-    /// Pre-resolved subsector index into the level's subsectors.
-    pub subsector_id: usize,
     /// Weapon overlay sprites.
     pub psprites: [RenderPspDef; 2],
     /// Sector light level at player's subsector (for weapon sprite lighting).

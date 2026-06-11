@@ -8,14 +8,30 @@ const MAPS: &[(&str, &str)] = &[
     ("/Users/lukejones/DOOM/sunder.wad", "MAP03"),
 ];
 
-fn load_input(wad_path: &str, map_name: &str) -> rbsp::BspInput {
+fn load_input(
+    wad_path: &str,
+    map_name: &str,
+) -> rbsp::BspInput<
+    wad::types::WadVertex,
+    wad::types::WadLineDef,
+    wad::types::WadSideDef,
+    wad::types::WadSector,
+> {
     use wad::wad::MapLump;
     let wad = wad::WadData::new(Path::new(wad_path));
     rbsp::BspInput {
-        vertices: wad.map_iter(map_name, MapLump::Vertexes).collect(),
-        linedefs: wad.map_iter(map_name, MapLump::LineDefs).collect(),
-        sidedefs: wad.map_iter(map_name, MapLump::SideDefs).collect(),
-        sectors: wad.map_iter(map_name, MapLump::Sectors).collect(),
+        vertices: wad
+            .map_iter::<wad::types::WadVertex>(map_name, MapLump::Vertexes)
+            .collect(),
+        linedefs: wad
+            .map_iter::<wad::types::WadLineDef>(map_name, MapLump::LineDefs)
+            .collect(),
+        sidedefs: wad
+            .map_iter::<wad::types::WadSideDef>(map_name, MapLump::SideDefs)
+            .collect(),
+        sectors: wad
+            .map_iter::<wad::types::WadSector>(map_name, MapLump::Sectors)
+            .collect(),
     }
 }
 
@@ -70,8 +86,9 @@ fn sweep() {
             let input = load_input(wad_path, map_name);
             let opts = rbsp::BspOptions {
                 split_weight: w,
+                ..Default::default()
             };
-            let output = rbsp::build_bsp(input, &opts);
+            let output = rbsp::build_bsp(&input, &opts);
             let (max_d, avg_d) = tree_depth(&output.nodes, output.root);
 
             eprintln!(

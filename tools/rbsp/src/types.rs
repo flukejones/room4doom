@@ -50,7 +50,7 @@ impl Vertex {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct BBox {
     pub min_x: Float,
     pub min_y: Float,
@@ -135,7 +135,7 @@ pub struct Seg {
 }
 
 /// BSP node with partition line and child bounding boxes.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Node {
     pub x: Float,
     pub y: Float,
@@ -289,11 +289,64 @@ pub trait LineDefAccess {
     fn end_vertex_idx(&self) -> usize;
     fn front_sidedef_idx(&self) -> Option<usize>;
     fn back_sidedef_idx(&self) -> Option<usize>;
+    fn flags_u32(&self) -> u32;
+    fn special_u32(&self) -> u32;
+    fn tag_i16(&self) -> i16;
 }
 
-/// Uniform access to sidedef sector index.
+/// Uniform access to sidedef fields. Texture presence is by name (`"-"` =
+/// none), not by engine texture-list resolution — a sidedef naming a missing
+/// texture counts as textured here.
 pub trait SideDefAccess {
     fn sector_idx(&self) -> usize;
+    fn has_top_tex(&self) -> bool;
+    fn has_bottom_tex(&self) -> bool;
+    fn has_mid_tex(&self) -> bool;
+}
+
+/// Sector floor/ceiling plane `a*x + b*y + c*z + d = 0`. `z` at a point is
+/// `-(a*x + b*y + d) / c`. Floor normals point up, ceilings down.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SlopePlane {
+    pub a: f32,
+    pub b: f32,
+    pub c: f32,
+    pub d: f32,
+}
+
+impl SlopePlane {
+    /// Build a floor/ceiling plane, rejecting a degenerate vertical one
+    /// (`c == 0`) which has no single z per `(x, y)`.
+    pub fn new(a: f32, b: f32, c: f32, d: f32) -> Option<Self> {
+        (c.abs() > f32::EPSILON).then_some(Self {
+            a,
+            b,
+            c,
+            d,
+        })
+    }
+
+    /// Plane z at `(x, y)`.
+    pub fn z_at(&self, x: f32, y: f32) -> f32 {
+        -(self.a * x + self.b * y + self.d) / self.c
+    }
+}
+
+/// Uniform access to sector fields.
+pub trait SectorAccess {
+    fn floor_h(&self) -> f32;
+    fn ceil_h(&self) -> f32;
+    fn tag_i16(&self) -> i16;
+    fn floor_tex_is(&self, name: &str) -> bool;
+    fn ceil_tex_is(&self, name: &str) -> bool;
+    /// Sloped floor plane; `None` = flat at `floor_h`.
+    fn floor_plane(&self) -> Option<SlopePlane> {
+        None
+    }
+    /// Sloped ceiling plane; `None` = flat at `ceil_h`.
+    fn ceil_plane(&self) -> Option<SlopePlane> {
+        None
+    }
 }
 
 #[cfg(feature = "wad-types")]
@@ -324,12 +377,54 @@ impl LineDefAccess for WadLineDef {
     fn back_sidedef_idx(&self) -> Option<usize> {
         self.back_sidedef.map(|s| s as usize)
     }
+    fn flags_u32(&self) -> u32 {
+        self.flags as u32
+    }
+    fn special_u32(&self) -> u32 {
+        self.special as u32
+    }
+    fn tag_i16(&self) -> i16 {
+        self.sector_tag
+    }
+}
+
+#[cfg(feature = "wad-types")]
+fn tex_name_present(name: &str) -> bool {
+    !name.is_empty() && name != "-"
 }
 
 #[cfg(feature = "wad-types")]
 impl SideDefAccess for WadSideDef {
     fn sector_idx(&self) -> usize {
         self.sector as usize
+    }
+    fn has_top_tex(&self) -> bool {
+        tex_name_present(&self.upper_tex)
+    }
+    fn has_bottom_tex(&self) -> bool {
+        tex_name_present(&self.lower_tex)
+    }
+    fn has_mid_tex(&self) -> bool {
+        tex_name_present(&self.middle_tex)
+    }
+}
+
+#[cfg(feature = "wad-types")]
+impl SectorAccess for WadSector {
+    fn floor_h(&self) -> f32 {
+        self.floor_height as f32
+    }
+    fn ceil_h(&self) -> f32 {
+        self.ceil_height as f32
+    }
+    fn tag_i16(&self) -> i16 {
+        self.tag
+    }
+    fn floor_tex_is(&self, name: &str) -> bool {
+        self.floor_tex.eq_ignore_ascii_case(name)
+    }
+    fn ceil_tex_is(&self, name: &str) -> bool {
+        self.ceil_tex.eq_ignore_ascii_case(name)
     }
 }
 
@@ -365,6 +460,22 @@ impl LineDefAccess for WadLineDef {
             None
         }
     }
+    fn flags_u32(&self) -> u32 {
+        let flags = self.flags;
+        flags as u16 as u32
+    }
+    fn special_u32(&self) -> u32 {
+        let special = self.special;
+        special as u32
+    }
+    fn tag_i16(&self) -> i16 {
+        self.tag
+    }
+}
+
+#[cfg(not(feature = "wad-types"))]
+fn tex_bytes_present(name: &[u8; 8]) -> bool {
+    name[0] != 0 && name[0] != b'-'
 }
 
 #[cfg(not(feature = "wad-types"))]
@@ -372,26 +483,71 @@ impl SideDefAccess for WadSideDef {
     fn sector_idx(&self) -> usize {
         self.sector as usize
     }
+    fn has_top_tex(&self) -> bool {
+        let tex = self.tex_upper;
+        tex_bytes_present(&tex)
+    }
+    fn has_bottom_tex(&self) -> bool {
+        let tex = self.tex_lower;
+        tex_bytes_present(&tex)
+    }
+    fn has_mid_tex(&self) -> bool {
+        let tex = self.tex_middle;
+        tex_bytes_present(&tex)
+    }
+}
+
+#[cfg(not(feature = "wad-types"))]
+fn tex_bytes_is(name: &[u8; 8], want: &str) -> bool {
+    let want = want.as_bytes();
+    let len = name.iter().position(|&b| b == 0).unwrap_or(8);
+    name[..len].eq_ignore_ascii_case(want)
+}
+
+#[cfg(not(feature = "wad-types"))]
+impl SectorAccess for WadSector {
+    fn floor_h(&self) -> f32 {
+        let h = self.floor_height;
+        h as f32
+    }
+    fn ceil_h(&self) -> f32 {
+        let h = self.ceiling_height;
+        h as f32
+    }
+    fn tag_i16(&self) -> i16 {
+        self.tag
+    }
+    fn floor_tex_is(&self, name: &str) -> bool {
+        let tex = self.floor_texture;
+        tex_bytes_is(&tex, name)
+    }
+    fn ceil_tex_is(&self, name: &str) -> bool {
+        let tex = self.ceiling_texture;
+        tex_bytes_is(&tex, name)
+    }
 }
 
 /// Input geometry for the BSP builder.
-pub struct BspInput {
-    pub vertices: Vec<WadVertex>,
-    pub linedefs: Vec<WadLineDef>,
-    pub sidedefs: Vec<WadSideDef>,
-    pub sectors: Vec<WadSector>,
+pub struct BspInput<V, L, S, SE> {
+    pub vertices: Vec<V>,
+    pub linedefs: Vec<L>,
+    pub sidedefs: Vec<S>,
+    pub sectors: Vec<SE>,
 }
 
 /// Configuration options for the BSP builder.
 pub struct BspOptions {
     /// Split cost multiplier (glBSP calls this "factor"). Default 11.
     pub split_weight: Float,
+    /// Also emit the classic 2D NODE section in the RBSP lump.
+    pub classic_nodes: bool,
 }
 
 impl Default for BspOptions {
     fn default() -> Self {
         Self {
             split_weight: SPLIT_WEIGHT,
+            classic_nodes: false,
         }
     }
 }

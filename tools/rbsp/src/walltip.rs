@@ -4,9 +4,7 @@
 //! adjoin the vertex at each angle. Used to assign sectors to seg-less
 //! subsectors by querying "what sector is at angle θ from vertex V".
 
-use crate::types::{
-    LineDefAccess as _, SideDefAccess as _, Vertex, WadLineDef, WadSideDef, WallTip,
-};
+use crate::types::{LineDefAccess, SideDefAccess, Vertex, WallTip};
 
 #[allow(
     clippy::useless_conversion,
@@ -14,9 +12,9 @@ use crate::types::{
 )]
 /// Build wall-tip lists for all vertices. Returns one Vec<WallTip> per vertex,
 /// sorted by angle ascending.
-pub fn build_wall_tips(
-    linedefs: &[WadLineDef],
-    sidedefs: &[WadSideDef],
+pub fn build_wall_tips<L: LineDefAccess, S: SideDefAccess>(
+    linedefs: &[L],
+    sidedefs: &[S],
     vertices: &[Vertex],
     num_vertices: usize,
 ) -> Vec<Vec<WallTip>> {
@@ -101,10 +99,10 @@ pub fn wall_tip_sector_at(tips: &[WallTip], angle: f64) -> Option<u32> {
     reason = "Float can be 32 or 64 bit depending on feature"
 )]
 /// Copy wall-tips from a linedef's endpoints to a new split vertex.
-pub fn copy_wall_tips_for_split(
+pub fn copy_wall_tips_for_split<L: LineDefAccess, S: SideDefAccess>(
     wall_tips: &mut Vec<Vec<WallTip>>,
-    linedef: &WadLineDef,
-    sidedefs: &[WadSideDef],
+    linedef: &L,
+    sidedefs: &[S],
     vertices: &[Vertex],
     new_vertex_idx: usize,
 ) {

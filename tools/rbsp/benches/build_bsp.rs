@@ -4,13 +4,29 @@ use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use wad::WadData;
 use wad::wad::MapLump;
 
-fn load_input(wad_path: &str, map_name: &str) -> rbsp::BspInput {
+fn load_input(
+    wad_path: &str,
+    map_name: &str,
+) -> rbsp::BspInput<
+    wad::types::WadVertex,
+    wad::types::WadLineDef,
+    wad::types::WadSideDef,
+    wad::types::WadSector,
+> {
     let wad = WadData::new(Path::new(wad_path));
     rbsp::BspInput {
-        vertices: wad.map_iter(map_name, MapLump::Vertexes).collect(),
-        linedefs: wad.map_iter(map_name, MapLump::LineDefs).collect(),
-        sidedefs: wad.map_iter(map_name, MapLump::SideDefs).collect(),
-        sectors: wad.map_iter(map_name, MapLump::Sectors).collect(),
+        vertices: wad
+            .map_iter::<wad::types::WadVertex>(map_name, MapLump::Vertexes)
+            .collect(),
+        linedefs: wad
+            .map_iter::<wad::types::WadLineDef>(map_name, MapLump::LineDefs)
+            .collect(),
+        sidedefs: wad
+            .map_iter::<wad::types::WadSideDef>(map_name, MapLump::SideDefs)
+            .collect(),
+        sectors: wad
+            .map_iter::<wad::types::WadSector>(map_name, MapLump::Sectors)
+            .collect(),
     }
 }
 
@@ -45,6 +61,7 @@ fn bench_build_bsp(c: &mut Criterion) {
         for w in [8, 11, 14] {
             let opts = rbsp::BspOptions {
                 split_weight: w as rbsp::Float,
+                ..Default::default()
             };
             group.bench_with_input(
                 BenchmarkId::new(format!("{}/w{}", case.name, w), case.map),
@@ -52,7 +69,7 @@ fn bench_build_bsp(c: &mut Criterion) {
                 |b, _| {
                     b.iter_with_setup(
                         || load_input(case.wad, case.map),
-                        |input| rbsp::build_bsp(input, &opts),
+                        |input| rbsp::build_bsp(&input, &opts),
                     );
                 },
             );

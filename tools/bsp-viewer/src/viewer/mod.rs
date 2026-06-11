@@ -31,7 +31,7 @@ pub(crate) struct ViewState {
     hovered_linedef: Option<usize>,
     hovered_subsector: Option<usize>,
     hovered_vertex: Option<usize>,
-    /// (subsector_index, edge_index_within_polygon)
+    /// (leaf_index, edge_index_within_polygon)
     hovered_polygon_edge: Option<(usize, usize)>,
     pinned: bool,
     is_dragging: bool,

@@ -117,11 +117,8 @@ fn cmd_stats(args: &Args) {
     let wad = load_wad(args);
     let level_data = load_map(args, &wad);
 
-    let poly_count: usize = level_data
-        .bsp_3d
-        .subsector_leaves
-        .iter()
-        .map(|l| l.polygon_indices.len())
+    let poly_count: usize = (0..level_data.bsp_3d.leaves.len())
+        .map(|ss| level_data.bsp_3d.leaf_poly_indices(ss).count())
         .sum();
 
     let output = StatsOutput {
@@ -162,7 +159,9 @@ fn cmd_diag(args: &Args) {
 
     let wad = load_wad(args);
     let level_data = load_map(args, &wad);
-    let carved = &level_data.bsp_3d.carved_polygons;
+    let carved: Vec<Vec<Vec2>> = (0..level_data.bsp_3d.leaves.len())
+        .map(|ss| viewer::data::subsector_floor_outline(&level_data.bsp_3d, ss))
+        .collect();
 
     let extents = level_data.get_map_extents();
     let map_w = extents.max_vertex.x - extents.min_vertex.x;
@@ -185,7 +184,7 @@ fn cmd_diag(args: &Args) {
     let mut world_bound = 0;
 
     for (i, poly) in carved.iter().enumerate() {
-        let sector_id = level_data.subsectors[i].sector.num as usize;
+        let sector_id = level_data.bsp_3d.leaves[i].sector.num as usize;
 
         if poly.len() < 3 {
             if poly.is_empty() {
@@ -295,7 +294,7 @@ struct DumpOutput {
     linedefs: Vec<DumpLinedef>,
     segments: Vec<DumpSegment>,
     nodes: Vec<DumpNode>,
-    sector_subsectors: Vec<Vec<usize>>,
+    sector_leaves: Vec<Vec<usize>>,
     carved_polygons: Vec<Vec<[f32; 2]>>,
 }
 
@@ -354,7 +353,9 @@ fn cmd_dump(args: &Args, cmd: &DumpCmd) {
     let level_data = load_map(args, &wad);
     let vert_base = level_data.vertexes.as_ptr();
 
-    let carved = &level_data.bsp_3d.carved_polygons;
+    let carved: Vec<Vec<glam::Vec2>> = (0..level_data.bsp_3d.leaves.len())
+        .map(|ss| viewer::data::subsector_floor_outline(&level_data.bsp_3d, ss))
+        .collect();
 
     let output = DumpOutput {
         map: args.map.clone(),
@@ -417,27 +418,23 @@ fn cmd_dump(args: &Args, cmd: &DumpCmd) {
             })
             .collect(),
         nodes: level_data
-            .nodes
+            .bsp_3d
+            .nodes()
             .iter()
+            .zip(level_data.bsp_3d.node_bboxes())
             .enumerate()
-            .map(|(i, n)| DumpNode {
+            .map(|(i, (n, bb))| DumpNode {
                 id: i,
-                xy: [n.xy.x, n.xy.y],
-                delta: [n.delta.x, n.delta.y],
+                xy: [n.xy_fp[0].to_f32(), n.xy_fp[1].to_f32()],
+                delta: [n.delta_fp[0].to_f32(), n.delta_fp[1].to_f32()],
                 children: n.children,
                 bboxes: [
-                    [
-                        [n.bboxes[0][0].x, n.bboxes[0][0].y],
-                        [n.bboxes[0][1].x, n.bboxes[0][1].y],
-                    ],
-                    [
-                        [n.bboxes[1][0].x, n.bboxes[1][0].y],
-                        [n.bboxes[1][1].x, n.bboxes[1][1].y],
-                    ],
+                    [[bb[0][0].x, bb[0][0].y], [bb[0][1].x, bb[0][1].y]],
+                    [[bb[1][0].x, bb[1][0].y], [bb[1][1].x, bb[1][1].y]],
                 ],
             })
             .collect(),
-        sector_subsectors: level_data.bsp_3d.sector_subsectors.clone(),
+        sector_leaves: level_data.bsp_3d.sector_leaves.clone(),
         carved_polygons: carved
             .iter()
             .map(|poly| poly.iter().map(|v| [v.x, v.y]).collect())

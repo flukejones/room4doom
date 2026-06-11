@@ -2,8 +2,8 @@
 //! front-to-back BSP traverse. One pass emits the visible corner-id list and
 //! collects sprite/voxel instances per visible leaf. No occlusion culling.
 
-use glam::{Vec2, Vec3};
-use level::{AABB, BSP3D, Sector, is_subsector, subsector_index};
+use glam::Vec3;
+use level::{AABB, BSP3D, Sector, is_leaf, leaf_index};
 
 use crate::sprites::{SpriteCollectCtx, SpriteScratch};
 use crate::voxel::{VoxelCollectCtx, VoxelScratch};
@@ -111,29 +111,23 @@ impl WorldWalk<'_> {
     /// Front-to-back BSP traverse with frustum-culled node/leaf AABBs;
     /// `inside` subtrees skip all further frustum tests.
     pub fn walk(&mut self, node_id: u32, inside: bool) {
-        if is_subsector(node_id) {
-            let subsector_id = if node_id == u32::MAX {
-                0
-            } else {
-                subsector_index(node_id)
-            };
+        if is_leaf(node_id) {
+            let leaf_id = leaf_index(node_id);
             let bsp3d = self.bsp3d;
-            let Some(leaf) = bsp3d.get_subsector_leaf(subsector_id) else {
+            let Some(leaf) = bsp3d.get_leaf(leaf_id) else {
                 return;
             };
             if !inside && self.frustum.cull_aabb(&leaf.aabb) {
                 return;
             }
-            self.visit_leaf(&leaf.polygon_indices);
+            self.visit_leaf(leaf_id);
             return;
         }
 
         let Some(node) = self.bsp3d.nodes().get(node_id as usize) else {
             return;
         };
-        let children: [u32; 2] = node
-            .front_back_children(Vec2::new(self.camera_pos.x, self.camera_pos.y))
-            .into();
+        let children: [u32; 2] = node.front_back_children_plane(self.camera_pos).into();
         for child in children {
             if inside {
                 self.walk(child, true);
@@ -151,11 +145,11 @@ impl WorldWalk<'_> {
         }
     }
 
-    fn visit_leaf(&mut self, polygon_indices: &[usize]) {
+    fn visit_leaf(&mut self, leaf_id: usize) {
         let bsp3d = self.bsp3d;
         // Sectors before facing cull: back-facing geometry, visible things.
-        for &gi in polygon_indices {
-            let sid = bsp3d.polygons[gi].sector_id;
+        for gi in bsp3d.leaf_poly_indices(leaf_id) {
+            let sid = bsp3d.polygons[gi].sector.num as usize;
             if !self.seen_sectors[sid] {
                 self.seen_sectors[sid] = true;
                 let sector = &self.sectors[sid];
@@ -165,8 +159,8 @@ impl WorldWalk<'_> {
                 }
             }
         }
-        for &gi in polygon_indices {
-            if bsp3d.polygons[gi].is_facing_point(self.camera_pos, &bsp3d.vertices) {
+        for gi in bsp3d.leaf_poly_indices(leaf_id) {
+            if bsp3d.is_facing_point(gi, self.camera_pos) {
                 let (start, count) = self.poly_corner_range[gi];
                 self.indices.extend(start..start + count);
             }

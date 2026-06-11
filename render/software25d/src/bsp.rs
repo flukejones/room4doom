@@ -7,7 +7,7 @@ use super::utilities::inner_to_i32;
 use coarse_prof::profile;
 use game_config::tic_cmd::LookDirs;
 use glam::Vec2;
-use level::{LevelData, Sector, Segment, SubSector, is_subsector, subsector_index};
+use level::{LevelData, Sector, Segment, SubSector, is_leaf, leaf_index};
 use log::trace;
 use math::{ANG90, ANG180, ANGLETOFINESHIFT, Angle, Bam, FixedT};
 use pic_data::PicData;
@@ -123,7 +123,7 @@ impl Software25D {
         self.render_bsp_node(
             level_data,
             view,
-            level_data.start_node(),
+            level_data.bsp_3d.root_node(),
             pic_data,
             rend,
             &mut count,
@@ -630,27 +630,22 @@ impl Software25D {
         // profile!("render_bsp_node");
         *count += 1;
 
-        if is_subsector(node_id) {
-            let subsector_id = if node_id == u32::MAX {
-                0
-            } else {
-                subsector_index(node_id)
-            };
-
-            if subsector_id < map.subsectors.len() {
-                if node_id == u32::MAX {
-                    let subsect = &map.subsectors[0];
-                    self.draw_subsector(map, view, subsect, pic_data, rend);
-                } else {
-                    let subsect = &map.subsectors[subsector_index(node_id)];
-                    self.draw_subsector(map, view, subsect, pic_data, rend);
-                }
-                return;
-            }
+        if is_leaf(node_id)
+            && let Some(leaf) = map.bsp_3d.get_leaf(leaf_index(node_id))
+        {
+            let subsect = &map.subsectors[leaf.subsector];
+            self.draw_subsector(map, view, subsect, pic_data, rend);
+            return;
+        }
+        if node_id >= map.bsp_3d.first_plane_node() {
+            let leaf = &map.bsp_3d.leaves[map.bsp_3d.subtree_leaf(node_id)];
+            let subsect = &map.subsectors[leaf.subsector];
+            self.draw_subsector(map, view, subsect, pic_data, rend);
+            return;
         }
 
         // otherwise get node
-        let node = &map.get_nodes()[node_id as usize];
+        let node = &map.bsp_3d.nodes()[node_id as usize];
         let side = node.point_on_side_fixed(view.x, view.y);
         let (front, back) = node.front_back_children_fixed(view.x, view.y);
         // Recursively divide front space.
@@ -658,7 +653,12 @@ impl Software25D {
 
         // Possibly divide back space.
         let back_side = side ^ 1;
-        if self.bb_extents_in_fov(&node.bboxes[back_side], view.x, view.y, view.angle) {
+        if self.bb_extents_in_fov(
+            map.bsp_3d.node_bbox(node_id, back_side),
+            view.x,
+            view.y,
+            view.angle,
+        ) {
             self.render_bsp_node(map, view, back, pic_data, rend, count);
         }
     }

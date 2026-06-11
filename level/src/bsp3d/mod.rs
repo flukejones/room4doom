@@ -1,16 +1,19 @@
-//! 3D BSP construction and mover vertex management.
+//! 3D BSP runtime: parse a [`Bsp3dLump`] (built by `rbsp::bsp3d`, read from a
+//! v3 `RBSP` lump or built at load) into the runtime [`BSP3D`].
 //!
 //! Submodules:
-//! - [`build`]: [`BSP3D`] struct, construction, and runtime surface updates.
-//! - [`movers`]: Post-construction mover vertex pass and AABB expansion.
-//! - [`node`]: Extension methods on the raw [`Node`] type.
+//! - [`movers`]: parse-side sector mover classification (AABB expansion).
+//! - `parse`: [`BSP3D::from_lump`] — materializes the runtime structure.
+//! - [`runtime`]: runtime [`BSP3D`] — render SoA + mover/texture event API.
 
-pub mod build;
 pub mod movers;
-pub mod node;
+mod parse;
+pub mod runtime;
 
-pub use build::{
-    AABB, BSP3D, BSPLeaf3D, LIGHT_LEVELS, MovementType, Node3D, SurfaceKind, SurfacePolygon,
-    WallFace, WallTexPin, WallType, contrast_adjust, light_band,
+pub use rbsp::bsp3d::{
+    Bsp3dBuilder, Bsp3dInput, Bsp3dLump, LeafRecord, NO_INDEX, PolyFlags, PolyRecord,
 };
-pub use movers::is_sector_mover;
+pub use runtime::{
+    AABB, BSP3D, BSPLeaf3D, IS_LEAF_MASK, LIGHT_LEVELS, MovementType, Node3D, Polygon3D, WallSlot,
+    contrast_adjust, is_leaf, leaf_index, light_band, mark_leaf,
+};

@@ -18,19 +18,18 @@ pub mod flags;
 pub mod level_data;
 pub mod map_array;
 pub mod map_defs;
-pub mod special_encode;
 // Re-exports for convenience
-pub use bsp3d::movers::is_sector_mover;
 pub use bsp3d::{
-    AABB, BSP3D, BSPLeaf3D, LIGHT_LEVELS, MovementType, Node3D, SurfaceKind, SurfacePolygon,
-    WallFace, WallTexPin, WallType, contrast_adjust, light_band,
+    AABB, BSP3D, BSPLeaf3D, Bsp3dBuilder, Bsp3dLump, IS_LEAF_MASK, LIGHT_LEVELS, MovementType,
+    NO_INDEX, Node3D, PolyFlags, Polygon3D, WallSlot, contrast_adjust, is_leaf, leaf_index,
+    light_band, mark_leaf,
 };
 pub use flags::LineDefFlags;
 pub use level_data::LevelData;
 pub use map_defs::{
-    BBox, Blockmap, IS_SSECTOR_MASK, LineDef, Node, Sector, SectorHeight, Segment, SideDef,
-    SlopeType, SubSector, Vertex, is_subsector, mark_subsector, subsector_index,
+    BBox, Blockmap, LineDef, Sector, SectorHeight, Segment, SideDef, SlopeType, SubSector, Vertex,
 };
+pub use rbsp::{SlopePlane, special_encode};
 /// This exists to allow breaking the rules of borrows and in some cases
 /// lifetimes.
 ///

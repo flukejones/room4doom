@@ -2,10 +2,9 @@
 mod map_data_tests {
     use std::f32::consts::PI;
 
-    use crate::bsp_trace::BSPTrace;
     use glam::Vec2;
     use level::level_data::LevelData;
-    use level::{IS_SSECTOR_MASK, LineDefFlags};
+    use level::{LineDefFlags, is_leaf, leaf_index};
     use math::{Angle, FixedT};
     use test_utils::{doom1_wad_path, sunder_wad_path};
     use wad::extended::WadExtendedMap;
@@ -98,42 +97,6 @@ mod map_data_tests {
             map.linedefs[1590].back_sidedef.as_ref().unwrap().toptexture,
             None
         );
-    }
-
-    #[test]
-    fn test_tracing_bsp() {
-        let wad = WadData::new(&doom1_wad_path());
-        let mut map = LevelData::default();
-        map.load("E1M1", |_| None, &wad, None, None);
-        let ox = FixedT::from_f32(710.0);
-        let oy = FixedT::from_f32(-3400.0);
-        let ex = FixedT::from_f32(710.0);
-        let ey = FixedT::from_f32(-3000.0);
-
-        let mut bsp_trace = BSPTrace::new_line(ox, oy, ex, ey, FixedT::from_f32(1.0));
-
-        let sub_sect = &map.subsectors;
-        let segs = &map.segments;
-
-        // BSP trace should find valid subsectors along a vertical line
-        let mut count = 0;
-        bsp_trace.origin_x = FixedT::from_f32(710.0);
-        bsp_trace.origin_y = FixedT::from_f32(-3400.0);
-        bsp_trace.nodes.clear();
-        bsp_trace.find_intercepts(map.start_node(), &map, &mut count);
-
-        // Should find at least one subsector
-        assert!(
-            !bsp_trace.nodes.is_empty(),
-            "BSP trace should find subsectors"
-        );
-
-        // First subsector should have valid segs
-        let first_ss = bsp_trace.nodes.as_slice().first().unwrap();
-        let start = sub_sect[*first_ss as usize].start_seg as usize;
-        let seg_count = sub_sect[*first_ss as usize].seg_count as usize;
-        assert!(seg_count > 0, "Subsector should have segs");
-        assert!(start + seg_count <= segs.len(), "Seg range should be valid");
     }
 
     #[test]
@@ -314,16 +277,15 @@ mod map_data_tests {
         let mut map = LevelData::default();
         map.load("E1M1", |_| None, &wad, None, None);
 
-        let nodes = map.get_nodes();
+        let nodes = map.bsp_3d.nodes();
         assert!(nodes.len() > 100, "Should have many BSP nodes");
 
-        // Every node child should be either a valid node index or a valid subsector ref
-        let num_subsectors = map.subsectors.len();
+        // Every node child should be either a valid node index or a valid leaf ref
+        let num_leaves = map.bsp_3d.leaves.len();
         for node in nodes {
             for &child in &node.children {
-                if child & IS_SSECTOR_MASK != 0 {
-                    let ss_idx = (child & !IS_SSECTOR_MASK) as usize;
-                    assert!(ss_idx < num_subsectors, "Subsector index out of range");
+                if is_leaf(child) {
+                    assert!(leaf_index(child) < num_leaves, "Leaf index out of range");
                 } else {
                     assert!((child as usize) < nodes.len(), "Node index out of range");
                 }
@@ -332,7 +294,8 @@ mod map_data_tests {
 
         // Root node should exist and have non-zero delta
         let root = &nodes[nodes.len() - 1];
-        let len = (root.delta.x * root.delta.x + root.delta.y * root.delta.y).sqrt();
+        let (dx, dy) = (root.delta_fp[0].to_f32(), root.delta_fp[1].to_f32());
+        let len = (dx * dx + dy * dy).sqrt();
         assert!(len > 0.0, "Root node should have non-zero partition line");
     }
 }

@@ -13,6 +13,8 @@ f32 = []
 
 [dependencies]
 argh.workspace = true
+bitflags.workspace = true
+glam.workspace = true
 log.workspace = true
 simplelog.workspace = true
 wad = { workspace = true, optional = true }

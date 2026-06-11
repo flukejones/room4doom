@@ -12,12 +12,12 @@ use log::trace;
 use sound_common::SfxName;
 use std::ptr;
 
-use crate::bsp_trace::PortalZ;
 use crate::doom_def::MISSILERANGE;
 use crate::env::doors::{DoorKind, ev_do_door};
 use crate::env::floor::{FloorKind, ev_do_floor};
 use crate::info::{MOBJINFO, StateNum};
 use crate::level::LevelState;
+use crate::maputl::PortalZ;
 use crate::thing::{MapObjFlag, MapObject, MoveDir};
 use crate::thinker::ThinkerData;
 use crate::{MAXPLAYERS, MapObjKind, SectorExt as _, teleport_move};
@@ -687,8 +687,7 @@ pub(crate) fn a_posattack(actor: &mut MapObject) {
 
     a_facetarget(actor);
     let distance: FixedT = MISSILERANGE.into();
-    let mut bsp_trace = actor.get_shoot_bsp_trace(distance);
-    let slope = actor.aim_line_attack(distance, &mut bsp_trace);
+    let slope = actor.aim_line_attack(distance);
 
     actor.start_sound(SfxName::Pistol);
 
@@ -696,7 +695,7 @@ pub(crate) fn a_posattack(actor: &mut MapObject) {
     let spread = ((p_random() - p_random()) << 20) as u32;
     let angle = Angle::from_bam(actor.angle.to_bam().wrapping_add(spread));
     let damage = ((p_random() % 5) + 1) * 3;
-    actor.line_attack(damage, distance, angle, slope, &mut bsp_trace);
+    actor.line_attack(damage, distance, angle, slope);
 }
 
 pub(crate) fn a_sposattack(actor: &mut MapObject) {
@@ -706,8 +705,7 @@ pub(crate) fn a_sposattack(actor: &mut MapObject) {
 
     a_facetarget(actor);
     let distance: FixedT = MISSILERANGE.into();
-    let mut bsp_trace = actor.get_shoot_bsp_trace(distance);
-    let slope = actor.aim_line_attack(distance, &mut bsp_trace);
+    let slope = actor.aim_line_attack(distance);
 
     actor.start_sound(SfxName::Shotgn);
 
@@ -716,7 +714,7 @@ pub(crate) fn a_sposattack(actor: &mut MapObject) {
         let spread = ((p_random() - p_random()) << 20) as u32;
         let angle = Angle::from_bam(actor.angle.to_bam().wrapping_add(spread));
         let damage = ((p_random() % 5) + 1) * 3;
-        actor.line_attack(damage, distance, angle, slope.clone(), &mut bsp_trace);
+        actor.line_attack(damage, distance, angle, slope.clone());
     }
 }
 
@@ -727,8 +725,7 @@ pub(crate) fn a_cposattack(actor: &mut MapObject) {
 
     a_facetarget(actor);
     let distance: FixedT = MISSILERANGE.into();
-    let mut bsp_trace = actor.get_shoot_bsp_trace(distance);
-    let slope = actor.aim_line_attack(distance, &mut bsp_trace);
+    let slope = actor.aim_line_attack(distance);
 
     actor.start_sound(SfxName::Shotgn);
 
@@ -736,7 +733,7 @@ pub(crate) fn a_cposattack(actor: &mut MapObject) {
     let spread = ((p_random() - p_random()) << 20) as u32;
     let angle = Angle::from_bam(actor.angle.to_bam().wrapping_add(spread));
     let damage = ((p_random() % 5) + 1) * 3;
-    actor.line_attack(damage, distance, angle, slope, &mut bsp_trace);
+    actor.line_attack(damage, distance, angle, slope);
 }
 
 pub(crate) fn a_bspiattack(actor: &mut MapObject) {

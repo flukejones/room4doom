@@ -17,9 +17,9 @@ mod doom_def;
 pub(crate) mod env;
 #[rustfmt::skip]
 mod info;
-pub(crate) mod bsp_trace;
 mod lang;
 mod level;
+pub(crate) mod maputl;
 mod pic;
 mod player;
 mod player_sprite;

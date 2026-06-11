@@ -17,6 +17,14 @@ struct Args {
     /// split cost weight (default 11)
     #[argh(option, default = "11.0")]
     split_weight: f32,
+
+    /// sky flat name for the 3D geometry (default F_SKY1)
+    #[argh(option, default = "String::from(\"F_SKY1\")")]
+    sky_flat: String,
+
+    /// also emit the classic 2D NODE section in the RBSP lump
+    #[argh(switch)]
+    classic_nodes: bool,
 }
 
 fn main() {
@@ -40,11 +48,15 @@ fn main() {
 
     let options = rbsp::BspOptions {
         split_weight: args.split_weight as rbsp::Float,
+        classic_nodes: args.classic_nodes,
     };
 
-    if let Err(e) =
-        rbsp::wad_io::process_wad(Path::new(&args.input), Path::new(&output_path), &options)
-    {
+    if let Err(e) = rbsp::wad_io::process_wad(
+        Path::new(&args.input),
+        Path::new(&output_path),
+        &options,
+        Some(&args.sky_flat),
+    ) {
         eprintln!("Error: {e}");
         process::exit(1);
     }

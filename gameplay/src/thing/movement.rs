@@ -7,13 +7,13 @@ use std::ptr;
 
 use log::{debug, error};
 
-use crate::bsp_trace::{
-    BestSlide, Intercept, PortalZ, box_on_line_side, path_traverse_blockmap, point_on_line_side,
-};
 use crate::doom_def::{FLOATSPEED, USERANGE, VIEWHEIGHT};
 use crate::env::specials::cross_special_line;
 use crate::env::switch::p_use_special_line;
 use crate::info::{STATES, StateData, StateNum};
+use crate::maputl::{
+    BestSlide, Intercept, PortalZ, box_on_line_side, path_traverse_blockmap, point_on_line_side,
+};
 use crate::{MapObjKind, MapObject};
 use level::MapPtr;
 use level::flags::LineDefFlags;
@@ -270,7 +270,7 @@ impl MapObject {
             return; // no friction when airborne
         }
 
-        let floorheight = FixedT::from_fixed(self.subsector.sector.floorheight.to_fixed_raw());
+        let floorheight = self.subsector.sector.floor_z(self.x, self.y);
 
         if self.flags.contains(MapObjFlag::Corpse) {
             // do not stop sliding
@@ -408,12 +408,13 @@ impl MapObject {
         let level = unsafe { &mut *self.level };
         let newsubsec = level.level_data.point_in_subsector(endpoint_x, endpoint_y);
 
-        // The base floor / ceiling is from the subsector
-        // that contains the point.
-        let floor_z = FixedT::from_fixed(newsubsec.sector.floorheight.to_fixed_raw());
+        // The base floor / ceiling is from the subsector that contains the
+        // point, evaluated at the destination (slope-aware; scalar height when
+        // the sector is not sloped).
+        let floor_z = newsubsec.sector.floor_z(endpoint_x, endpoint_y);
         ctrl.min_floor_z = floor_z;
         ctrl.max_dropoff = floor_z;
-        ctrl.max_ceil_z = FixedT::from_fixed(newsubsec.sector.ceilingheight.to_fixed_raw());
+        ctrl.max_ceil_z = newsubsec.sector.ceil_z(endpoint_x, endpoint_y);
 
         if self.flags.contains(MapObjFlag::Noclip) {
             return true;
@@ -1147,6 +1148,70 @@ const DIR_DIAGONALS: [MoveDir; 4] = [
 
 const DIR_XSPEED: [i32; 8] = [65536, 47000, 0, -47000, -65536, -47000, 0, 47000];
 const DIR_YSPEED: [i32; 8] = [0, 47000, 65536, 47000, 0, -47000, -65536, -47000];
+
+#[cfg(test)]
+mod slope_physics_tests {
+    use crate::MapObjKind;
+    use crate::test_support::{TestLevel, rng_guard};
+    use std::io::Write as _;
+    use wad::WadData;
+
+    const SLOPED_FLOOR: &str = include_str!("../../../data/test_files/udmf/sloped_floor.textmap");
+
+    /// Write a one-map UDMF PWAD (marker, TEXTMAP, ENDMAP) to a temp file.
+    fn sloped_wad() -> std::path::PathBuf {
+        let path = std::env::temp_dir().join(format!("r4d-slopephys-{}.wad", std::process::id()));
+        let lumps: [(&str, &[u8]); 3] = [
+            ("MAP01", &[]),
+            ("TEXTMAP", SLOPED_FLOOR.as_bytes()),
+            ("ENDMAP", &[]),
+        ];
+        let data_size: u32 = lumps.iter().map(|(_, d)| d.len() as u32).sum();
+        let mut buf = Vec::new();
+        buf.extend_from_slice(b"PWAD");
+        buf.extend_from_slice(&(lumps.len() as i32).to_le_bytes());
+        buf.extend_from_slice(&((12 + data_size) as i32).to_le_bytes());
+        for (_, d) in &lumps {
+            buf.extend_from_slice(d);
+        }
+        let mut off: u32 = 12;
+        for (name, d) in &lumps {
+            buf.extend_from_slice(&(off as i32).to_le_bytes());
+            buf.extend_from_slice(&(d.len() as i32).to_le_bytes());
+            let mut n8 = [0u8; 8];
+            n8[..name.len()].copy_from_slice(name.as_bytes());
+            buf.extend_from_slice(&n8);
+            off += d.len() as u32;
+        }
+        std::fs::File::create(&path)
+            .unwrap()
+            .write_all(&buf)
+            .unwrap();
+        path
+    }
+
+    /// A thing spawned on a sloped floor (z = 0.25*x) auto-places at the plane
+    /// height for its position — rising as x increases.
+    #[test]
+    fn spawn_floorz_tracks_the_slope() {
+        let _g = rng_guard();
+        let path = sloped_wad();
+        let mut level = TestLevel::load_wad(&WadData::new(&path), "MAP01");
+
+        let low = level.spawn(40, 128, MapObjKind::MT_BARREL).floorz.to_f32();
+        let high = level.spawn(216, 128, MapObjKind::MT_BARREL).floorz.to_f32();
+
+        std::fs::remove_file(&path).ok();
+
+        // floor plane: z = 0.25 * x. low at x=40 → 10; high at x=216 → 54.
+        assert!((low - 10.0).abs() < 0.5, "floorz at x=40 ≈ 10, got {low}");
+        assert!(
+            (high - 54.0).abs() < 0.5,
+            "floorz at x=216 ≈ 54, got {high}"
+        );
+        assert!(high > low + 30.0, "floorz rises up the slope");
+    }
+}
 
 #[cfg(test)]
 mod z_movement_tests {

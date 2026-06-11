@@ -1,18 +1,22 @@
 use crate::map_defs::{
-    BBox, Blockmap, LineDef, Node, Sector, Segment, SideDef, SlopeType, SubSector, Vertex,
-    is_subsector, subsector_index,
+    BBox, Blockmap, LineDef, Sector, Segment, SideDef, SlopeType, SubSector, Vertex,
 };
 
 use crate::bsp3d::BSP3D;
 use crate::flags::LineDefFlags;
 use crate::map_array::MapArray;
-use crate::{MapPtr, special_encode};
+use crate::{MapPtr, SlopePlane, special_encode};
 use glam::Vec2;
 use log::{debug, info, warn};
 use math::{Angle, FixedT};
 use rbsp::LineDefAccess as _;
+use rbsp::bsp3d::{Bsp3dBuilder, Bsp3dInput, Bsp3dLump};
 use std::collections::BTreeMap;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::Hasher as _;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
+use std::{fs, process};
 
 const CELL_SIZE: f32 = 128.0;
 use wad::types::*;
@@ -35,8 +39,8 @@ pub struct MapExtents {
 /// player will see in-game-exe, such as the data to build a level, the textures
 /// used, `Things`, `Sounds` and others.
 ///
-/// `nodes`, `subsectors`, and `segments` are what get used most to render the
-/// basic level
+/// The BSP tree lives in `bsp_3d`; `subsectors` and `segments` are what get
+/// used most to render the basic level
 ///
 /// Access to the `Vec` arrays within is limited to immutable only to
 /// prevent unwanted removal of items, which *will* break references and
@@ -56,8 +60,6 @@ pub struct LevelData {
     blockmap: Blockmap,
     reject: Vec<u8>,
     extents: MapExtents,
-    pub nodes: MapArray<Node>,
-    pub start_node: u32,
     pub bsp_3d: BSP3D,
 }
 
@@ -146,14 +148,6 @@ impl LevelData {
         }
     }
 
-    pub fn get_nodes(&self) -> &[Node] {
-        &self.nodes
-    }
-
-    pub const fn start_node(&self) -> u32 {
-        self.start_node
-    }
-
     pub fn blockmap(&self) -> &Blockmap {
         &self.blockmap
     }
@@ -175,10 +169,27 @@ impl LevelData {
         sky_num: Option<usize>,
         sky_pic: Option<usize>,
     ) {
-        let mut tex_order: Vec<WadTexture> = wad.texture_iter("TEXTURE1").collect();
+        let mut tex_order: Vec<WadTexture> = if wad.lump_exists("TEXTURE1") {
+            wad.texture_iter("TEXTURE1").collect()
+        } else {
+            Vec::new()
+        };
         if wad.lump_exists("TEXTURE2") {
             let mut pnames2: Vec<WadTexture> = wad.texture_iter("TEXTURE2").collect();
             tex_order.append(&mut pnames2);
+        }
+
+        if let Some(textmap) = wad.read_textmap(map_name) {
+            self.load_udmf(
+                map_name,
+                wad,
+                textmap,
+                &flat_num_for_name,
+                &tex_order,
+                sky_num,
+                sky_pic,
+            );
+            return;
         }
 
         self.things = wad
@@ -190,25 +201,9 @@ impl LevelData {
         self.load_sectors(map_name, wad, &flat_num_for_name);
         self.load_sidedefs(map_name, wad, &tex_order);
 
-        // Try to load pre-built RBSP lump; fall back to building from scratch.
-        let bsp = if let Some(rbsp_data) = find_map_lump(wad, map_name, "RBSP") {
-            if let Some(bsp) = rbsp::rbsp_lump::read_rbsp_lump(&rbsp_data) {
-                info!(
-                    "{}: Loaded RBSP lump: {} verts, {} segs, {} ssectors, {} nodes",
-                    map_name,
-                    bsp.vertices.len(),
-                    bsp.segs.len(),
-                    bsp.subsectors.len(),
-                    bsp.nodes.len(),
-                );
-                bsp
-            } else {
-                info!("{map_name}: RBSP lump invalid, rebuilding");
-                Self::build_bsp(map_name, wad)
-            }
-        } else {
-            Self::build_bsp(map_name, wad)
-        };
+        // 2D BSP + 3D geometry, always in lump form: WAD lump, sidecar
+        // cache, or built fresh (then cached).
+        let (bsp, bsp3d_lump) = load_or_build_bsp(map_name, wad, sky_num, sky_pic);
 
         let wad_linedefs: Vec<WadLineDef> = wad
             .map_iter::<WadLineDef>(map_name, MapLump::LineDefs)
@@ -296,6 +291,22 @@ impl LevelData {
             .collect();
         info!("{}: Loaded {} linedefs", map_name, self.linedefs.len());
 
+        self.finalize_after_linedefs(map_name, wad, &bsp, bsp3d_lump, sky_num, &tex_order);
+    }
+
+    /// Shared load tail: special normalisation, sector↔line links, segs +
+    /// subsectors from `bsp`, blockmap/reject/extents, and the 3D-BSP parse.
+    /// Reads only `self.*` + the BSP outputs, so the classic and UDMF fronts
+    /// run it identically.
+    fn finalize_after_linedefs(
+        &mut self,
+        map_name: &str,
+        wad: &WadData,
+        bsp: &rbsp::BspOutput,
+        bsp3d_lump: Bsp3dLump,
+        sky_num: Option<usize>,
+        tex_order: &[WadTexture],
+    ) {
         // Normalise vanilla mover specials to generalized form so the engine
         // has one decode path. `default_special` keeps the original number.
         for line in self.linedefs.iter_mut() {
@@ -392,54 +403,7 @@ impl LevelData {
             self.subsectors.len(),
         );
 
-        // --- Nodes: direct from rbsp ---
-        self.nodes = bsp
-            .nodes
-            .iter()
-            .map(|n| Node {
-                xy: Vec2::new(n.x as f32, n.y as f32),
-                delta: Vec2::new(n.dx as f32, n.dy as f32),
-                bboxes: [
-                    [
-                        Vec2::new(n.bbox_right.min_x as f32, n.bbox_right.max_y as f32),
-                        Vec2::new(n.bbox_right.max_x as f32, n.bbox_right.min_y as f32),
-                    ],
-                    [
-                        Vec2::new(n.bbox_left.min_x as f32, n.bbox_left.max_y as f32),
-                        Vec2::new(n.bbox_left.max_x as f32, n.bbox_left.min_y as f32),
-                    ],
-                ],
-                children: [n.child_right, n.child_left],
-            })
-            .collect();
-        self.start_node = if self.nodes.is_empty() {
-            0
-        } else {
-            (self.nodes.len() - 1) as u32
-        };
-        info!(
-            "{}: Loaded {} nodes, start_node={}",
-            map_name,
-            self.nodes.len(),
-            self.start_node,
-        );
-
-        // --- Polygons for BSP3D: from rbsp poly_indices ---
-        let carved_polygons: Vec<Vec<Vec2>> = bsp
-            .subsectors
-            .iter()
-            .map(|ss| {
-                let start = ss.polygon.first_vertex as usize;
-                let count = ss.polygon.num_vertices as usize;
-                bsp.poly_indices[start..start + count]
-                    .iter()
-                    .map(|&vi| {
-                        let v = &bsp.vertices[vi as usize];
-                        Vec2::new(v.x as f32, v.y as f32)
-                    })
-                    .collect()
-            })
-            .collect();
+        info!("{}: Loaded {} tree nodes", map_name, bsp3d_lump.tree.len());
 
         // --- Finalize ---
         let t = Instant::now();
@@ -460,22 +424,167 @@ impl LevelData {
         );
 
         let t = Instant::now();
-        self.bsp_3d = BSP3D::new(
-            self.start_node,
-            &self.nodes,
+        let wall_tex_heights: Vec<f32> = tex_order.iter().map(|t| t.height as f32).collect();
+        self.bsp_3d = BSP3D::from_lump(
+            bsp3d_lump,
             &self.subsectors,
-            &self.segments,
             &self.sectors,
-            &self.linedefs,
-            carved_polygons,
+            &mut self.linedefs,
+            wall_tex_heights,
             sky_num,
-            sky_pic,
         );
         log::info!(
-            "{}: BSP3D built [{:.2}s]",
+            "{}: BSP3D parsed [{:.2}s]",
             map_name,
             t.elapsed().as_secs_f64()
         );
+    }
+
+    /// Build the engine structures for a UDMF map from its `TEXTMAP` lump.
+    /// Mirrors the classic front (things → sectors → sidedefs → bsp →
+    /// vertices → linedefs) but from `UdmfMap` records, attaching sector slope
+    /// planes, then runs the shared finalize tail. No WAD-record synthesis: the
+    /// 2D BSP is built straight from the UDMF-derived `BspInput`.
+    fn load_udmf(
+        &mut self,
+        map_name: &str,
+        wad: &WadData,
+        textmap: &[u8],
+        flat_num_for_name: &impl Fn(&str) -> Option<usize>,
+        tex_order: &[WadTexture],
+        sky_num: Option<usize>,
+        sky_pic: Option<usize>,
+    ) {
+        let text = std::str::from_utf8(textmap).expect("TEXTMAP is not valid UTF-8");
+        let map = wad::udmf::parse_textmap(text).expect("TEXTMAP parse failed");
+        info!("{map_name}: UDMF map, namespace {}", map.namespace);
+
+        self.things = map.things.iter().map(udmf_thing_to_wad).collect();
+        info!("{}: Loaded {} things", map_name, self.things.len());
+
+        self.sectors = map
+            .sectors
+            .iter()
+            .enumerate()
+            .map(|(i, s)| {
+                let mut sector = Sector::new(
+                    i as u32,
+                    FixedT::from(s.heightfloor),
+                    FixedT::from(s.heightceiling),
+                    flat_num_for_name(&s.texturefloor).unwrap_or(1),
+                    flat_num_for_name(&s.textureceiling).unwrap_or(1),
+                    s.lightlevel as usize,
+                    i16::try_from(s.special).unwrap_or(0),
+                    i16::try_from(s.id).unwrap_or(0),
+                );
+                sector.floor_plane = s.floor_plane.and_then(udmf_plane);
+                sector.ceil_plane = s.ceiling_plane.and_then(udmf_plane);
+                sector
+            })
+            .collect();
+        info!("{}: Loaded {} sectors", map_name, self.sectors.len());
+
+        let tex_idx = |name: &Option<String>| -> Option<usize> {
+            let name = name.as_ref()?;
+            tex_order
+                .iter()
+                .position(|n| n.name == name.to_ascii_uppercase())
+        };
+        self.sidedefs = map
+            .sidedefs
+            .iter()
+            .map(|sd| SideDef {
+                textureoffset: FixedT::from(sd.offsetx),
+                rowoffset: FixedT::from(sd.offsety),
+                toptexture: tex_idx(&sd.texturetop),
+                bottomtexture: tex_idx(&sd.texturebottom),
+                midtexture: tex_idx(&sd.texturemiddle),
+                sector: MapPtr::new(&mut self.sectors[sd.sector]),
+            })
+            .collect();
+        info!("{}: Loaded {} sidedefs", map_name, self.sidedefs.len());
+
+        let udmf_input = rbsp::udmf_input::UdmfInput::from_map(&map);
+        let bsp_input = udmf_input.into_bsp_input();
+        let (bsp, bsp3d_lump) = build_bsp_from_input(map_name, &bsp_input, sky_num, sky_pic);
+
+        self.vertexes = bsp
+            .vertices
+            .iter()
+            .map(|hv| {
+                Vertex::new(
+                    hv.x as f32,
+                    hv.y as f32,
+                    FixedT::from_fixed((hv.x * 65536.0).round() as i32),
+                    FixedT::from_fixed((hv.y * 65536.0).round() as i32),
+                )
+            })
+            .collect();
+
+        self.linedefs = map
+            .linedefs
+            .iter()
+            .enumerate()
+            .map(|(num, l)| {
+                let v1 = MapPtr::new(&mut self.vertexes[l.v1]);
+                let v2 = MapPtr::new(&mut self.vertexes[l.v2]);
+                let front = MapPtr::new(&mut self.sidedefs[l.sidefront]);
+                let back_side = l.sideback.map(|i| MapPtr::new(&mut self.sidedefs[i]));
+                let back_sector = l.sideback.map(|i| self.sidedefs[i].sector.clone());
+
+                let dx = v2.x - v1.x;
+                let dy = v2.y - v1.y;
+                let x1 = v1.x_fp.to_fixed_raw();
+                let y1 = v1.y_fp.to_fixed_raw();
+                let x2 = v2.x_fp.to_fixed_raw();
+                let y2 = v2.y_fp.to_fixed_raw();
+                let delta_fp = [x2.wrapping_sub(x1), y2.wrapping_sub(y1)];
+
+                let slope = if delta_fp[0] == 0 {
+                    SlopeType::Vertical
+                } else if delta_fp[1] == 0 {
+                    SlopeType::Horizontal
+                } else if (delta_fp[1] ^ delta_fp[0]) >= 0 {
+                    SlopeType::Positive
+                } else {
+                    SlopeType::Negative
+                };
+
+                let tag = i16::try_from(l.id).unwrap_or(0);
+                let special = i16::try_from(l.special).unwrap_or(0);
+                let sides = [
+                    l.sidefront as u16,
+                    l.sideback.map_or(u16::MAX, |i| i as u16),
+                ];
+
+                LineDef {
+                    num,
+                    v1: v1.clone(),
+                    v2: v2.clone(),
+                    delta: Vec2::new(dx, dy),
+                    delta_fp,
+                    flags: LineDefFlags::from_bits_truncate(udmf_linedef_flags(l)),
+                    special: special as u32,
+                    tag,
+                    default_special: special,
+                    default_tag: tag,
+                    bbox: BBox::new(v1.pos, v2.pos),
+                    bbox_int: [y1.max(y2), y1.min(y2), x1.min(x2), x1.max(x2)],
+                    slopetype: slope,
+                    front_sidedef: front.clone(),
+                    back_sidedef: back_side,
+                    frontsector: front.sector.clone(),
+                    backsector: back_sector,
+                    valid_count: 0,
+                    sides,
+                }
+            })
+            .collect();
+        info!("{}: Loaded {} linedefs", map_name, self.linedefs.len());
+
+        // UDMF WADs carry no BLOCKMAP/REJECT lumps; the tail's `load_blockmap`
+        // falls back to `build_blockmap` and reject is empty when absent.
+        self.finalize_after_linedefs(map_name, wad, &bsp, bsp3d_lump, sky_num, tex_order);
     }
 
     /// For each two-sided segment, find the subsectors across it: segments on
@@ -510,40 +619,6 @@ impl LevelData {
                     .collect();
             }
         }
-    }
-
-    fn build_bsp(map_name: &str, wad: &WadData) -> rbsp::BspOutput {
-        let wad_vertices: Vec<WadVertex> = wad
-            .map_iter::<WadVertex>(map_name, MapLump::Vertexes)
-            .collect();
-        let wad_linedefs: Vec<WadLineDef> = wad
-            .map_iter::<WadLineDef>(map_name, MapLump::LineDefs)
-            .collect();
-        let wad_sidedefs: Vec<WadSideDef> = wad
-            .map_iter::<WadSideDef>(map_name, MapLump::SideDefs)
-            .collect();
-        let wad_sectors: Vec<WadSector> = wad
-            .map_iter::<WadSector>(map_name, MapLump::Sectors)
-            .collect();
-
-        let bsp = rbsp::build_bsp(
-            rbsp::BspInput {
-                vertices: wad_vertices,
-                linedefs: wad_linedefs,
-                sidedefs: wad_sidedefs,
-                sectors: wad_sectors,
-            },
-            &rbsp::BspOptions::default(),
-        );
-        info!(
-            "{}: BSP built: {} verts, {} segs, {} ssectors, {} nodes",
-            map_name,
-            bsp.vertices.len(),
-            bsp.segs.len(),
-            bsp.subsectors.len(),
-            bsp.nodes.len(),
-        );
-        bsp
     }
 
     fn load_sectors(
@@ -866,15 +941,214 @@ impl LevelData {
 
     /// OG Doom `R_PointInSubsector` — find which subsector a point is in.
     pub fn point_in_subsector(&mut self, x: FixedT, y: FixedT) -> MapPtr<SubSector> {
-        let mut node_id = self.start_node();
-
-        while !is_subsector(node_id) {
-            let node = &self.get_nodes()[node_id as usize];
-            (node_id, _) = node.front_back_children_fixed(x, y);
-        }
-
-        MapPtr::new(&mut self.subsectors[subsector_index(node_id)])
+        let leaf_id = self.bsp_3d.point_in_leaf(x, y);
+        let subsector = self.bsp_3d.leaves[leaf_id].subsector;
+        MapPtr::new(&mut self.subsectors[subsector])
     }
+}
+
+/// Sky flat name — the engine's `sky_num` is this flat's index, so the
+/// name-based build criterion matches the index-based runtime one.
+const SKY_FLAT_NAME: &str = "F_SKY1";
+
+/// The map's 2D BSP + 3D geometry, always in lump form: from the WAD's
+/// `RBSP` lump when present, else from the sidecar cache, else built via the
+/// rbsp crate (and written to the cache for the next run).
+fn load_or_build_bsp(
+    map_name: &str,
+    wad: &WadData,
+    sky_num: Option<usize>,
+    sky_pic: Option<usize>,
+) -> (rbsp::BspOutput, Bsp3dLump) {
+    if let Some(data) = find_map_lump(wad, map_name, "RBSP") {
+        if let Some(found) = rbsp::rbsp_lump::read_rbsp_lump(&data) {
+            info!("{map_name}: Loaded RBSP lump from WAD");
+            return found;
+        }
+        info!("{map_name}: WAD RBSP lump is not the current version, rebuilding");
+    }
+
+    let cache_path = rbsp_cache_path(map_name, wad, sky_num.is_some(), sky_pic.is_some());
+    if let Some(path) = &cache_path
+        && let Ok(bytes) = fs::read(path)
+    {
+        if let Some(found) = rbsp::rbsp_lump::read_rbsp_lump(&bytes) {
+            info!("{}: Loaded RBSP cache {}", map_name, path.display());
+            return found;
+        }
+        info!("{map_name}: stale RBSP cache, rebuilding");
+    }
+
+    let input = rbsp::BspInput {
+        vertices: wad
+            .map_iter::<WadVertex>(map_name, MapLump::Vertexes)
+            .collect(),
+        linedefs: wad
+            .map_iter::<WadLineDef>(map_name, MapLump::LineDefs)
+            .collect(),
+        sidedefs: wad
+            .map_iter::<WadSideDef>(map_name, MapLump::SideDefs)
+            .collect(),
+        sectors: wad
+            .map_iter::<WadSector>(map_name, MapLump::Sectors)
+            .collect(),
+    };
+    let (output, lump3d) = build_bsp_from_input(map_name, &input, sky_num, sky_pic);
+
+    if let Some(path) = &cache_path {
+        write_rbsp_cache(path, &output, &lump3d);
+    }
+    (output, lump3d)
+}
+
+/// Run the 2D BSP build + 3D geometry build on any trait-satisfying records.
+/// Shared by the classic (post-cache-miss) and UDMF load paths.
+fn build_bsp_from_input<V, L, S, SE>(
+    map_name: &str,
+    input: &rbsp::BspInput<V, L, S, SE>,
+    sky_num: Option<usize>,
+    sky_pic: Option<usize>,
+) -> (rbsp::BspOutput, Bsp3dLump)
+where
+    V: rbsp::VertexCoords,
+    L: rbsp::LineDefAccess,
+    S: rbsp::SideDefAccess,
+    SE: rbsp::SectorAccess,
+{
+    let output = rbsp::build_bsp(input, &rbsp::BspOptions::default());
+    info!(
+        "{}: BSP built: {} verts, {} segs, {} ssectors, {} nodes",
+        map_name,
+        output.vertices.len(),
+        output.segs.len(),
+        output.subsectors.len(),
+        output.nodes.len(),
+    );
+    let bsp3d_input = Bsp3dInput::new(
+        &input.linedefs,
+        &input.sidedefs,
+        &input.sectors,
+        &output,
+        sky_num.is_some().then_some(SKY_FLAT_NAME),
+        sky_pic.is_some(),
+    );
+    let lump3d = Bsp3dBuilder::build(&bsp3d_input, &output.nodes);
+    (output, lump3d)
+}
+
+/// Convert a UDMF thing to the classic `WadThing` the spawn path consumes.
+/// UDMF positive booleans map to the classic THINGS flag bits.
+fn udmf_thing_to_wad(t: &wad::udmf::UdmfThing) -> WadThing {
+    let mut flags = 0i16;
+    if t.skill1 || t.skill2 {
+        flags |= 1; // skill 1 & 2
+    }
+    if t.skill3 {
+        flags |= 2; // skill 3
+    }
+    if t.skill4 || t.skill5 {
+        flags |= 4; // skill 4 & 5
+    }
+    if t.ambush {
+        flags |= 8; // MTF_AMBUSH
+    }
+    if !t.single {
+        flags |= 16; // MTF_SINGLE_PLAYER ("not in single player")
+    }
+    WadThing {
+        x: t.x.round() as i16,
+        y: t.y.round() as i16,
+        angle: t.angle as i16,
+        kind: i16::try_from(t.kind).unwrap_or(0),
+        flags,
+    }
+}
+
+/// Classic linedef flag bits from a UDMF linedef's boolean fields (the bit
+/// layout matches `LineDefFlags` 1:1 for the v1.1 standard flags).
+fn udmf_linedef_flags(l: &wad::udmf::UdmfLineDef) -> u32 {
+    let mut f = 0u32;
+    if l.blocking {
+        f |= 1;
+    }
+    if l.blockmonsters {
+        f |= 1 << 1;
+    }
+    if l.twosided {
+        f |= 1 << 2;
+    }
+    if l.dontpegtop {
+        f |= 1 << 3;
+    }
+    if l.dontpegbottom {
+        f |= 1 << 4;
+    }
+    if l.secret {
+        f |= 1 << 5;
+    }
+    if l.blocksound {
+        f |= 1 << 6;
+    }
+    if l.dontdraw {
+        f |= 1 << 7;
+    }
+    if l.mapped {
+        f |= 1 << 8;
+    }
+    f
+}
+
+/// UDMF sector plane equation to the runtime [`SlopePlane`]; `None` for a
+/// degenerate vertical plane.
+fn udmf_plane(p: [f64; 4]) -> Option<SlopePlane> {
+    SlopePlane::new(p[0] as f32, p[1] as f32, p[2] as f32, p[3] as f32)
+}
+
+/// Cache file path keyed by the map's geometry lump bytes and the sky inputs —
+/// any change invalidates the entry. `ROOM4DOOM_CACHE_DIR` overrides the
+/// location; `None` when no cache directory is available.
+fn rbsp_cache_path(
+    map_name: &str,
+    wad: &WadData,
+    has_sky: bool,
+    sky_fillers: bool,
+) -> Option<PathBuf> {
+    let dir = match std::env::var_os("ROOM4DOOM_CACHE_DIR") {
+        Some(d) => PathBuf::from(d),
+        None => dirs::cache_dir()?.join("room4doom"),
+    }
+    .join("rbsp");
+    let mut hasher = DefaultHasher::new();
+    for lump in ["VERTEXES", "LINEDEFS", "SIDEDEFS", "SECTORS"] {
+        hasher.write(&find_map_lump(wad, map_name, lump).unwrap_or_default());
+    }
+    hasher.write_u8(has_sky as u8);
+    hasher.write_u8(sky_fillers as u8);
+    hasher.write_u32(rbsp::bsp3d::BUILDER_REVISION);
+    Some(dir.join(format!("{map_name}-{:016x}.rbsp", hasher.finish())))
+}
+
+/// Write the cache atomically (temp file + rename) so a concurrent load never
+/// observes a partial file.
+fn write_rbsp_cache(path: &Path, output: &rbsp::BspOutput, lump3d: &Bsp3dLump) {
+    let Some(parent) = path.parent() else {
+        return;
+    };
+    if let Err(e) = fs::create_dir_all(parent) {
+        warn!("rbsp cache: creating {} failed: {e}", parent.display());
+        return;
+    }
+    let bytes = rbsp::rbsp_lump::write_rbsp_lump(output, lump3d, false);
+    let tmp = path.with_extension(format!("tmp{}", process::id()));
+    if let Err(e) = fs::write(&tmp, &bytes) {
+        warn!("rbsp cache: writing {} failed: {e}", tmp.display());
+        return;
+    }
+    if let Err(e) = fs::rename(&tmp, path) {
+        warn!("rbsp cache: renaming to {} failed: {e}", path.display());
+        return;
+    }
+    info!("rbsp cache: wrote {}", path.display());
 }
 
 /// Find raw lump data for a named lump within a map.

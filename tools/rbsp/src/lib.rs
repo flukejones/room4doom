@@ -6,23 +6,31 @@
 //!
 //! ## Usage
 //!
+//! [`build_bsp`] is generic over the input record types via the
+//! [`VertexCoords`], [`LineDefAccess`], and [`SideDefAccess`] traits, so it
+//! accepts WAD-binary records or any other source (e.g. UDMF) that implements
+//! them:
+//!
 //! ```no_run
 //! use rbsp::{BspInput, BspOptions, build_bsp};
+//! use wad::types::{WadVertex, WadLineDef, WadSideDef, WadSector};
 //!
-//! let input = BspInput {
-//!     vertices: vec![/* WadVertex ... */],
-//!     linedefs: vec![/* WadLineDef ... */],
-//!     sidedefs: vec![/* WadSideDef ... */],
-//!     sectors:  vec![/* WadSector ... */],
+//! let input: BspInput<WadVertex, WadLineDef, WadSideDef, WadSector> = BspInput {
+//!     vertices: Vec::new(),
+//!     linedefs: Vec::new(),
+//!     sidedefs: Vec::new(),
+//!     sectors: Vec::new(),
 //! };
-//! let result = build_bsp(input, &BspOptions::default());
+//! let result = build_bsp(&input, &BspOptions::default());
 //! ```
 
+pub mod bsp3d;
 pub mod node;
 pub mod picknode;
 pub mod polygon;
 pub mod rbsp_lump;
 pub mod seg;
+pub mod special_encode;
 pub mod split;
 pub mod superblock;
 pub mod types;
@@ -33,6 +41,9 @@ pub mod walltip;
 
 pub use types::*;
 
+#[cfg(feature = "wad-types")]
+pub mod udmf_input;
+
 use std::time::Instant;
 
 use node::BuildState;
@@ -42,7 +53,16 @@ use vertex_pool::VertexPool;
 ///
 /// Produces f64-precision output: vertices, segs, subsectors with explicit
 /// polygons, nodes, edges, and polygon vertex indices.
-pub fn build_bsp(input: BspInput, options: &BspOptions) -> BspOutput {
+#[allow(
+    trivial_numeric_casts,
+    reason = "f64 -> Float is identity only when Float = f64"
+)]
+pub fn build_bsp<V, L, S, SE>(input: &BspInput<V, L, S, SE>, options: &BspOptions) -> BspOutput
+where
+    V: VertexCoords,
+    L: LineDefAccess,
+    S: SideDefAccess,
+{
     let total_start = Instant::now();
     let mut pool = VertexPool::new();
 
@@ -50,7 +70,7 @@ pub fn build_bsp(input: BspInput, options: &BspOptions) -> BspOutput {
     // linedefs can reference them directly without remapping.
     let num_original_verts = input.vertices.len();
     for wv in &input.vertices {
-        pool.insert(wv.x as Float, wv.y as Float);
+        pool.insert(wv.x_f64() as Float, wv.y_f64() as Float);
     }
 
     let mut wall_tips = walltip::build_wall_tips(
@@ -144,11 +164,11 @@ pub fn build_bsp(input: BspInput, options: &BspOptions) -> BspOutput {
     }
 }
 
-fn compact_vertices(
+fn compact_vertices<L: LineDefAccess>(
     vertices: Vec<Vertex>,
     segs: &mut [Seg],
     poly_indices: &mut [u32],
-    linedefs: &[WadLineDef],
+    linedefs: &[L],
 ) -> Vec<Vertex> {
     let n = vertices.len();
     let mut used = vec![false; n];

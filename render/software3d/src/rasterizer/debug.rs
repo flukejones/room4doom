@@ -1,7 +1,7 @@
 use std::mem;
 
 use glam::Vec2;
-use level::{SurfaceKind, SurfacePolygon, WallType};
+use level::BSP3D;
 use pic_data::PicData;
 use render_common::DrawBuffer;
 
@@ -44,8 +44,9 @@ impl Software3D {
     /// Only called when `DebugDrawOptions::is_active()` is true.
     pub(crate) fn draw_polygon_debug(
         &mut self,
-        polygon: &SurfacePolygon,
-        wall_tex: Option<usize>,
+        bsp3d: &BSP3D,
+        gi: usize,
+        tex: Option<u32>,
         brightness: usize,
         bounds: (Vec2, Vec2),
         pic_data: &PicData,
@@ -66,16 +67,15 @@ impl Software3D {
 
         let sky_pic = pic_data.sky_pic();
         let sky_num = pic_data.sky_num();
-        let texture_sampler =
-            TextureSampler::new(&polygon.surface_kind, wall_tex, pic_data, sky_pic, sky_num);
-        let is_masked = matches!(
-            &polygon.surface_kind,
-            SurfaceKind::Vertical {
-                two_sided: true,
-                wall_type: WallType::Middle,
-                ..
-            }
+        let texture_sampler = TextureSampler::new(
+            bsp3d.poly_is_flat(gi),
+            bsp3d.poly_is_sky(gi),
+            tex,
+            pic_data,
+            sky_pic,
+            sky_num,
         );
+        let is_masked = bsp3d.poly_is_masked_middle(gi);
         let is_sky = matches!(texture_sampler, TextureSampler::Sky);
         let vertices = &screen_poly.0;
         let vertex_count = screen_poly.0.len();
@@ -104,7 +104,7 @@ impl Software3D {
         // Pre-compute debug colour for the whole polygon if using a flat mode
         let debug_flat_colour = match colour_mode {
             DebugColourMode::SectorId => Some(Self::generate_pseudo_random_colour(
-                polygon.sector_id as u32,
+                bsp3d.polygons[gi].sector.num as u32,
                 132,
             )),
             _ => None,

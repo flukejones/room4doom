@@ -1,10 +1,7 @@
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
 use glam::{Mat4, Vec2, Vec3, Vec4};
-use level::{
-    AABB, BSP3D, LevelData, Sector, SurfaceKind, SurfacePolygon, is_subsector, light_band,
-    subsector_index,
-};
+use level::{AABB, BSP3D, LevelData, is_leaf, leaf_index, light_band};
 #[cfg(feature = "bench")]
 use math::Angle;
 use pic_data::sky::{SKY_TILES, SKY_V_STRETCH, build_sky_extended, nearest_palette_index};
@@ -634,7 +631,7 @@ impl Software3D {
     /// clip space.
     /// Returns `None` if the polygon should be culled, or `Some(max_inv_w)` if
     /// it passes — with the closest-vertex depth pre-computed for free.
-    fn cull_polygon_bounds(&mut self, polygon: &SurfacePolygon, bsp3d: &BSP3D) -> Option<f32> {
+    fn cull_polygon_bounds(&mut self, gi: usize, bsp3d: &BSP3D) -> Option<f32> {
         let mut all_outside_left = true;
         let mut all_outside_right = true;
         let mut all_outside_bottom = true;
@@ -651,7 +648,7 @@ impl Software3D {
         let mut scr_max_x = f32::MIN;
         let mut scr_max_y = f32::MIN;
 
-        for &vidx in &polygon.vertices {
+        for &vidx in bsp3d.poly_vert_indices(gi) {
             let (_, clip_pos) = self.get_transformed_vertex(vidx, bsp3d);
 
             if clip_pos.x >= -clip_pos.w {
@@ -721,10 +718,8 @@ impl Software3D {
     /// draw_polygon dispatch.
     fn render_surface_polygon<P: PixelFmt>(
         &mut self,
-        poly_idx: usize,
-        polygon: &SurfacePolygon,
+        gi: usize,
         bsp3d: &BSP3D,
-        sectors: &[Sector],
         pic_data: &PicData,
         player_light: usize,
         buffer: &mut PixelTarget<P>,
@@ -734,24 +729,17 @@ impl Software3D {
         self.rasterizer.inv_w_len = 0;
         self.rasterizer.clipped_vertices_len = 0;
 
-        // A vertical wall renders its viewer-facing side; an untextured side
-        // renders nothing. Horizontals have no WallFace.
-        let wall_face = match &polygon.surface_kind {
-            SurfaceKind::Vertical {
-                ..
-            } => {
-                let Some(face) = polygon.visible_face(&bsp3d.vertices) else {
-                    return;
-                };
-                Some(face)
-            }
-            SurfaceKind::Horizontal {
-                ..
-            } => None,
-        };
+        // A wall renders its viewer-facing side's texture; an untextured side
+        // renders nothing (sky geometry is flagged, not textured).
+        let is_flat = bsp3d.poly_is_flat(gi);
+        let tex = bsp3d.visible_tex(gi);
+        if !is_flat && tex.is_none() && !bsp3d.poly_is_sky(gi) {
+            return;
+        }
 
         // Transform vertices to clip space and setup for clipping
-        let vert_count = polygon.vertices.len();
+        let vert_indices = bsp3d.poly_vert_indices(gi);
+        let vert_count = vert_indices.len();
         assert!(
             vert_count <= MAX_CLIPPED_VERTICES,
             "polygon exceeds clip buffer"
@@ -760,15 +748,16 @@ impl Software3D {
         let mut input_tex_coords = [Vec3::ZERO; MAX_CLIPPED_VERTICES];
 
         // UV is prebaked per polygon vertex in BSP3D (texel space, front face);
-        // normalise by the texture's dims. Recomputed on move in BSP3D, so no
+        // normalise by the texture's dims. Re-resolved on move in BSP3D, so no
         // per-frame texcoord math here.
-        let (tex_w, tex_h) = Self::poly_texture_dims(poly_idx, bsp3d, pic_data);
-        let (uv_start, _) = bsp3d.poly_vertex_range[poly_idx];
-        let scroll = bsp3d.poly_scroll[poly_idx];
+        let (tex_w, tex_h) = Self::poly_texture_dims(tex, is_flat, pic_data);
+        let (uv_start, _) = bsp3d.poly_vertex_range[gi];
+        let scroll = bsp3d.poly_scroll[gi];
 
-        for (i, &vertex_idx) in polygon.vertices.iter().enumerate() {
+        for i in 0..vert_count {
+            let vertex_idx = bsp3d.poly_verts[uv_start + i];
             let (_, clip_pos) = self.get_transformed_vertex(vertex_idx, bsp3d);
-            let [tu, tv] = bsp3d.poly_vertex_uv[uv_start as usize + i];
+            let [tu, tv] = bsp3d.poly_vertex_uv[uv_start + i];
 
             input_vertices[i] = clip_pos;
             input_tex_coords[i] = Vec3::new((tu + scroll) / tex_w, tv / tex_h, clip_pos.w);
@@ -872,11 +861,9 @@ impl Software3D {
             }
         }
 
-        let brightness = light_band(
-            sectors[polygon.sector_id].lightlevel,
-            player_light,
-            polygon.normal,
-        ) as usize;
+        let polygon = &bsp3d.polygons[gi];
+        let brightness =
+            light_band(polygon.sector.lightlevel, player_light, polygon.normal) as usize;
         let bounds = (
             Vec2::new(scr_min_x, scr_min_y),
             Vec2::new(scr_max_x, scr_max_y),
@@ -885,13 +872,12 @@ impl Software3D {
         // Render the polygon: dispatch to debug path only when debug options
         // are active. The fast path has zero debug branches in the inner loop.
         // Wireframe mode skips fill entirely — outlines are drawn as a post-pass.
-        let wall_tex = wall_face.and_then(|f| f.texture);
         if self.debug.options.wireframe {
             // no fill — outline only
         } else if self.debug.has_active {
-            self.draw_polygon_debug(polygon, wall_tex, brightness, bounds, pic_data, buffer);
+            self.draw_polygon_debug(bsp3d, gi, tex, brightness, bounds, pic_data, buffer);
         } else {
-            self.draw_polygon(polygon, wall_tex, brightness, bounds, pic_data, buffer);
+            self.draw_polygon(bsp3d, gi, tex, brightness, bounds, pic_data, buffer);
         }
 
         if self.debug.options.outline || self.debug.options.wireframe {
@@ -899,23 +885,25 @@ impl Software3D {
                 [..self.rasterizer.screen_vertices_len]
                 .to_vec();
             let depths = self.rasterizer.inv_w_buffer[..self.rasterizer.inv_w_len].to_vec();
+            let polygon = &bsp3d.polygons[gi];
             let color = Self::generate_pseudo_random_colour(
-                polygon.sector_id as u32,
-                sectors[polygon.sector_id].lightlevel,
+                polygon.sector.num as u32,
+                polygon.sector.lightlevel,
             );
             self.debug.polygon_outlines.push((verts, depths, color));
         }
 
         if self.debug.options.normals {
             // Compute world-space polygon center
+            let vert_indices = bsp3d.poly_vert_indices(gi);
             let mut center = Vec3::ZERO;
-            for &vi in &polygon.vertices {
+            for &vi in vert_indices {
                 center += bsp3d.vertex_get(vi);
             }
-            center /= polygon.vertices.len() as f32;
+            center /= vert_indices.len() as f32;
 
             let normal_len = 12.0;
-            let tip = center + polygon.normal * normal_len;
+            let tip = center + bsp3d.polygons[gi].normal * normal_len;
 
             // Project both points to screen (camera-relative)
             let vp = self.view_projection;
@@ -942,15 +930,13 @@ impl Software3D {
         }
     }
 
-    /// Texture dimensions for normalising a polygon's prebaked texel UV. Uses the
-    /// front-face texture (matches `BSP3D::poly_vertex_uv`). `(1,1)` when
-    /// untextured so division is a no-op.
-    fn poly_texture_dims(poly_idx: usize, bsp3d: &BSP3D, pic_data: &PicData) -> (f32, f32) {
-        let tex = bsp3d.poly_tex[poly_idx];
-        if tex == u32::MAX {
+    /// Texture dimensions for normalising a polygon's prebaked texel UV.
+    /// `(1,1)` when untextured (incl. sky) so division is a no-op.
+    fn poly_texture_dims(tex: Option<u32>, is_flat: bool, pic_data: &PicData) -> (f32, f32) {
+        let Some(tex) = tex else {
             return (1.0, 1.0);
-        }
-        if bsp3d.poly_is_flat[poly_idx] {
+        };
+        if is_flat {
             let flat = pic_data.get_flat(tex as usize);
             (flat.width as f32, flat.height as f32)
         } else {
@@ -1006,7 +992,6 @@ impl Software3D {
             self.render_bsp(
                 bsp_3d.root_node(),
                 bsp_3d,
-                sectors,
                 player_pos,
                 view.extralight,
                 false,
@@ -1113,16 +1098,7 @@ impl Software3D {
 
         self.update_sky_params(angle_rad, pitch_rad, pic_data);
 
-        self.render_bsp(
-            bsp_3d.root_node(),
-            bsp_3d,
-            sectors,
-            pos,
-            0,
-            false,
-            pic_data,
-            buffer,
-        );
+        self.render_bsp(bsp_3d.root_node(), bsp_3d, pos, 0, false, pic_data, buffer);
     }
 
     /// Front-to-back BSP traversal with immediate rendering and Hi-Z AABB
@@ -1132,7 +1108,6 @@ impl Software3D {
         &mut self,
         node_id: u32,
         bsp3d: &BSP3D,
-        sectors: &[Sector],
         player_pos: Vec3,
         player_light: usize,
         inside: bool,
@@ -1143,16 +1118,12 @@ impl Software3D {
             return;
         }
 
-        if is_subsector(node_id) {
-            let subsector_id = if node_id == u32::MAX {
-                0
-            } else {
-                subsector_index(node_id)
-            };
+        if is_leaf(node_id) {
+            let leaf_id = leaf_index(node_id);
 
             self.stats.subsectors_total += 1;
 
-            let Some(leaf) = bsp3d.get_subsector_leaf(subsector_id) else {
+            let Some(leaf) = bsp3d.get_leaf(leaf_id) else {
                 return;
             };
             if !inside && self.frustum.cull_aabb(&leaf.aabb) {
@@ -1166,31 +1137,21 @@ impl Software3D {
             // Mark all sectors in this leaf as visible for sprite/voxel
             // rendering BEFORE per-polygon culling. A sector's geometry may
             // be fully occluded while its sprites are still visible.
-            for &gi in &leaf.polygon_indices {
-                let poly_surface = &bsp3d.polygons[gi];
-                let sid = poly_surface.sector_id;
+            for gi in bsp3d.leaf_poly_indices(leaf_id) {
+                let sector = &bsp3d.polygons[gi].sector;
+                let sid = sector.num as usize;
                 if !self.seen_sectors[sid] {
                     self.seen_sectors[sid] = true;
-                    self.visible_sectors
-                        .push((sid, sectors[sid].lightlevel >> 4));
+                    self.visible_sectors.push((sid, sector.lightlevel >> 4));
                 }
             }
 
-            for &gi in &leaf.polygon_indices {
-                let poly_surface = &bsp3d.polygons[gi];
-                if poly_surface.is_facing_point(player_pos, &bsp3d.vertices)
-                    && self.cull_polygon_bounds(poly_surface, bsp3d).is_some()
+            for gi in bsp3d.leaf_poly_indices(leaf_id) {
+                if bsp3d.is_facing_point(gi, player_pos)
+                    && self.cull_polygon_bounds(gi, bsp3d).is_some()
                 {
                     self.stats.polygons_submitted += 1;
-                    self.render_surface_polygon(
-                        gi,
-                        poly_surface,
-                        bsp3d,
-                        sectors,
-                        pic_data,
-                        player_light,
-                        buffer,
-                    );
+                    self.render_surface_polygon(gi, bsp3d, pic_data, player_light, buffer);
                 }
             }
             return;
@@ -1199,34 +1160,29 @@ impl Software3D {
         let Some(node) = bsp3d.nodes().get(node_id as usize) else {
             return;
         };
-        let (front, back) = node.front_back_children(Vec2::new(player_pos.x, player_pos.y));
+        let children: [u32; 2] = node.front_back_children_plane(player_pos).into();
 
         // Front then back; Hi-Z still applies inside the frustum.
-        for child in [front, back] {
+        for child in children {
             if self.rasterizer.depth_buffer.is_full() {
                 return;
             }
+            let aabb = bsp3d.get_node_aabb(child);
             let cull = if inside {
                 Some(AabbCull::Inside)
             } else {
-                bsp3d
-                    .get_node_aabb(child)
-                    .map(|a| self.frustum.classify_aabb(a))
+                aabb.map(|a| self.frustum.classify_aabb(a))
             };
             if matches!(cull, Some(AabbCull::Outside)) {
                 continue;
             }
-            if bsp3d
-                .get_node_aabb(child)
-                .is_some_and(|a| self.cull_bbox_hiz(a))
-            {
+            if aabb.is_some_and(|a| self.cull_bbox_hiz(a)) {
                 self.stats.nodes_hiz_culled += 1;
                 continue;
             }
             self.render_bsp(
                 child,
                 bsp3d,
-                sectors,
                 player_pos,
                 player_light,
                 matches!(cull, Some(AabbCull::Inside)),

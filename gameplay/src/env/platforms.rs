@@ -119,11 +119,10 @@ pub fn ev_do_platform(
                 platform.status = PlatStatus::Up;
                 sec.special = 0;
                 sec.floorpic = line.frontsector.floorpic;
-                level.level_data.bsp_3d.update_flat_texture(
-                    sec.num as usize,
-                    MovementType::Floor,
-                    sec.floorpic,
-                );
+                level
+                    .level_data
+                    .bsp_3d
+                    .update_flat_texture(sec.num as usize, MovementType::Floor);
                 start_sector_sound(&line, SfxName::Stnmov, &level.snd_command);
             }
             PlatKind::RaiseAndChange => {
@@ -132,11 +131,10 @@ pub fn ev_do_platform(
                 platform.wait = 0;
                 platform.status = PlatStatus::Up;
                 sec.floorpic = line.frontsector.floorpic;
-                level.level_data.bsp_3d.update_flat_texture(
-                    sec.num as usize,
-                    MovementType::Floor,
-                    sec.floorpic,
-                );
+                level
+                    .level_data
+                    .bsp_3d
+                    .update_flat_texture(sec.num as usize, MovementType::Floor);
                 start_sector_sound(&line, SfxName::Stnmov, &level.snd_command);
             }
 

@@ -9,25 +9,25 @@ use crate::types::*;
 use crate::vertex_pool::VertexPool;
 
 /// Mutable builder state passed through the recursion.
-pub struct BuildState<'a> {
+pub struct BuildState<'a, L: LineDefAccess, S: SideDefAccess> {
     pub pool: &'a mut VertexPool,
     pub segs: &'a mut Vec<Seg>,
     pub nodes: &'a mut Vec<Node>,
     pub subsectors: &'a mut Vec<SubSector>,
     pub poly_indices: &'a mut Vec<u32>,
     pub edges: &'a mut Vec<Edge>,
-    pub linedefs: &'a [WadLineDef],
-    pub sidedefs: &'a [WadSideDef],
+    pub linedefs: &'a [L],
+    pub sidedefs: &'a [S],
     pub wall_tips: &'a mut Vec<Vec<WallTip>>,
     pub options: &'a BspOptions,
     pub start_time: Instant,
 }
 
 /// Build the BSP tree recursively.
-pub fn build_node(
+pub fn build_node<L: LineDefAccess, S: SideDefAccess>(
     seg_indices: Vec<usize>,
     clip_poly: ClipPoly,
-    bs: &mut BuildState,
+    bs: &mut BuildState<L, S>,
     depth: usize,
 ) -> u32 {
     assert!(
@@ -62,7 +62,7 @@ pub fn build_node(
 
     let input_count = seg_indices.len();
 
-    let try_partition = |partition_idx: usize, bs: &mut BuildState| -> Option<_> {
+    let try_partition = |partition_idx: usize, bs: &mut BuildState<L, S>| -> Option<_> {
         let partition = bs.segs[partition_idx].clone();
         let split = split_segs_and_poly(
             &seg_indices,
@@ -459,7 +459,11 @@ fn insert_boundary_verts(
 ///
 /// The clip polygon already has seg vertices inserted (done during the
 /// combined split_segs_and_poly pass). Seg vertices ARE polygon vertices.
-fn create_subsector(seg_indices: &[usize], clip_poly: ClipPoly, bs: &mut BuildState) -> u32 {
+fn create_subsector<L: LineDefAccess, S: SideDefAccess>(
+    seg_indices: &[usize],
+    clip_poly: ClipPoly,
+    bs: &mut BuildState<L, S>,
+) -> u32 {
     if bs.subsectors.len().is_multiple_of(200) {
         let elapsed = bs.start_time.elapsed();
         print!(

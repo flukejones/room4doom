@@ -110,7 +110,7 @@ pub fn plat_target(
 }
 
 /// A surface that a triggered mover would move, with its destination height.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug)]
 pub struct MoverTarget {
     pub sector_id: usize,
     pub movement: MovementType,

@@ -38,6 +38,7 @@ pub use crate::wad::*;
 pub mod wad;
 
 pub mod iterators;
+pub mod udmf;
 
 /// The specific types, these are contained within the Lumps
 pub mod types;

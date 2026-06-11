@@ -90,14 +90,14 @@ pub struct SplitResult {
     trivial_numeric_casts,
     reason = "f64 -> Float narrows only with f32 feature"
 )]
-pub fn split_segs_and_poly(
+pub fn split_segs_and_poly<L: LineDefAccess, S: SideDefAccess>(
     seg_indices: &[usize],
     partition: &Seg,
     clip_poly: &ClipPoly,
     pool: &mut VertexPool,
     segs: &mut Vec<Seg>,
-    linedefs: &[WadLineDef],
-    sidedefs: &[WadSideDef],
+    linedefs: &[L],
+    sidedefs: &[S],
     wall_tips: &mut Vec<Vec<WallTip>>,
 ) -> SplitResult {
     let mut left_segs = Vec::with_capacity(seg_indices.len());
