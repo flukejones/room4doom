@@ -4,7 +4,7 @@ use gamestate::Game;
 use pic_data::WallPic;
 
 use render_backend::PixelBuffer;
-use wad::types::{WadFlat, WadPalette, WadPatch};
+use wad::types::{COLUMN_END, WadFlat, WadPalette, WadPatch};
 
 pub(crate) fn image_test(name: &str, game: &Game, pixels: &mut impl PixelBuffer) {
     let lump = game.wad_data.get_lump(name).unwrap();
@@ -25,7 +25,7 @@ pub(crate) fn image_test(name: &str, game: &Game, pixels: &mut impl PixelBuffer)
                 &colour.0,
             );
         }
-        if c.y_offset == 255 {
+        if c.y_offset == COLUMN_END {
             x += 1;
         }
     }
@@ -47,7 +47,7 @@ pub(crate) fn patch_select_test(image: &WadPatch, game: &Game, pixels: &mut impl
                 &colour.0,
             );
         }
-        if c.y_offset == 255 {
+        if c.y_offset == COLUMN_END {
             x += 1;
         }
     }

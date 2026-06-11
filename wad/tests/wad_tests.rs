@@ -1,5 +1,5 @@
 use test_utils::{doom_wad_path, doom1_wad_path, sigil_wad_path, sunder_wad_path};
-use wad::types::{WadPatch, WadThing};
+use wad::types::{COLUMN_END, WadPatch, WadThing};
 use wad::{MapLump, WadData};
 
 #[test]
@@ -41,7 +41,7 @@ fn check_image_patch() {
     assert_eq!(lump.data.len(), 1304);
     let patch = WadPatch::from_lump(lump);
     assert_eq!(patch.columns[0].y_offset, 0);
-    assert_eq!(patch.columns[15].y_offset, 255);
+    assert_eq!(patch.columns[15].y_offset, COLUMN_END);
     assert_eq!(patch.columns[15].pixels.len(), 0);
 }
 
@@ -92,4 +92,24 @@ fn find_sunder15_reject() {
     let wad = WadData::new(&sunder_wad_path());
     let rejects = wad.read_rejects("MAP15").unwrap();
     assert_eq!(rejects.len(), 21216099);
+}
+
+#[test]
+#[cfg_attr(not(feature = "wad-sunder"), ignore = "needs sunder.wad (~/doom/)")]
+fn sunder_tall_patch_rows_past_255() {
+    let wad = WadData::new(&sunder_wad_path());
+    // MAKROK12: 512-tall single-patch texture (PNAMES[1844]); DeePsea
+    // tall-patch posts must resolve to absolute rows past 255.
+    let pnames: Vec<String> = wad.pnames_iter().collect();
+    let lump = wad.get_lump(&pnames[1844]).expect("MAKROK12 patch lump");
+    let patch = WadPatch::from_lump(lump);
+    assert_eq!(patch.height, 512);
+    let max_row = patch
+        .columns
+        .iter()
+        .filter(|c| c.y_offset != COLUMN_END)
+        .map(|c| c.y_offset + c.pixels.len() as i32)
+        .max()
+        .expect("patch has pixel posts");
+    assert!(max_row > 256, "tall-patch rows lost: max_row={max_row}");
 }

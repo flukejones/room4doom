@@ -17,7 +17,7 @@ use std::mem::{size_of, size_of_val};
 
 use log::{debug, warn};
 use wad::WadData;
-use wad::types::{WadColour, WadPalette, WadPatch, WadTexture};
+use wad::types::{COLUMN_END, WadColour, WadPalette, WadPatch, WadTexture};
 
 use self::sprites::{SpriteDef, init_spritedefs};
 use crate::colour::{ByteOrder, PALETTE_LEN, PalLit, PixelFmt};
@@ -344,7 +344,7 @@ impl PicData {
                         compose[x_pos as usize][y_pos as usize] = *p;
                     }
                 }
-                if c.y_offset == 255 {
+                if c.y_offset == COLUMN_END {
                     x_pos += 1;
                 }
             }
@@ -595,7 +595,7 @@ impl PicData {
             }
 
             for patch_column in &wad_patch.columns {
-                if patch_column.y_offset == 255 {
+                if patch_column.y_offset == COLUMN_END {
                     x_pos += 1;
                     continue;
                 }
@@ -606,7 +606,8 @@ impl PicData {
                 for (y, p) in patch_column.pixels.iter().enumerate() {
                     let y_pos = y as i32 + wad_tex_patch.origin_y + patch_column.y_offset;
                     let pos = x_pos * texture.height as i32 + y_pos;
-                    if y_pos >= 0 && pos < compose.len() as i32 {
+                    // y bound stops rows bleeding into the next compose column.
+                    if y_pos >= 0 && y_pos < texture.height as i32 && pos < compose.len() as i32 {
                         compose[pos as usize] = *p;
                     }
                 }

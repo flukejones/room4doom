@@ -12,7 +12,7 @@ use hud_util::{draw_num, draw_patch, hud_scale, load_key_sprites, load_num_sprit
 use render_common::{DrawBuffer, STBAR_HEIGHT};
 use std::collections::HashMap;
 use wad::WadData;
-use wad::types::{WadPalette, WadPatch};
+use wad::types::{COLUMN_END, WadPalette, WadPatch};
 
 const FLAT_SIZE: usize = 64;
 
@@ -663,7 +663,7 @@ fn decode_patch_to_rgba(patch: &WadPatch, palette: &WadPalette) -> Vec<u32> {
     let mut col_idx = 0usize;
 
     for column in &patch.columns {
-        if column.y_offset == 255 {
+        if column.y_offset == COLUMN_END {
             col_idx += 1;
             continue;
         }

@@ -4,7 +4,7 @@ use std::sync::OnceLock;
 use log::warn;
 use render_common::DrawBuffer;
 use wad::WadData;
-use wad::types::{WAD_PATCH, WadPalette, WadPatch};
+use wad::types::{COLUMN_END, WAD_PATCH, WadPalette, WadPatch};
 
 const FONT_START: u8 = b'!';
 const FONT_END: u8 = b'_';
@@ -122,7 +122,7 @@ pub fn draw_patch(
             }
         }
 
-        if column.y_offset == 255 {
+        if column.y_offset == COLUMN_END {
             src_col += 1;
         }
     }
@@ -179,7 +179,7 @@ pub fn draw_patch_tinted(
             }
         }
 
-        if column.y_offset == 255 {
+        if column.y_offset == COLUMN_END {
             src_col += 1;
         }
     }

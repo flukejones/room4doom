@@ -184,19 +184,27 @@ impl WadPatch {
             let mut offset =
                 i32::from_le_bytes([off_bytes[0], off_bytes[1], off_bytes[2], off_bytes[3]])
                     as usize;
+            // DeePsea tall patches: topdelta at or below the previous post's is
+            // relative (prboom-plus r_patch.c). Stored y_offset is absolute.
+            let mut top = -1i32;
             loop {
                 let Some(&y) = data.get(offset) else {
                     warn!("Patch {} column {q} runs past lump end", lump.name);
                     break 'columns;
                 };
-                let y_offset = y as i32;
-                if y_offset == 255 {
+                if y == 255 {
                     columns.push(WadPatchCol {
-                        y_offset,
+                        y_offset: COLUMN_END,
                         pixels: Vec::new(),
                     });
                     break;
                 }
+                if y as i32 <= top {
+                    top += y as i32;
+                } else {
+                    top = y as i32;
+                }
+                let y_offset = top;
 
                 offset += 1;
                 let Some(&len) = data.get(offset) else {
@@ -228,13 +236,15 @@ impl WadPatch {
     }
 }
 
+/// End-of-column sentinel `y_offset`. Out-of-band: tall-patch rows can reach 255.
+pub const COLUMN_END: i32 = -1;
+
 /// A column of pixels. Each `pixel` is an index in to the palette to fetch
 /// colour. There can be multiple of `WadPatchCol` in a column, and the column
-/// itself is ended only when `y_offset` is `0xFF`.
+/// itself is ended only when `y_offset` is [`COLUMN_END`].
 #[derive(Debug, Clone)]
 pub struct WadPatchCol {
-    /// Determines where on the column the pixel stream starts.
-    /// An 0xFF terminates the patch data.
+    /// Absolute row the pixel stream starts at; [`COLUMN_END`] ends the column.
     pub y_offset: i32,
     /// Every `u16` here is an index in to the play palette
     pub pixels: Vec<u16>,
