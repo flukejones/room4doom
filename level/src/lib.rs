@@ -22,8 +22,8 @@ pub mod special_encode;
 // Re-exports for convenience
 pub use bsp3d::movers::is_sector_mover;
 pub use bsp3d::{
-    AABB, BSP3D, BSPLeaf3D, LIGHT_LEVELS, MovementType, Node3D, OcclusionSeg, SurfaceKind,
-    SurfacePolygon, WallFace, WallTexPin, WallType, contrast_adjust, light_band,
+    AABB, BSP3D, BSPLeaf3D, LIGHT_LEVELS, MovementType, Node3D, SurfaceKind, SurfacePolygon,
+    WallFace, WallTexPin, WallType, contrast_adjust, light_band,
 };
 pub use flags::LineDefFlags;
 pub use level_data::LevelData;

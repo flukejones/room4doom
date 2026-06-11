@@ -152,110 +152,6 @@ impl From<LineDefFlags> for WallTexPin {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Node3D {
-    pub xy: Vec2,
-    pub delta: Vec2,
-    pub bboxes: [AABB; 2],
-    pub children: [u32; 2],
-    pub aabb: AABB,
-}
-
-impl Node3D {
-    pub const fn point_on_side(&self, point: Vec2) -> usize {
-        let dx = point.x - self.xy.x;
-        let dy = point.y - self.xy.y;
-        if (self.delta.y * dx) > (dy * self.delta.x) {
-            0
-        } else {
-            1
-        }
-    }
-
-    /// Returns (front_child_id, back_child_id) for the given point.
-    /// Front is the child on the same side as the point (closer).
-    pub fn front_back_children(&self, point: Vec2) -> (u32, u32) {
-        let side = self.point_on_side(point);
-        (self.children[side], self.children[side ^ 1])
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct AABB {
-    pub min: Vec3,
-    pub max: Vec3,
-}
-
-impl AABB {
-    fn new() -> Self {
-        Self {
-            min: Vec3::new(f32::MAX, f32::MAX, f32::MAX),
-            max: Vec3::new(f32::MIN, f32::MIN, f32::MIN),
-        }
-    }
-
-    fn expand_to_include_point(&mut self, point: Vec3) {
-        self.min = self.min.min(point);
-        self.max = self.max.max(point);
-    }
-
-    fn expand_to_include_aabb(&mut self, other: &Self) {
-        self.min = self.min.min(other.min);
-        self.max = self.max.max(other.max);
-    }
-}
-
-impl From<&[Vec3; 2]> for AABB {
-    fn from(bbox: &[Vec3; 2]) -> Self {
-        Self {
-            min: bbox[0],
-            max: bbox[1],
-        }
-    }
-}
-
-/// Original 2D segment data retained for screen-space occlusion testing.
-/// Stores sector IDs rather than baked heights so that live sector heights
-/// (doors/lifts) are used at render time.
-#[derive(Debug, Clone)]
-pub struct OcclusionSeg {
-    pub v1: Vec2,
-    pub v2: Vec2,
-    pub front_sector_id: usize,
-    /// None = one-sided (fully solid). Some = two-sided portal whose
-    /// opening is between max(front_floor, back_floor) and
-    /// min(front_ceil, back_ceil).
-    pub back_sector_id: Option<usize>,
-    /// Precomputed atan2(v2.y - v1.y, v2.x - v1.x) — seg direction angle.
-    pub seg_angle_rad: f32,
-}
-
-#[derive(Clone)]
-pub struct BSPLeaf3D {
-    /// Indices into [`BSP3D::polygons`]; a two-sided wall index is in both
-    /// leaves.
-    pub polygon_indices: Vec<usize>,
-    pub aabb: AABB,
-    pub floor_polygons: Vec<usize>,
-    pub ceiling_polygons: Vec<usize>,
-    pub sector_id: usize,
-    pub occlusion_segs: Vec<OcclusionSeg>,
-}
-
-/// A leaf's floor or ceiling polygon indices for a movement type. Free fn so it
-/// composes inside a disjoint-field borrow of `BSP3D`.
-fn surface_polygons_of(
-    leaves: &[BSPLeaf3D],
-    subsector_id: usize,
-    movement: MovementType,
-) -> &[usize] {
-    match movement {
-        MovementType::Floor => &leaves[subsector_id].floor_polygons,
-        MovementType::Ceiling => &leaves[subsector_id].ceiling_polygons,
-        MovementType::None => &[],
-    }
-}
-
 /// Per-side texturing for a vertical wall. `texture` is `None` when that
 /// sidedef is untextured.
 #[derive(Debug, Clone)]
@@ -320,19 +216,6 @@ impl SurfacePolygon {
         }
     }
 
-    /// Sign test only — the offset is left unnormalised (no sqrt).
-    #[inline]
-    pub fn is_facing_point(&self, point: Vec3, vertex_positions: &[Vec3]) -> bool {
-        let normal = if self.is_flipped(vertex_positions) {
-            -self.normal
-        } else {
-            self.normal
-        };
-        let first_vertex = vertex_positions[unsafe { *self.vertices.get_unchecked(0) }];
-        let dot = normal.dot(point - first_vertex);
-        dot.is_sign_positive() || dot.is_nan()
-    }
-
     /// A moving wall inverts when its floor crosses its ceiling, flipping the
     /// geometric normal against the build-time default. The decision is a dot,
     /// not a winding, so it survives the mover pass replacing vertex indices.
@@ -350,6 +233,19 @@ impl SurfacePolygon {
                 .dot(self.normal)
                 .is_sign_negative()
         }
+    }
+
+    /// Sign test only — the offset is left unnormalised (no sqrt).
+    #[inline]
+    pub fn is_facing_point(&self, point: Vec3, vertex_positions: &[Vec3]) -> bool {
+        let normal = if self.is_flipped(vertex_positions) {
+            -self.normal
+        } else {
+            self.normal
+        };
+        let first_vertex = vertex_positions[unsafe { *self.vertices.get_unchecked(0) }];
+        let dot = normal.dot(point - first_vertex);
+        dot.is_sign_positive() || dot.is_nan()
     }
 
     /// The textured wall face facing the viewer, or `None` if that side is
@@ -400,6 +296,90 @@ impl QuantizedVec3 {
             y: (v.y / precision).round() as i32,
             z: (v.z / precision).round() as i32,
         }
+    }
+}
+
+#[derive(Clone)]
+pub struct BSPLeaf3D {
+    pub sector_id: usize,
+    pub aabb: AABB,
+    pub polygon_indices: Vec<usize>,
+    pub floor_polygons: Vec<usize>,
+    pub ceiling_polygons: Vec<usize>,
+}
+
+/// A leaf's floor or ceiling polygon indices for a movement type. Free fn so it
+/// composes inside a disjoint-field borrow of `BSP3D`.
+fn surface_polygons_of(
+    leaves: &[BSPLeaf3D],
+    subsector_id: usize,
+    movement: MovementType,
+) -> &[usize] {
+    match movement {
+        MovementType::Floor => &leaves[subsector_id].floor_polygons,
+        MovementType::Ceiling => &leaves[subsector_id].ceiling_polygons,
+        MovementType::None => &[],
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct AABB {
+    pub min: Vec3,
+    pub max: Vec3,
+}
+
+impl AABB {
+    fn new() -> Self {
+        Self {
+            min: Vec3::new(f32::MAX, f32::MAX, f32::MAX),
+            max: Vec3::new(f32::MIN, f32::MIN, f32::MIN),
+        }
+    }
+
+    fn expand_to_include_point(&mut self, point: Vec3) {
+        self.min = self.min.min(point);
+        self.max = self.max.max(point);
+    }
+
+    fn expand_to_include_aabb(&mut self, other: &Self) {
+        self.min = self.min.min(other.min);
+        self.max = self.max.max(other.max);
+    }
+}
+
+impl From<&[Vec3; 2]> for AABB {
+    fn from(bbox: &[Vec3; 2]) -> Self {
+        Self {
+            min: bbox[0],
+            max: bbox[1],
+        }
+    }
+}
+#[derive(Debug, Clone)]
+pub struct Node3D {
+    pub xy: Vec2,
+    pub delta: Vec2,
+    pub bboxes: [AABB; 2],
+    pub children: [u32; 2],
+    pub aabb: AABB,
+}
+
+impl Node3D {
+    pub const fn point_on_side(&self, point: Vec2) -> usize {
+        let dx = point.x - self.xy.x;
+        let dy = point.y - self.xy.y;
+        if (self.delta.y * dx) > (dy * self.delta.x) {
+            0
+        } else {
+            1
+        }
+    }
+
+    /// Returns (front_child_id, back_child_id) for the given point.
+    /// Front is the child on the same side as the point (closer).
+    pub fn front_back_children(&self, point: Vec2) -> (u32, u32) {
+        let side = self.point_on_side(point);
+        (self.children[side], self.children[side ^ 1])
     }
 }
 
@@ -532,18 +512,6 @@ impl BSP3D {
             if segments.get(start_seg..end_seg).is_some() {
                 for segment in &segments[start_seg..end_seg] {
                     let front_sector = &segment.frontsector;
-                    let sv1 = segment.v1.pos;
-                    let sv2 = segment.v2.pos;
-                    bsp3d.subsector_leaves[ss_id]
-                        .occlusion_segs
-                        .push(OcclusionSeg {
-                            v1: sv1,
-                            v2: sv2,
-                            front_sector_id: front_sector.num as usize,
-                            back_sector_id: segment.backsector.as_ref().map(|s| s.num as usize),
-                            seg_angle_rad: (sv2.y - sv1.y).atan2(sv2.x - sv1.x),
-                        });
-
                     if let Some(back_sector) = &segment.backsector {
                         bsp3d.create_two_sided_walls(
                             segment,
@@ -1854,7 +1822,6 @@ impl Default for BSPLeaf3D {
             floor_polygons: Vec::new(),
             ceiling_polygons: Vec::new(),
             sector_id: 0,
-            occlusion_segs: Vec::new(),
         }
     }
 }
