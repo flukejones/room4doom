@@ -259,6 +259,8 @@ const RENDERER_OPTIONS: &[&str] = &[
     lang::OPT_REND_SOFT3D,
     #[cfg(feature = "wgpu3d")]
     lang::OPT_REND_HARD3D,
+    #[cfg(feature = "wgpu3dbsp")]
+    lang::OPT_REND_HARD3DBSP,
 ];
 const HUD_SIZE_OPTIONS: &[&str] = &[lang::OPT_HUD_SIZE_FULL, lang::OPT_HUD_SIZE_BAR];
 const HUD_WIDTH_OPTIONS: &[&str] = &[lang::OPT_HUD_WIDTH_CLASSIC, lang::OPT_HUD_WIDTH_WIDE];

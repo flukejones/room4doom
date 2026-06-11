@@ -19,6 +19,7 @@ wad-all = ["wad-sunder"]
 software25d = []
 software3d = []
 wgpu3d = []
+wgpu3dbsp = []
 
 [dependencies]
 game-config.workspace = true

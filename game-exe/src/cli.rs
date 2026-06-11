@@ -90,7 +90,7 @@ pub struct CLIOptions {
     /// select level in episode. If Doom II the episode is ignored
     #[argh(option, short = 'm')]
     pub map: Option<usize>,
-    /// rendering type <software, software3d, wgpu3d>
+    /// rendering type <software, software3d, wgpu3d, wgpu3dbsp>
     #[argh(option, short = 'r')]
     pub rendering: Option<config::RenderType>,
     /// scene pixel format <indexed(default), 888, 565>

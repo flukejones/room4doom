@@ -1,0 +1,22 @@
+[package]
+name = "wgpu3dbsp"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+glam.workspace = true
+math.workspace = true
+gameplay.workspace = true
+level.workspace = true
+pic-data.workspace = true
+render-common.workspace = true
+wgpu.workspace = true
+bytemuck.workspace = true
+
+[dev-dependencies]
+naga = { version = "29", features = ["wgsl-in"] }
+
+[lints]
+workspace = true

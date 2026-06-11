@@ -32,6 +32,8 @@ pub enum WorldRenderer {
     Software3D(Box<Software3D>),
     #[cfg(feature = "wgpu3d")]
     Wgpu3D(Box<Wgpu3D>),
+    #[cfg(feature = "wgpu3dbsp")]
+    Wgpu3DBsp(Box<wgpu3dbsp::Wgpu3D>),
 }
 
 impl WorldRenderer {
@@ -52,13 +54,22 @@ impl WorldRenderer {
             }
             #[cfg(feature = "wgpu3d")]
             RenderType::Wgpu3D => Self::Wgpu3D(Box::new(Wgpu3D::new(buf_width, buf_height, hfov))),
+            #[cfg(feature = "wgpu3dbsp")]
+            RenderType::Wgpu3DBsp => Self::Wgpu3DBsp(Box::new(wgpu3dbsp::Wgpu3D::new(
+                buf_width, buf_height, hfov,
+            ))),
         }
     }
 
+    /// True for the GPU renderers (wgpu3d / wgpu3dbsp): the view is recorded
+    /// through [`Self::draw_view_gpu`], not drawn into a CPU buffer.
     #[allow(clippy::unused_self)]
     pub(crate) fn is_wgpu3d(&self) -> bool {
         #[cfg(feature = "wgpu3d")]
         {
+            #[cfg(feature = "wgpu3dbsp")]
+            return matches!(self, Self::Wgpu3D(_) | Self::Wgpu3DBsp(_));
+            #[cfg(not(feature = "wgpu3dbsp"))]
             matches!(self, Self::Wgpu3D(_))
         }
         #[cfg(not(feature = "wgpu3d"))]
@@ -74,6 +85,8 @@ impl WorldRenderer {
             Self::Software3D(r) => r.set_view_height(vh),
             #[cfg(feature = "wgpu3d")]
             Self::Wgpu3D(_) => {}
+            #[cfg(feature = "wgpu3dbsp")]
+            Self::Wgpu3DBsp(_) => {}
         }
     }
 
@@ -84,6 +97,8 @@ impl WorldRenderer {
             Self::Software3D(r) => r.set_voxel_manager(mgr),
             #[cfg(feature = "wgpu3d")]
             Self::Wgpu3D(r) => r.set_voxel_manager(mgr),
+            #[cfg(feature = "wgpu3dbsp")]
+            Self::Wgpu3DBsp(r) => r.set_voxel_manager(mgr),
             #[allow(unreachable_patterns)]
             _ => drop(mgr),
         }
@@ -95,6 +110,8 @@ impl WorldRenderer {
             Self::Software3D(r) => r.clear_voxel_manager(),
             #[cfg(feature = "wgpu3d")]
             Self::Wgpu3D(r) => r.clear_voxel_manager(),
+            #[cfg(feature = "wgpu3dbsp")]
+            Self::Wgpu3DBsp(r) => r.clear_voxel_manager(),
             #[allow(unreachable_patterns)]
             _ => {}
         }
@@ -102,8 +119,12 @@ impl WorldRenderer {
 
     #[cfg(feature = "wgpu3d")]
     pub(crate) fn set_dynamic_sky(&mut self, dynamic: bool) {
-        if let Self::Wgpu3D(r) = self {
-            r.set_dynamic_sky(dynamic);
+        match self {
+            Self::Wgpu3D(r) => r.set_dynamic_sky(dynamic),
+            #[cfg(feature = "wgpu3dbsp")]
+            Self::Wgpu3DBsp(r) => r.set_dynamic_sky(dynamic),
+            #[allow(unreachable_patterns)]
+            _ => {}
         }
     }
 
@@ -129,6 +150,8 @@ impl WorldRenderer {
             }
             #[cfg(feature = "wgpu3d")]
             Self::Wgpu3D(_) => {}
+            #[cfg(feature = "wgpu3dbsp")]
+            Self::Wgpu3DBsp(_) => {}
         }
     }
 
@@ -171,12 +194,31 @@ impl WorldRenderer {
         light_gamma: f32,
         handle: &mut GpuHandle<'_>,
     ) {
-        let Self::Wgpu3D(r) = self else {
-            unreachable!("draw_view_gpu requires the wgpu3d renderer");
-        };
-        let config = RenderConfig {
-            light_gamma,
-        };
-        r.draw_view_gpu(view, level_data, pic_data, &config, handle);
+        match self {
+            Self::Wgpu3D(r) => {
+                let config = RenderConfig {
+                    light_gamma,
+                };
+                r.draw_view_gpu(view, level_data, pic_data, &config, handle);
+            }
+            // The bsp fork keeps its own GpuHandle/RenderConfig twins (full
+            // duplication by design); rebuild them from the same borrowed parts.
+            #[cfg(feature = "wgpu3dbsp")]
+            Self::Wgpu3DBsp(r) => {
+                let config = wgpu3dbsp::RenderConfig {
+                    light_gamma,
+                };
+                let mut bsp_handle = wgpu3dbsp::GpuHandle {
+                    device: handle.device,
+                    queue: handle.queue,
+                    encoder: &mut *handle.encoder,
+                    scene_view: handle.scene_view,
+                    depth_view: handle.depth_view,
+                };
+                r.draw_view_gpu(view, level_data, pic_data, &config, &mut bsp_handle);
+            }
+            #[allow(unreachable_patterns)]
+            _ => unreachable!("draw_view_gpu requires a GPU renderer"),
+        }
     }
 }

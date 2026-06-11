@@ -12,6 +12,7 @@ cpu-render = []
 software25d = ["dep:software25d", "cpu-render"]
 software3d = ["dep:software3d", "cpu-render"]
 wgpu3d = ["display-wgpu", "dep:wgpu3d"]
+wgpu3dbsp = ["wgpu3d", "dep:wgpu3dbsp"]
 display-sdl2 = ["dep:sdl2"]
 display-softbuffer = ["dep:softbuffer", "dep:winit"]
 display-wgpu = ["dep:wgpu", "dep:pollster", "dep:winit"]
@@ -27,6 +28,7 @@ render-common.workspace = true
 software25d = { workspace = true, optional = true }
 software3d = { workspace = true, optional = true }
 wgpu3d = { workspace = true, optional = true }
+wgpu3dbsp = { workspace = true, optional = true }
 hud-util.workspace = true
 coarse-prof.workspace = true
 log.workspace = true

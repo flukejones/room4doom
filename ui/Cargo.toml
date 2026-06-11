@@ -10,6 +10,7 @@ default = []
 software25d = []
 software3d = []
 wgpu3d = []
+wgpu3dbsp = []
 
 [dependencies]
 wad.workspace = true

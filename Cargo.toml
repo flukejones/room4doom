@@ -14,6 +14,7 @@ members = [
     "render/software25d",
     "render/software3d",
     "render/wgpu3d",
+    "render/wgpu3dbsp",
     "tools/voxel-viewer",
     "sound/common",
     "sound/rodio",
@@ -58,6 +59,7 @@ render-backend = { path = "./render/backend" }
 software3d = { path = "./render/software3d" }
 software25d = { path = "./render/software25d" }
 wgpu3d = { path = "./render/wgpu3d" }
+wgpu3dbsp = { path = "./render/wgpu3dbsp" }
 level = { path = "./level" }
 rbsp = { path = "./tools/rbsp" }
 

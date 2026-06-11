@@ -130,6 +130,10 @@ pub enum RenderType {
     /// Hardware GPU rendering. Requires the `display-wgpu` backend.
     #[cfg(feature = "wgpu3d")]
     Wgpu3D,
+    /// Hardware GPU rendering with a CPU BSP front-end (frustum culling +
+    /// in-walk entity collection). Requires the `display-wgpu` backend.
+    #[cfg(feature = "wgpu3dbsp")]
+    Wgpu3DBsp,
 }
 
 impl Default for RenderType {
@@ -159,6 +163,8 @@ impl FromStr for RenderType {
             "software3d" => Ok(Self::Software3D),
             #[cfg(feature = "wgpu3d")]
             "wgpu3d" => Ok(Self::Wgpu3D),
+            #[cfg(feature = "wgpu3dbsp")]
+            "wgpu3dbsp" => Ok(Self::Wgpu3DBsp),
             _ => Err(unsupported()),
         }
     }
@@ -173,6 +179,8 @@ impl From<RenderType> for render_backend::RenderType {
             RenderType::Software3D => Self::Software3D,
             #[cfg(feature = "wgpu3d")]
             RenderType::Wgpu3D => Self::Wgpu3D,
+            #[cfg(feature = "wgpu3dbsp")]
+            RenderType::Wgpu3DBsp => Self::Wgpu3DBsp,
         }
     }
 }
@@ -514,6 +522,8 @@ impl UserConfig {
             v if v == RenderType::Software3D as i32 => RenderType::Software3D,
             #[cfg(feature = "wgpu3d")]
             v if v == RenderType::Wgpu3D as i32 => RenderType::Wgpu3D,
+            #[cfg(feature = "wgpu3dbsp")]
+            v if v == RenderType::Wgpu3DBsp as i32 => RenderType::Wgpu3DBsp,
             _ => RenderType::default(),
         };
         self.hi_res = vals[ConfigKey::HiRes as usize] != 0;

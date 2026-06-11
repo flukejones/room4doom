@@ -104,6 +104,10 @@ pub enum RenderType {
     /// Hardware GPU rendering (wgpu3d). Requires a hardware-capable backend.
     #[cfg(feature = "wgpu3d")]
     Wgpu3D,
+    /// Hardware GPU rendering with a CPU BSP front-end (wgpu3dbsp): frustum
+    /// culling + in-walk entity collection instead of whole-level submission.
+    #[cfg(feature = "wgpu3dbsp")]
+    Wgpu3DBsp,
 }
 
 impl Default for RenderType {
@@ -133,6 +137,8 @@ impl RenderType {
         match self {
             #[cfg(feature = "wgpu3d")]
             Self::Wgpu3D => RenderKind::Hardware,
+            #[cfg(feature = "wgpu3dbsp")]
+            Self::Wgpu3DBsp => RenderKind::Hardware,
             #[allow(unreachable_patterns)]
             _ => RenderKind::Software,
         }

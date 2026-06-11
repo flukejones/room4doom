@@ -3604,6 +3604,7 @@ dependencies = [
  "software3d",
  "wgpu 29.0.3",
  "wgpu3d",
+ "wgpu3dbsp",
  "winit",
 ]
 
@@ -5094,6 +5095,21 @@ dependencies = [
 
 [[package]]
 name = "wgpu3d"
+version = "1.0.0"
+dependencies = [
+ "bytemuck",
+ "gameplay",
+ "glam",
+ "level",
+ "math",
+ "naga 29.0.3",
+ "pic-data",
+ "render-common",
+ "wgpu 29.0.3",
+]
+
+[[package]]
+name = "wgpu3dbsp"
 version = "1.0.0"
 dependencies = [
  "bytemuck",

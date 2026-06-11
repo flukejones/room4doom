@@ -13,7 +13,7 @@ path = "src/main.rs"
 
 [features]
 default = ["hardware"]
-hardware = ["trig_lut", "display-wgpu", "software25d", "software3d", "wgpu3d"]
+hardware = ["trig_lut", "display-wgpu", "software25d", "software3d", "wgpu3d", "wgpu3dbsp"]
 software = ["trig_lut", "display-softbuffer", "software25d", "software3d"]
 
 cpu-render = []
@@ -26,6 +26,7 @@ software3d = [
     "cpu-render",
 ]
 wgpu3d = ["render-backend/wgpu3d", "doom-ui/wgpu3d", "gameplay/wgpu3d", "display-wgpu"]
+wgpu3dbsp = ["wgpu3d", "render-backend/wgpu3dbsp", "doom-ui/wgpu3dbsp", "gameplay/wgpu3dbsp"]
 
 hprof = ["render-backend/hprof", "gameplay/hprof"]
 render_stats = ["render-backend/render_stats"]
