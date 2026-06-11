@@ -245,6 +245,8 @@ impl SurfacePolygon {
         }
     }
 
+    /// Sign test only — the offset is left unnormalised (no sqrt).
+    #[inline]
     pub fn is_facing_point(&self, point: Vec3, vertex_positions: &[Vec3]) -> bool {
         let normal = if self.is_flipped(vertex_positions) {
             -self.normal
@@ -252,13 +254,14 @@ impl SurfacePolygon {
             self.normal
         };
         let first_vertex = vertex_positions[unsafe { *self.vertices.get_unchecked(0) }];
-        let dot = normal.dot((point - first_vertex).normalize_or_zero());
+        let dot = normal.dot(point - first_vertex);
         dot.is_sign_positive() || dot.is_nan()
     }
 
     /// A moving wall inverts when its floor crosses its ceiling, flipping the
     /// geometric normal against the build-time default. The decision is a dot,
     /// not a winding, so it survives the mover pass replacing vertex indices.
+    #[inline]
     fn is_flipped(&self, vertex_positions: &[Vec3]) -> bool {
         if !(self.moves && matches!(self.surface_kind, SurfaceKind::Vertical { .. })) {
             return false;
