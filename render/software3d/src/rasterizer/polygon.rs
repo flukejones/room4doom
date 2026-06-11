@@ -248,6 +248,13 @@ impl Software3D {
                             let colourmap =
                                 pic_data.base_colourmap(brightness, edge_inv_w * LIGHT_SCALE);
                             let color = texture_sampler.sample(u, v, colourmap);
+                            // Texture gap: skip texel; depth stays (wall occludes).
+                            if color == u16::MAX {
+                                interp_state.step_x();
+                                edge_inv_w += edge_inv_w_dx;
+                                x += 1;
+                                continue;
+                            }
 
                             buffer.store(y * buf_pitch + x, color);
                         }

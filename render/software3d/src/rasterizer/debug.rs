@@ -284,6 +284,13 @@ impl Software3D {
                             let colourmap =
                                 pic_data.base_colourmap(brightness, edge_inv_w * LIGHT_SCALE);
                             let idx = texture_sampler.sample(u, v, colourmap);
+                            // Texture gap: skip texel; depth stays (wall occludes).
+                            if idx == u16::MAX {
+                                interp_state.step_x();
+                                edge_inv_w += edge_inv_w_dx;
+                                x += 1;
+                                continue;
+                            }
                             let color = pic_data.palette()[idx as usize];
 
                             let final_color = self.apply_debug_colour(
