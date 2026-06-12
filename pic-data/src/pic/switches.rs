@@ -1,8 +1,8 @@
 use log::{info, warn};
 
 use super::PicData;
-use game_config::GameMode;
 use wad::WadData;
+use wad::types::GameMode;
 
 struct ButtonDef {
     name1: &'static str,

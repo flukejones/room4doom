@@ -1,0 +1,34 @@
+import { Theme } from "../../foundation/theme.slint";
+import { MapCanvas } from "map_canvas.slint";
+import { EditPanel } from "edit_panel.slint";
+
+// The map editing surface: canvas, drag splitter, and the right inspector panel; toolbar placement is handled by the caller (top or left).
+export component MapBody inherits HorizontalLayout {
+    // Right sidebar width; the splitter drags it, layout clamps it.
+    in-out property <length> panel-width: 280px;
+
+    MapCanvas {
+        horizontal-stretch: 1;
+        min-width: 320px;
+    }
+
+    splitter := Rectangle {
+        width: 5px;
+        background: splitter-touch.has-hover ? Theme.accent : Theme.panel-border;
+
+        splitter-touch := TouchArea {
+            mouse-cursor: ew-resize;
+            moved => {
+                // Panel width straight from the cursor: everything right of the pointer (handle centered on it). root.width reads are callback-only - in a binding they loop through layout size negotiation.
+                root.panel-width = clamp(
+                    root.width - (splitter.x + self.mouse-x) - splitter.width / 2,
+                    240px,
+                    min(520px, root.width - 400px));
+            }
+        }
+    }
+
+    EditPanel {
+        width: root.panel-width;
+    }
+}

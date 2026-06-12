@@ -1,0 +1,61 @@
+import { Theme } from "../../foundation/theme.slint";
+import {
+    LinedefInspectorController,
+    LinedefInspector,
+} from "linedef_inspector.slint";
+import {
+    SectorInspectorController,
+    SectorInspector,
+} from "sector_inspector.slint";
+import {
+    ThingInspectorController,
+    ThingInspector,
+} from "thing_inspector.slint";
+import {
+    DrawSettingsController,
+    DrawSettings,
+} from "draw_settings.slint";
+import {
+    ResourcesController,
+    ResourcesPanel,
+} from "resources_panel.slint";
+
+// The right sidebar inspector: shows the active element's section (line, thing, or sector). Each section owns its own controller; this container only routes visibility and provides the shared scroll + focus-drop surface.
+export component EditPanel inherits Rectangle {
+    min-width: 240px;
+    background: Theme.panel-glass;
+    border-color: Theme.panel-border;
+    border-width: Theme.border-width;
+    forward-focus: panel-fs;
+
+    Flickable {
+        VerticalLayout {
+            padding: Theme.pad;
+            spacing: Theme.pad-small;
+
+            if LinedefInspectorController.active: LinedefInspector { }
+
+            if ThingInspectorController.active: ThingInspector { }
+
+            if SectorInspectorController.active: SectorInspector { }
+
+            if DrawSettingsController.active: DrawSettings { }
+
+            if ResourcesController.active: ResourcesPanel { }
+
+            // Empty stretch below the fields; clicking it drops field focus so canvas shortcuts and arrow-key nav resume.
+            filler := Rectangle {
+                TouchArea {
+                    clicked => {
+                        panel-fs.focus();
+                    }
+                }
+            }
+        }
+    }
+
+    panel-fs := FocusScope {
+        width: 0;
+        height: 0;
+    }
+}

@@ -1,0 +1,50 @@
+import { Theme } from "../../foundation/theme.slint";
+import { PopupId } from "../../foundation/shared_types.slint";
+import { WindowController } from "../../foundation/globals.slint";
+import { DialogButtons } from "../../widgets/buttons.slint";
+import { EditLine } from "../../widgets/inputs.slint";
+import { PopupScaffold } from "../../widgets/popup.slint";
+import { NewMapController } from "new_map_controller.slint";
+
+// New Map dialog: enter a map name, then Create or Cancel. Pure presentation; Rust owns the name handling.
+export component NewMapPopup inherits PopupScaffold {
+    visible: NewMapController.visible;
+    title: "New Map";
+    id: PopupId.new-map;
+    default-width: 320px;
+    default-height: 160px;
+    min-width-px: 260px;
+    min-height-px: 140px;
+    resizable: false;
+    geom <=> WindowController.new-map;
+    cancelled => {
+        NewMapController.visible = false;
+    }
+
+    Text {
+        text: "New map name";
+        color: Theme.text;
+        font-size: Theme.font-size-title;
+    }
+
+    EditLine {
+        height: 32px;
+        text <=> NewMapController.name;
+        placeholder-text: "E1M1 or MAP01";
+        accepted => {
+            NewMapController.visible = false;
+            NewMapController.confirmed(NewMapController.name);
+        }
+    }
+
+    DialogButtons {
+        confirm-label: "Create";
+        confirmed => {
+            NewMapController.visible = false;
+            NewMapController.confirmed(NewMapController.name);
+        }
+        dismissed => {
+            NewMapController.visible = false;
+        }
+    }
+}

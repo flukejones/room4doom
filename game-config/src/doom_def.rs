@@ -1,32 +1,3 @@
-/// Game mode handling - identify IWAD version to handle IWAD dependend
-/// animations etc.
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum GameMode {
-    /// DOOM 1 shareware, E1, M9
-    Shareware,
-    /// DOOM 1 registered, E3, M27
-    Registered,
-    /// DOOM 2 retail, E1 M34
-    Commercial,
-    /// DOOM 1 retail, E4, M36
-    Retail,
-    Indetermined, // Well, no IWAD found.
-}
-
-// Mission packs - might be useful for TC stuff?
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum GameMission {
-    /// Doom (shareware, registered)
-    Doom,
-    /// Doom II
-    Doom2,
-    /// TNT mission pack
-    PackTnt,
-    /// Plutonia mission pack
-    PackPlut,
-    None,
-}
-
 /// The defined weapons, including a marker indicating user has not changed
 /// weapon.
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Default)]

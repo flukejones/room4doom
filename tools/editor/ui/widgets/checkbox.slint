@@ -1,0 +1,58 @@
+import { Theme } from "../foundation/theme.slint";
+
+// Themed checkbox, styled from Theme so it reads in any editor theme. Mirrors the std CheckBox surface the sites use: text, checked (<=>/:), toggled().
+export component CheckBox inherits Rectangle {
+    in property <string> text;
+    in-out property <bool> checked: false;
+    callback toggled(bool);
+
+    height: 24px;
+    horizontal-stretch: 1;
+
+    HorizontalLayout {
+        spacing: 6px;
+        alignment: start;
+
+        box := Rectangle {
+            width: 16px;
+            height: 16px;
+            y: (parent.height - self.height) / 2;
+            border-radius: Theme.border-radius-small;
+            border-width: Theme.border-width;
+            border-color: touch.has-hover ? Theme.accent : Theme.panel-border;
+            background: root.checked ? Theme.accent : Theme.control-bg;
+            animate background, border-color {
+                duration: Theme.anim-fast;
+                easing: ease-out;
+            }
+
+            Text {
+                text: "✓";
+                opacity: root.checked ? 1.0 : 0.0;
+                color: Theme.window-background;
+                font-size: Theme.font-size-body;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                animate opacity {
+                    duration: Theme.anim-fast;
+                    easing: ease-out;
+                }
+            }
+        }
+
+        Text {
+            text: root.text;
+            visible: root.text != "";
+            color: Theme.text;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+
+    touch := TouchArea {
+        clicked => {
+            root.checked = !root.checked;
+            root.toggled(root.checked);
+        }
+    }
+}

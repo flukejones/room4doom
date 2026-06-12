@@ -44,6 +44,9 @@ struct CLIOptions {
     /// path to write generated files to
     #[argh(option)]
     out: PathBuf,
+    /// path to write the trimmed editor thing-info table to
+    #[argh(option)]
+    editor_out: Option<PathBuf>,
 }
 
 pub type InfoType = HashMap<String, String>;
@@ -65,8 +68,47 @@ fn main() -> Result<(), Box<dyn Error>> {
     // SfxName are pre-determined?
 
     let data = parse_data(&data);
+    if let Some(editor_out) = options.editor_out.clone() {
+        write_editor_things_file(&data, editor_out);
+    }
     write_info_file(data, options.out);
     Ok(())
+}
+
+/// Emit the editor's trimmed thing-info table (doomednum + radius per kind); pick heights come from sprite-derived extents, and the full MapObjInfo stays in the gameplay-generated file.
+pub fn write_editor_things_file(data: &Data, path: PathBuf) {
+    let mut out = String::from(
+        "//! Editor thing info (doomednum + world radius per kind) — GENERATED WITH MULTIGEN, DO NOT EDIT BY HAND.\n\n\
+         /// Radius is world units.\n\
+         #[derive(Debug, Clone, Copy, PartialEq)]\n\
+         pub struct ThingInfo {\n    \
+             pub doomednum: i32,\n    \
+             pub radius: f32,\n\
+         }\n\n\
+         pub const THING_INFO: &[ThingInfo] = &[\n",
+    );
+    for key in &data.mobj_order {
+        let info = &data.mobj_info[key];
+        let field = |k: &str, d: &str| info.get(k).cloned().unwrap_or_else(|| d.to_string());
+        let doomednum = field("doomednum", "-1");
+        // Only emit placeable things (a real DoomEd number).
+        if doomednum == "-1" {
+            continue;
+        }
+        let radius = field("radius", "20.0");
+        out.push_str(&format!(
+            "    ThingInfo {{ doomednum: {doomednum}, radius: {radius} }},\n"
+        ));
+    }
+    out.push_str("];\n");
+    OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(path.clone())
+        .unwrap_or_else(|e| panic!("Couldn't open {path:?}, {e}"))
+        .write_all(out.as_bytes())
+        .unwrap();
 }
 
 pub fn read_file(path: PathBuf) -> String {

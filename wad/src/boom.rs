@@ -82,9 +82,77 @@ pub fn parse_animated(data: &[u8]) -> Vec<AnimatedEntry> {
     entries
 }
 
+/// Width of a name field in SWITCHES/ANIMATED records (8 chars + NUL).
+const ANIMATED_NAME_LEN: usize = 9;
+
+/// Write `name` into a `ANIMATED_NAME_LEN`-byte field, uppercased, NUL-padded,
+/// truncated to 8 chars so the final byte is always a terminator.
+fn write_name(out: &mut Vec<u8>, name: &str) {
+    let bytes = name.as_bytes();
+    let take = bytes.len().min(ANIMATED_NAME_LEN - 1);
+    out.extend(bytes[..take].iter().map(u8::to_ascii_uppercase));
+    out.extend(std::iter::repeat_n(0u8, ANIMATED_NAME_LEN - take));
+}
+
+/// Encode an ANIMATED lump (inverse of [`parse_animated`]).
+///
+/// One 23-byte record per entry (type byte, 9-byte end name, 9-byte start
+/// name, 4-byte LE speed) followed by a 0xFF terminator byte. Type is 1 for a
+/// texture, 0 for a flat.
+pub fn encode_animated(entries: &[AnimatedEntry]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(entries.len() * ANIMATED_ENTRY_SIZE + 1);
+    for entry in entries {
+        out.push(entry.is_texture as u8);
+        write_name(&mut out, &entry.end_name);
+        write_name(&mut out, &entry.start_name);
+        out.extend_from_slice(&entry.speed.to_le_bytes());
+    }
+    out.push(0xFF);
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn encode_animated_round_trips() {
+        let entries = vec![
+            AnimatedEntry {
+                is_texture: false,
+                end_name: "NUKAGE3".to_owned(),
+                start_name: "NUKAGE1".to_owned(),
+                speed: 8,
+            },
+            AnimatedEntry {
+                is_texture: true,
+                end_name: "BLODGR4".to_owned(),
+                start_name: "BLODGR1".to_owned(),
+                speed: 8,
+            },
+        ];
+        let parsed = parse_animated(&encode_animated(&entries));
+        assert_eq!(parsed.len(), entries.len());
+        for (a, b) in parsed.iter().zip(&entries) {
+            assert_eq!(a.is_texture, b.is_texture);
+            assert_eq!(a.end_name, b.end_name);
+            assert_eq!(a.start_name, b.start_name);
+            assert_eq!(a.speed, b.speed);
+        }
+    }
+
+    #[test]
+    fn encode_animated_truncates_long_names() {
+        let entries = vec![AnimatedEntry {
+            is_texture: true,
+            end_name: "TOOLONGNAME".to_owned(),
+            start_name: "alsolong9".to_owned(),
+            speed: 1,
+        }];
+        let parsed = parse_animated(&encode_animated(&entries));
+        assert_eq!(parsed[0].end_name, "TOOLONGN");
+        assert_eq!(parsed[0].start_name, "ALSOLONG");
+    }
 
     #[test]
     fn test_parse_switches_lump() {

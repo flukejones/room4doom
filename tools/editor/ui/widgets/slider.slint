@@ -1,0 +1,70 @@
+import { Theme } from "../foundation/theme.slint";
+
+// Themed slider, styled from Theme so it reads in any editor theme. Mirrors the std Slider surface the sites use: minimum/maximum, value (<=>/:), enabled, changed().
+export component Slider inherits Rectangle {
+    in property <float> minimum: 0;
+    in property <float> maximum: 100;
+    in property <bool> enabled: true;
+    in-out property <float> value: minimum;
+    callback changed(float);
+
+    property <float> span: max(0.0001, root.maximum - root.minimum);
+    property <float> frac: clamp((root.value - root.minimum) / root.span, 0, 1);
+
+    height: 24px;
+    min-width: 64px;
+
+    function set-from-x(mx: length) {
+        root.value = clamp(
+            root.minimum + (mx - handle.width / 2) / max(1px, root.width - handle.width) * root.span,
+            root.minimum, root.maximum);
+        root.changed(root.value);
+    }
+
+    track := Rectangle {
+        height: 4px;
+        y: (parent.height - self.height) / 2;
+        border-radius: 2px;
+        background: Theme.control-bg;
+        border-width: Theme.border-width;
+        border-color: Theme.panel-border;
+    }
+
+    fill := Rectangle {
+        x: 0;
+        y: track.y;
+        height: track.height;
+        width: root.width * root.frac;
+        border-radius: 2px;
+        background: root.enabled ? Theme.accent : Theme.text-disabled;
+    }
+
+    handle := Rectangle {
+        width: 14px;
+        height: 14px;
+        border-radius: 7px;
+        x: (root.width - self.width) * root.frac;
+        y: (root.height - self.height) / 2;
+        background: touch.has-hover && root.enabled ? Theme.accent : Theme.control-bg;
+        border-width: Theme.border-width;
+        border-color: root.enabled ? Theme.accent : Theme.panel-border;
+        animate background {
+            duration: Theme.anim-fast;
+            easing: ease-out;
+        }
+    }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        moved => {
+            if (self.pressed) {
+                root.set-from-x(self.mouse-x);
+            }
+        }
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.down) {
+                root.set-from-x(self.mouse-x);
+            }
+        }
+    }
+}

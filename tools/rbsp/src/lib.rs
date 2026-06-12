@@ -24,6 +24,8 @@
 //! let result = build_bsp(&input, &BspOptions::default());
 //! ```
 
+#[cfg(feature = "wad-types")]
+pub mod blockmap;
 pub mod bsp3d;
 pub mod node;
 pub mod picknode;
@@ -53,11 +55,42 @@ use vertex_pool::VertexPool;
 ///
 /// Produces f64-precision output: vertices, segs, subsectors with explicit
 /// polygons, nodes, edges, and polygon vertex indices.
+pub fn build_bsp<V, L, S, SE>(input: &BspInput<V, L, S, SE>, options: &BspOptions) -> BspOutput
+where
+    V: VertexCoords,
+    L: LineDefAccess,
+    S: SideDefAccess,
+{
+    build_bsp_impl(input, options, None)
+}
+
+/// Build a BSP tree and also record construction milestones in build order
+/// (partition lines and finished subsectors) for the editor's build-animation
+/// overlay. Output is identical to [`build_bsp`].
+pub fn build_bsp_traced<V, L, S, SE>(
+    input: &BspInput<V, L, S, SE>,
+    options: &BspOptions,
+) -> (BspOutput, Vec<BuildEvent>)
+where
+    V: VertexCoords,
+    L: LineDefAccess,
+    S: SideDefAccess,
+{
+    // One partition + one subsector per leaf is the rough upper bound.
+    let mut trace = Vec::with_capacity(input.linedefs.len() * 2);
+    let output = build_bsp_impl(input, options, Some(&mut trace));
+    (output, trace)
+}
+
 #[allow(
     trivial_numeric_casts,
     reason = "f64 -> Float is identity only when Float = f64"
 )]
-pub fn build_bsp<V, L, S, SE>(input: &BspInput<V, L, S, SE>, options: &BspOptions) -> BspOutput
+fn build_bsp_impl<V, L, S, SE>(
+    input: &BspInput<V, L, S, SE>,
+    options: &BspOptions,
+    trace: Option<&mut Vec<BuildEvent>>,
+) -> BspOutput
 where
     V: VertexCoords,
     L: LineDefAccess,
@@ -120,6 +153,7 @@ where
         wall_tips: &mut wall_tips,
         options,
         start_time: build_start,
+        trace,
     };
 
     let root = node::build_node(seg_indices, clip_poly, &mut bs, 0);

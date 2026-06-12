@@ -1,0 +1,17 @@
+[package]
+name = "geom-kernel"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Pure map-geometry kernel (model, weld/split/merge, sector build) for the map editor"
+
+[dependencies]
+bitflags.workspace = true
+serde = { workspace = true, features = ["std", "derive"] }
+
+[dev-dependencies]
+ron.workspace = true
+
+[lints]
+workspace = true

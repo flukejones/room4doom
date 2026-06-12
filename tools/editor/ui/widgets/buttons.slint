@@ -1,0 +1,122 @@
+import { Theme } from "../foundation/theme.slint";
+
+// Flat toggle button: a label with active and hover states. The caller owns the active condition and the click action, so one component serves tools, fill modes, remap kinds, etc. Use CommandButton for raised action buttons.
+export component FlatButton inherits Rectangle {
+    in property <string> label;
+    in property <bool> active: false;
+    in property <length> button-min-width: 58px;
+    in property <TextHorizontalAlignment> horizontal-alignment: center;
+    callback clicked();
+
+    min-width: root.button-min-width + Theme.pad-small * 2;
+    height: Theme.toolbutton-size;
+    border-radius: Theme.border-radius;
+    background: root.active ? Theme.tool-active : touch.has-hover ? Theme.tool-hover : transparent;
+    animate background {
+        duration: Theme.anim-fast;
+        easing: ease-out;
+    }
+
+    Text {
+        x: Theme.pad-small;
+        width: parent.width - Theme.pad-small * 2;
+        text: root.label;
+        color: Theme.text;
+        horizontal-alignment: root.horizontal-alignment;
+        vertical-alignment: center;
+    }
+
+    touch := TouchArea {
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+// One row in a drop-up/menu list: a left-aligned label with a hover highlight.
+export component MenuRow inherits Rectangle {
+    in property <string> label;
+    in property <bool> active;
+    callback pressed();
+
+    height: 24px;
+    border-radius: Theme.border-radius-small;
+    background: touch.has-hover ? Theme.tool-hover : root.active ? Theme.tool-active : transparent;
+    animate background {
+        duration: Theme.anim-fast;
+        easing: ease-out;
+    }
+
+    HorizontalLayout {
+        padding-left: Theme.pad-small;
+        padding-right: Theme.pad-small;
+
+        Text {
+            text: root.label;
+            color: Theme.text;
+            vertical-alignment: center;
+        }
+    }
+
+    touch := TouchArea {
+        clicked => {
+            root.pressed();
+        }
+    }
+}
+
+// Raised command button: a filled label that invokes an action (Apply, Close, New, …). Distinct from FlatButton, which is a transparent toggle. Set a smaller button-min-width for inline micro-buttons such as "…" and "✕".
+export component CommandButton inherits Rectangle {
+    in property <string> label;
+    in property <bool> enabled: true;
+    in property <length> button-min-width: 58px;
+    callback clicked();
+
+    min-width: root.button-min-width;
+    height: Theme.toolbutton-size;
+    border-radius: Theme.border-radius;
+    background: !root.enabled ? Theme.control-bg-disabled : touch.pressed ? Theme.accent : touch.has-hover ? Theme.tool-hover : Theme.control-bg;
+    animate background {
+        duration: Theme.anim-fast;
+        easing: ease-out;
+    }
+
+    Text {
+        text: root.label;
+        color: root.enabled ? Theme.text : Theme.text-disabled;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+// Right-aligned dialog footer: a confirm/dismiss button pair; closing stays at the call site (remap's Apply deliberately keeps its dialog open).
+export component DialogButtons inherits HorizontalLayout {
+    in property <string> confirm-label: "Apply";
+    in property <string> dismiss-label: "Cancel";
+    callback confirmed();
+    callback dismissed();
+
+    spacing: Theme.pad-small;
+    alignment: end;
+
+    CommandButton {
+        label: root.confirm-label;
+        clicked => {
+            root.confirmed();
+        }
+    }
+
+    CommandButton {
+        label: root.dismiss-label;
+        clicked => {
+            root.dismissed();
+        }
+    }
+}

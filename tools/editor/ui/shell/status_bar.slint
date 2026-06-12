@@ -1,0 +1,209 @@
+import { SkillFilter } from "../foundation/shared_types.slint";
+import { ExportController } from "../foundation/globals.slint";
+import { Theme } from "../foundation/theme.slint";
+import { MenuRow } from "../widgets/buttons.slint";
+import { MenuPanel } from "../widgets/menu.slint";
+
+export global StatusController {
+    in property <string> coords: "";
+    in property <string> zoom: "";
+    in property <string> grid: "";
+    in property <bool> snap: true;
+    in property <bool> snap-vertex: false;
+    in property <bool> snap-line: false;
+    in property <bool> angle-snap: false;
+    in property <bool> highlight-unenclosed: false;
+    in property <bool> overlays-visible: true;
+    in property <string> things: "things: all";
+    in property <string> brush: "brush: -";
+    // Menu picks: zoom level (0 or less = fit map), snap grid size.
+    callback zoom-selected(float);
+    callback grid-selected(int);
+    callback snap-toggled();
+    callback snap-vertex-toggled();
+    callback snap-line-toggled();
+    callback angle-snap-toggled();
+    callback highlight-unenclosed-toggled();
+    callback overlays-toggled();
+    callback things-selected(SkillFilter);
+    // Open the texture browser to pick the brush texture for new lines.
+    callback brush-browse();
+}
+
+// A status chip that opens a small menu above itself.
+component StatusChip inherits Rectangle {
+    in property <string> label;
+    callback open-menu();
+
+    border-radius: Theme.border-radius-small;
+    background: touch.has-hover ? Theme.tool-hover : transparent;
+
+    HorizontalLayout {
+        padding-left: Theme.pad-small;
+        padding-right: Theme.pad-small;
+
+        Text {
+            text: root.label;
+            color: Theme.text-dim;
+            vertical-alignment: center;
+        }
+    }
+
+    touch := TouchArea {
+        clicked => {
+            root.open-menu();
+        }
+    }
+}
+
+export component StatusBar inherits Rectangle {
+    // Zoom menu rows: 0 = fit map, otherwise the scale factor.
+    property <[{ label: string, level: float }]> zoom-levels: [
+        { label: "Fit map", level: 0.0 },
+        { label: "0.25×", level: 0.25 },
+        { label: "0.5×", level: 0.5 },
+        { label: "1×", level: 1.0 },
+        { label: "2×", level: 2.0 },
+        { label: "4×", level: 4.0 },
+    ];
+    property <[int]> grid-sizes: [1, 2, 4, 8, 16, 32, 64];
+    property <[{ label: string, filter: SkillFilter }]> thing-filters: [
+        { label: "All", filter: SkillFilter.all },
+        { label: "Easy", filter: SkillFilter.easy },
+        { label: "Normal", filter: SkillFilter.normal },
+        { label: "Hard", filter: SkillFilter.hard },
+    ];
+
+    height: Theme.statusbar-height;
+    background: Theme.panel-glass;
+
+    HorizontalLayout {
+        padding-left: Theme.pad;
+        padding-right: Theme.pad;
+        spacing: Theme.pad;
+
+        Text {
+            text: StatusController.coords;
+            color: Theme.text;
+            vertical-alignment: center;
+            min-width: 140px;
+        }
+
+        zoom-chip := StatusChip {
+            label: StatusController.zoom;
+            open-menu => {
+                zoom-menu.show();
+            }
+
+            zoom-menu := MenuPanel {
+                x: 0;
+                drop-up: true;
+
+                for z in root.zoom-levels: MenuRow {
+                    label: z.label;
+                    pressed => {
+                        StatusController.zoom-selected(z.level);
+                    }
+                }
+            }
+        }
+
+        grid-chip := StatusChip {
+            label: StatusController.grid;
+            open-menu => {
+                grid-menu.show();
+            }
+
+            grid-menu := MenuPanel {
+                x: 0;
+                drop-up: true;
+
+                for g in root.grid-sizes: MenuRow {
+                    label: "\{g}";
+                    pressed => {
+                        StatusController.grid-selected(g);
+                    }
+                }
+            }
+        }
+
+        snap-chip := StatusChip {
+            label: StatusController.snap ? "snap: on" : "snap: off";
+            // A plain toggle: clicking the chip flips snapping, no menu.
+            open-menu => {
+                StatusController.snap-toggled();
+            }
+        }
+
+        snap-vertex-chip := StatusChip {
+            label: StatusController.snap-vertex ? "vtx: on" : "vtx: off";
+            open-menu => {
+                StatusController.snap-vertex-toggled();
+            }
+        }
+
+        snap-line-chip := StatusChip {
+            label: StatusController.snap-line ? "line: on" : "line: off";
+            open-menu => {
+                StatusController.snap-line-toggled();
+            }
+        }
+
+        angle-snap-chip := StatusChip {
+            label: StatusController.angle-snap ? "angle: on" : "angle: off";
+            open-menu => {
+                StatusController.angle-snap-toggled();
+            }
+        }
+
+        unenclosed-chip := StatusChip {
+            label: StatusController.highlight-unenclosed ? "void: on" : "void: off";
+            open-menu => {
+                StatusController.highlight-unenclosed-toggled();
+            }
+        }
+
+        overlays-chip := StatusChip {
+            label: StatusController.overlays-visible ? "overlays: on" : "overlays: off";
+            open-menu => {
+                StatusController.overlays-toggled();
+            }
+        }
+
+        things-chip := StatusChip {
+            label: StatusController.things;
+            open-menu => {
+                things-menu.show();
+            }
+
+            things-menu := MenuPanel {
+                x: 0;
+                drop-up: true;
+
+                for t in root.thing-filters: MenuRow {
+                    label: t.label;
+                    pressed => {
+                        StatusController.things-selected(t.filter);
+                    }
+                }
+            }
+        }
+
+        brush-chip := StatusChip {
+            label: StatusController.brush;
+            open-menu => {
+                StatusController.brush-browse();
+            }
+        }
+
+        spacer := Rectangle {
+            horizontal-stretch: 1;
+        }
+
+        Text {
+            text: ExportController.status;
+            color: ExportController.busy ? Theme.accent : Theme.text-dim;
+            vertical-alignment: center;
+        }
+    }
+}

@@ -21,6 +21,9 @@ pub struct BuildState<'a, L: LineDefAccess, S: SideDefAccess> {
     pub wall_tips: &'a mut Vec<Vec<WallTip>>,
     pub options: &'a BspOptions,
     pub start_time: Instant,
+    /// When set, construction milestones are appended here in build order for
+    /// the editor's build-animation overlay. `None` in normal builds.
+    pub trace: Option<&'a mut Vec<BuildEvent>>,
 }
 
 /// Build the BSP tree recursively.
@@ -109,6 +112,54 @@ pub fn build_node<L: LineDefAccess, S: SideDefAccess>(
             None => return create_subsector(&seg_indices, clip_poly, bs),
         }
     };
+
+    if bs.trace.is_some() {
+        let a = &bs.pool.vertices[partition.start];
+        let b = &bs.pool.vertices[partition.end];
+        let partition_chosen = BuildEvent::PartitionChosen {
+            p1: [a.x as f32, a.y as f32],
+            p2: [b.x as f32, b.y as f32],
+        };
+        let seg_ends = |idxs: &[usize]| -> Vec<[[f32; 2]; 2]> {
+            idxs.iter()
+                .map(|&i| {
+                    let s = &bs.segs[i];
+                    let v0 = &bs.pool.vertices[s.start];
+                    let v1 = &bs.pool.vertices[s.end];
+                    [[v0.x as f32, v0.y as f32], [v1.x as f32, v1.y as f32]]
+                })
+                .collect()
+        };
+        let side_bbox = |ends: &[[[f32; 2]; 2]]| -> Option<[[f32; 2]; 2]> {
+            if ends.is_empty() {
+                return None;
+            }
+            let mut bb = BBox::EMPTY;
+            for seg in ends {
+                for [x, y] in seg {
+                    bb.min_x = bb.min_x.min(*x as Float);
+                    bb.min_y = bb.min_y.min(*y as Float);
+                    bb.max_x = bb.max_x.max(*x as Float);
+                    bb.max_y = bb.max_y.max(*y as Float);
+                }
+            }
+            Some([
+                [bb.min_x as f32, bb.min_y as f32],
+                [bb.max_x as f32, bb.max_y as f32],
+            ])
+        };
+        let left = seg_ends(&split.left_segs);
+        let right = seg_ends(&split.right_segs);
+        let segs_split = BuildEvent::SegsSplit {
+            left_bbox: side_bbox(&left),
+            right_bbox: side_bbox(&right),
+            left,
+            right,
+        };
+        let trace = bs.trace.as_deref_mut().expect("checked above");
+        trace.push(partition_chosen);
+        trace.push(segs_split);
+    }
 
     // Recurse
     let right_child = build_node(split.right_segs, split.right_poly, bs, depth + 1);
@@ -559,6 +610,17 @@ fn create_subsector<L: LineDefAccess, S: SideDefAccess>(
         num_segs: seg_indices.len() as u32,
         seg_indices: seg_indices.iter().map(|&i| i as u32).collect(),
     };
+
+    if let Some(trace) = bs.trace.as_deref_mut() {
+        let mut verts = Vec::with_capacity(poly.verts.len());
+        for &vi in &poly.verts {
+            let v = &bs.pool.vertices[vi as usize];
+            verts.push([v.x as f32, v.y as f32]);
+        }
+        trace.push(BuildEvent::SubsectorDone {
+            verts,
+        });
+    }
 
     let ss_idx = bs.subsectors.len() as u32;
     bs.subsectors.push(ss);

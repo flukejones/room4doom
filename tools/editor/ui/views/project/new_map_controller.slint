@@ -1,0 +1,7 @@
+// New Map dialog contract (controller global only; view in new_map.slint): Slint toggles `visible`, Rust reads `name` on confirm.
+export global NewMapController {
+    in-out property <bool> visible: false;
+    in-out property <string> name: "MAP01";
+    // Fired with the entered name; Rust loads a blank map under it.
+    callback confirmed(string);
+}

@@ -1,0 +1,138 @@
+import { ListView } from "std-widgets.slint";
+import { PopupId } from "../../foundation/shared_types.slint";
+import { WindowController } from "../../foundation/globals.slint";
+import { Theme } from "../../foundation/theme.slint";
+import { PopupScaffold } from "../../widgets/popup.slint";
+import { FlatButton, DialogButtons } from "../../widgets/buttons.slint";
+import { EditLine } from "../../widgets/inputs.slint";
+
+export struct RemapRow {
+    from: string,
+    to: string,
+}
+
+// Which value set the bulk remap dialog operates on.
+export enum RemapKind { thing, texture, flat, line-special, sector-special }
+
+// Bulk remap dialog.
+export global RemapController {
+    in property <RemapKind> kind: RemapKind.thing;
+    in property <[RemapRow]> rows;
+    // Slint owns visibility; Rust fills the rows via populate-remap on open.
+    in-out property <bool> remap-visible: false;
+    in property <string> status: "";
+    callback kind-changed(RemapKind);
+    callback to-edited(int, string);
+    callback apply();
+    // Fill the rows + reset state for the current map (fired on open).
+    callback populate-remap();
+}
+
+// Session remap dialog: rows are the map's unknown/in-use values; fill the right column and Apply.
+export component RemapPopup inherits PopupScaffold {
+    visible: RemapController.remap-visible;
+    title: "Remap";
+    id: PopupId.remap;
+    default-width: 460px;
+    default-height: 520px;
+    min-width-px: 360px;
+    min-height-px: 240px;
+    geom <=> WindowController.remap;
+    cancelled => {
+        RemapController.remap-visible = false;
+    }
+
+    HorizontalLayout {
+        spacing: Theme.pad-small;
+
+        FlatButton {
+            label: "Things";
+            button-min-width: 84px;
+            active: RemapController.kind == RemapKind.thing;
+            clicked => {
+                RemapController.kind-changed(RemapKind.thing);
+            }
+        }
+
+        FlatButton {
+            label: "Textures";
+            button-min-width: 84px;
+            active: RemapController.kind == RemapKind.texture;
+            clicked => {
+                RemapController.kind-changed(RemapKind.texture);
+            }
+        }
+
+        FlatButton {
+            label: "Flats";
+            button-min-width: 84px;
+            active: RemapController.kind == RemapKind.flat;
+            clicked => {
+                RemapController.kind-changed(RemapKind.flat);
+            }
+        }
+
+        FlatButton {
+            label: "Line spec.";
+            button-min-width: 84px;
+            active: RemapController.kind == RemapKind.line-special;
+            clicked => {
+                RemapController.kind-changed(RemapKind.line-special);
+            }
+        }
+
+        FlatButton {
+            label: "Sector spec.";
+            button-min-width: 84px;
+            active: RemapController.kind == RemapKind.sector-special;
+            clicked => {
+                RemapController.kind-changed(RemapKind.sector-special);
+            }
+        }
+    }
+
+    ListView {
+        for row[i] in RemapController.rows: HorizontalLayout {
+            height: 34px;
+            spacing: Theme.pad;
+
+            Text {
+                text: row.from;
+                color: Theme.text;
+                vertical-alignment: center;
+                min-width: 110px;
+            }
+
+            Text {
+                text: "→";
+                color: Theme.text-dim;
+                vertical-alignment: center;
+            }
+
+            EditLine {
+                min-width: 60px;
+                horizontal-stretch: 1;
+                text: row.to;
+                edited(text) => {
+                    RemapController.to-edited(i, text);
+                }
+            }
+        }
+    }
+
+    Text {
+        text: RemapController.status;
+        color: Theme.text-dim;
+    }
+
+    // Apply deliberately keeps the dialog open so several kinds can be remapped in one session.
+    DialogButtons {
+        dismiss-label: "Close";
+        confirmed => {
+            RemapController.apply();
+        }
+        dismissed => {
+            RemapController.remap-visible = false;
+        }
+    }
+}

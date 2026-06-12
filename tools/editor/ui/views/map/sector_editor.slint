@@ -1,0 +1,140 @@
+import {
+    FlatSlot,
+    GfxEntry,
+    PopupId,
+} from "../../foundation/shared_types.slint";
+import { WindowController } from "../../foundation/globals.slint";
+import { Theme } from "../../foundation/theme.slint";
+import { PopupScaffold } from "../../widgets/popup.slint";
+import { DialogButtons } from "../../widgets/buttons.slint";
+import { LabeledSpin } from "../../widgets/spinbox.slint";
+import { TextureGrid } from "../../widgets/texture_grid.slint";
+
+// Sector editor popup: Rust populates on double-click and shows on success; close stays in Slint.
+export global SectorEditController {
+    in-out property <bool> sector-edit-visible: false;
+    in property <int> sector-index: -1;
+    in property <image> ceil-img;
+    in property <image> floor-img;
+    in property <FlatSlot> selected-slot;
+    in property <[GfxEntry]> entries;
+    in property <int> active-index: -1;
+    in-out property <int> floor-h;
+    in-out property <int> ceil-h;
+    callback select-flat(FlatSlot);
+    callback pick-flat(string);
+    callback height-changed();
+    callback apply();
+    // Close edge: Rust reverts the session if Apply didn't run.
+    callback sector-edit-closed();
+}
+
+// One flat slot: bordered preview (click selects it), corner label, height spin.
+component FlatPreview inherits VerticalLayout {
+    in property <FlatSlot> slot;
+    in property <image> img;
+    in property <string> label;
+    in property <string> height-label;
+    in-out property <int> height-value;
+    property <length> flat-side: 128px;
+    property <bool> active: SectorEditController.selected-slot == root.slot;
+
+    spacing: Theme.pad;
+
+    Rectangle {
+        width: root.flat-side;
+        height: root.flat-side;
+        border-width: root.active ? 3px : 1px;
+        border-color: root.active ? Theme.accent : Theme.panel-border;
+
+        Image {
+            source: root.img;
+            image-fit: contain;
+            width: 100%;
+            height: 100%;
+            image-rendering: pixelated;
+        }
+
+        Text {
+            y: parent.height - self.height - 2px;
+            x: 2px;
+            text: root.label;
+            color: root.active ? Theme.accent : Theme.text-dim;
+            font-size: Theme.font-size-small;
+        }
+
+        TouchArea {
+            clicked => {
+                SectorEditController.select-flat(root.slot);
+            }
+        }
+    }
+
+    LabeledSpin {
+        label: root.height-label;
+        value <=> root.height-value;
+        edited => {
+            SectorEditController.height-changed();
+        }
+    }
+}
+
+// Double-clicked sector editor: ceiling and floor flat previews (click to select which the list edits), a flat list, and floor/ceiling height spins.
+export component SectorEditorPopup inherits PopupScaffold {
+    visible: SectorEditController.sector-edit-visible;
+    title: "Edit Sector";
+    id: PopupId.sector-edit;
+    default-width: 360px;
+    default-height: 420px;
+    min-width-px: 360px;
+    min-height-px: 420px;
+    geom <=> WindowController.sector-edit;
+    cancelled => {
+        SectorEditController.sector-edit-visible = false;
+    }
+
+    HorizontalLayout {
+        spacing: Theme.pad;
+        vertical-stretch: 1;
+
+        VerticalLayout {
+            spacing: Theme.pad;
+            alignment: center;
+
+            FlatPreview {
+                slot: FlatSlot.ceil;
+                img: SectorEditController.ceil-img;
+                label: "ceiling";
+                height-label: "Ceil height";
+                height-value <=> SectorEditController.ceil-h;
+            }
+
+            FlatPreview {
+                slot: FlatSlot.floor;
+                img: SectorEditController.floor-img;
+                label: "floor";
+                height-label: "Floor height";
+                height-value <=> SectorEditController.floor-h;
+            }
+        }
+
+        TextureGrid {
+            horizontal-stretch: 1;
+            entries: SectorEditController.entries;
+            active-index: SectorEditController.active-index;
+            picked(name) => {
+                SectorEditController.pick-flat(name);
+            }
+        }
+    }
+
+    DialogButtons {
+        confirmed => {
+            SectorEditController.apply();
+            SectorEditController.sector-edit-visible = false;
+        }
+        dismissed => {
+            SectorEditController.sector-edit-visible = false;
+        }
+    }
+}

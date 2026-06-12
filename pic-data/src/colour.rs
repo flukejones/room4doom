@@ -142,10 +142,11 @@ impl<T: PixelFmt> PalLit<T> {
     }
 }
 
-/// A [`PalLit`] paired with the palette generation it was built from. Rebuilds
-/// the table only when the generation changes (gamma/palette change); otherwise
-/// returns the cached one. Owned by the renderer, refreshed each frame via
-/// [`Self::get`].
+/// A [`PalLit`] paired with the palette generation it was built from.
+///
+/// Rebuilds the table only when the generation changes (gamma/palette
+/// change); otherwise returns the cached one. Owned by the renderer,
+/// refreshed each frame via [`Self::get`].
 #[derive(Debug, Clone, Default)]
 pub struct PalLitCache<T> {
     /// `None` until first built.

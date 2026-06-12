@@ -2,9 +2,9 @@ use std::collections::hash_map::DefaultHasher;
 use std::fmt::Display;
 use std::hash::{Hash as _, Hasher as _};
 use std::path::{Path, PathBuf};
-use std::{fmt, fs, str};
+use std::{fmt, fs, io, str};
 
-use crate::types::WadBlockMap;
+use crate::types::{GameMission, GameMode, WadBlockMap};
 
 const FRACUNIT: f32 = (1 << 16) as f32;
 
@@ -187,26 +187,54 @@ impl fmt::Debug for WadData {
 
 impl WadData {
     /// Load and cache all lumps from a WAD file at `file_path`.
+    /// Panics on read failure — use [`WadData::try_new`] for user-supplied paths.
     pub fn new(file_path: &Path) -> Self {
+        Self::try_new(file_path)
+            .unwrap_or_else(|e| panic!("Could not read wad file {:?}: {e}", &file_path))
+    }
+
+    /// Fallible [`WadData::new`]: errors instead of panicking on an unreadable file.
+    pub fn try_new(file_path: &Path) -> io::Result<Self> {
+        let file_data = fs::read(file_path)?;
         let mut wad = Self {
             lumps: Vec::new(),
             file_path: file_path.into(),
         };
-
-        let file_data = fs::read(file_path)
-            .unwrap_or_else(|_| panic!("Could not read wad file: {:?}", &file_path));
-
         wad.cache_lumps(&file_data);
-        wad
+        Ok(wad)
+    }
+
+    /// The 4-byte WAD identifier (`"IWAD"` or `"PWAD"`) of the file at `path`,
+    /// read from its header without loading the lumps. `None` if the file cannot
+    /// be read or is too short to hold a header.
+    ///
+    /// ```
+    /// use wad::WadData;
+    /// let path = std::env::temp_dir().join("wad_file_type_doctest.wad");
+    /// // A 12-byte WAD header: "PWAD" id, zero lumps, directory at offset 12.
+    /// std::fs::write(&path, b"PWAD\0\0\0\0\x0c\0\0\0").unwrap();
+    /// assert_eq!(WadData::file_wad_type(&path).as_deref(), Some("PWAD"));
+    /// std::fs::remove_file(&path).ok();
+    /// ```
+    pub fn file_wad_type(path: &Path) -> Option<String> {
+        let bytes = fs::read(path).ok()?;
+        let id = bytes.get(0..4)?;
+        Some(str::from_utf8(id).ok()?.to_owned())
     }
 
     /// Append lumps from an additional WAD file (PWAD). Later lumps override
     /// earlier ones with the same name.
+    /// Panics on read failure — use [`WadData::try_add_file`] for user-supplied paths.
     pub fn add_file(&mut self, file_path: PathBuf) {
-        let file_data =
-            fs::read(&file_path).unwrap_or_else(|_| panic!("Could not read {:?}", &file_path));
+        self.try_add_file(&file_path)
+            .unwrap_or_else(|e| panic!("Could not read {:?}: {e}", &file_path));
+    }
 
+    /// Fallible [`WadData::add_file`]: errors instead of panicking on an unreadable file.
+    pub fn try_add_file(&mut self, file_path: &Path) -> io::Result<()> {
+        let file_data = fs::read(file_path)?;
         self.cache_lumps(&file_data);
+        Ok(())
     }
 
     /// Parse the 12-byte WAD header (type + directory count + offset).
@@ -299,6 +327,27 @@ impl WadData {
             }
         }
         None
+    }
+
+    /// Identify the IWAD flavor from its map marker lumps. Returns
+    /// `(GameMode::Indetermined, GameMission::None)` when neither MAP01 nor
+    /// E1M1 exists — callers decide whether that is fatal. TNT and Plutonia
+    /// both present MAP01 and identify as plain Doom2.
+    pub fn game_mode(&self) -> (GameMode, GameMission) {
+        if self.lump_exists("MAP01") {
+            return (GameMode::Commercial, GameMission::Doom2);
+        }
+        if !self.lump_exists("E1M1") {
+            return (GameMode::Indetermined, GameMission::None);
+        }
+        let mode = if self.lump_exists("E4M1") {
+            GameMode::Retail
+        } else if self.lump_exists("E3M1") {
+            GameMode::Registered
+        } else {
+            GameMode::Shareware
+        };
+        (mode, GameMission::Doom)
     }
 
     pub fn lump_exists(&self, lump_name: &str) -> bool {
@@ -443,6 +492,7 @@ impl WadData {
 
 #[cfg(test)]
 mod tests {
+    use crate::types::{GameMission, GameMode};
     use crate::wad::WadData;
     use std::fs;
     use std::path::PathBuf;
@@ -474,5 +524,11 @@ mod tests {
         let file = read_file(doom1_wad_path());
         let header = WadData::read_header(&file);
         assert_eq!(wad.lumps.len(), header.dir_count as usize);
+    }
+
+    #[test]
+    fn shareware_iwad_identifies() {
+        let wad = WadData::new(&doom1_wad_path());
+        assert_eq!(wad.game_mode(), (GameMode::Shareware, GameMission::Doom));
     }
 }

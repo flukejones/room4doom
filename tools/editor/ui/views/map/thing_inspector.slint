@@ -1,0 +1,128 @@
+import { CheckBox } from "../../widgets/checkbox.slint";
+import { Theme } from "../../foundation/theme.slint";
+import { ComboBox } from "../../widgets/combo.slint";
+import { SectionTitle, TextFieldRow } from "../../widgets/panel_field.slint";
+
+// Thing skill/multiplayer option checkboxes.
+struct ThingOptions {
+    easy: bool,
+    normal: bool,
+    hard: bool,
+    ambush: bool,
+    multi: bool,
+}
+
+// Per-field touched flags for batch edit (see LinedefInspectorController).
+struct ThingTouched {
+    type: bool,
+    angle: bool,
+    easy: bool,
+    normal: bool,
+    hard: bool,
+    ambush: bool,
+    multi: bool,
+}
+
+// Thing inspector: edits the selected thing, or the placement template when nothing is selected.
+export global ThingInspectorController {
+    in property <bool> active: false;
+    // Dropdown rows: `types[i]` is the display name, `type-num[i]` its Doom thing number; index-aligned so the combo's selected index maps to a kind.
+    in property <[string]> types;
+    in property <[int]> type-num;
+    in-out property <int> type-index: 0;
+    // True when a multi-selection spans several thing types: the combo shows "Multiple" until the user picks one (which sets all selected to it).
+    in-out property <bool> type-multiple: false;
+    in-out property <string> angle;
+    in-out property <ThingOptions> options;
+    in-out property <ThingTouched> touched;
+    callback apply();
+}
+
+// Flag checkbox: the call site marks its touched bit in `touch`, then apply runs.
+component FlagCheck inherits CheckBox {
+    callback touch();
+    toggled => {
+        root.touch();
+        ThingInspectorController.apply();
+    }
+}
+
+// Thing inspector section: shown inside the edit panel when a thing is active.
+export component ThingInspector inherits VerticalLayout {
+    spacing: Theme.pad-small;
+
+    SectionTitle {
+        text: "Thing";
+    }
+
+    Rectangle {
+        type-combo := ComboBox {
+            model: ThingInspectorController.types;
+            current-index: ThingInspectorController.type-index;
+            selected => {
+                ThingInspectorController.type-index = self.current-index;
+                ThingInspectorController.type-multiple = false;
+                ThingInspectorController.touched.type = true;
+                ThingInspectorController.apply();
+            }
+        }
+        // Mixed-type selection: cover the (blank) combo with "Multiple".
+        if ThingInspectorController.type-multiple: Text {
+            x: 8px;
+            text: "Multiple";
+            color: Theme.text-dim;
+            vertical-alignment: center;
+        }
+    }
+
+    TextFieldRow {
+        label: "Angle";
+        value <=> ThingInspectorController.angle;
+        edited => {
+            ThingInspectorController.touched.angle = true;
+        }
+        committed => {
+            ThingInspectorController.apply();
+        }
+    }
+
+    FlagCheck {
+        text: "Easy";
+        checked <=> ThingInspectorController.options.easy;
+        touch => {
+            ThingInspectorController.touched.easy = true;
+        }
+    }
+
+    FlagCheck {
+        text: "Normal";
+        checked <=> ThingInspectorController.options.normal;
+        touch => {
+            ThingInspectorController.touched.normal = true;
+        }
+    }
+
+    FlagCheck {
+        text: "Hard";
+        checked <=> ThingInspectorController.options.hard;
+        touch => {
+            ThingInspectorController.touched.hard = true;
+        }
+    }
+
+    FlagCheck {
+        text: "Ambush";
+        checked <=> ThingInspectorController.options.ambush;
+        touch => {
+            ThingInspectorController.touched.ambush = true;
+        }
+    }
+
+    FlagCheck {
+        text: "Multiplayer only";
+        checked <=> ThingInspectorController.options.multi;
+        touch => {
+            ThingInspectorController.touched.multi = true;
+        }
+    }
+}

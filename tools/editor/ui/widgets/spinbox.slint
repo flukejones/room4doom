@@ -1,0 +1,138 @@
+import { Theme } from "../foundation/theme.slint";
+
+export component SpinBoxButton inherits Rectangle {
+    in property <string> text;
+    in property <length> font-size: 8px;
+    in-out property <bool> enabled: true;
+    callback clicked();
+    background: down-touch.has-hover ? Theme.tool-hover : transparent;
+
+    animate background {
+        duration: Theme.anim-fast;
+        easing: ease-out;
+    }
+
+    Text {
+        text: root.text;
+        font-size: root.font-size;
+        color: Theme.text-dim;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    down-touch := TouchArea {
+        enabled: root.enabled;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+// Integer spin entry, themed from Theme (not the OS palette) so it stays readable in any editor theme - the std SpinBox follows the OS palette, which is why EditLine/ComboBox are hand-rolled too. A number field with a ▲▼ stepper column; ▲▼ and Up/Down (while focused) step by `step`, typing parses on edit. `value` is the source of truth; the text mirrors it.
+export component SpinBox inherits Rectangle {
+    in-out property <int> value;
+    in property <int> step: 1;
+    in property <int> minimum: -2147483647;
+    in property <int> maximum: 2147483647;
+    in property <bool> enabled: true;
+    callback edited(int);
+
+    function commit(v: int) {
+        root.value = Math.clamp(v, root.minimum, root.maximum);
+        input.text = "\{root.value}";
+        root.edited(root.value);
+    }
+
+    forward-focus: input;
+    height: 24px;
+    min-width: 32px;
+    max-width: 64px;
+    border-radius: Theme.border-radius-small;
+    border-width: Theme.border-width;
+    border-color: input.has-focus ? Theme.accent : Theme.panel-border;
+    background: root.enabled ? Theme.control-bg : Theme.control-bg-disabled;
+    animate border-color {
+        duration: Theme.anim-fast;
+        easing: ease-out;
+    }
+
+    HorizontalLayout {
+        padding-left: 6px;
+
+        // Typed text commits on Enter or focus-loss, not per keystroke - committing on `edited` re-derives `text` from `value` mid-type and fights the cursor. Arrows and the steppers commit immediately.
+        input := TextInput {
+            // Typing destroys the text binding, so re-sync whenever value changes.
+            property <int> shown: root.value;
+            changed shown => {
+                self.text = "\{self.shown}";
+            }
+            horizontal-stretch: 1;
+            text: "\{root.value}";
+            color: root.enabled ? Theme.text : Theme.text-disabled;
+            vertical-alignment: center;
+            single-line: true;
+            input-type: number;
+            enabled: root.enabled;
+            accepted => {
+                root.commit(Math.round(self.text.to-float()));
+                self.clear-focus();
+            }
+            changed has-focus => {
+                if (!self.has-focus) {
+                    root.commit(Math.round(self.text.to-float()));
+                }
+            }
+            key-pressed(ev) => {
+                if (ev.text == Key.UpArrow) {
+                    root.commit(Math.round(self.text.to-float()) + root.step);
+                    return accept;
+                }
+                if (ev.text == Key.DownArrow) {
+                    root.commit(Math.round(self.text.to-float()) - root.step);
+                    return accept;
+                }
+                reject
+            }
+        }
+
+        steppers := VerticalLayout {
+            width: 18px;
+
+            // Step from the displayed text so an uncommitted typed value is the base.
+            up := SpinBoxButton {
+                text: "▲";
+                clicked => {
+                    root.commit(Math.round(input.text.to-float()) + root.step);
+                }
+            }
+
+            down := SpinBoxButton {
+                text: "▼";
+                clicked => {
+                    root.commit(Math.round(input.text.to-float()) - root.step);
+                }
+            }
+        }
+    }
+}
+
+// A dim label beside an integer spin entry, for inline numeric rows.
+export component LabeledSpin inherits HorizontalLayout {
+    in property <string> label;
+    in-out property <int> value <=> spin.value;
+    callback edited();
+
+    spacing: Theme.pad-small;
+
+    Text {
+        text: root.label;
+        color: Theme.text-dim;
+        vertical-alignment: center;
+    }
+
+    spin := SpinBox {
+        edited => {
+            root.edited();
+        }
+    }
+}

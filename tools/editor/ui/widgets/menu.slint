@@ -1,0 +1,20 @@
+import { Theme } from "../foundation/theme.slint";
+
+// Popup menu panel: themed chrome around a padded row column; `drop-up` anchors its bottom edge to the anchor's top.
+export component MenuPanel inherits PopupWindow {
+    in property <bool> drop-up: false;
+    y: root.drop-up ? -content.preferred-height : 0;
+
+    content := Rectangle {
+        background: Theme.panel-background;
+        border-color: Theme.panel-border;
+        border-width: Theme.border-width;
+        border-radius: Theme.border-radius;
+
+        VerticalLayout {
+            padding: Theme.pad-small;
+
+            @children
+        }
+    }
+}

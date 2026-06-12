@@ -1,0 +1,87 @@
+// Project/WAD browser tab — interface contract (controller global only); one controller, one file, the view component lives in project_browser.slint. LumpKind/TreeRow/LumpRow are this boundary's own types (single-boundary), so they live here, not in shared_types.slint; they mirror the canonical Rust types in src/views/view_project_browser/, joined by From/TryFrom at the edge.
+
+// What a lump/file's content is, deciding which preview the content view shows.
+export enum LumpKind {
+    map-marker,
+    map-sub-lump,
+    flat,
+    patch,
+    sprite,
+    music,
+    sound,
+    texture-defs,
+    palette,
+    colourmap,
+    text,
+    other,
+}
+
+// One row of the left tree (flattened: Slint has no tree widget). `depth` indents it; `expandable`/`expanded` drive the disclosure arrow; `container` marks WADs and map markers (selecting one fills the middle column).
+export struct TreeRow {
+    label: string,
+    depth: int,
+    expandable: bool,
+    expanded: bool,
+    container: bool,
+}
+
+// One row of the middle container column: a lump (or map sub-lump) with its size and classified kind.
+export struct LumpRow {
+    name: string,
+    size: int,
+    kind: LumpKind,
+    // Whether the name passes the current name filter (Rust-computed substring test; Slint has no substring op). True when no filter is set.
+    matches: bool,
+}
+
+export global ProjectBrowserController {
+    // Left column: the flattened active-WADs + project-dir tree.
+    in property <[TreeRow]> tree-rows;
+    in property <int> tree-active: -1;
+    // Middle column: the selected container's lumps; hidden for a leaf file.
+    in property <[LumpRow]> lump-rows;
+    in property <int> lump-active: -1;
+    in property <bool> container-visible: false;
+    // Right column: the selected leaf's preview.
+    in property <LumpKind> content-kind: LumpKind.other;
+    in property <image> content-image;
+    in property <string> content-text;
+    // Map wireframe preview: SVG path-data per linedef role, drawn as vector `Path`s (crisp at any size), sharing the viewbox below.
+    in property <string> wf-one-sided;
+    in property <string> wf-two-sided;
+    in property <string> wf-special;
+    in property <float> wf-vb-x;
+    in property <float> wf-vb-y;
+    in property <float> wf-vb-w: 1;
+    in property <float> wf-vb-h: 1;
+    // Wireframe stroke colours, from the active canvas style (render/style.rs).
+    in property <brush> wf-col-one-sided;
+    in property <brush> wf-col-two-sided;
+    in property <brush> wf-col-special;
+    // A map marker is selected: the content view offers an "Edit Map" action.
+    in property <bool> map-selected: false;
+    in property <string> selected-map;
+    // Lump-list filters. `name-filter` is the text box value (the substring match it drives is computed Rust-side into each row's `matches`); `kind-filter` is the kind dropdown index (0 = All), tested in Slint. Both are controller-owned so a project change can reset them. Cleared by [`reset`].
+    in-out property <string> name-filter;
+    in-out property <int> kind-filter: 0;
+    // Drag-resizable column widths (logical px), seeded from prefs and persisted.
+    in-out property <length> tree-w: 240px;
+    in-out property <length> lump-w: 200px;
+
+    // Rust fills the projection when the tab becomes visible.
+    callback populate();
+    // The user finished dragging a column splitter; persist the widths.
+    callback widths-changed();
+    // View intents (semantic; no bare ints decide domain state).
+    callback select-tree-row(int);
+    callback toggle-expand(int);
+    callback select-lump(int);
+    // Double-click intents: open a `.ron` map or a map-marker lump for editing.
+    callback activate-tree-row(int);
+    callback activate-lump(int);
+    callback load-pwad();
+    // Load the named map into the Map tab for editing.
+    callback edit-map(string);
+    // Lump name filter changed: Rust recomputes each lump row's `matches`.
+    callback name-filter-changed(string);
+}

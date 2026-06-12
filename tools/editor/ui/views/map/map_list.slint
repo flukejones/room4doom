@@ -1,0 +1,49 @@
+import { ListView } from "std-widgets.slint";
+import { PopupId } from "../../foundation/shared_types.slint";
+import { WindowController } from "../../foundation/globals.slint";
+import { Theme } from "../../foundation/theme.slint";
+import { PopupScaffold } from "../../widgets/popup.slint";
+
+export global MapsController {
+    in property <[string]> maps;
+    // Rust sets this true after a WAD scan finds >1 map (the open decision is Rust-computed); Slint owns the close. `picked` loads the chosen map.
+    in-out property <bool> list-visible: false;
+    callback picked(int);
+}
+
+// Boolean-visibility overlay (single-window rule: dialogs are layers, never extra windows). Pick which map of a multi-map WAD to open; Rust decides when to show this (after a WAD scan finds >1 map), the dismiss/pick close is here.
+export component MapListPopup inherits PopupScaffold {
+    visible: MapsController.list-visible;
+    title: "Open Map";
+    id: PopupId.map-list;
+    default-width: 320px;
+    default-height: 380px;
+    min-width-px: 220px;
+    min-height-px: 160px;
+    geom <=> WindowController.map-list;
+    cancelled => {
+        MapsController.list-visible = false;
+    }
+
+    ListView {
+        for name[i] in MapsController.maps: Rectangle {
+            height: 28px;
+            border-radius: Theme.border-radius;
+            background: row.has-hover ? Theme.tool-hover : transparent;
+
+            Text {
+                x: Theme.pad;
+                text: name;
+                color: Theme.text;
+                vertical-alignment: center;
+            }
+
+            row := TouchArea {
+                clicked => {
+                    MapsController.picked(i);
+                    MapsController.list-visible = false;
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,48 @@
+// Value types that cross more than one Slint↔Rust boundary (single-boundary types live in that boundary's own .slint file); these mirror the canonical Rust enums in src/boundary.rs (joined by From/TryFrom at the edge), the wire stays typed, never a magic-number int.
+
+export enum ToolKind {
+    select,
+    select-vertex,
+    select-line,
+    select-thing,
+    select-sector,
+    line,
+    rect,
+    triangle,
+    ngon,
+    thing,
+    sector,
+    launch }
+
+// How sector interiors paint on the canvas.
+export enum SectorFill { none, colour, texture }
+
+// Which things the canvas draws, by difficulty presence.
+export enum SkillFilter { all, easy, normal, hard }
+
+// Which line-side texture a browse pick fills.
+export enum TexSlot { front-top, front-mid, front-bottom, back-top, back-mid, back-bottom }
+
+// Which sector flat a browse pick fills.
+export enum FlatSlot { floor, ceil }
+
+// Which popup an MDI-window geometry belongs to.
+export enum PopupId {
+        map-list,
+        browser,
+        remap,
+        prefs,
+        wall-edit,
+        sector-edit,
+        project-settings,
+        build-bsp,
+        new-map,
+        audit }
+
+// One asset browser entry (texture or flat); shared by the browser, wall editor, and sector editor lists.
+export struct GfxEntry {
+            name: string,
+            thumb: image,
+            tex-w: int,
+            tex-h: int,
+        }

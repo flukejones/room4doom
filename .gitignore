@@ -64,6 +64,8 @@ android/local.properties
 /chats/
 *.session
 *.log
+# Local Slint MCP server endpoint (per-machine, transient port)
+.mcp.json
 
 # Environment & Keys
 .env
@@ -75,3 +77,6 @@ secrets.json
 node_modules/
 /vendor/
 .tokensave
+
+# Subagent-driven dev scratch
+.superpowers/

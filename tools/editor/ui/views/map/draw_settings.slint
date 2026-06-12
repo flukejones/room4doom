@@ -1,0 +1,84 @@
+import { Theme } from "../../foundation/theme.slint";
+import {
+    BrowseFieldRow,
+    SectionTitle,
+    TextFieldRow,
+} from "../../widgets/panel_field.slint";
+
+// Draw settings: the sector heights/flats and wall texture applied to geometry drawn next; shown while a Draw tool is active. Edits apply instantly to the draw brush (no Apply button); drawn lines pick them up immediately.
+export global DrawSettingsController {
+    in property <bool> active: false;
+    in-out property <string> floor-h;
+    in-out property <string> ceil-h;
+    in-out property <string> floor-flat;
+    in-out property <string> ceil-flat;
+    in-out property <string> wall-tex;
+    // Open the flat/texture browser for a brush slot (Rust populates + shows it).
+    callback browse-floor();
+    callback browse-ceil();
+    callback browse-wall();
+    callback apply();
+}
+
+// Draw-settings section: shown inside the edit panel when a Draw tool is active.
+export component DrawSettings inherits VerticalLayout {
+    spacing: Theme.pad-small;
+
+    SectionTitle {
+        text: "Draw settings";
+    }
+
+    Text {
+        text: "applied to lines drawn next";
+        color: Theme.text-dim;
+    }
+
+    TextFieldRow {
+        label: "Floor h";
+        value <=> DrawSettingsController.floor-h;
+        committed => {
+            DrawSettingsController.apply();
+        }
+    }
+
+    TextFieldRow {
+        label: "Ceil h";
+        value <=> DrawSettingsController.ceil-h;
+        committed => {
+            DrawSettingsController.apply();
+        }
+    }
+
+    BrowseFieldRow {
+        label: "Floor";
+        value <=> DrawSettingsController.floor-flat;
+        committed => {
+            DrawSettingsController.apply();
+        }
+        browse => {
+            DrawSettingsController.browse-floor();
+        }
+    }
+
+    BrowseFieldRow {
+        label: "Ceil";
+        value <=> DrawSettingsController.ceil-flat;
+        committed => {
+            DrawSettingsController.apply();
+        }
+        browse => {
+            DrawSettingsController.browse-ceil();
+        }
+    }
+
+    BrowseFieldRow {
+        label: "Wall";
+        value <=> DrawSettingsController.wall-tex;
+        committed => {
+            DrawSettingsController.apply();
+        }
+        browse => {
+            DrawSettingsController.browse-wall();
+        }
+    }
+}

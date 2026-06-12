@@ -1,0 +1,22 @@
+[package]
+name = "editor-core"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Map data model and DWD/WAD I/O for the ReDoomEd-style map editor"
+
+[dependencies]
+doomed-parser.workspace = true
+geom-kernel.workspace = true
+log.workspace = true
+rbsp.workspace = true
+ron.workspace = true
+serde.workspace = true
+wad.workspace = true
+
+[dev-dependencies]
+test-utils.workspace = true
+
+[lints]
+workspace = true

@@ -1,4 +1,5 @@
 //! Parse-side sector mover classification over the engine's map structures.
+//!
 //! The build-time mover vertex pass lives in `rbsp::bsp3d::movers`; this only
 //! answers "does anything move this sector" for the AABB expansion at parse.
 

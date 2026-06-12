@@ -6,11 +6,14 @@
 mod doom_def;
 pub mod tic_cmd;
 
-pub use doom_def::{GameMission, GameMode, WeaponType};
+pub use doom_def::WeaponType;
+// GameMode/GameMission are IWAD identity and live with the WAD data; the
+// re-export keeps existing `game_config::GameMode` imports working.
 pub use tic_cmd::{
     ANGLETURN, BASELOOKDIRMAX, BASELOOKDIRMIN, ButtonCode, FORWARDMOVE, MAXPLMOVE, SIDEMOVE,
     SLOWTURNTICS, TIC_CMD_BUTTONS, TicCmd,
 };
+pub use wad::types::{GameMission, GameMode};
 
 use std::error::Error;
 use std::fmt;

@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io::{BufReader, Read as _};
 use std::path::Path;
 
-use game_config::GameMode;
+use wad::types::GameMode;
 use zip::ZipArchive;
 
 pub struct Pk3Voxels {

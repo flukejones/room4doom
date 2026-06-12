@@ -1,0 +1,71 @@
+[package]
+name = "editor"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "ReDoomEd-style Doom map editor (Slint UI)"
+
+[dependencies]
+argh.workspace = true
+bincode.workspace = true
+bytemuck = { workspace = true, features = ["derive"] }
+colorous.workspace = true
+opaline.workspace = true
+dirs.workspace = true
+png.workspace = true
+rbsp.workspace = true
+editor-core.workspace = true
+log.workspace = true
+math.workspace = true
+rfd.workspace = true
+ron.workspace = true
+serde.workspace = true
+simplelog.workspace = true
+slint = { workspace = true, features = [
+    "backend-winit",
+    "renderer-femtovg-wgpu",
+    "unstable-wgpu-29",
+] }
+# Same wgpu 29 crate Slint's femtovg-wgpu renderer uses (re-exported as
+# slint::wgpu_29::wgpu); depended on directly to union in `wgsl` for inline
+# shader modules and to create the headless test device.
+wgpu = { version = "29", default-features = false, features = ["wgsl"] }
+i-slint-backend-winit.workspace = true
+# Optional: the embedded Slint MCP server for runtime UI inspection. Off by
+# default; enable with `--features slint-mcp` + SLINT_MCP_PORT to drive the UI
+# from an MCP client. The editor installs its own platform (bypassing the backend
+# selector that would otherwise start this), so it must call mcp_server::init().
+i-slint-backend-testing = { git = "https://github.com/slint-ui/slint.git", rev = "cc9d6fc57e23ebfc570313778358c959f1651383", optional = true, features = [
+    "mcp",
+] }
+wad.workspace = true
+
+[features]
+slint-mcp = ["dep:i-slint-backend-testing"]
+
+[target.'cfg(target_os = "macos")'.dependencies]
+winit.workspace = true
+# Must match the objc2 version that i-slint-backend-winit + rfd use (0.6/0.3);
+# a mismatched objc2 corrupts winit's NSView ivars and crashes on modal dialogs.
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", features = [
+    "NSView",
+    "NSWindow",
+    "NSVisualEffectView",
+    "NSResponder",
+] }
+objc2-foundation = "0.3"
+
+[dev-dependencies]
+test-utils.workspace = true
+# Headless wgpu render tests: a backend to create an offscreen device, and a
+# blocking executor to await buffer mapping.
+pollster = "0.4"
+wgpu = { version = "29", default-features = false, features = ["wgsl", "metal"] }
+
+[build-dependencies]
+slint-build.workspace = true
+
+[lints]
+workspace = true

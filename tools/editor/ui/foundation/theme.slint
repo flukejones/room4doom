@@ -1,0 +1,41 @@
+import { ThemeController } from "globals.slint";
+
+// UI chrome design tokens; colours come from ThemeController (Rust pushes the active theme), the rasterizer's canvas colours live in Rust (render/style.rs).
+export global Theme {
+    out property <color> window-background: ThemeController.window-background;
+    out property <color> panel-background: ThemeController.panel-background;
+    // Chrome fills at the glass opacity (0 over a vibrancy backdrop, 1 opaque).
+    out property <color> panel-glass: ThemeController.panel-background.with-alpha(ThemeController.glass-alpha);
+    out property <color> window-glass: ThemeController.window-background.with-alpha(ThemeController.glass-alpha);
+    out property <color> panel-border: ThemeController.panel-border;
+    out property <color> text: ThemeController.text;
+    out property <color> text-dim: ThemeController.text-dim;
+    out property <color> accent: ThemeController.accent;
+    out property <color> tool-active: ThemeController.tool-active;
+    out property <color> tool-hover: ThemeController.tool-hover;
+    out property <color> control-bg: ThemeController.control-bg;
+    out property <color> control-bg-disabled: ThemeController.control-bg-disabled;
+    out property <color> text-disabled: ThemeController.text-disabled;
+    out property <color> window-shadow: ThemeController.window-shadow;
+    // Matches the in-canvas missing-resource marker; deliberately theme-invariant.
+    out property <color> missing-marker: #ff00ff;
+    out property <length> pad: 8px;
+    out property <length> pad-small: 3px;
+    out property <length> border-radius: 4px;
+    // Input controls round tighter than panels.
+    out property <length> border-radius-small: 3px;
+    out property <length> border-width: 1px;
+    // Type scale: small = canvas labels, caption = hints, body = controls, heading = sections, title = dialogs.
+    out property <length> font-size-small: 10px;
+    out property <length> font-size-caption: 11px;
+    out property <length> font-size-body: 12px;
+    out property <length> font-size-heading: 13px;
+    out property <length> font-size-title: 14px;
+    out property <length> toolbutton-size: 24px;
+    out property <length> statusbar-height: 24px;
+    // Dialog field rows share one label-column width so labels align.
+    out property <length> dialog-label-width: 92px;
+    // Shared state-transition durations for hover/active/press feedback.
+    out property <duration> anim-fast: 90ms;
+    out property <duration> anim-med: 160ms;
+}

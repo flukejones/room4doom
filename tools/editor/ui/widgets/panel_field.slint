@@ -1,0 +1,67 @@
+import { Theme } from "../foundation/theme.slint";
+import { PanelEditLine } from "inputs.slint";
+import { CommandButton } from "buttons.slint";
+
+// Labelled field row; `fixed-label-width` pins the label column (0 = natural, min 64px).
+export component FieldRow inherits HorizontalLayout {
+    in property <string> label;
+    in property <length> fixed-label-width: 0;
+    spacing: Theme.pad-small;
+
+    Text {
+        text: root.label;
+        color: Theme.text-dim;
+        vertical-alignment: center;
+        min-width: root.fixed-label-width > 0px ? root.fixed-label-width : 64px;
+        max-width: root.fixed-label-width > 0px ? root.fixed-label-width : 4096px;
+    }
+
+    @children
+}
+
+// Dialog variant: fixed label column so rows align across the dialog.
+export component DialogFieldRow inherits FieldRow {
+    fixed-label-width: Theme.dialog-label-width;
+}
+
+// Field row with a committed text line and an optional trailing "…" browse button.
+export component TextFieldRow inherits FieldRow {
+    in-out property <string> value;
+    in property <bool> line-enabled: true;
+    in property <bool> has-browse: false;
+    callback edited();
+    callback committed();
+    callback browse();
+
+    PanelEditLine {
+        enabled: root.line-enabled;
+        text <=> root.value;
+        edited => {
+            root.edited();
+        }
+        committed => {
+            root.committed();
+        }
+    }
+
+    @children
+
+    if root.has-browse: CommandButton {
+        label: "…";
+        button-min-width: 28px;
+        clicked => {
+            root.browse();
+        }
+    }
+}
+
+// TextFieldRow with the browse button on.
+export component BrowseFieldRow inherits TextFieldRow {
+    has-browse: true;
+}
+
+// A panel section heading.
+export component SectionTitle inherits Text {
+    color: Theme.text;
+    font-size: Theme.font-size-heading;
+}

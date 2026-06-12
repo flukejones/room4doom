@@ -1,0 +1,58 @@
+import { ListView } from "std-widgets.slint";
+import { PopupId } from "../../foundation/shared_types.slint";
+import { WindowController } from "../../foundation/globals.slint";
+import { Theme } from "../../foundation/theme.slint";
+import { PopupScaffold } from "../../widgets/popup.slint";
+
+export global AuditController {
+    // Issue rows as display strings; index-parallel to Rust's target list.
+    in property <[string]> issues;
+    in-out property <bool> audit-visible: false;
+    // Re-run the audit scans and refill `issues`.
+    callback populate();
+    // Select and centre the issue's map element.
+    callback picked(int);
+}
+
+// Read-only audit report; a row click jumps the canvas to the offending element.
+export component AuditPopup inherits PopupScaffold {
+    visible: AuditController.audit-visible;
+    title: "Map Audit";
+    id: PopupId.audit;
+    default-width: 380px;
+    default-height: 420px;
+    min-width-px: 260px;
+    min-height-px: 180px;
+    geom <=> WindowController.audit;
+    cancelled => {
+        AuditController.audit-visible = false;
+    }
+
+    if AuditController.issues.length == 0: Text {
+        text: "No issues found.";
+        color: Theme.text-dim;
+    }
+
+    ListView {
+        for issue[i] in AuditController.issues: Rectangle {
+            height: 24px;
+            border-radius: Theme.border-radius-small;
+            background: row.has-hover ? Theme.tool-hover : transparent;
+
+            Text {
+                x: Theme.pad-small;
+                width: parent.width - Theme.pad-small * 2;
+                text: issue;
+                color: Theme.text;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+
+            row := TouchArea {
+                clicked => {
+                    AuditController.picked(i);
+                }
+            }
+        }
+    }
+}

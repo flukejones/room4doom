@@ -1,0 +1,60 @@
+import { GfxEntry, PopupId } from "../foundation/shared_types.slint";
+import { WindowController } from "../foundation/globals.slint";
+import { Theme } from "../foundation/theme.slint";
+import { PopupScaffold } from "../widgets/popup.slint";
+import { EditLine } from "../widgets/inputs.slint";
+import { TextureGrid } from "../widgets/texture_grid.slint";
+
+// Shared texture/flat browser overlay; Rust fills `entries` and receives the pick, the TextureGrid widget wraps them into columns from its own width.
+export global TexBrowserController {
+    in property <[GfxEntry]> entries;
+    // Row of the currently-set texture/flat (highlighted + scrolled to); -1 none.
+    in property <int> active-index: -1;
+    // Slint owns visibility: the panel/texedit buttons open it (after a populate-*-browser call fills the grid), pick/backdrop close it.
+    in-out property <bool> browser-visible: false;
+    in property <string> title: "Textures";
+    in-out property <string> filter: "";
+    callback filter-edited();
+    callback picked(string);
+}
+
+// Texture/flat picker overlay (single window: a boolean-visibility layer).
+export component AssetBrowserPopup inherits PopupScaffold {
+    property <length> target-cell-width: 150px;
+
+    visible: TexBrowserController.browser-visible;
+    title: TexBrowserController.title;
+    id: PopupId.browser;
+    default-width: 560px;
+    default-height: 600px;
+    min-width-px: root.target-cell-width + 2 * Theme.pad + 14px;
+    min-height-px: 280px;
+    geom <=> WindowController.browser;
+    cancelled => {
+        TexBrowserController.browser-visible = false;
+    }
+
+    HorizontalLayout {
+        spacing: Theme.pad-small;
+
+        EditLine {
+            horizontal-stretch: 1;
+            height: 32px;
+            placeholder-text: "filter…";
+            text <=> TexBrowserController.filter;
+            edited => {
+                TexBrowserController.filter-edited();
+            }
+        }
+    }
+
+    TextureGrid {
+        entries: TexBrowserController.entries;
+        active-index: TexBrowserController.active-index;
+        target-cell-width: root.target-cell-width;
+        picked(name) => {
+            TexBrowserController.picked(name);
+            TexBrowserController.browser-visible = false;
+        }
+    }
+}

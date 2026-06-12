@@ -9,8 +9,8 @@ use std::f32::consts::{PI, TAU};
 use std::path::Path;
 
 use faces::{VoxelFace, generate_faces};
-use game_config::GameMode;
 use slices::VoxelSlices;
+use wad::types::GameMode;
 
 use crate::parallel_map;
 

@@ -1,0 +1,76 @@
+import { Theme } from "../../foundation/theme.slint";
+import { PopupId } from "../../foundation/shared_types.slint";
+import { WindowController } from "../../foundation/globals.slint";
+import { DialogButtons, FlatButton } from "../../widgets/buttons.slint";
+import { Slider } from "../../widgets/slider.slint";
+import { PopupScaffold } from "../../widgets/popup.slint";
+
+export global BuildBspController {
+    in-out property <bool> visible: false;
+    in-out property <int> interval-ms: 250;
+    // Keep every partition's lines on screen, or show only the current step.
+    in-out property <bool> keep-all: true;
+    callback run();
+}
+
+// Pre-run config for the BSP build animation: pick the delay between partitions, then Run or Cancel.
+export component BuildBspPopup inherits PopupScaffold {
+    visible: BuildBspController.visible;
+    title: "Build BSP";
+    id: PopupId.build-bsp;
+    default-width: 340px;
+    default-height: 200px;
+    min-width-px: 280px;
+    min-height-px: 160px;
+    resizable: false;
+    geom <=> WindowController.build-bsp;
+    cancelled => {
+        BuildBspController.visible = false;
+    }
+
+    Text {
+        text: "Build animation speed";
+        color: Theme.text;
+        font-size: Theme.font-size-title;
+    }
+
+    HorizontalLayout {
+        spacing: Theme.pad-small;
+
+        Slider {
+            horizontal-stretch: 1;
+            minimum: 1;
+            maximum: 1000;
+            value: BuildBspController.interval-ms;
+            changed(v) => {
+                BuildBspController.interval-ms = round(v);
+            }
+        }
+
+        Text {
+            text: BuildBspController.interval-ms + " ms";
+            color: Theme.text-dim;
+            vertical-alignment: center;
+            width: 56px;
+        }
+    }
+
+    FlatButton {
+        label: BuildBspController.keep-all ? "Divlines: keep all" : "Divlines: current only";
+        active: BuildBspController.keep-all;
+        clicked => {
+            BuildBspController.keep-all = !BuildBspController.keep-all;
+        }
+    }
+
+    DialogButtons {
+        confirm-label: "Run";
+        confirmed => {
+            BuildBspController.visible = false;
+            BuildBspController.run();
+        }
+        dismissed => {
+            BuildBspController.visible = false;
+        }
+    }
+}

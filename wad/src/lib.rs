@@ -43,6 +43,9 @@ pub mod udmf;
 /// The specific types, these are contained within the Lumps
 pub mod types;
 
+/// PWAD container serialization
+pub mod write;
+
 /// ZDoom BSP support (and maybe others in future)
 pub mod extended;
 

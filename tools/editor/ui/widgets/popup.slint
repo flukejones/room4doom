@@ -1,0 +1,193 @@
+import { Theme } from "../foundation/theme.slint";
+import { PopupId } from "../foundation/shared_types.slint";
+import { PopupGeom, WindowController } from "../foundation/globals.slint";
+
+// MDI-style draggable/resizable window frame over the editor. No backdrop: the frame swallows its own clicks/scroll, gestures outside fall through. `geom` (centre-relative x/y, live w/h) two-way binds a WindowController slot and persists.
+export component PopupScaffold inherits Rectangle {
+    in property <string> title;
+    // Keys this popup's persisted geometry slot.
+    in property <PopupId> id;
+    // Centre-relative position (0,0 = centred) + live size, seeded to default on first show.
+    in-out property <PopupGeom> geom;
+    in property <length> default-width: 480px;
+    in property <length> default-height: 480px;
+    in property <length> min-width-px: 240px;
+    in property <length> min-height-px: 200px;
+    in property <length> max-width-px: 1200px;
+    in property <length> max-height-px: 900px;
+    in property <bool> resizable: true;
+    callback cancelled();
+
+    background: transparent;
+
+    // Show: seed size, take focus. Close: persist geometry.
+    changed visible => {
+        if root.visible {
+            if root.geom.w <= 0 {
+                root.geom.w = root.default-width;
+            }
+            if root.geom.h <= 0 {
+                root.geom.h = root.default-height;
+            }
+            popup-fs.focus();
+        } else {
+            WindowController.save-window-geom(root.id, root.geom.x, root.geom.y, root.geom.w, root.geom.h);
+        }
+    }
+
+    frame := Rectangle {
+        // Size capped to the viewport so a shrunk editor never clips; position centre-anchored + offset, clamped to keep the titlebar on-screen.
+        width: min(clamp(root.geom.w, root.min-width-px, root.max-width-px), parent.width);
+        height: min(clamp(root.geom.h, root.min-height-px, root.max-height-px), parent.height);
+        x: clamp(parent.width / 2 - self.width / 2 + root.geom.x, 0px, max(0px, parent.width - self.width));
+        y: clamp(parent.height / 2 - self.height / 2 + root.geom.y, 0px, max(0px, parent.height - self.height));
+        background: Theme.panel-background;
+        border-color: Theme.panel-border;
+        border-width: Theme.border-width;
+        border-radius: 6px;
+        drop-shadow-blur: 16px;
+        drop-shadow-color: Theme.window-shadow;
+        clip: true;
+
+        // Never inside a layout (focus silently breaks); wraps content so Escape bubbles up.
+        popup-fs := FocusScope {
+            focus-on-click: false;
+            key-pressed(ev) => {
+                if (ev.text == Key.Escape) {
+                    root.cancelled();
+                    return accept;
+                }
+                reject
+            }
+
+            // Backstop: swallows clicks/scroll not taken by a child (no map leak).
+            TouchArea {
+                clicked => {
+                    popup-fs.focus();
+                }
+                scroll-event(event) => {
+                    accept
+                }
+            }
+
+            VerticalLayout {
+                padding: 1px;
+
+                // Drag moves the window; refocus content on release so Escape works.
+                title-bar := TouchArea {
+                    moved => {
+                        if (self.pressed) {
+                            root.geom.x += self.mouse-x - self.pressed-x;
+                            root.geom.y += self.mouse-y - self.pressed-y;
+                        }
+                    }
+                    pointer-event(ev) => {
+                        if (ev.kind == PointerEventKind.up) {
+                            popup-fs.focus();
+                        }
+                    }
+
+                    HorizontalLayout {
+                        padding: Theme.pad-small;
+                        spacing: Theme.pad-small;
+
+                        Text {
+                            text: root.title;
+                            color: Theme.text;
+                            font-size: Theme.font-size-title;
+                            vertical-alignment: center;
+                            horizontal-stretch: 1;
+                        }
+
+                        close-btn := Rectangle {
+                            width: 22px;
+                            height: 22px;
+                            border-radius: Theme.border-radius;
+                            background: close-touch.has-hover ? Theme.tool-hover : transparent;
+                            animate background {
+                                duration: Theme.anim-fast;
+                                easing: ease-out;
+                            }
+
+                            Text {
+                                text: "✕";
+                                color: Theme.text-dim;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+
+                            close-touch := TouchArea {
+                                clicked => {
+                                    root.cancelled();
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    height: 1px;
+                    background: Theme.panel-border;
+                }
+
+                VerticalLayout {
+                    padding: Theme.pad;
+                    spacing: Theme.pad-small;
+
+                    @children
+                }
+            }
+        }
+
+        // Resize handle, bottom-right: drag clamps the live size to min/max.
+        if root.resizable: resize-handle := TouchArea {
+            width: 18px;
+            height: self.width;
+            x: parent.width - self.width;
+            y: parent.height - self.height;
+            mouse-cursor: nwse-resize;
+            moved => {
+                if (self.pressed) {
+                    root.geom.w = clamp(frame.width + self.mouse-x - self.pressed-x, root.min-width-px, root.max-width-px);
+                    root.geom.h = clamp(frame.height + self.mouse-y - self.pressed-y, root.min-height-px, root.max-height-px);
+                }
+            }
+
+            Path {
+                stroke-width: 1px;
+                stroke: Theme.text-dim;
+                viewbox-height: 1.2;
+                viewbox-width: 1.2;
+                MoveTo {
+                    x: 0;
+                    y: 1;
+                }
+
+                LineTo {
+                    x: 1;
+                    y: 0;
+                }
+
+                MoveTo {
+                    x: 0.45;
+                    y: 1;
+                }
+
+                LineTo {
+                    x: 1;
+                    y: 0.45;
+                }
+
+                MoveTo {
+                    x: 0.85;
+                    y: 1;
+                }
+
+                LineTo {
+                    x: 1;
+                    y: 0.85;
+                }
+            }
+        }
+    }
+}
