@@ -79,6 +79,37 @@ pub const fn colour_b(c: WadColour) -> u8 {
 #[derive(Debug, Copy, Clone)]
 pub struct WadPalette(pub [WadColour; 256]);
 
+/// Which retail flavor an IWAD is — identity of the data, not a game rule.
+/// Drives IWAD-dependent behavior such as sky selection, switch tables,
+/// and episode availability.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum GameMode {
+    /// DOOM 1 shareware, E1, M9
+    Shareware,
+    /// DOOM 1 registered, E3, M27
+    Registered,
+    /// DOOM 2 retail, E1 M34
+    Commercial,
+    /// DOOM 1 retail, E4, M36
+    Retail,
+    /// No IWAD identified.
+    Indetermined,
+}
+
+/// Mission packs - might be useful for TC stuff?
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum GameMission {
+    /// Doom (shareware, registered)
+    Doom,
+    /// Doom II
+    Doom2,
+    /// TNT mission pack
+    PackTnt,
+    /// Plutonia mission pack
+    PackPlut,
+    None,
+}
+
 impl WadPalette {
     pub fn new() -> Self {
         Self([BLACK; 256])
@@ -239,9 +270,11 @@ impl WadPatch {
 /// End-of-column sentinel `y_offset`. Out-of-band: tall-patch rows can reach 255.
 pub const COLUMN_END: i32 = -1;
 
-/// A column of pixels. Each `pixel` is an index in to the palette to fetch
-/// colour. There can be multiple of `WadPatchCol` in a column, and the column
-/// itself is ended only when `y_offset` is [`COLUMN_END`].
+/// A column of pixels.
+///
+/// Each `pixel` is an index in to the palette to fetch colour. There can be
+/// multiple of `WadPatchCol` in a column, and the column itself is ended
+/// only when `y_offset` is [`COLUMN_END`].
 #[derive(Debug, Clone)]
 pub struct WadPatchCol {
     /// Absolute row the pixel stream starts at; [`COLUMN_END`] ends the column.

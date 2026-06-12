@@ -1,0 +1,23 @@
+import { Theme } from "../foundation/theme.slint";
+
+// A labelled field row for the inspector panels: a fixed-width label then the
+// field control(s) passed as children.
+export component FieldRow inherits HorizontalLayout {
+    in property <string> label;
+    spacing: Theme.pad-small;
+
+    Text {
+        text: root.label;
+        color: Theme.text-dim;
+        vertical-alignment: center;
+        min-width: 64px;
+    }
+
+    @children
+}
+
+// A panel section heading.
+export component SectionTitle inherits Text {
+    color: Theme.text;
+    font-size: 13px;
+}

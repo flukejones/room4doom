@@ -450,6 +450,10 @@ impl MapObject {
         })
     }
 
+    #[expect(
+        clippy::needless_pass_by_ref_mut,
+        reason = "&mut self keeps the &mut Player exclusive at the borrow checker; the deref is via raw pointer"
+    )]
     pub(crate) fn player_mut(&mut self) -> Option<&mut Player> {
         if let Some(p) = self.player {
             unsafe { p.as_mut() }
@@ -466,6 +470,10 @@ impl MapObject {
         })
     }
 
+    #[expect(
+        clippy::needless_pass_by_ref_mut,
+        reason = "&mut self keeps the &mut target exclusive at the borrow checker; the deref is via raw pointer"
+    )]
     pub(crate) fn target_mut(&mut self) -> Option<&mut Self> {
         if let Some(p) = self.target {
             unsafe { p.as_mut().map(|t| t.mobj_mut()) }

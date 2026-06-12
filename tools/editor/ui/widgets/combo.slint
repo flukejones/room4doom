@@ -1,0 +1,94 @@
+import { Theme } from "../foundation/theme.slint";
+import { MenuRow } from "buttons.slint";
+import { ScrollView } from "std-widgets.slint";
+import { WindowController } from "../foundation/globals.slint";
+
+export component ComboBox inherits Rectangle {
+    in property <[string]> model;
+    in-out property <int> current-index: 0;
+    callback selected(int);
+
+    height: 24px;
+
+    surface := Rectangle {
+        border-radius: Theme.border-radius;
+        border-width: Theme.border-width;
+        border-color: touch.has-hover ? Theme.accent : Theme.panel-border;
+        background: Theme.control-bg;
+        animate border-color {
+            duration: Theme.anim-fast;
+            easing: ease-out;
+        }
+
+        HorizontalLayout {
+            padding-left: 6px;
+            padding-right: 6px;
+            spacing: 4px;
+
+            Text {
+                horizontal-stretch: 1;
+                text: root.current-index >= 0 && root.current-index < root.model.length ? root.model[root.current-index] : "";
+                color: Theme.text;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+
+            Text {
+                text: "▾";
+                color: Theme.text-dim;
+                vertical-alignment: center;
+            }
+        }
+    }
+
+    touch := TouchArea {
+        clicked => {
+            popup.show();
+        }
+    }
+
+    private property <length> row-pitch: root.height + Theme.pad-small;
+    private property <length> margin: 8px;
+    private property <length> desired: min(root.model.length, 10) * root.row-pitch + Theme.pad-small;
+    private property <length> below: WindowController.window-height - root.absolute-position.y - root.height - root.margin;
+    private property <length> above: root.absolute-position.y - root.margin;
+    private property <bool> flip-up: root.below < root.desired && root.above > root.below;
+    private property <length> avail: max(2 * root.row-pitch, root.flip-up ? root.above : root.below);
+    private property <length> list-height: min(root.desired, root.avail);
+
+    popup := PopupWindow {
+        x: Theme.pad-small;
+        y: root.flip-up ? -root.list-height : root.height;
+        width: root.width - Theme.pad-small * 2;
+        height: root.list-height;
+
+        Rectangle {
+            background: Theme.panel-background;
+            border-color: Theme.panel-border;
+            border-width: Theme.border-width;
+            border-radius: Theme.border-radius;
+
+            list := ScrollView {
+                vertical-stretch: 1;
+                viewport-y: -clamp(
+                    root.current-index * root.row-pitch - (self.visible-height - root.row-pitch) / 2,
+                    0px, max(0px, self.viewport-height - self.visible-height));
+
+                VerticalLayout {
+                    padding: Theme.pad-small;
+                    spacing: Theme.pad-small;
+
+                    for item[i] in root.model: MenuRow {
+                        label: item;
+                        height: root.height;
+                        active: i == root.current-index;
+                        pressed => {
+                            root.current-index = i;
+                            root.selected(i);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

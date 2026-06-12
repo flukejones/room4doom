@@ -1,0 +1,446 @@
+import { Palette } from "std-widgets.slint";
+import { Theme } from "foundation/theme.slint";
+import { ToolKind, PopupId } from "foundation/shared_types.slint";
+import {
+    WindowController,
+    ThemeController,
+    RecentController,
+    ExportController,
+    ClipboardController,
+} from "foundation/globals.slint";
+import { CanvasController } from "views/map/map_canvas.slint";
+import { MapBody } from "views/map/view.slint";
+import { ToolController, ToolStrip } from "views/map/tool_strip.slint";
+import { StatusController, StatusBar } from "shell/status_bar.slint";
+import { MapsController, MapListPopup } from "views/map/map_list.slint";
+import {
+    TexBrowserController,
+    AssetBrowserPopup,
+} from "shared/asset_browser.slint";
+import { RemapController, RemapPopup } from "views/map/remap.slint";
+import { TexEditController, TexEditView } from "views/texture/view.slint";
+import { PrefsController, PrefsPopup } from "shell/prefs.slint";
+import {
+    WallEditController,
+    WallEditorPopup,
+} from "views/map/wall_editor.slint";
+import {
+    SectorEditController,
+    SectorEditorPopup,
+} from "views/map/sector_editor.slint";
+import {
+    ProjectSettingsController,
+    ProjectSettingsPopup,
+} from "views/project/project_settings.slint";
+import {
+    BuildBspController,
+    BuildBspPopup,
+} from "views/project/build_bsp.slint";
+import { NewMapController } from "views/project/new_map_controller.slint";
+import { NewMapPopup } from "views/project/new_map.slint";
+import {
+    ProjectBrowserController,
+} from "views/project/project_browser_controller.slint";
+import { ProjectBrowserView } from "views/project/view.slint";
+import { LinedefInspectorController } from "views/map/linedef_inspector.slint";
+import { SectorInspectorController } from "views/map/sector_inspector.slint";
+import { ThingInspectorController } from "views/map/thing_inspector.slint";
+import { DrawSettingsController } from "views/map/draw_settings.slint";
+import { ResourcesController } from "views/map/resources_panel.slint";
+
+export {
+    CanvasController,
+    ToolController,
+    StatusController,
+    MapsController,
+    LinedefInspectorController,
+    SectorInspectorController,
+    ThingInspectorController,
+    DrawSettingsController,
+    ResourcesController,
+    TexBrowserController,
+    RemapController,
+    TexEditController,
+    ExportController,
+    PrefsController,
+    WallEditController,
+    SectorEditController,
+    ProjectSettingsController,
+    BuildBspController,
+    NewMapController,
+    ProjectBrowserController,
+    RecentController,
+    ThemeController,
+    WindowController,
+    ClipboardController,
+    ToolKind,
+    PopupId,
+}
+export component EditorWindow inherits Window {
+    in property <string> window-title: "editor";
+    // Title of the Map tab; "Map" until a map is loaded, then "Map - E1M1".
+    in property <string> map-tab-title: "Map";
+    // Central tab: 0 Project, 1 Map, 2 Texture Editor.
+    in-out property <int> active-tab: 0;
+    // Map toolbar placement: 0 Top, 1 Left (from the toolbar-position pref).
+    in property <int> toolbar-position: 0;
+    // True on macOS: editor settings live in the app menu, not under Edit.
+    in property <bool> is-macos: false;
+    title: root.window-title;
+    min-width: 1024px;
+    preferred-width: 1280px;
+    min-height: 768px;
+    preferred-height: 800px;
+    background: Theme.window-glass;
+
+    // Bridge the OS scheme to ThemeController and notify Rust on change so an
+    // Auto theme re-resolves live.
+    property <bool> os-dark: Palette.color-scheme == ColorScheme.dark;
+    init => {
+        ThemeController.os-dark = self.os-dark;
+        ThemeController.os-scheme-changed();
+        WindowController.window-height = self.height;
+    }
+    changed os-dark => {
+        ThemeController.os-dark = self.os-dark;
+        ThemeController.os-scheme-changed();
+    }
+    changed height => {
+        WindowController.window-height = self.height;
+    }
+
+    // Slint owns popup visibility; Rust observes the open edge to fill the rows.
+    property <bool> remap-open: RemapController.remap-visible;
+    changed remap-open => {
+        if remap-open {
+            RemapController.populate-remap();
+        }
+    }
+
+    // Prefs fills on open; on close Rust reverts an unsaved live-theme preview.
+    property <bool> prefs-open: PrefsController.prefs-visible;
+    changed prefs-open => {
+        if prefs-open {
+            PrefsController.populate-prefs();
+        } else {
+            PrefsController.prefs-closed();
+        }
+    }
+
+    // Wall/sector editors fill on the open edge (the double-click handler sets
+    // visible true); the close needs no Rust reaction (draft dropped on Apply
+    // /next open).
+    property <bool> wall-edit-open: WallEditController.wall-edit-visible;
+    changed wall-edit-open => {
+        if wall-edit-open {
+            WallEditController.populate-wall-edit();
+        }
+    }
+    property <bool> sector-edit-open: SectorEditController.sector-edit-visible;
+    changed sector-edit-open => {
+        if sector-edit-open {
+            SectorEditController.populate-sector-edit();
+        }
+    }
+    property <bool> project-settings-open: ProjectSettingsController.visible;
+    changed project-settings-open => {
+        if project-settings-open {
+            ProjectSettingsController.populate();
+        }
+    }
+
+    // Project tab (index 0): Rust fills the browser projection on the show edge.
+    property <bool> project-tab-active: root.active-tab == 0;
+    changed project-tab-active => {
+        if project-tab-active {
+            ProjectBrowserController.populate();
+        }
+    }
+
+    // Notify Rust on every tab change (tab click or a menu setting active-tab),
+    // so e.g. the texture editor syncs when its tab is shown.
+    changed active-tab => {
+        root.tab-selected(root.active-tab);
+    }
+
+    callback menu-new-project();
+    callback menu-open-wad();
+    callback menu-save();
+    callback menu-close-project();
+    callback menu-export-wad();
+    callback menu-export-png(float);
+    callback menu-open-project();
+    callback menu-import-dpr();
+    callback menu-open-recent(string);
+    // Fired when the central tab changes (including programmatic switches);
+    // Rust refreshes the newly shown view (e.g. syncs the texture editor).
+    callback tab-selected(int);
+    callback menu-quit();
+
+    MenuBar {
+        Menu {
+            title: "File";
+
+            MenuItem {
+                title: "New Project…";
+                activated => {
+                    root.menu-new-project();
+                }
+            }
+
+            MenuItem {
+                title: "New Map…";
+                activated => {
+                    NewMapController.visible = true;
+                }
+            }
+
+            Menu {
+                title: "Open Recent";
+
+                for path in RecentController.entries: MenuItem {
+                    title: path;
+                    activated => {
+                        root.menu-open-recent(path);
+                    }
+                }
+            }
+
+            Menu {
+                title: "Open";
+
+                MenuItem {
+                    title: "WAD Map…";
+                    activated => {
+                        root.menu-open-wad();
+                    }
+                }
+
+                MenuItem {
+                    title: "Project…";
+                    activated => {
+                        root.menu-open-project();
+                    }
+                }
+            }
+
+            MenuItem {
+                title: "Save Project";
+                activated => {
+                    root.menu-save();
+                }
+            }
+
+            Menu {
+                title: "Import";
+
+                MenuItem {
+                    title: "DoomEd Project…";
+                    activated => {
+                        root.menu-import-dpr();
+                    }
+                }
+            }
+
+            Menu {
+                title: "Export";
+
+                MenuItem {
+                    title: "WAD…";
+                    enabled: !ExportController.busy;
+                    activated => {
+                        root.menu-export-wad();
+                    }
+                }
+
+                Menu {
+                    title: "PNG";
+
+                    MenuItem {
+                        title: "0.5×";
+                        activated => {
+                            root.menu-export-png(0.5);
+                        }
+                    }
+
+                    MenuItem {
+                        title: "1×";
+                        activated => {
+                            root.menu-export-png(1.0);
+                        }
+                    }
+
+                    MenuItem {
+                        title: "2×";
+                        activated => {
+                            root.menu-export-png(2.0);
+                        }
+                    }
+                }
+            }
+
+            MenuItem {
+                title: "Close Project";
+                activated => {
+                    root.menu-close-project();
+                }
+            }
+
+            MenuItem {
+                title: "Quit";
+                activated => {
+                    root.menu-quit();
+                }
+            }
+        }
+
+        Menu {
+            title: "Edit";
+
+            MenuItem {
+                title: "Project Settings…";
+                activated => {
+                    ProjectSettingsController.visible = true;
+                }
+            }
+
+            // On macOS the editor settings live in the app menu instead.
+            if !root.is-macos: MenuItem {
+                title: "Editor Settings…";
+                activated => {
+                    PrefsController.prefs-visible = true;
+                }
+            }
+
+            MenuItem {
+                title: "Remap…";
+                activated => {
+                    RemapController.remap-visible = true;
+                }
+            }
+        }
+    }
+
+    VerticalLayout {
+        // Custom tab bar: equal-width tab cells with a sliding, animated
+        // indicator under the active tab. Bodies stay instantiated (hidden, not
+        // destroyed) so each tab keeps its state across switches.
+        tab-bar := Rectangle {
+            height: Theme.toolbutton-size + Theme.pad-small;
+            background: Theme.panel-glass;
+            property <[string]> titles: ["Project", root.map-tab-title, "Texture Editor"];
+
+            HorizontalLayout {
+                for title[i] in tab-bar.titles: Rectangle {
+                    tab-touch := TouchArea {
+                        clicked => {
+                            root.active-tab = i;
+                        }
+                    }
+
+                    Text {
+                        text: title;
+                        color: i == root.active-tab ? Theme.text : Theme.text-dim;
+                        font-weight: i == root.active-tab ? 700 : 400;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                        animate color {
+                            duration: Theme.anim-fast;
+                            easing: ease-out;
+                        }
+                    }
+                }
+            }
+
+            // The sliding indicator: equal-width tabs make its position pure
+            // arithmetic of the active index, so it animates without reading any
+            // laid-out child geometry.
+            Rectangle {
+                width: tab-bar.width / tab-bar.titles.length;
+                height: 2px;
+                y: tab-bar.height - self.height;
+                x: root.active-tab * self.width;
+                background: Theme.accent;
+                animate x {
+                    duration: Theme.anim-med;
+                    easing: ease-in-out;
+                }
+            }
+        }
+
+        Rectangle {
+            vertical-stretch: 1;
+
+            // Only the active body is instantiated (like the std TabWidget):
+            // laying out all three at once recurses through their init handlers
+            // (MapCanvas/TexEditView read each other's geometry). Per-tab state
+            // is held Rust-side (BrowserState + controller globals), not in the
+            // view instance.
+            if root.active-tab == 0: ProjectBrowserView { }
+
+            if root.active-tab == 1: VerticalLayout {
+                if root.toolbar-position == 0: VerticalLayout {
+                    ToolStrip { }
+
+                    MapBody { }
+                }
+                if root.toolbar-position != 0: HorizontalLayout {
+                    ToolStrip {
+                        vertical: true;
+                    }
+
+                    MapBody { }
+                }
+            }
+
+            if root.active-tab == 2: TexEditView { }
+        }
+
+        StatusBar { }
+    }
+
+    MapListPopup {
+        width: 100%;
+        height: 100%;
+    }
+
+    AssetBrowserPopup {
+        width: 100%;
+        height: 100%;
+    }
+
+    RemapPopup {
+        width: 100%;
+        height: 100%;
+    }
+
+    PrefsPopup {
+        width: 100%;
+        height: 100%;
+    }
+
+    WallEditorPopup {
+        width: 100%;
+        height: 100%;
+    }
+
+    SectorEditorPopup {
+        width: 100%;
+        height: 100%;
+    }
+
+    ProjectSettingsPopup {
+        width: 100%;
+        height: 100%;
+    }
+
+    BuildBspPopup {
+        width: 100%;
+        height: 100%;
+    }
+
+    NewMapPopup {
+        width: 100%;
+        height: 100%;
+    }
+}

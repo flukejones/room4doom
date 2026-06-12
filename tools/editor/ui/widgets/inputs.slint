@@ -1,0 +1,69 @@
+import { Theme } from "../foundation/theme.slint";
+
+// Unified text entry, themed from Theme (not the OS palette) so its text stays
+// readable in any editor theme. Exposes the std-LineEdit-like surface the
+// sites use: text (<=>/:/cross-reads), edited(text), accepted(), committed(),
+// placeholder. Enter drops focus so global shortcuts and arrow-key nav resume.
+// `committed` fires on Enter and on EVERY focus loss: losing focus = applied,
+// since there is no visual "uncommitted" state for the user to notice. The apply
+// no-ops when the value is unchanged, so a redundant commit costs nothing.
+export component EditLine inherits Rectangle {
+    in-out property <string> text;
+    in property <string> placeholder-text;
+    in property <bool> enabled: true;
+    callback edited(string);
+    callback accepted();
+    callback committed(string);
+
+    forward-focus: input;
+    height: 24px;
+    border-radius: 3px;
+    border-width: Theme.border-width;
+    border-color: input.has-focus ? Theme.accent : Theme.panel-border;
+    background: root.enabled ? Theme.control-bg : Theme.control-bg-disabled;
+    animate border-color {
+        duration: Theme.anim-fast;
+        easing: ease-out;
+    }
+
+    placeholder := Text {
+        x: 6px;
+        width: parent.width - 12px;
+        height: parent.height;
+        visible: root.placeholder-text != "" && root.text == "";
+        text: root.placeholder-text;
+        color: Theme.text-dim;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+
+    input := TextInput {
+        x: 6px;
+        width: parent.width - 12px;
+        height: parent.height;
+        text <=> root.text;
+        color: root.enabled ? Theme.text : Theme.text-disabled;
+        vertical-alignment: center;
+        single-line: true;
+        enabled: root.enabled;
+        edited => {
+            root.edited(self.text);
+        }
+        accepted => {
+            root.accepted();
+            root.committed(self.text);
+            self.clear-focus();
+        }
+        changed has-focus => {
+            if !self.has-focus {
+                root.committed(self.text);
+            }
+        }
+    }
+}
+
+// Panel variant: the two defaults the panel field rows rely on.
+export component PanelEditLine inherits EditLine {
+    min-width: 44px;
+    horizontal-stretch: 1;
+}

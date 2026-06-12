@@ -1,0 +1,91 @@
+import { Slider } from "std-widgets.slint";
+import { Theme } from "../../foundation/theme.slint";
+import { CommandButton, FlatButton } from "../../widgets/buttons.slint";
+
+export global BuildBspController {
+    in-out property <bool> visible: false;
+    in-out property <int> interval-ms: 250;
+    // Keep every partition's lines on screen, or show only the current step.
+    in-out property <bool> keep-all: true;
+    callback run();
+}
+
+// Pre-run config for the BSP build animation: pick the delay between partitions,
+// then Run or Cancel. A centred modal sized to its contents.
+export component BuildBspPopup inherits Rectangle {
+    visible: BuildBspController.visible;
+    background: Theme.window-shadow;
+    // Swallow clicks outside the card so they do not reach the canvas.
+    TouchArea { }
+
+    card := Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: 320px;
+        height: layout.preferred-height;
+        background: Theme.panel-background;
+        border-color: Theme.panel-border;
+        border-width: Theme.border-width;
+        border-radius: 6px;
+
+        layout := VerticalLayout {
+            padding: Theme.pad;
+            spacing: Theme.pad-small;
+
+            Text {
+                text: "Build animation speed";
+                color: Theme.text;
+                font-size: 14px;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.pad-small;
+
+                Slider {
+                    horizontal-stretch: 1;
+                    minimum: 1;
+                    maximum: 1000;
+                    value: BuildBspController.interval-ms;
+                    changed(v) => {
+                        BuildBspController.interval-ms = round(v);
+                    }
+                }
+
+                Text {
+                    text: BuildBspController.interval-ms + " ms";
+                    color: Theme.text-dim;
+                    vertical-alignment: center;
+                    width: 56px;
+                }
+            }
+
+            FlatButton {
+                label: BuildBspController.keep-all ? "Divlines: keep all" : "Divlines: current only";
+                active: BuildBspController.keep-all;
+                clicked => {
+                    BuildBspController.keep-all = !BuildBspController.keep-all;
+                }
+            }
+
+            HorizontalLayout {
+                spacing: Theme.pad-small;
+                alignment: end;
+
+                CommandButton {
+                    label: "Run";
+                    clicked => {
+                        BuildBspController.visible = false;
+                        BuildBspController.run();
+                    }
+                }
+
+                CommandButton {
+                    label: "Cancel";
+                    clicked => {
+                        BuildBspController.visible = false;
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,17 @@
+[package]
+name = "doomed-parser"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "DoomEd ASCII format parsers (.dwd maps, .dsp/.dpr project defs) for the map editor"
+
+[dependencies]
+geom-kernel.workspace = true
+serde = { workspace = true, features = ["std", "derive"] }
+
+[dev-dependencies]
+ron.workspace = true
+
+[lints]
+workspace = true

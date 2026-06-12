@@ -1,0 +1,73 @@
+// Window-chrome globals shared across the whole shell: MDI popup geometry, the
+// active theme colours, the recent-projects list, and background export/launch
+// state. Boundary controllers and their views live in per-boundary .slint files;
+// cross-boundary value types live in shared_types.slint.
+
+import { PopupId } from "shared_types.slint";
+
+// One MDI popup's position and size.
+export struct PopupGeom {
+    x: length,
+    y: length,
+    w: length,
+    h: length,
+}
+
+export global WindowController {
+    in-out property <length> window-height;
+    in-out property <PopupGeom> map-list;
+    in-out property <PopupGeom> browser;
+    in-out property <PopupGeom> remap;
+    in-out property <PopupGeom> prefs;
+    in-out property <PopupGeom> wall-edit;
+    in-out property <PopupGeom> sector-edit;
+    in-out property <PopupGeom> project-settings;
+    // Close edge: Rust folds geometry into prefs and writes editor.ron.
+    callback save-window-geom(PopupId, length /* off-x */, length /* off-y */, length /* w */, length /* h */);
+}
+
+// UI chrome colours for the active theme, pushed from Rust. The Theme global
+// reads these. `os-dark` mirrors the OS scheme; the window watches it and
+// fires `os-scheme-changed` so Rust can re-resolve an Auto theme.
+export global ThemeController {
+    in property <bool> os-dark: false;
+    // Chrome opacity over a vibrancy backdrop: 0 = full glass (macOS), 1 = opaque.
+    in property <float> glass-alpha: 1.0;
+    in property <color> window-background: #2b2b2b;
+    in property <color> panel-background: #353535;
+    in property <color> panel-border: #1f1f1f;
+    in property <color> text: #e6e6e6;
+    in property <color> text-dim: #9a9a9a;
+    in property <color> accent: #4f9cf0;
+    in property <color> tool-active: #4f9cf0;
+    in property <color> tool-hover: #454545;
+    in property <color> control-bg: #4a4a4a;
+    in property <color> control-bg-disabled: #383838;
+    in property <color> text-disabled: #6a6a6a;
+    in property <color> window-shadow: #00000080;
+    callback os-scheme-changed();
+}
+
+// Recent-projects menu entries (paths).
+export global RecentController {
+    in property <[string]> entries;
+}
+
+// Mirrors the editor clipboard's contents so menus and toolbars can show paste
+// actions for what is actually held. One flag per copyable kind; Rust pushes all
+// after every edit. A Select-mode copy can hold lines and things together, so
+// these are independent flags, not one enum.
+export global ClipboardController {
+    in property <bool> has-sector;
+    in property <bool> has-lines;
+    in property <bool> has-things;
+}
+
+// Background export/launch state. A job runs off the UI thread; `busy`
+// disables re-entry and `status` reports progress/result in the status bar.
+export global ExportController {
+    in property <bool> busy: false;
+    in property <string> status: "";
+    // Invoked from Rust once a worker posts its result; the handler drains it.
+    callback job-done();
+}

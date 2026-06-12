@@ -1,0 +1,65 @@
+import { Theme } from "../../foundation/theme.slint";
+import { CommandButton } from "../../widgets/buttons.slint";
+import { EditLine } from "../../widgets/inputs.slint";
+import { NewMapController } from "new_map_controller.slint";
+
+// New Map dialog: enter a map name, then Create or Cancel. A centred modal over
+// a dimming backdrop. Pure presentation; Rust owns the name handling.
+export component NewMapPopup inherits Rectangle {
+    visible: NewMapController.visible;
+    background: Theme.window-shadow;
+    // Swallow clicks outside the card so they do not reach the canvas.
+    TouchArea { }
+
+    card := Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: 320px;
+        height: layout.preferred-height;
+        background: Theme.panel-background;
+        border-color: Theme.panel-border;
+        border-width: Theme.border-width;
+        border-radius: 6px;
+
+        layout := VerticalLayout {
+            padding: Theme.pad;
+            spacing: Theme.pad-small;
+
+            Text {
+                text: "New map name";
+                color: Theme.text;
+                font-size: 14px;
+            }
+
+            EditLine {
+                height: 32px;
+                text <=> NewMapController.name;
+                placeholder-text: "E1M1 or MAP01";
+                accepted => {
+                    NewMapController.visible = false;
+                    NewMapController.confirmed(NewMapController.name);
+                }
+            }
+
+            HorizontalLayout {
+                spacing: Theme.pad-small;
+                alignment: end;
+
+                CommandButton {
+                    label: "Create";
+                    clicked => {
+                        NewMapController.visible = false;
+                        NewMapController.confirmed(NewMapController.name);
+                    }
+                }
+
+                CommandButton {
+                    label: "Cancel";
+                    clicked => {
+                        NewMapController.visible = false;
+                    }
+                }
+            }
+        }
+    }
+}

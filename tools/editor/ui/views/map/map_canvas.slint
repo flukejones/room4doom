@@ -1,0 +1,510 @@
+import { Theme } from "../../foundation/theme.slint";
+import { ToolKind } from "../../foundation/shared_types.slint";
+import { ClipboardController } from "../../foundation/globals.slint";
+import { ToolController } from "tool_strip.slint";
+import { LinedefInspectorController } from "linedef_inspector.slint";
+import { SectorInspectorController } from "sector_inspector.slint";
+
+// One side's texture thumbnail in the wall hover card.
+export struct WallSide {
+    visible: bool,
+    img: image,
+    w: float,
+    h: float,
+}
+
+// Wall hover card: a position plus front/back side thumbnails.
+export struct WallPreview {
+    visible: bool,
+    // Pinned to the map's bottom-left instead of following the cursor.
+    pinned: bool,
+    // Wanted popup position; the popup clamps itself into the viewport.
+    x: length,
+    y: length,
+    front: WallSide,
+    back: WallSide,
+}
+
+// Sector hover card: ceiling above floor.
+export struct SectorPreview {
+    visible: bool,
+    ceil-img: image,
+    floor-img: image,
+    side: float,
+}
+
+// Map canvas state + input events. Slint recognises gestures and forwards
+// semantic callbacks; the canvas itself only renders pushed state.
+export global CanvasController {
+    // The whole canvas is one GPU-produced image; `wgpu-mode` turns true once the
+    // first GPU frame is rendered (the device is captured asynchronously).
+    in property <bool> wgpu-mode: false;
+    in property <image> wgpu-img;
+
+    in property <WallPreview> wall-preview;
+    in property <SectorPreview> sector-preview;
+
+    in property <int> selected-vertex-count;
+    in property <bool> can-merge-lines;
+    in property <bool> has-selection;
+    in property <bool> can-add-sector;
+    in property <bool> can-merge-sectors;
+    in property <bool> can-unmerge-sector;
+    in property <bool> can-paste;
+
+    // Semantic input: Slint recognises the gesture, Rust acts on it. A click
+    // (no drag) with the active tool; a drag is the start/move/end trio. Rust
+    // hit-tests at the point and owns the rubber-band overlay.
+    callback tool-click(length /* x */, length /* y */, bool /* shift */);
+    callback tool-drag-start(length /* x */, length /* y */, bool /* shift */);
+    callback tool-drag(length /* x */, length /* y */);
+    callback tool-drag-end(length /* x */, length /* y */);
+    callback pick-at(length /* x */, length /* y */);
+    callback split-line-here();
+    callback paste-sector-to-selected();
+    callback weld();
+    callback merge-lines();
+    callback add-sector();
+    callback merge-sectors();
+    callback unmerge-sector();
+    // Plain pointer move with no button down: drives the hover preview card.
+    callback hover(length /* x */, length /* y */);
+    // Double-click on the canvas (Select tool): opens the wall/sector editor on
+    // the line/sector under the point.
+    callback double-clicked(length /* x */, length /* y */);
+    // View navigation actions (Slint recognises the gesture; Rust owns the
+    // transform). `zoom-at` carries the wheel-notch delta; Rust derives the
+    // factor and anchors at the cursor.
+    callback pan(length /* dx */, length /* dy */);
+    callback zoom-at(length /* notch-delta */, length /* at-x */, length /* at-y */);
+    // Shift-drag in 3D view: orbit the camera by a screen-pixel delta.
+    callback orbit(length /* dx */, length /* dy */);
+    // Orbit gesture press: Rust sets the sticky 3D pivot under the cursor.
+    callback orbit-start(length /* x */, length /* y */);
+    callback resized(length, length);
+    // Trackpad pinch: reset the per-gesture tracker, then each update reports
+    // the cumulative scale (1.0 at start) and the pinch centre.
+    callback pinch-started();
+    callback pinch-updated(float /* cumulative scale */, length /* cx */, length /* cy */);
+    // Named keyboard actions (Slint maps each shortcut; no string dispatch).
+    callback undo();
+    callback redo();
+    callback copy();
+    callback cut();
+    callback paste();
+    callback delete();
+    // Escape: discard an in-progress draw, else clear selection.
+    callback cancel-or-clear();
+    // Enter: commit an in-progress draw, else clear selection.
+    callback commit-or-clear();
+    callback cycle-grid();
+    callback toggle-overlays();
+    callback flip-lines();
+    callback split-intersections();
+    callback pick-brush();
+    callback zoom-in();
+    callback zoom-out();
+    callback save();
+}
+
+// The tiled map view. Slint recognises gestures and key shortcuts, forwarding
+// semantic actions to Rust, which owns hit-testing, the transform, and edits.
+export component MapCanvas inherits Rectangle {
+    property <length> drag-threshold: 4px;
+
+    property <bool> in-select: ToolController.current == ToolKind.select || ToolController.current == ToolKind.select-vertex || ToolController.current == ToolKind.select-line || ToolController.current == ToolKind.select-thing || ToolController.current == ToolKind.select-sector;
+
+    property <bool> in-sector-select: ToolController.current == ToolKind.select-sector || ToolController.current == ToolKind.select;
+    property <bool> can-split: root.in-select && LinedefInspectorController.active;
+    property <bool> can-paste-sector: root.in-sector-select && ClipboardController.has-sector && SectorInspectorController.active;
+    property <bool> can-weld: root.in-select && CanvasController.selected-vertex-count >= 2;
+    property <bool> can-merge-lines: root.in-select && CanvasController.can-merge-lines;
+    property <bool> can-add-sector: root.in-sector-select && CanvasController.can-add-sector;
+    property <bool> can-merge-sectors: root.in-sector-select && CanvasController.can-merge-sectors;
+    property <bool> can-unmerge-sector: root.in-sector-select && CanvasController.can-unmerge-sector;
+    property <bool> can-copy: root.in-select && CanvasController.has-selection;
+    property <bool> can-paste: root.in-select && CanvasController.can-paste;
+
+    clip: true;
+    background: Theme.panel-border;
+    forward-focus: fs;
+
+    // `changed` only fires on later changes, so seed the viewport with the
+    // initial laid-out size; otherwise the camera keeps its stale default until
+    // the first manual resize and the GPU image is offset from the canvas.
+    init => {
+        CanvasController.resized(self.width, self.height);
+    }
+    changed width => {
+        CanvasController.resized(self.width, self.height);
+    }
+    changed height => {
+        CanvasController.resized(self.width, self.height);
+    }
+
+    // GPU map render: one full-canvas image produced by the WGPU pipeline.
+    if CanvasController.wgpu-mode: Image {
+        x: 0;
+        y: 0;
+        width: parent.width;
+        height: parent.height;
+        source: CanvasController.wgpu-img;
+    }
+
+    wall-preview := Rectangle {
+        visible: CanvasController.wall-preview.visible;
+        // Pinned: anchored to the bottom-left corner. Otherwise follow the
+        // cursor, clamped into the canvas (size is known here).
+        x: CanvasController.wall-preview.pinned ? 4px : min(CanvasController.wall-preview.x, root.width - self.width - 4px);
+        y: CanvasController.wall-preview.pinned ? root.height - self.height - 4px : min(CanvasController.wall-preview.y, root.height - self.height - 4px);
+        width: layout.preferred-width;
+        height: layout.preferred-height;
+        background: Theme.panel-background;
+        border-color: Theme.panel-border;
+        border-width: Theme.border-width;
+
+        layout := HorizontalLayout {
+            padding: 4px;
+            spacing: 6px;
+
+            if CanvasController.wall-preview.front.visible: VerticalLayout {
+                spacing: 2px;
+                alignment: end;
+
+                Image {
+                    source: CanvasController.wall-preview.front.img;
+                    width: CanvasController.wall-preview.front.w * 1px;
+                    height: CanvasController.wall-preview.front.h * 1px;
+                }
+
+                Text {
+                    text: "front";
+                    color: Theme.text-dim;
+                    font-size: 10px;
+                    horizontal-alignment: center;
+                }
+            }
+
+            if CanvasController.sector-preview.visible: VerticalLayout {
+                spacing: 2px;
+                alignment: start;
+                Image {
+                    source: CanvasController.sector-preview.ceil-img;
+                    width: CanvasController.sector-preview.side * 1px;
+                    height: CanvasController.sector-preview.side * 1px;
+                }
+
+                Text {
+                    text: "ceil";
+                    color: Theme.text-dim;
+                    font-size: 10px;
+                    horizontal-alignment: center;
+                }
+            }
+            if CanvasController.sector-preview.visible: VerticalLayout {
+                Image {
+                    source: CanvasController.sector-preview.floor-img;
+                    width: CanvasController.sector-preview.side * 1px;
+                    height: CanvasController.sector-preview.side * 1px;
+                }
+
+                Text {
+                    text: "floor";
+                    color: Theme.text-dim;
+                    font-size: 10px;
+                    horizontal-alignment: center;
+                }
+            }
+
+            if CanvasController.wall-preview.back.visible: VerticalLayout {
+                spacing: 2px;
+                alignment: start;
+
+                Image {
+                    source: CanvasController.wall-preview.back.img;
+                    width: CanvasController.wall-preview.back.w * 1px;
+                    height: CanvasController.wall-preview.back.h * 1px;
+                }
+
+                Text {
+                    text: "back";
+                    color: Theme.text-dim;
+                    font-size: 10px;
+                    horizontal-alignment: center;
+                }
+            }
+        }
+    }
+
+    ctx-menu := ContextMenuArea {
+        Menu {
+            if root.can-split: MenuItem {
+                title: "Split Line Here";
+                activated => {
+                    CanvasController.split-line-here();
+                }
+            }
+
+            if root.can-paste-sector: MenuItem {
+                title: "Paste to Selected";
+                activated => {
+                    CanvasController.paste-sector-to-selected();
+                }
+            }
+
+            if root.can-weld: MenuItem {
+                title: "Weld";
+                activated => {
+                    CanvasController.weld();
+                }
+            }
+
+            if root.can-merge-lines: MenuItem {
+                title: "Merge Lines";
+                activated => {
+                    CanvasController.merge-lines();
+                }
+            }
+
+            if root.can-add-sector: MenuItem {
+                title: "Add Sector";
+                activated => {
+                    CanvasController.add-sector();
+                }
+            }
+
+            if root.can-merge-sectors: MenuItem {
+                title: "Merge Sectors";
+                activated => {
+                    CanvasController.merge-sectors();
+                }
+            }
+
+            if root.can-unmerge-sector: MenuItem {
+                title: "Unmerge Sector";
+                activated => {
+                    CanvasController.unmerge-sector();
+                }
+            }
+
+            if root.can-copy: MenuItem {
+                title: "Copy";
+                activated => {
+                    CanvasController.copy();
+                }
+            }
+
+            if root.can-copy: MenuItem {
+                title: "Cut";
+                activated => {
+                    CanvasController.cut();
+                }
+            }
+
+            if root.can-paste: MenuItem {
+                title: "Paste";
+                activated => {
+                    CanvasController.paste();
+                }
+            }
+
+            if root.can-copy: MenuItem {
+                title: "Delete";
+                activated => {
+                    CanvasController.delete();
+                }
+            }
+        }
+    }
+
+    ta := TouchArea {
+        property <bool> pan-gesture;
+        property <bool> orbit-gesture;
+        property <bool> scroll-orbiting;
+        property <bool> tool-dragging;
+        property <bool> drag-happened;
+        property <bool> toggle-at-press;
+        property <length> last-x;
+        property <length> last-y;
+        property <length> last-hover-x: -1px;
+        property <length> last-hover-y: -1px;
+
+        double-clicked => {
+            CanvasController.double-clicked(self.mouse-x, self.mouse-y);
+        }
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.down) {
+                fs.focus();
+                self.toggle-at-press = ev.modifiers.shift || ev.modifiers.control || ev.modifiers.meta;
+                self.last-x = self.mouse-x;
+                self.last-y = self.mouse-y;
+                self.tool-dragging = false;
+                self.drag-happened = false;
+                self.orbit-gesture = ev.button == PointerEventButton.left && ev.modifiers.shift;
+                if (self.orbit-gesture) {
+                    CanvasController.orbit-start(self.mouse-x, self.mouse-y);
+                }
+                self.pan-gesture = ev.button == PointerEventButton.middle || (ev.button == PointerEventButton.left && ev.modifiers.alt);
+                if (ev.button == PointerEventButton.right) {
+                    // TODO: only pick new if nothing already selected
+                    //CanvasController.pick-at(self.mouse-x, self.mouse-y);
+                    ctx-menu.show({ x: self.last-x, y: self.last-y });
+                }
+            }
+            if (ev.kind == PointerEventKind.up) {
+                if (self.tool-dragging) {
+                    CanvasController.tool-drag-end(self.mouse-x, self.mouse-y);
+                }
+                self.pan-gesture = false;
+                self.orbit-gesture = false;
+                self.tool-dragging = false;
+            }
+            // Pick only on a real cursor move. Scroll/zoom leave the screen
+            // cursor still, so the guard suppresses the synthetic move events.
+            if (ev.kind == PointerEventKind.move && !self.pressed
+                && (self.mouse-x != self.last-hover-x || self.mouse-y != self.last-hover-y)) {
+                self.last-hover-x = self.mouse-x;
+                self.last-hover-y = self.mouse-y;
+                self.scroll-orbiting = false;
+                CanvasController.hover(self.mouse-x, self.mouse-y);
+            }
+        }
+        moved => {
+            if (self.pressed) {
+                if (self.orbit-gesture) {
+                    CanvasController.orbit(self.mouse-x - self.last-x, self.mouse-y - self.last-y);
+                    self.last-x = self.mouse-x;
+                    self.last-y = self.mouse-y;
+                } else if (self.pan-gesture) {
+                    CanvasController.pan(self.mouse-x - self.last-x, self.mouse-y - self.last-y);
+                    self.last-x = self.mouse-x;
+                    self.last-y = self.mouse-y;
+                } else if (self.tool-dragging || abs(self.mouse-x - self.pressed-x) > root.drag-threshold || abs(self.mouse-y - self.pressed-y) > root.drag-threshold) {
+                    if (!self.tool-dragging) {
+                        self.tool-dragging = true;
+                        self.drag-happened = true;
+                        CanvasController.tool-drag-start(self.pressed-x, self.pressed-y, self.toggle-at-press);
+                    }
+                    CanvasController.tool-drag(self.mouse-x, self.mouse-y);
+                }
+            }
+        }
+        clicked => {
+            if (!self.drag-happened) {
+                CanvasController.tool-click(self.mouse-x, self.mouse-y, self.toggle-at-press);
+            }
+        }
+        scroll-event(ev) => {
+            if (ev.modifiers.shift) {
+                if (!self.scroll-orbiting) {
+                    self.scroll-orbiting = true;
+                    CanvasController.orbit-start(self.mouse-x, self.mouse-y);
+                }
+                CanvasController.orbit(ev.delta-x, ev.delta-y);
+            } else if (ev.modifiers.control) {
+                self.scroll-orbiting = false;
+                CanvasController.zoom-at(ev.delta-y, self.mouse-x, self.mouse-y);
+            } else {
+                self.scroll-orbiting = false;
+                CanvasController.pan(ev.delta-x, ev.delta-y);
+            }
+            accept
+        }
+    }
+
+    // Native trackpad pinch (macOS/Qt). `scale` is cumulative from gesture
+    // start; Rust derives the per-step factor. `center` is in this element's
+    // coordinates, matching the canvas pixel space.
+    pinch := ScaleRotateGestureHandler {
+        width: 100%;
+        height: 100%;
+        started => {
+            CanvasController.pinch-started();
+        }
+        updated => {
+            CanvasController.pinch-updated(self.scale, self.center.x, self.center.y);
+        }
+    }
+
+    fs := FocusScope {
+        width: 0;
+        height: 0;
+        key-pressed(ev) => {
+            if (ev.text == " ") {
+                CanvasController.toggle-overlays();
+                return accept;
+            }
+            if (ev.modifiers.control) {
+                if (ev.text == "z") {
+                    if (ev.modifiers.shift) {
+                        CanvasController.redo();
+                    } else {
+                        CanvasController.undo();
+                    }
+                    return accept;
+                }
+                if (ev.text == "y") {
+                    CanvasController.redo();
+                    return accept;
+                }
+                if (ev.text == "c") {
+                    CanvasController.copy();
+                    return accept;
+                }
+                if (ev.text == "x") {
+                    CanvasController.cut();
+                    return accept;
+                }
+                if (ev.text == "v") {
+                    CanvasController.paste();
+                    return accept;
+                }
+                if (ev.text == "s") {
+                    CanvasController.save();
+                    return accept;
+                }
+            }
+            if (ev.text == Key.Escape) {
+                CanvasController.cancel-or-clear();
+                return accept;
+            }
+            if (ev.text == Key.Return) {
+                CanvasController.commit-or-clear();
+                return accept;
+            }
+            if (ev.text == Key.Delete || ev.text == Key.Backspace) {
+                CanvasController.delete();
+                return accept;
+            }
+            if (ev.text == "g") {
+                CanvasController.cycle-grid();
+                return accept;
+            }
+            if (ev.text == "f") {
+                CanvasController.flip-lines();
+                return accept;
+            }
+            if (ev.text == "i") {
+                CanvasController.split-intersections();
+                return accept;
+            }
+            if (ev.text == "b") {
+                CanvasController.pick-brush();
+                return accept;
+            }
+            if (ev.text == "+" || ev.text == "=") {
+                CanvasController.zoom-in();
+                return accept;
+            }
+            if (ev.text == "-") {
+                CanvasController.zoom-out();
+                return accept;
+            }
+            if (ev.text == "3") {
+                ToolController.reset-view();
+                return accept;
+            }
+            accept
+        }
+    }
+}

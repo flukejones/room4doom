@@ -1,0 +1,149 @@
+import { FlatSlot } from "../../foundation/shared_types.slint";
+import { TexBrowserController } from "../../shared/asset_browser.slint";
+import { Theme } from "../../foundation/theme.slint";
+import { PanelEditLine } from "../../widgets/inputs.slint";
+import { CommandButton } from "../../widgets/buttons.slint";
+import { ComboBox } from "../../widgets/combo.slint";
+import { FieldRow, SectionTitle } from "../../widgets/panel_field.slint";
+
+// Sector inspector: edits the "current" sector (GET sample or selection).
+export global SectorInspectorController {
+    in property <bool> active: false;
+    in property <int> sector-index: -1;
+    in-out property <string> floor-h;
+    in-out property <string> ceil-h;
+    in-out property <string> light;
+    in-out property <string> special;
+    // Project sector-special presets; see LinedefInspectorController.specials.
+    in property <[string]> specials;
+    in property <[int]> special-values;
+    in property <int> special-index: -1;
+    callback special-picked(int);
+    in-out property <string> tag;
+    in-out property <string> floor-flat;
+    in-out property <string> ceil-flat;
+    // Fill the flat browser for a sector slot (caller shows it).
+    callback populate-flat-browser(FlatSlot);
+    callback apply();
+    callback new-sector();
+}
+
+// Sector inspector section: shown inside the edit panel when a sector is active.
+export component SectorInspector inherits VerticalLayout {
+    spacing: Theme.pad-small;
+    SectionTitle {
+        text: "Sector";
+    }
+
+    Text {
+        text: SectorInspectorController.sector-index < 0 ? "none sampled (use Get)" : "sector " + SectorInspectorController.sector-index;
+        color: Theme.text-dim;
+    }
+
+    FieldRow {
+        label: "Floor h";
+        PanelEditLine {
+            text <=> SectorInspectorController.floor-h;
+            committed => {
+                SectorInspectorController.apply();
+            }
+        }
+    }
+
+    FieldRow {
+        label: "Ceil h";
+        PanelEditLine {
+            text <=> SectorInspectorController.ceil-h;
+            committed => {
+                SectorInspectorController.apply();
+            }
+        }
+    }
+
+    FieldRow {
+        label: "Floor";
+        PanelEditLine {
+            text <=> SectorInspectorController.floor-flat;
+            committed => {
+                SectorInspectorController.apply();
+            }
+        }
+
+        CommandButton {
+            label: "…";
+            button-min-width: 28px;
+            clicked => {
+                SectorInspectorController.populate-flat-browser(FlatSlot.floor);
+                TexBrowserController.browser-visible = true;
+            }
+        }
+    }
+
+    FieldRow {
+        label: "Ceil";
+        PanelEditLine {
+            text <=> SectorInspectorController.ceil-flat;
+            committed => {
+                SectorInspectorController.apply();
+            }
+        }
+
+        CommandButton {
+            label: "…";
+            button-min-width: 28px;
+            clicked => {
+                SectorInspectorController.populate-flat-browser(FlatSlot.ceil);
+                TexBrowserController.browser-visible = true;
+            }
+        }
+    }
+
+    FieldRow {
+        label: "Light";
+        PanelEditLine {
+            text <=> SectorInspectorController.light;
+            committed => {
+                SectorInspectorController.apply();
+            }
+        }
+    }
+
+    if SectorInspectorController.specials.length > 0: FieldRow {
+        label: "Preset";
+        ComboBox {
+            model: SectorInspectorController.specials;
+            current-index: SectorInspectorController.special-index;
+            selected => {
+                SectorInspectorController.special-picked(SectorInspectorController.special-values[self.current-index]);
+                SectorInspectorController.apply();
+            }
+        }
+    }
+
+    FieldRow {
+        label: "Special";
+        PanelEditLine {
+            text <=> SectorInspectorController.special;
+            committed => {
+                SectorInspectorController.apply();
+            }
+        }
+    }
+
+    FieldRow {
+        label: "Tag";
+        PanelEditLine {
+            text <=> SectorInspectorController.tag;
+            committed => {
+                SectorInspectorController.apply();
+            }
+        }
+    }
+
+    CommandButton {
+        label: "New sector";
+        clicked => {
+            SectorInspectorController.new-sector();
+        }
+    }
+}

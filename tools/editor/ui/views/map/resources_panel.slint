@@ -1,0 +1,67 @@
+import { ListView } from "std-widgets.slint";
+import { Theme } from "../../foundation/theme.slint";
+import { SectionTitle } from "../../widgets/panel_field.slint";
+
+// One missing resource the open map references: its name and what kind it is
+// (texture/flat or patch).
+export struct ResourceEntry {
+    name: string,
+    kind: string,
+}
+
+// Missing-resources section state. Rust fills `entries` + `count` on map open;
+// `active` (count > 0) drives whether the section shows in the edit panel.
+// `required-wads` lists the WADs the map was authored against (its declared
+// dependencies), for the "load these" hint.
+export global ResourcesController {
+    in property <bool> active: false;
+    in property <[ResourceEntry]> entries;
+    in property <int> count: 0;
+    in property <string> required-wads: "";
+}
+
+// Edit-panel section listing resources the loaded WAD set does not provide.
+// Matches the magenta in-canvas markers; the header names the WADs the map
+// expects so the author knows what to load.
+export component ResourcesPanel inherits VerticalLayout {
+    spacing: Theme.pad-small;
+
+    SectionTitle {
+        text: "Missing resources (\{ResourcesController.count})";
+        color: #ff00ff;
+    }
+
+    Text {
+        text: "shown magenta on the map";
+        color: Theme.text-dim;
+        wrap: word-wrap;
+    }
+
+    if ResourcesController.required-wads != "": Text {
+        text: "map expects: \{ResourcesController.required-wads}";
+        color: Theme.text-dim;
+        wrap: word-wrap;
+    }
+
+    ListView {
+        min-height: 80px;
+        for entry in ResourcesController.entries: HorizontalLayout {
+            spacing: Theme.pad-small;
+            padding-top: 1px;
+            padding-bottom: 1px;
+
+            Text {
+                text: entry.name;
+                color: Theme.text;
+                width: 72px;
+                overflow: elide;
+            }
+
+            Text {
+                text: entry.kind;
+                color: Theme.text-dim;
+                overflow: elide;
+            }
+        }
+    }
+}

@@ -1,0 +1,315 @@
+import { ScrollView, Slider } from "std-widgets.slint";
+import { ComboBox } from "../widgets/combo.slint";
+import { CheckBox } from "../widgets/checkbox.slint";
+import { PopupId } from "../foundation/shared_types.slint";
+import { WindowController } from "../foundation/globals.slint";
+import { Theme } from "../foundation/theme.slint";
+import { PopupScaffold } from "../widgets/popup.slint";
+import { EditLine } from "../widgets/inputs.slint";
+import { CommandButton } from "../widgets/buttons.slint";
+
+// Preferences dialog. Numeric fields are strings (Rust parses on apply);
+// colours are parallel models so the swatch colour is computed in Rust.
+export global PrefsController {
+    in-out property <bool> prefs-visible: false;
+    in-out property <string> engine-path;
+    in-out property <string> iwad-path;
+    in-out property <string> launch-type;
+    in-out property <string> grid;
+    in-out property <string> wp-min-w;
+    in-out property <string> wp-min-h;
+    in-out property <string> wp-max-w;
+    in-out property <string> wp-max-h;
+    // 0 Vanilla, 1 RbspOnly, 2 Both.
+    in-out property <int> nodes-format-index;
+    // 0 Off, 1 Instant, 2 Timed.
+    in-out property <int> bsp-anim-index;
+    in-out property <bool> light-anim;
+    // Map toolbar placement: 0 Top, 1 Left.
+    in-out property <int> toolbar-position-index;
+    // Texture preview: 0 HoverDelayed, 1 OnClick, 2 PinnedCorner.
+    in-out property <int> preview-mode-index;
+    in-out property <string> preview-delay-ms;
+    // Theme: 0 Auto, 1 Light, 2 Dark.
+    in-out property <int> theme-mode-index;
+    // Fired on dropdown change to apply the theme live (Apply persists it).
+    callback theme-mode-selected(int);
+    // Sector-fill gradient: labels from Rust, index into SectorGradient::ALL.
+    in property <[string]> sector-gradients;
+    in-out property <int> sector-gradient-index;
+    callback sector-gradient-selected(int);
+    // macOS window-glass chrome opacity, 0..1 (0 full glass, 1 opaque). The row
+    // is shown only where a vibrancy backdrop exists.
+    in property <bool> glass-supported;
+    in-out property <float> glass-alpha;
+    // Fired while dragging to preview the blur live (Apply persists it).
+    callback glass-alpha-changed(float);
+    // opaline theme display names per variant, with the active selection index.
+    in property <[string]> light-themes;
+    in property <[string]> dark-themes;
+    in-out property <int> light-theme-index;
+    in-out property <int> dark-theme-index;
+    callback light-theme-selected(int);
+    callback dark-theme-selected(int);
+    callback pick-engine-path();
+    callback pick-iwad-path();
+    callback apply();
+    // Open edge: snapshot the live theme and fill the controller from prefs.
+    callback populate-prefs();
+    // Close edge: revert the live theme preview if it was changed unsaved.
+    callback prefs-closed();
+}
+
+// One labelled field row for the preferences dialog.
+component PrefRow inherits HorizontalLayout {
+    in property <string> label;
+    spacing: Theme.pad-small;
+
+    Text {
+        text: root.label;
+        color: Theme.text-dim;
+        vertical-alignment: center;
+        width: 92px;
+    }
+
+    @children
+}
+
+export component PrefsPopup inherits PopupScaffold {
+    visible: PrefsController.prefs-visible;
+    title: "Preferences";
+    id: PopupId.prefs;
+    default-width: 460px;
+    default-height: 620px;
+    min-width-px: 380px;
+    min-height-px: 280px;
+    win-offset-x <=> WindowController.prefs.x;
+    win-offset-y <=> WindowController.prefs.y;
+    win-width <=> WindowController.prefs.w;
+    win-height <=> WindowController.prefs.h;
+    cancelled => {
+        PrefsController.prefs-visible = false;
+    }
+
+    ScrollView {
+        vertical-stretch: 1;
+        vertical-scrollbar-policy: ScrollBarPolicy.as-needed;
+        horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
+
+        VerticalLayout {
+            spacing: Theme.pad-small;
+
+            PrefRow {
+                label: "Engine";
+                EditLine {
+                    horizontal-stretch: 1;
+                    text <=> PrefsController.engine-path;
+                }
+
+                CommandButton {
+                    label: "…";
+                    button-min-width: 28px;
+                    clicked => {
+                        PrefsController.pick-engine-path();
+                    }
+                }
+            }
+
+            PrefRow {
+                label: "IWAD";
+                EditLine {
+                    horizontal-stretch: 1;
+                    text <=> PrefsController.iwad-path;
+                }
+
+                CommandButton {
+                    label: "…";
+                    button-min-width: 28px;
+                    clicked => {
+                        PrefsController.pick-iwad-path();
+                    }
+                }
+            }
+
+            PrefRow {
+                label: "Launch type";
+                EditLine {
+                    horizontal-stretch: 1;
+                    text <=> PrefsController.launch-type;
+                }
+            }
+
+            PrefRow {
+                label: "Grid";
+                EditLine {
+                    horizontal-stretch: 1;
+                    text <=> PrefsController.grid;
+                }
+            }
+
+            PrefRow {
+                label: "Nodes";
+                ComboBox {
+                    horizontal-stretch: 1;
+                    model: ["Room4Doom", "Classic", "Both"];
+                    current-index <=> PrefsController.nodes-format-index;
+                }
+            }
+
+            PrefRow {
+                label: "Build anim";
+                ComboBox {
+                    horizontal-stretch: 1;
+                    model: ["Off", "Instant", "Timed"];
+                    current-index <=> PrefsController.bsp-anim-index;
+                }
+            }
+
+            PrefRow {
+                label: "Light anim";
+                CheckBox {
+                    checked <=> PrefsController.light-anim;
+                }
+            }
+
+            PrefRow {
+                label: "Toolbar";
+                ComboBox {
+                    horizontal-stretch: 1;
+                    model: ["Top", "Left"];
+                    current-index <=> PrefsController.toolbar-position-index;
+                }
+            }
+
+            PrefRow {
+                label: "Preview";
+                ComboBox {
+                    horizontal-stretch: 1;
+                    model: ["Hover (delayed)", "On click", "Pinned corner"];
+                    current-index <=> PrefsController.preview-mode-index;
+                }
+            }
+
+            PrefRow {
+                label: "Hover delay ms";
+                EditLine {
+                    horizontal-stretch: 1;
+                    text <=> PrefsController.preview-delay-ms;
+                }
+            }
+
+            Text {
+                text: "Wall preview (min w/h, max w/h)";
+                color: Theme.text-dim;
+                font-size: 11px;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.pad-small;
+                EditLine {
+                    text <=> PrefsController.wp-min-w;
+                }
+
+                EditLine {
+                    text <=> PrefsController.wp-min-h;
+                }
+
+                EditLine {
+                    text <=> PrefsController.wp-max-w;
+                }
+
+                EditLine {
+                    text <=> PrefsController.wp-max-h;
+                }
+            }
+
+            PrefRow {
+                label: "Theme";
+                ComboBox {
+                    horizontal-stretch: 1;
+                    model: ["Auto (OS)", "Light", "Dark"];
+                    current-index <=> PrefsController.theme-mode-index;
+                    selected => {
+                        PrefsController.theme-mode-selected(self.current-index);
+                    }
+                }
+            }
+
+            PrefRow {
+                label: "Light theme";
+                ComboBox {
+                    horizontal-stretch: 1;
+                    model: PrefsController.light-themes;
+                    current-index <=> PrefsController.light-theme-index;
+                    selected => {
+                        PrefsController.light-theme-selected(self.current-index);
+                    }
+                }
+            }
+
+            PrefRow {
+                label: "Dark theme";
+                ComboBox {
+                    horizontal-stretch: 1;
+                    model: PrefsController.dark-themes;
+                    current-index <=> PrefsController.dark-theme-index;
+                    selected => {
+                        PrefsController.dark-theme-selected(self.current-index);
+                    }
+                }
+            }
+
+            PrefRow {
+                label: "Sector colours";
+                ComboBox {
+                    horizontal-stretch: 1;
+                    model: PrefsController.sector-gradients;
+                    current-index <=> PrefsController.sector-gradient-index;
+                    selected => {
+                        PrefsController.sector-gradient-selected(self.current-index);
+                    }
+                }
+            }
+
+            if PrefsController.glass-supported: PrefRow {
+                label: "Window glass";
+                Slider {
+                    horizontal-stretch: 1;
+                    minimum: 0;
+                    maximum: 1;
+                    value <=> PrefsController.glass-alpha;
+                    changed value => {
+                        PrefsController.glass-alpha-changed(self.value);
+                    }
+                }
+
+                Text {
+                    text: round(PrefsController.glass-alpha * 100) + "%";
+                    color: Theme.text-dim;
+                    vertical-alignment: center;
+                    width: 36px;
+                }
+            }
+        }
+    }
+
+    HorizontalLayout {
+        spacing: Theme.pad-small;
+        alignment: end;
+
+        CommandButton {
+            label: "Apply";
+            clicked => {
+                PrefsController.apply();
+                PrefsController.prefs-visible = false;
+            }
+        }
+
+        CommandButton {
+            label: "Close";
+            clicked => {
+                PrefsController.prefs-visible = false;
+            }
+        }
+    }
+}

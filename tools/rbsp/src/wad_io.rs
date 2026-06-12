@@ -4,13 +4,16 @@
 //! Doom-format lumps plus an RBSP lump per level.
 
 use std::f64::consts::PI;
+use std::fmt;
 use std::fs::File;
 use std::io::{self, Write as _};
 use std::path::Path;
+use std::str::FromStr;
 
 use wad::WadData;
 use wad::wad::MapLump;
 
+use crate::blockmap::create_blockmap;
 use crate::bsp3d::{Bsp3dBuilder, Bsp3dInput};
 use crate::rbsp_lump::write_rbsp_lump;
 use crate::types::*;
@@ -66,6 +69,151 @@ pub fn load_input(
         sidedefs: wad.map_iter(map_name, MapLump::SideDefs).collect(),
         sectors: wad.map_iter(map_name, MapLump::Sectors).collect(),
     }
+}
+
+/// Which node data an exported map carries.
+///
+/// room4doom walks the BSP3D tree carried in the RBSP lump; vanilla engines
+/// walk the classic SEGS/SSECTORS/NODES lumps. Choose by target engine.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum NodesFormat {
+    /// room4doom-native: VERTEXES + the RBSP lump (3D tree, no classic node
+    /// section), no vanilla node lumps. Smallest; room4doom only.
+    #[default]
+    Room4Doom,
+    /// Vanilla only: VERTEXES + SEGS/SSECTORS/NODES, no RBSP lump. Plays in
+    /// vanilla and other source ports; room4doom rebuilds its 3D tree.
+    Classic,
+    /// Both: the vanilla node lumps PLUS the RBSP lump (with its embedded
+    /// classic 2D node section). Plays everywhere; largest.
+    Both,
+}
+
+impl NodesFormat {
+    /// Canonical lowercase token used in config files and on the CLI.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Room4Doom => "room4doom",
+            Self::Classic => "classic",
+            Self::Both => "both",
+        }
+    }
+}
+
+impl fmt::Display for NodesFormat {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl FromStr for NodesFormat {
+    type Err = ParseNodesFormatError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "room4doom" => Ok(Self::Room4Doom),
+            "classic" => Ok(Self::Classic),
+            "both" => Ok(Self::Both),
+            _ => Err(ParseNodesFormatError),
+        }
+    }
+}
+
+/// Returned when a string is not a valid [`NodesFormat`] token.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ParseNodesFormatError;
+
+impl fmt::Display for ParseNodesFormatError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("expected one of: room4doom, classic, both")
+    }
+}
+
+impl std::error::Error for ParseNodesFormatError {}
+
+/// All BSP-derived lumps for one map, ready for PWAD assembly. `rbsp` is
+/// `None` for [`NodesFormat::Classic`].
+pub struct NodeLumps {
+    pub vertexes: Vec<u8>,
+    pub segs: Vec<u8>,
+    pub ssectors: Vec<u8>,
+    pub nodes: Vec<u8>,
+    pub reject: Vec<u8>,
+    pub blockmap: Vec<u8>,
+    pub rbsp: Option<Vec<u8>>,
+}
+
+/// Build every BSP-derived lump from a build result.
+///
+/// `num_sectors` sizes the zero-filled REJECT lump; it may differ from
+/// `input.sectors.len()` when the caller re-splits sectors after the BSP
+/// build. VERTEXES is always written — linedefs reference it regardless of
+/// node format. The vanilla node lumps are written for [`NodesFormat::Classic`]
+/// and [`NodesFormat::Both`]; the RBSP lump for [`NodesFormat::Room4Doom`] and
+/// [`NodesFormat::Both`] (with the embedded classic 2D section only for
+/// `Both`).
+pub fn build_node_lumps(
+    input: &BspInput<WadVertex, WadLineDef, WadSideDef, WadSector>,
+    output: &BspOutput,
+    format: NodesFormat,
+    sky_flat: Option<&str>,
+    num_sectors: usize,
+) -> NodeLumps {
+    let write_vanilla = format != NodesFormat::Room4Doom;
+    let rbsp = if format == NodesFormat::Classic {
+        None
+    } else {
+        let bsp3d_input = Bsp3dInput::new(
+            &input.linedefs,
+            &input.sidedefs,
+            &input.sectors,
+            output,
+            sky_flat,
+            sky_flat.is_some(),
+        );
+        let bsp3d = Bsp3dBuilder::build(&bsp3d_input, &output.nodes);
+        // Embed the classic 2D node section only when vanilla lumps ship too.
+        let classic_nodes = format == NodesFormat::Both;
+        Some(write_rbsp_lump(output, &bsp3d, classic_nodes))
+    };
+
+    let bounds = linedef_bounds(&input.linedefs, &output.vertices);
+    NodeLumps {
+        vertexes: write_vertexes(output),
+        segs: if write_vanilla {
+            write_segs(output)
+        } else {
+            Vec::new()
+        },
+        ssectors: if write_vanilla {
+            write_ssectors(output)
+        } else {
+            Vec::new()
+        },
+        nodes: if write_vanilla {
+            write_nodes(output)
+        } else {
+            Vec::new()
+        },
+        reject: write_reject(num_sectors),
+        blockmap: create_blockmap(&input.linedefs, &output.vertices, &bounds),
+        rbsp,
+    }
+}
+
+/// Bounding box over all linedef endpoints (original WAD vertex indices).
+fn linedef_bounds(linedefs: &[WadLineDef], vertices: &[Vertex]) -> BBox {
+    let mut bounds = BBox::EMPTY;
+    for ld in linedefs {
+        for idx in [ld.start_vertex, ld.end_vertex] {
+            let v = &vertices[idx as usize];
+            bounds.min_x = bounds.min_x.min(v.x);
+            bounds.min_y = bounds.min_y.min(v.y);
+            bounds.max_x = bounds.max_x.max(v.x);
+            bounds.max_y = bounds.max_y.max(v.y);
+        }
+    }
+    bounds
 }
 
 /// Process all maps in a WAD and write a PWAD with rebuilt BSP data.

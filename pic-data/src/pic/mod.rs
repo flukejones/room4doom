@@ -21,7 +21,7 @@ use wad::types::{COLUMN_END, WadColour, WadPalette, WadPatch, WadTexture};
 
 use self::sprites::{SpriteDef, init_spritedefs};
 use crate::colour::{ByteOrder, PALETTE_LEN, PalLit, PixelFmt};
-use game_config::GameMode;
+use wad::types::GameMode;
 
 const MAXLIGHTZ: usize = 128;
 const LIGHTLEVELS: i32 = 16;

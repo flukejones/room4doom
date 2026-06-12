@@ -1,0 +1,474 @@
+import { ToolKind, SectorFill } from "../../foundation/shared_types.slint";
+import { BuildBspController } from "../project/build_bsp.slint";
+import { Theme } from "../../foundation/theme.slint";
+import { FlatButton } from "../../widgets/buttons.slint";
+import { ComboBox } from "../../widgets/combo.slint";
+import { SpinBox, SpinBoxButton } from "../../widgets/spinbox.slint";
+
+component SectorFillCombo inherits ComboBox {
+    model: ["None", "Colour", "Texture"];
+    current-index: ToolController.sector-fill == SectorFill.texture ? 2 : ToolController.sector-fill == SectorFill.colour ? 1 : 0;
+    selected(i) => {
+        ToolController.fill-changed(
+            i == 2 ? SectorFill.texture : i == 1 ? SectorFill.colour : SectorFill.none);
+    }
+}
+
+export global ToolController {
+    in property <ToolKind> current: ToolKind.select;
+    callback tool-changed(ToolKind);
+    in property <SectorFill> sector-fill: SectorFill.none;
+    callback fill-changed(SectorFill);
+    // Last-picked draw shape; the split-button's main face activates it.
+    in-out property <ToolKind> last-shape: ToolKind.line;
+    // Last-picked select sub-mode; the Select split-button's main face activates it.
+    in-out property <ToolKind> last-select: ToolKind.select;
+    // Current N-gon side count (mirrors editor state for the spinner).
+    in-out property <int> ngon-sides: 5;
+    // The polygon side-count spinner result (N-gon draw shape).
+    callback ngon-sides-chosen(int);
+    callback reset-view();
+    // 3D projection: true = perspective, false = ortho. Enabled in 3D.
+    in property <bool> projection-perspective;
+    callback set-projection-perspective(bool);
+}
+
+// The select split-button: main face activates the last-used select sub-mode;
+// the caret opens a dropdown to pick another (All / Vertex / Line / Thing / Sector).
+component SelectToolButton inherits Rectangle {
+    pure function mode-name(kind: ToolKind) -> string {
+        if kind == ToolKind.select-vertex {
+            return "Select Vertex";
+        }
+        if kind == ToolKind.select-line {
+            return "Select Line";
+        }
+        if kind == ToolKind.select-thing {
+            return "Select Thing";
+        }
+        if kind == ToolKind.select-sector {
+            return "Select Sector";
+        }
+        return "Select";
+    }
+
+    property <bool> is-select: ToolController.current == ToolKind.select || ToolController.current == ToolKind.select-vertex || ToolController.current == ToolKind.select-line || ToolController.current == ToolKind.select-thing || ToolController.current == ToolKind.select-sector;
+
+    height: Theme.toolbutton-size;
+    horizontal-stretch: 0;
+
+    HorizontalLayout {
+        spacing: 0;
+        FlatButton {
+            label: root.mode-name(ToolController.last-select);
+            active: root.is-select;
+            height: root.height;
+            clicked => {
+                ToolController.tool-changed(ToolController.last-select);
+            }
+        }
+
+        caret := SpinBoxButton {
+            min-width: 24px;
+            font-size: 12px;
+            height: root.height;
+            text: "▼";
+            clicked => {
+                menu.show();
+            }
+        }
+    }
+
+    menu := PopupWindow {
+        close-policy: PopupClosePolicy.close-on-click-outside;
+        x: 0;
+        y: root.height;
+        Rectangle {
+            background: Theme.panel-background;
+            border-color: Theme.panel-border;
+            border-width: Theme.border-width;
+            border-radius: Theme.border-radius;
+            VerticalLayout {
+                padding: Theme.pad-small;
+                FlatButton {
+                    label: "Select";
+                    horizontal-alignment: start;
+                    clicked => {
+                        ToolController.last-select = ToolKind.select;
+                        ToolController.tool-changed(ToolKind.select);
+                        menu.close();
+                    }
+                }
+
+                FlatButton {
+                    label: "Select Vertex";
+                    horizontal-alignment: start;
+                    clicked => {
+                        ToolController.last-select = ToolKind.select-vertex;
+                        ToolController.tool-changed(ToolKind.select-vertex);
+                        menu.close();
+                    }
+                }
+
+                FlatButton {
+                    label: "Select Line";
+                    horizontal-alignment: start;
+                    clicked => {
+                        ToolController.last-select = ToolKind.select-line;
+                        ToolController.tool-changed(ToolKind.select-line);
+                        menu.close();
+                    }
+                }
+
+                FlatButton {
+                    label: "Select Thing";
+                    horizontal-alignment: start;
+                    clicked => {
+                        ToolController.last-select = ToolKind.select-thing;
+                        ToolController.tool-changed(ToolKind.select-thing);
+                        menu.close();
+                    }
+                }
+
+                FlatButton {
+                    label: "Select Sector";
+                    horizontal-alignment: start;
+                    clicked => {
+                        ToolController.last-select = ToolKind.select-sector;
+                        ToolController.tool-changed(ToolKind.select-sector);
+                        menu.close();
+                    }
+                }
+            }
+        }
+    }
+}
+
+// The draw split-button: main face activates the last-used shape; the caret
+// opens a dropdown to pick another. "Polygon…" opens a side-count prompt.
+component DrawToolButton inherits Rectangle {
+    pure function shape-name(kind: ToolKind) -> string {
+        if kind == ToolKind.rect {
+            return "Rect";
+        }
+        if kind == ToolKind.triangle {
+            return "Triangle";
+        }
+        if kind == ToolKind.ngon {
+            return "Polygon";
+        }
+        return "Line";
+    }
+
+    property <bool> is-draw: ToolController.current == ToolKind.line || ToolController.current == ToolKind.rect || ToolController.current == ToolKind.triangle || ToolController.current == ToolKind.ngon;
+
+    property <string> shape-label: shape-name(ToolController.last-shape);
+
+    height: Theme.toolbutton-size;
+    horizontal-stretch: 0;
+
+    HorizontalLayout {
+        spacing: 0;
+        FlatButton {
+            label: root.shape-label;
+            active: root.is-draw;
+            height: root.height;
+            clicked => {
+                ToolController.tool-changed(ToolController.last-shape);
+            }
+        }
+
+        caret := SpinBoxButton {
+            min-width: 24px;
+            font-size: 12px;
+            height: root.height;
+            text: "▼";
+            clicked => {
+                menu.show();
+            }
+        }
+    }
+
+    menu := PopupWindow {
+        close-policy: PopupClosePolicy.close-on-click-outside;
+        x: 0;
+        y: root.height;
+        Rectangle {
+            background: Theme.panel-background;
+            border-color: Theme.panel-border;
+            border-width: Theme.border-width;
+            border-radius: Theme.border-radius;
+            VerticalLayout {
+                padding: Theme.pad-small;
+                FlatButton {
+                    label: "Line";
+                    horizontal-alignment: start;
+                    clicked => {
+                        ToolController.last-shape = ToolKind.line;
+                        ToolController.tool-changed(ToolKind.line);
+                        menu.close();
+                    }
+                }
+
+                FlatButton {
+                    label: "Rectangle";
+                    horizontal-alignment: start;
+                    clicked => {
+                        ToolController.last-shape = ToolKind.rect;
+                        ToolController.tool-changed(ToolKind.rect);
+                        menu.close();
+                    }
+                }
+
+                FlatButton {
+                    label: "Triangle";
+                    horizontal-alignment: start;
+                    clicked => {
+                        ToolController.last-shape = ToolKind.triangle;
+                        ToolController.tool-changed(ToolKind.triangle);
+                        menu.close();
+                    }
+                }
+
+                FlatButton {
+                    label: "Polygon";
+                    horizontal-alignment: start;
+                    clicked => {
+                        ToolController.ngon-sides-chosen(ToolController.ngon-sides);
+                        ToolController.last-shape = ToolKind.ngon;
+                        ToolController.tool-changed(ToolKind.ngon);
+                        menu.close();
+                    }
+                }
+            }
+        }
+    }
+}
+
+component ToolButton inherits FlatButton {
+    in property <ToolKind> kind;
+    active: ToolController.current == kind;
+    clicked => {
+        ToolController.tool-changed(kind);
+    }
+}
+
+component NgonSpinBox inherits SpinBox {
+    value: ToolController.ngon-sides;
+    minimum: 3;
+    maximum: 32;
+    edited(v) => {
+        ToolController.ngon-sides-chosen(v);
+    }
+}
+
+component RenderTypePanel inherits Rectangle {
+    in property <bool> vertical: false;
+    border-color: Theme.accent;
+    border-width: Theme.border-width;
+    border-radius: self.border-width * 2;
+    // slint can't determine desired height due to conditional layout
+    min-height: self.vertical ? 48px : 0px;
+    max-height: self.vertical ? self.min-height : 0px;
+    min-width: vertical ? 0px : 160px;
+    max-width: vertical ? 0px : self.min-width;
+
+    if !vertical: HorizontalLayout {
+        padding: Theme.pad-small;
+        spacing: Theme.pad-small;
+        padding-left: root.height - self.height + self.spacing;
+        alignment: LayoutAlignment.space-between;
+        Text {
+            text: "Render type";
+            vertical-alignment: TextVerticalAlignment.center;
+        }
+
+        SectorFillCombo {
+            width: parent.width / 2;
+            height: parent.height - parent.padding * 2;
+        }
+    }
+
+    if vertical: VerticalLayout {
+        padding: Theme.pad-small;
+        spacing: Theme.pad-small;
+        Text {
+            text: "Render type";
+            vertical-alignment: TextVerticalAlignment.center;
+            horizontal-alignment: TextHorizontalAlignment.center;
+        }
+
+        SectorFillCombo { }
+    }
+}
+
+// The map editor's tool buttons. Laid out horizontally (a top strip) or
+// vertically (a left strip) per `vertical`; the Map tab picks the orientation
+// from the toolbar-position preference.
+export component ToolStrip inherits Rectangle {
+    in property <bool> vertical: false;
+    background: Theme.panel-glass;
+    min-height: vertical ? 0px : Theme.toolbutton-size + Theme.pad;
+    max-height: vertical ? 10000px : Theme.toolbutton-size + Theme.pad;
+    min-width: vertical ? Theme.toolbutton-size * 3.5 : 0px;
+    max-width: vertical ? Theme.toolbutton-size * 4 : 10000px;
+
+    if !vertical: HorizontalLayout {
+        padding: Theme.pad-small;
+        spacing: Theme.pad-small;
+
+        Rectangle {
+            border-color: Theme.accent;
+            border-width: Theme.border-width;
+            border-radius: self.border-width * 2;
+            HorizontalLayout {
+                padding: Theme.pad-small;
+                SelectToolButton {
+                    height: parent.height - parent.padding * 2;
+                }
+            }
+        }
+
+        Rectangle {
+            border-color: Theme.accent;
+            border-width: Theme.border-width;
+            border-radius: self.border-width * 2;
+            HorizontalLayout {
+                padding: Theme.pad-small;
+                DrawToolButton {
+                    height: parent.height - parent.padding * 2;
+                }
+
+                if ToolController.current == ToolKind.ngon: NgonSpinBox {
+                    horizontal-stretch: 0;
+                    width: 42px;
+                    height: parent.height - parent.padding * 2;
+                }
+            }
+        }
+
+        ToolButton {
+            horizontal-stretch: 0;
+            label: "Thing";
+            kind: ToolKind.thing;
+        }
+
+        ToolButton {
+            horizontal-stretch: 0;
+            label: "Sector";
+            kind: ToolKind.sector;
+        }
+
+        ToolButton {
+            horizontal-stretch: 0;
+            label: "Test Map";
+            kind: ToolKind.launch;
+        }
+
+        Rectangle {
+            horizontal-stretch: 1;
+        }
+
+        RenderTypePanel {
+            height: parent.height - parent.padding * 2;
+        }
+
+        FlatButton {
+            horizontal-stretch: 0;
+            label: "Reset View";
+            clicked => {
+                ToolController.reset-view();
+            }
+        }
+
+        FlatButton {
+            horizontal-stretch: 0;
+            label: ToolController.projection-perspective ? "Persp" : "Ortho";
+            clicked => {
+                ToolController.set-projection-perspective(!ToolController.projection-perspective);
+            }
+        }
+
+        FlatButton {
+            horizontal-stretch: 0;
+            label: "Test BSP";
+            clicked => {
+                BuildBspController.visible = true;
+            }
+        }
+    }
+
+    if vertical: VerticalLayout {
+        padding: Theme.pad-small;
+        spacing: Theme.pad-small;
+        alignment: start;
+
+        Rectangle {
+            border-color: Theme.accent;
+            border-width: Theme.border-width;
+            border-radius: self.border-width * 2;
+            VerticalLayout {
+                padding: Theme.pad-small;
+                SelectToolButton { }
+            }
+        }
+
+        Rectangle {
+            border-color: Theme.accent;
+            border-width: Theme.border-width;
+            border-radius: self.border-width * 2;
+            VerticalLayout {
+                padding: Theme.pad-small;
+                spacing: Theme.pad-small;
+                DrawToolButton { }
+
+                if ToolController.current == ToolKind.ngon: NgonSpinBox { }
+            }
+        }
+
+        ToolButton {
+            label: "Thing";
+            kind: ToolKind.thing;
+        }
+
+        ToolButton {
+            label: "Sector";
+            kind: ToolKind.sector;
+        }
+
+        ToolButton {
+            label: "Launch";
+            kind: ToolKind.launch;
+        }
+
+        Rectangle {
+            vertical-stretch: 1;
+            horizontal-stretch: 1;
+        }
+
+        RenderTypePanel {
+            vertical: root.vertical;
+        }
+
+        FlatButton {
+            label: "Reset View";
+            clicked => {
+                ToolController.reset-view();
+            }
+        }
+
+        FlatButton {
+            label: ToolController.projection-perspective ? "Persp" : "Ortho";
+            clicked => {
+                ToolController.set-projection-perspective(!ToolController.projection-perspective);
+            }
+        }
+
+        FlatButton {
+            label: "Test BSP";
+            clicked => {
+                BuildBspController.visible = true;
+            }
+        }
+    }
+}

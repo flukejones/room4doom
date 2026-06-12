@@ -1,0 +1,186 @@
+import {
+    FlatSlot,
+    GfxEntry,
+    PopupId,
+} from "../../foundation/shared_types.slint";
+import { WindowController } from "../../foundation/globals.slint";
+import { Theme } from "../../foundation/theme.slint";
+import { PopupScaffold } from "../../widgets/popup.slint";
+import { CommandButton } from "../../widgets/buttons.slint";
+import { SpinBox } from "../../widgets/spinbox.slint";
+import { TextureGrid } from "../../widgets/texture_grid.slint";
+
+// Sector editor popup: a double-clicked sector's floor/ceiling flats, a flat
+// list, and height spins. Slint owns `sector-edit-visible`.
+export global SectorEditController {
+    in-out property <bool> sector-edit-visible: false;
+    in property <int> sector-index: -1;
+    in property <image> ceil-img;
+    in property <image> floor-img;
+    in property <FlatSlot> selected-slot;
+    in property <[GfxEntry]> entries;
+    in property <int> active-index: -1;
+    in-out property <int> floor-h;
+    in-out property <int> ceil-h;
+    callback populate-sector-edit();
+    callback select-flat(FlatSlot);
+    callback pick-flat(string);
+    callback height-changed();
+    callback apply();
+}
+
+// Double-clicked sector editor: ceiling and floor flat previews (click to
+// select which the list edits), a flat list, and floor/ceiling height spins.
+export component SectorEditorPopup inherits PopupScaffold {
+    property <length> flat-side: 128px;
+
+    visible: SectorEditController.sector-edit-visible;
+    title: "Edit Sector";
+    id: PopupId.sector-edit;
+    default-width: 360px;
+    default-height: 420px;
+    min-width-px: 360px;
+    min-height-px: 420px;
+    win-offset-x <=> WindowController.sector-edit.x;
+    win-offset-y <=> WindowController.sector-edit.y;
+    win-width <=> WindowController.sector-edit.w;
+    win-height <=> WindowController.sector-edit.h;
+    cancelled => {
+        SectorEditController.sector-edit-visible = false;
+    }
+
+    HorizontalLayout {
+        spacing: Theme.pad;
+        vertical-stretch: 1;
+
+        VerticalLayout {
+            spacing: Theme.pad;
+            alignment: center;
+
+            ceil := Rectangle {
+                property <bool> active: SectorEditController.selected-slot == FlatSlot.ceil;
+                width: root.flat-side;
+                height: root.flat-side;
+                border-width: self.active ? 3px : 1px;
+                border-color: self.active ? Theme.accent : Theme.panel-border;
+
+                Image {
+                    source: SectorEditController.ceil-img;
+                    image-fit: contain;
+                    width: 100%;
+                    height: 100%;
+                    image-rendering: pixelated;
+                }
+
+                Text {
+                    y: parent.height - self.height - 2px;
+                    x: 2px;
+                    text: "ceiling";
+                    color: ceil.active ? Theme.accent : Theme.text-dim;
+                    font-size: 10px;
+                }
+
+                ceil-touch := TouchArea {
+                    clicked => {
+                        SectorEditController.select-flat(FlatSlot.ceil);
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                Text {
+                    text: "Ceil height";
+                    color: Theme.text-dim;
+                    vertical-alignment: center;
+                }
+
+                SpinBox {
+                    width: 48px;
+                    value <=> SectorEditController.ceil-h;
+                    edited => {
+                        SectorEditController.height-changed();
+                    }
+                }
+            }
+
+            floor := Rectangle {
+                property <bool> active: SectorEditController.selected-slot == FlatSlot.floor;
+                width: root.flat-side;
+                height: root.flat-side;
+                border-width: self.active ? 3px : 1px;
+                border-color: self.active ? Theme.accent : Theme.panel-border;
+
+                Image {
+                    source: SectorEditController.floor-img;
+                    image-fit: contain;
+                    width: 100%;
+                    height: 100%;
+                    image-rendering: pixelated;
+                }
+
+                Text {
+                    y: parent.height - self.height - 2px;
+                    x: 2px;
+                    text: "floor";
+                    color: floor.active ? Theme.accent : Theme.text-dim;
+                    font-size: 10px;
+                }
+
+                floor-touch := TouchArea {
+                    clicked => {
+                        SectorEditController.select-flat(FlatSlot.floor);
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                Text {
+                    text: "Floor height";
+                    color: Theme.text-dim;
+                    vertical-alignment: center;
+                }
+
+                SpinBox {
+                    width: 48px;
+                    value <=> SectorEditController.floor-h;
+                    edited => {
+                        SectorEditController.height-changed();
+                    }
+                }
+            }
+        }
+
+        TextureGrid {
+            horizontal-stretch: 1;
+            entries: SectorEditController.entries;
+            active-index: SectorEditController.active-index;
+            picked(name) => {
+                SectorEditController.pick-flat(name);
+            }
+        }
+    }
+
+    HorizontalLayout {
+        spacing: Theme.pad-small;
+        alignment: end;
+
+        Rectangle {
+            horizontal-stretch: 1;
+        }
+
+        CommandButton {
+            label: "Apply";
+            clicked => {
+                SectorEditController.apply();
+                SectorEditController.sector-edit-visible = false;
+            }
+        }
+
+        CommandButton {
+            label: "Cancel";
+            clicked => {
+                SectorEditController.sector-edit-visible = false;
+            }
+        }
+    }
+}

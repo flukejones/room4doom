@@ -43,8 +43,10 @@ impl PolyFlags {
 }
 
 /// One polygon: a contiguous slice of [`Bsp3dLump::poly_verts`] plus the map
-/// objects it derives from. Everything else (sector, back sidedef, wall slot,
-/// textures, UV, normals, AABBs) is derived at parse or resolve time.
+/// objects it derives from.
+///
+/// Everything else (sector, back sidedef, wall slot, textures, UV, normals,
+/// AABBs) is derived at parse or resolve time.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PolyRecord {
     pub vert_start: u32,

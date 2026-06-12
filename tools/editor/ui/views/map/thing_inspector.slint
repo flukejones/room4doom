@@ -1,0 +1,131 @@
+import { CheckBox } from "std-widgets.slint";
+import { Theme } from "../../foundation/theme.slint";
+import { PanelEditLine } from "../../widgets/inputs.slint";
+import { ComboBox } from "../../widgets/combo.slint";
+import { FieldRow, SectionTitle } from "../../widgets/panel_field.slint";
+
+// Thing skill/multiplayer option checkboxes.
+struct ThingOptions {
+    easy: bool,
+    normal: bool,
+    hard: bool,
+    ambush: bool,
+    multi: bool,
+}
+
+// Per-field touched flags for batch edit (see LinedefInspectorController).
+struct ThingTouched {
+    type: bool,
+    angle: bool,
+    easy: bool,
+    normal: bool,
+    hard: bool,
+    ambush: bool,
+    multi: bool,
+}
+
+// Thing inspector: edits the selected thing, or the placement template
+// when nothing is selected.
+export global ThingInspectorController {
+    in property <bool> active: false;
+    in property <int> thing-index: -1;
+    // Dropdown rows: `types[i]` is the display name, `type-num[i]` its Doom
+    // thing number. Index-aligned so the combo's selected index maps to a kind.
+    in property <[string]> types;
+    in property <[int]> type-num;
+    in-out property <int> type-index: 0;
+    // True when a multi-selection spans several thing types: the combo shows
+    // "Multiple" until the user picks one (which sets all selected to it).
+    in-out property <bool> type-multiple: false;
+    in-out property <string> angle;
+    in-out property <ThingOptions> options;
+    in-out property <ThingTouched> touched;
+    callback apply();
+}
+
+// Thing inspector section: shown inside the edit panel when a thing is active.
+export component ThingInspector inherits VerticalLayout {
+    spacing: Theme.pad-small;
+
+    SectionTitle {
+        text: "Thing";
+    }
+
+    Rectangle {
+        type-combo := ComboBox {
+            model: ThingInspectorController.types;
+            current-index: ThingInspectorController.type-index;
+            selected => {
+                ThingInspectorController.type-index = self.current-index;
+                ThingInspectorController.type-multiple = false;
+                ThingInspectorController.touched.type = true;
+                ThingInspectorController.apply();
+            }
+        }
+        // Mixed-type selection: cover the (blank) combo with "Multiple".
+        if ThingInspectorController.type-multiple: Text {
+            x: 8px;
+            text: "Multiple";
+            color: Theme.text-dim;
+            vertical-alignment: center;
+        }
+    }
+
+    FieldRow {
+        label: "Angle";
+        PanelEditLine {
+            text <=> ThingInspectorController.angle;
+            edited => {
+                ThingInspectorController.touched.angle = true;
+            }
+            committed => {
+                ThingInspectorController.apply();
+            }
+        }
+    }
+
+    CheckBox {
+        text: "Easy";
+        checked <=> ThingInspectorController.options.easy;
+        toggled => {
+            ThingInspectorController.touched.easy = true;
+            ThingInspectorController.apply();
+        }
+    }
+
+    CheckBox {
+        text: "Normal";
+        checked <=> ThingInspectorController.options.normal;
+        toggled => {
+            ThingInspectorController.touched.normal = true;
+            ThingInspectorController.apply();
+        }
+    }
+
+    CheckBox {
+        text: "Hard";
+        checked <=> ThingInspectorController.options.hard;
+        toggled => {
+            ThingInspectorController.touched.hard = true;
+            ThingInspectorController.apply();
+        }
+    }
+
+    CheckBox {
+        text: "Ambush";
+        checked <=> ThingInspectorController.options.ambush;
+        toggled => {
+            ThingInspectorController.touched.ambush = true;
+            ThingInspectorController.apply();
+        }
+    }
+
+    CheckBox {
+        text: "Multiplayer only";
+        checked <=> ThingInspectorController.options.multi;
+        toggled => {
+            ThingInspectorController.touched.multi = true;
+            ThingInspectorController.apply();
+        }
+    }
+}

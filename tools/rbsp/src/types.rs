@@ -543,6 +543,27 @@ pub struct BspOptions {
     pub classic_nodes: bool,
 }
 
+/// A map-space construction milestone, emitted in build order when tracing.
+///
+/// Coordinates are map units (`f32`) ready for an editor overlay; the builder
+/// works in `f64` internally and narrows here.
+#[derive(Debug, Clone, PartialEq)]
+pub enum BuildEvent {
+    /// A partition line was committed at a node: the chosen seg's endpoints.
+    PartitionChosen { p1: [f32; 2], p2: [f32; 2] },
+    /// The node's segs after the split, grouped by side of the partition. Each
+    /// seg is `[start, end]`. `*_bbox` is the `[min, max]` corner of that side's
+    /// segs, or `None` when the side has none.
+    SegsSplit {
+        left: Vec<[[f32; 2]; 2]>,
+        right: Vec<[[f32; 2]; 2]>,
+        left_bbox: Option<[[f32; 2]; 2]>,
+        right_bbox: Option<[[f32; 2]; 2]>,
+    },
+    /// A leaf subsector was finalized: its convex polygon's vertices in order.
+    SubsectorDone { verts: Vec<[f32; 2]> },
+}
+
 impl Default for BspOptions {
     fn default() -> Self {
         Self {

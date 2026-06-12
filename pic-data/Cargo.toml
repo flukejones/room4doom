@@ -9,7 +9,6 @@ license.workspace = true
 safety_check = []
 
 [dependencies]
-game-config.workspace = true
 log.workspace = true
 wad.workspace = true
 zip.workspace = true

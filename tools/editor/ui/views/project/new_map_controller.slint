@@ -1,0 +1,8 @@
+// New Map dialog — interface contract (controller global only). The view lives
+// in new_map.slint. Rust shows it (visible = true), reads `name` on confirm.
+export global NewMapController {
+    in-out property <bool> visible: false;
+    in-out property <string> name: "MAP01";
+    // Fired with the entered name; Rust loads a blank map under it.
+    callback confirmed(string);
+}

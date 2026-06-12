@@ -1,0 +1,397 @@
+import { CheckBox } from "std-widgets.slint";
+import { TexSlot } from "../../foundation/shared_types.slint";
+import { TexBrowserController } from "../../shared/asset_browser.slint";
+import { Theme } from "../../foundation/theme.slint";
+import { PanelEditLine } from "../../widgets/inputs.slint";
+import { CommandButton } from "../../widgets/buttons.slint";
+import { ComboBox } from "../../widgets/combo.slint";
+import { FieldRow, SectionTitle } from "../../widgets/panel_field.slint";
+
+// Linedef flag checkboxes.
+struct LineFlags {
+    blocks: bool,
+    block-monsters: bool,
+    two-sided: bool,
+    upper-unpeg: bool,
+    lower-unpeg: bool,
+    secret: bool,
+    block-sound: bool,
+    hidden: bool,
+}
+
+// One side's texture slots and offsets (strings; Rust parses on apply).
+struct LineSide {
+    top: string,
+    mid: string,
+    bottom: string,
+    xoff: string,
+    yoff: string,
+}
+
+// Per-field "touched" flags for batch edit: a field set true on user edit is
+// written to every selected line on apply; untouched fields are left alone.
+// Rust clears all on each selection sync, so a toggled flag writes only its bit.
+struct LineTouched {
+    blocks: bool,
+    block-monsters: bool,
+    two-sided: bool,
+    upper-unpeg: bool,
+    lower-unpeg: bool,
+    secret: bool,
+    block-sound: bool,
+    hidden: bool,
+    special: bool,
+    tag: bool,
+    front-top: bool,
+    front-mid: bool,
+    front-bottom: bool,
+    front-xoff: bool,
+    front-yoff: bool,
+    back-top: bool,
+    back-mid: bool,
+    back-bottom: bool,
+    back-xoff: bool,
+    back-yoff: bool,
+}
+
+// Line inspector state. Numeric fields are strings; Rust parses on apply.
+export global LinedefInspectorController {
+    in property <bool> active: false;
+    in property <int> line-index: -1;
+    in-out property <LineFlags> flags;
+    in-out property <string> special;
+    // Project line-special presets: parallel label + value lists (empty with no
+    // project). The combo passes the picked value straight to `special-picked`,
+    // which writes it into `special`; apply still parses that.
+    in property <[string]> specials;
+    in property <[int]> special-values;
+    in property <int> special-index: -1;
+    callback special-picked(int);
+    in-out property <string> tag;
+    in-out property <LineSide> front;
+    in property <bool> has-back: false;
+    in-out property <LineSide> back;
+    in-out property <LineTouched> touched;
+    // Fill the texture browser for a line-side slot (caller shows it).
+    callback populate-texture-browser(TexSlot);
+    callback apply();
+    // Flip the selected line(s): swap endpoints and front/back sides.
+    callback flip();
+}
+
+// Line inspector section: shown inside the edit panel when a line is active.
+export component LinedefInspector inherits VerticalLayout {
+    spacing: Theme.pad-small;
+
+    SectionTitle {
+        text: "Line";
+    }
+
+    f1 := CheckBox {
+        text: "Impassable";
+        checked <=> LinedefInspectorController.flags.blocks;
+        toggled => {
+            LinedefInspectorController.touched.blocks = true;
+            LinedefInspectorController.apply();
+        }
+    }
+
+    CheckBox {
+        text: "Block monsters";
+        checked <=> LinedefInspectorController.flags.block-monsters;
+        toggled => {
+            LinedefInspectorController.touched.block-monsters = true;
+            LinedefInspectorController.apply();
+        }
+    }
+
+    CheckBox {
+        text: "Two sided";
+        checked <=> LinedefInspectorController.flags.two-sided;
+        toggled => {
+            LinedefInspectorController.touched.two-sided = true;
+            LinedefInspectorController.apply();
+        }
+    }
+
+    CheckBox {
+        text: "Upper unpegged";
+        checked <=> LinedefInspectorController.flags.upper-unpeg;
+        toggled => {
+            LinedefInspectorController.touched.upper-unpeg = true;
+            LinedefInspectorController.apply();
+        }
+    }
+
+    CheckBox {
+        text: "Lower unpegged";
+        checked <=> LinedefInspectorController.flags.lower-unpeg;
+        toggled => {
+            LinedefInspectorController.touched.lower-unpeg = true;
+            LinedefInspectorController.apply();
+        }
+    }
+
+    CheckBox {
+        text: "Secret";
+        checked <=> LinedefInspectorController.flags.secret;
+        toggled => {
+            LinedefInspectorController.touched.secret = true;
+            LinedefInspectorController.apply();
+        }
+    }
+
+    CheckBox {
+        text: "Block sound";
+        checked <=> LinedefInspectorController.flags.block-sound;
+        toggled => {
+            LinedefInspectorController.touched.block-sound = true;
+            LinedefInspectorController.apply();
+        }
+    }
+
+    CheckBox {
+        text: "Hidden on map";
+        checked <=> LinedefInspectorController.flags.hidden;
+        toggled => {
+            LinedefInspectorController.touched.hidden = true;
+            LinedefInspectorController.apply();
+        }
+    }
+
+    if LinedefInspectorController.specials.length > 0: FieldRow {
+        label: "Preset";
+        ComboBox {
+            model: LinedefInspectorController.specials;
+            current-index: LinedefInspectorController.special-index;
+            selected => {
+                LinedefInspectorController.special-picked(LinedefInspectorController.special-values[self.current-index]);
+                LinedefInspectorController.touched.special = true;
+                LinedefInspectorController.apply();
+            }
+        }
+    }
+
+    FieldRow {
+        label: "Special";
+        PanelEditLine {
+            text <=> LinedefInspectorController.special;
+            edited => {
+                LinedefInspectorController.touched.special = true;
+            }
+            committed => {
+                LinedefInspectorController.apply();
+            }
+        }
+    }
+
+    FieldRow {
+        label: "Tag";
+        PanelEditLine {
+            text <=> LinedefInspectorController.tag;
+            edited => {
+                LinedefInspectorController.touched.tag = true;
+            }
+            committed => {
+                LinedefInspectorController.apply();
+            }
+        }
+    }
+
+    SectionTitle {
+        text: "Front side";
+    }
+
+    FieldRow {
+        label: "Top";
+        PanelEditLine {
+            text <=> LinedefInspectorController.front.top;
+            edited => {
+                LinedefInspectorController.touched.front-top = true;
+            }
+            committed => {
+                LinedefInspectorController.apply();
+            }
+        }
+
+        CommandButton {
+            label: "…";
+            button-min-width: 28px;
+            clicked => {
+                LinedefInspectorController.populate-texture-browser(TexSlot.front-top);
+                TexBrowserController.browser-visible = true;
+            }
+        }
+    }
+
+    FieldRow {
+        label: "Middle";
+        PanelEditLine {
+            text <=> LinedefInspectorController.front.mid;
+            edited => {
+                LinedefInspectorController.touched.front-mid = true;
+            }
+            committed => {
+                LinedefInspectorController.apply();
+            }
+        }
+
+        CommandButton {
+            label: "…";
+            button-min-width: 28px;
+            clicked => {
+                LinedefInspectorController.populate-texture-browser(TexSlot.front-mid);
+                TexBrowserController.browser-visible = true;
+            }
+        }
+    }
+
+    FieldRow {
+        label: "Bottom";
+        PanelEditLine {
+            text <=> LinedefInspectorController.front.bottom;
+            edited => {
+                LinedefInspectorController.touched.front-bottom = true;
+            }
+            committed => {
+                LinedefInspectorController.apply();
+            }
+        }
+
+        CommandButton {
+            label: "…";
+            button-min-width: 28px;
+            clicked => {
+                LinedefInspectorController.populate-texture-browser(TexSlot.front-bottom);
+                TexBrowserController.browser-visible = true;
+            }
+        }
+    }
+
+    FieldRow {
+        label: "X / Y off";
+        PanelEditLine {
+            text <=> LinedefInspectorController.front.xoff;
+            edited => {
+                LinedefInspectorController.touched.front-xoff = true;
+            }
+            committed => {
+                LinedefInspectorController.apply();
+            }
+        }
+
+        PanelEditLine {
+            text <=> LinedefInspectorController.front.yoff;
+            edited => {
+                LinedefInspectorController.touched.front-yoff = true;
+            }
+            committed => {
+                LinedefInspectorController.apply();
+            }
+        }
+    }
+
+    if LinedefInspectorController.has-back: VerticalLayout {
+        spacing: Theme.pad-small;
+
+        SectionTitle {
+            text: "Back side";
+        }
+
+        FieldRow {
+            label: "Top";
+            PanelEditLine {
+                text <=> LinedefInspectorController.back.top;
+                edited => {
+                    LinedefInspectorController.touched.back-top = true;
+                }
+                committed => {
+                    LinedefInspectorController.apply();
+                }
+            }
+
+            CommandButton {
+                label: "…";
+                button-min-width: 28px;
+                clicked => {
+                    LinedefInspectorController.populate-texture-browser(TexSlot.back-top);
+                    TexBrowserController.browser-visible = true;
+                }
+            }
+        }
+
+        FieldRow {
+            label: "Middle";
+            PanelEditLine {
+                text <=> LinedefInspectorController.back.mid;
+                edited => {
+                    LinedefInspectorController.touched.back-mid = true;
+                }
+                committed => {
+                    LinedefInspectorController.apply();
+                }
+            }
+
+            CommandButton {
+                label: "…";
+                button-min-width: 28px;
+                clicked => {
+                    LinedefInspectorController.populate-texture-browser(TexSlot.back-mid);
+                    TexBrowserController.browser-visible = true;
+                }
+            }
+        }
+
+        FieldRow {
+            label: "Bottom";
+            PanelEditLine {
+                text <=> LinedefInspectorController.back.bottom;
+                edited => {
+                    LinedefInspectorController.touched.back-bottom = true;
+                }
+                committed => {
+                    LinedefInspectorController.apply();
+                }
+            }
+
+            CommandButton {
+                label: "…";
+                button-min-width: 28px;
+                clicked => {
+                    LinedefInspectorController.populate-texture-browser(TexSlot.back-bottom);
+                    TexBrowserController.browser-visible = true;
+                }
+            }
+        }
+
+        FieldRow {
+            label: "X / Y off";
+            PanelEditLine {
+                text <=> LinedefInspectorController.back.xoff;
+                edited => {
+                    LinedefInspectorController.touched.back-xoff = true;
+                }
+                committed => {
+                    LinedefInspectorController.apply();
+                }
+            }
+
+            PanelEditLine {
+                text <=> LinedefInspectorController.back.yoff;
+                edited => {
+                    LinedefInspectorController.touched.back-yoff = true;
+                }
+                committed => {
+                    LinedefInspectorController.apply();
+                }
+            }
+        }
+    }
+
+    CommandButton {
+        label: "Flip";
+        clicked => {
+            LinedefInspectorController.flip();
+        }
+    }
+}

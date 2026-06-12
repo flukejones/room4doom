@@ -1,0 +1,481 @@
+import {
+    ListView,
+    Slider,
+    CheckBox,
+} from "std-widgets.slint";
+import { TexBrowserController } from "../../shared/asset_browser.slint";
+import { Theme } from "../../foundation/theme.slint";
+import { EditLine } from "../../widgets/inputs.slint";
+import { CommandButton } from "../../widgets/buttons.slint";
+
+export struct TexPatchRow {
+    name: string,
+    x: string,
+    y: string,
+}
+
+export struct AnimRow {
+    // "tex" or "flat" — the animation target kind.
+    kind: string,
+    start: string,
+    end: string,
+    speed: string,
+}
+
+// Texture editor tab: edits the project's composite texture definitions.
+export global TexEditController {
+    in property <[string]> textures;
+    // "<wad> · TEXTURE<n>": the WAD and texture lump the editor is editing.
+    in property <string> set-title: "";
+    in property <int> current: -1;
+    in property <image> preview;
+    // Exact preview size in logical px and the texel→px zoom, both computed
+    // in Rust to fit the pane (read at callback time, never bound to children).
+    in property <float> preview-w;
+    in property <float> preview-h;
+    in property <float> preview-zoom: 1;
+    in property <int> selected-patch: -1;
+    // Patch drag on the texture preview: press starts, move drags, release ends.
+    callback preview-press(length /* x */, length /* y */);
+    callback preview-move(length /* x */, length /* y */);
+    callback preview-release();
+    callback preview-resized(length, length);
+    // Keyboard handling for the texture view: arrows nudge the selected patch
+    // (1px, 10px with shift) or move the texture selection; Ctrl/Cmd+Z/Y undo
+    // /redo and C/X/V copy/cut/paste patches. `key` is the slint key text.
+    callback texedit-key(string /* key */, bool /* shift */, bool /* ctrl */);
+    // COLORMAP light level for the preview: -1 = full bright (no map),
+    // 0 = brightest mapped .. 31 = darkest.
+    in-out property <int> colormap-level: -1;
+    callback colormap-changed();
+    in property <[TexPatchRow]> patches;
+    in-out property <string> tex-width;
+    in-out property <string> tex-height;
+    in-out property <string> new-patch-name;
+    in property <string> status: "";
+    callback select(int);
+    callback new-texture();
+    callback dup-texture();
+    callback del-texture();
+    callback undo();
+    callback size-edited();
+    callback patch-edited(int, string, string);
+    callback patch-del(int);
+    callback patch-add();
+    callback populate-patch-browser();
+    // Import an external PNG as a new project patch (rfd pick in Rust).
+    callback import-patch();
+    callback save-project();
+
+    // Animation sequences (animated.dsp / ANIMATED lump). Each row is a
+    // flat/texture cycle from `start` to `end` at `speed` tics per frame.
+    in property <[AnimRow]> anims;
+    // New-sequence entry fields; `new-anim-is-texture` toggles tex vs flat.
+    in-out property <bool> new-anim-is-texture: false;
+    in-out property <string> new-anim-start;
+    in-out property <string> new-anim-end;
+    in-out property <string> new-anim-speed: "8";
+    callback anim-add();
+    callback anim-del(int);
+    callback anim-kind-toggled(int);
+    callback anim-edited(int, string /* start */, string /* end */, string /* speed */);
+}
+
+// Texture editor view (a tab in the main window). Left: project texture list;
+// right: composite preview and patch placements with numeric origins. Edits
+// persist via "Save project" (no unsaved-edit guard — Save is explicit).
+export component TexEditView inherits Rectangle {
+    background: Theme.window-glass;
+    forward-focus: tex-fs;
+
+    // Behind the content (declared first = lowest z): a click on empty editor
+    // chrome drops field focus so arrow-key patch nudge resumes. Interactive
+    // children are later siblings and receive their own clicks first.
+    TouchArea {
+        clicked => {
+            tex-fs.focus();
+        }
+    }
+
+    VerticalLayout {
+        padding: Theme.pad;
+        spacing: Theme.pad-small;
+
+        HorizontalLayout {
+            Text {
+                text: "Texture editor";
+                color: Theme.text;
+                font-size: 14px;
+                horizontal-stretch: 1;
+            }
+
+            CommandButton {
+                label: "Undo";
+                clicked => {
+                    TexEditController.undo();
+                }
+            }
+
+            CommandButton {
+                label: "Save project";
+                clicked => {
+                    TexEditController.save-project();
+                }
+            }
+        }
+
+        HorizontalLayout {
+            spacing: Theme.pad;
+            vertical-stretch: 1;
+
+            VerticalLayout {
+                min-width: 180px;
+                max-width: 280px;
+                spacing: Theme.pad-small;
+
+                Text {
+                    text: TexEditController.set-title;
+                    color: Theme.text-dim;
+                    overflow: elide;
+                }
+
+                ListView {
+                    for name[i] in TexEditController.textures: Rectangle {
+                        height: 26px;
+                        border-radius: Theme.border-radius;
+                        background: TexEditController.current == i ? Theme.tool-active : row.has-hover ? Theme.tool-hover : transparent;
+
+                        Text {
+                            x: Theme.pad-small;
+                            text: name;
+                            color: Theme.text;
+                            vertical-alignment: center;
+                        }
+
+                        row := TouchArea {
+                            clicked => {
+                                TexEditController.select(i);
+                                tex-fs.focus();
+                            }
+                        }
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.pad-small;
+
+                    CommandButton {
+                        label: "New";
+                        clicked => {
+                            TexEditController.new-texture();
+                        }
+                    }
+
+                    CommandButton {
+                        label: "Dup";
+                        clicked => {
+                            TexEditController.dup-texture();
+                        }
+                    }
+
+                    CommandButton {
+                        label: "Del";
+                        clicked => {
+                            TexEditController.del-texture();
+                        }
+                    }
+                }
+            }
+
+            VerticalLayout {
+                spacing: Theme.pad-small;
+                horizontal-stretch: 1;
+
+                pane := Rectangle {
+                    vertical-stretch: 1.5;
+                    background: Theme.panel-border;
+                    border-color: Theme.panel-border;
+                    border-width: Theme.border-width;
+                    clip: true;
+
+                    changed width => {
+                        TexEditController.preview-resized(self.width, self.height);
+                    }
+                    changed height => {
+                        TexEditController.preview-resized(self.width, self.height);
+                    }
+
+                    preview-img := Image {
+                        // Exact size from Rust; the TouchArea maps clicks to
+                        // texels for patch drag.
+                        source: TexEditController.preview;
+                        width: TexEditController.preview-w * 1px;
+                        height: TexEditController.preview-h * 1px;
+                        image-rendering: pixelated;
+
+                        TouchArea {
+                            pointer-event(ev) => {
+                                if (ev.kind == PointerEventKind.down) {
+                                    tex-fs.focus();
+                                    TexEditController.preview-press(self.mouse-x, self.mouse-y);
+                                } else if (ev.kind == PointerEventKind.move) {
+                                    TexEditController.preview-move(self.mouse-x, self.mouse-y);
+                                } else if (ev.kind == PointerEventKind.up) {
+                                    TexEditController.preview-release();
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // COLORMAP light-level preview: checkbox toggles it, slider
+                // picks the level (0 brightest .. 31 darkest).
+                HorizontalLayout {
+                    spacing: Theme.pad-small;
+
+                    CheckBox {
+                        text: "Colormap";
+                        checked: TexEditController.colormap-level >= 0;
+                        toggled => {
+                            TexEditController.colormap-level = self.checked ? 0 : -1;
+                            TexEditController.colormap-changed();
+                        }
+                    }
+
+                    Slider {
+                        horizontal-stretch: 1;
+                        enabled: TexEditController.colormap-level >= 0;
+                        minimum: 0;
+                        maximum: 31;
+                        value: max(0, TexEditController.colormap-level);
+                        changed(v) => {
+                            TexEditController.colormap-level = round(v);
+                            TexEditController.colormap-changed();
+                        }
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.pad-small;
+
+                    Text {
+                        text: "Size";
+                        color: Theme.text-dim;
+                        vertical-alignment: center;
+                    }
+
+                    EditLine {
+                        min-width: 44px;
+                        horizontal-stretch: 1;
+                        text <=> TexEditController.tex-width;
+                        edited => {
+                            TexEditController.size-edited();
+                        }
+                    }
+
+                    EditLine {
+                        min-width: 44px;
+                        horizontal-stretch: 1;
+                        text <=> TexEditController.tex-height;
+                        edited => {
+                            TexEditController.size-edited();
+                        }
+                    }
+
+                    EditLine {
+                        min-width: 70px;
+                        horizontal-stretch: 1;
+                        placeholder-text: "patch name";
+                        text <=> TexEditController.new-patch-name;
+                    }
+
+                    CommandButton {
+                        label: "Browse…";
+                        clicked => {
+                            TexEditController.populate-patch-browser();
+                            TexBrowserController.browser-visible = true;
+                        }
+                    }
+
+                    CommandButton {
+                        label: "Add patch";
+                        clicked => {
+                            TexEditController.patch-add();
+                        }
+                    }
+
+                    CommandButton {
+                        label: "Import PNG…";
+                        clicked => {
+                            TexEditController.import-patch();
+                        }
+                    }
+                }
+
+                ListView {
+                    min-height: 120px;
+                    // Fixed-ish: the preview pane is the only stretcher, so the
+                    // patch list + animations pack to the bottom of the column.
+                    vertical-stretch: 0;
+
+                    for patch[i] in TexEditController.patches: HorizontalLayout {
+                        height: 32px;
+                        spacing: Theme.pad-small;
+
+                        Text {
+                            text: patch.name;
+                            color: Theme.text;
+                            vertical-alignment: center;
+                            min-width: 90px;
+                        }
+
+                        px := EditLine {
+                            min-width: 44px;
+                            horizontal-stretch: 1;
+                            text: patch.x;
+                            edited(text) => {
+                                TexEditController.patch-edited(i, text, py.text);
+                            }
+                        }
+
+                        py := EditLine {
+                            min-width: 44px;
+                            horizontal-stretch: 1;
+                            text: patch.y;
+                            edited(text) => {
+                                TexEditController.patch-edited(i, px.text, text);
+                            }
+                        }
+
+                        CommandButton {
+                            label: "✕";
+                            button-min-width: 28px;
+                            clicked => {
+                                TexEditController.patch-del(i);
+                            }
+                        }
+                    }
+                }
+
+                // Animation sequences (animated.dsp / exported ANIMATED lump).
+                // Kind toggles flat↔tex; start/end are lump names, speed is
+                // tics per frame. Saved with Save project.
+                Text {
+                    text: "Animations";
+                    color: Theme.text-dim;
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.pad-small;
+
+                    CommandButton {
+                        label: TexEditController.new-anim-is-texture ? "tex" : "flat";
+                        clicked => {
+                            TexEditController.new-anim-is-texture = !TexEditController.new-anim-is-texture;
+                        }
+                    }
+
+                    EditLine {
+                        min-width: 70px;
+                        horizontal-stretch: 1;
+                        placeholder-text: "start";
+                        text <=> TexEditController.new-anim-start;
+                    }
+
+                    EditLine {
+                        min-width: 70px;
+                        horizontal-stretch: 1;
+                        placeholder-text: "end";
+                        text <=> TexEditController.new-anim-end;
+                    }
+
+                    EditLine {
+                        min-width: 44px;
+                        placeholder-text: "spd";
+                        text <=> TexEditController.new-anim-speed;
+                    }
+
+                    CommandButton {
+                        label: "Add anim";
+                        clicked => {
+                            TexEditController.anim-add();
+                        }
+                    }
+                }
+
+                ListView {
+                    min-height: 90px;
+                    vertical-stretch: 0;
+
+                    for anim[i] in TexEditController.anims: HorizontalLayout {
+                        height: 32px;
+                        spacing: Theme.pad-small;
+
+                        CommandButton {
+                            label: anim.kind;
+                            clicked => {
+                                TexEditController.anim-kind-toggled(i);
+                            }
+                        }
+
+                        astart := EditLine {
+                            min-width: 70px;
+                            horizontal-stretch: 1;
+                            text: anim.start;
+                            edited(text) => {
+                                TexEditController.anim-edited(i, text, aend.text, aspeed.text);
+                            }
+                        }
+
+                        aend := EditLine {
+                            min-width: 70px;
+                            horizontal-stretch: 1;
+                            text: anim.end;
+                            edited(text) => {
+                                TexEditController.anim-edited(i, astart.text, text, aspeed.text);
+                            }
+                        }
+
+                        aspeed := EditLine {
+                            min-width: 44px;
+                            text: anim.speed;
+                            edited(text) => {
+                                TexEditController.anim-edited(i, astart.text, aend.text, text);
+                            }
+                        }
+
+                        CommandButton {
+                            label: "✕";
+                            button-min-width: 28px;
+                            clicked => {
+                                TexEditController.anim-del(i);
+                            }
+                        }
+                    }
+                }
+
+                Text {
+                    text: TexEditController.status;
+                    color: Theme.text-dim;
+                }
+            }
+        }
+    }
+
+    // Off-screen key sink: the texture list and preview focus it on click so
+    // arrow keys nudge the selected patch (or move the texture selection).
+    // Kept separate from the fields so typing in them is unaffected.
+    tex-fs := FocusScope {
+        width: 0;
+        height: 0;
+        key-pressed(ev) => {
+            // Arrows (any modifier) and Ctrl/Cmd shortcuts route to Rust;
+            // everything else falls through so the fields keep typing.
+            if (ev.text == Key.UpArrow || ev.text == Key.DownArrow || ev.text == Key.LeftArrow || ev.text == Key.RightArrow || ev.modifiers.control) {
+                TexEditController.texedit-key(ev.text, ev.modifiers.shift, ev.modifiers.control);
+                return accept;
+            }
+            reject
+        }
+    }
+}

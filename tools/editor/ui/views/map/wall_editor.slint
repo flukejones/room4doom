@@ -1,0 +1,222 @@
+import {
+    TexSlot,
+    GfxEntry,
+    PopupId,
+} from "../../foundation/shared_types.slint";
+import { WindowController } from "../../foundation/globals.slint";
+import { Theme } from "../../foundation/theme.slint";
+import { PopupScaffold } from "../../widgets/popup.slint";
+import { FlatButton, CommandButton } from "../../widgets/buttons.slint";
+import { SpinBox } from "../../widgets/spinbox.slint";
+import { TextureGrid } from "../../widgets/texture_grid.slint";
+
+// One clickable band region overlaid on the wall image: vertical span in
+// logical px plus the texture slot it edits.
+export struct BandRect {
+    y: length,
+    h: length,
+    slot: TexSlot,
+}
+
+// Wall editor popup: a double-clicked line's elevation, a texture list, and
+// front-sector height spins. Slint owns `wall-edit-visible`; the open edge
+// (set true by the double-click handler) drives `populate-wall-edit`.
+export global WallEditController {
+    in-out property <bool> wall-edit-visible: false;
+    in property <int> line-index: -1;
+    // Active side tab: 0 front, 1 back. `has-back` hides the Back tab.
+    in-out property <int> side-tab: 0;
+    in property <bool> has-back: false;
+    // Rendered wall for the active side and its logical size.
+    in property <image> wall-img;
+    in property <float> wall-w;
+    in property <float> wall-h;
+    // Clickable band regions over the wall, recomputed on every render.
+    in property <[BandRect]> bands;
+    in property <TexSlot> selected-slot;
+    // Texture list (single column). `active-index` is the in-use texture's row
+    // (highlighted and scrolled into view); -1 when none.
+    in property <[GfxEntry]> textures;
+    in property <int> active-index: -1;
+    // Active side's sidedef offsets, shown at the popup bottom.
+    in property <int> xoff;
+    in property <int> yoff;
+    in-out property <int> floor-h;
+    in-out property <int> ceil-h;
+    callback populate-wall-edit();
+    callback side-changed();
+    callback select-band(TexSlot);
+    callback pick-texture(string);
+    callback height-changed();
+    // Arrow-key nudge of the active side's offset: 1px, 10px with shift.
+    callback wall-edit-key(string /* key */, bool /* shift */);
+    callback apply();
+}
+
+// Double-clicked line editor: the wall elevation with clickable upper/mid/lower
+// bands, a texture list, sidedef offset (arrow-nudged), and front-sector height
+// spins. Front/Back tabs pick which sidedef is edited.
+export component WallEditorPopup inherits PopupScaffold {
+    visible: WallEditController.wall-edit-visible;
+    title: "Edit Wall";
+    id: PopupId.wall-edit;
+    default-width: 640px;
+    default-height: 640px;
+    min-width-px: 440px;
+    min-height-px: 360px;
+    win-offset-x <=> WindowController.wall-edit.x;
+    win-offset-y <=> WindowController.wall-edit.y;
+    win-width <=> WindowController.wall-edit.w;
+    win-height <=> WindowController.wall-edit.h;
+    cancelled => {
+        WallEditController.wall-edit-visible = false;
+    }
+
+    HorizontalLayout {
+        spacing: Theme.pad-small;
+
+        FlatButton {
+            label: "Front";
+            button-min-width: 72px;
+            active: WallEditController.side-tab == 0;
+            clicked => {
+                WallEditController.side-tab = 0;
+                WallEditController.side-changed();
+            }
+        }
+
+        if WallEditController.has-back: FlatButton {
+            label: "Back";
+            button-min-width: 72px;
+            active: WallEditController.side-tab == 1;
+            clicked => {
+                WallEditController.side-tab = 1;
+                WallEditController.side-changed();
+            }
+        }
+    }
+
+    HorizontalLayout {
+        spacing: Theme.pad;
+        vertical-stretch: 1;
+
+        // Wall column: the elevation image with band hit regions overlaid 1:1
+        // in logical px (Rust renders at exactly wall-w × wall-h).
+        Rectangle {
+            horizontal-stretch: 1;
+            background: Theme.control-bg;
+            border-radius: Theme.border-radius;
+            clip: true;
+
+            wall := Image {
+                source: WallEditController.wall-img;
+                width: WallEditController.wall-w * 1px;
+                height: WallEditController.wall-h * 1px;
+                image-rendering: pixelated;
+
+                for band in WallEditController.bands: Rectangle {
+                    x: 0;
+                    width: 100%;
+                    y: band.y;
+                    height: band.h;
+                    border-width: band.slot == WallEditController.selected-slot ? 2px : 0;
+                    border-color: Theme.accent;
+
+                    band-touch := TouchArea {
+                        clicked => {
+                            WallEditController.select-band(band.slot);
+                            fs.focus();
+                        }
+                    }
+                }
+            }
+        }
+
+        TextureGrid {
+            target-cell-width: 128px;
+            width: self.target-cell-width * 2 + self.target-cell-width / 2;
+            entries: WallEditController.textures;
+            active-index: WallEditController.active-index;
+            picked(name) => {
+                WallEditController.pick-texture(name);
+                fs.focus();
+            }
+        }
+    }
+
+    HorizontalLayout {
+        spacing: Theme.pad;
+        alignment: space-between;
+
+        Text {
+            text: "offset  x: " + WallEditController.xoff + "  y: " + WallEditController.yoff;
+            color: Theme.text-dim;
+            vertical-alignment: center;
+        }
+    }
+
+    HorizontalLayout {
+        spacing: Theme.pad-small;
+        alignment: start;
+
+        Text {
+            text: "Floor height";
+            color: Theme.text-dim;
+            vertical-alignment: center;
+        }
+
+        SpinBox {
+            value <=> WallEditController.floor-h;
+            edited => {
+                WallEditController.height-changed();
+            }
+        }
+
+        Text {
+            text: "Ceil height";
+            color: Theme.text-dim;
+            vertical-alignment: center;
+        }
+
+        SpinBox {
+            value <=> WallEditController.ceil-h;
+            edited => {
+                WallEditController.height-changed();
+            }
+        }
+    }
+
+    HorizontalLayout {
+        spacing: Theme.pad-small;
+        alignment: end;
+
+        CommandButton {
+            label: "Apply";
+            clicked => {
+                WallEditController.apply();
+                WallEditController.wall-edit-visible = false;
+            }
+        }
+
+        CommandButton {
+            label: "Cancel";
+            clicked => {
+                WallEditController.wall-edit-visible = false;
+            }
+        }
+    }
+
+    // Off-screen key sink: arrows nudge the active side's offset (1px, 10 with
+    // shift); everything else (incl. Escape) falls through to the scaffold.
+    fs := FocusScope {
+        width: 0;
+        height: 0;
+        key-pressed(ev) => {
+            if (ev.text == Key.UpArrow || ev.text == Key.DownArrow || ev.text == Key.LeftArrow || ev.text == Key.RightArrow) {
+                WallEditController.wall-edit-key(ev.text, ev.modifiers.shift);
+                return accept;
+            }
+            reject
+        }
+    }
+}

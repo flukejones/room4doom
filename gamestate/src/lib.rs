@@ -86,35 +86,14 @@ pub struct GameType {
 impl GameType {
     /// Determine game mode, mission, and description from the IWAD contents.
     fn identify_version(wad: &WadData) -> Self {
-        let mode;
-        let mission;
-        let description;
-
-        if wad.lump_exists("MAP01") {
-            mission = GameMission::Doom2;
-        } else if wad.lump_exists("E1M1") {
-            mission = GameMission::Doom;
-        } else {
-            panic!("Could not determine IWAD type");
-        }
-
-        if mission == GameMission::Doom {
-            // Doom 1.  But which version?
-            if wad.lump_exists("E4M1") {
-                mode = GameMode::Retail;
-                description = DESC_ULTIMATE;
-            } else if wad.lump_exists("E3M1") {
-                mode = GameMode::Registered;
-                description = DESC_REGISTERED;
-            } else {
-                mode = GameMode::Shareware;
-                description = DESC_SHAREWARE;
-            }
-        } else {
-            mode = GameMode::Commercial;
-            description = DESC_COMMERCIAL;
-            // TODO: check for TNT or Plutonia
-        }
+        let (mode, mission) = wad.game_mode();
+        let description = match mode {
+            GameMode::Retail => DESC_ULTIMATE,
+            GameMode::Registered => DESC_REGISTERED,
+            GameMode::Shareware => DESC_SHAREWARE,
+            GameMode::Commercial => DESC_COMMERCIAL,
+            GameMode::Indetermined => panic!("Could not determine IWAD type"),
+        };
         Self {
             mode,
             mission,

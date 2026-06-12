@@ -1,0 +1,46 @@
+import { ScrollView } from "std-widgets.slint";
+import { GfxEntry } from "../foundation/shared_types.slint";
+import { Theme } from "../foundation/theme.slint";
+import { TextureTile } from "texture_tile.slint";
+
+export component TextureGrid inherits ScrollView {
+    in property <[GfxEntry]> entries;
+    in property <int> active-index: -1;
+    in property <length> row-height: 128px;
+    in property <length> target-cell-width: row-height;
+    callback picked(string);
+
+    property <length> grid-chrome: 2 * Theme.pad-small + 14px;
+    property <int> columns: max(1, floor((self.width - root.grid-chrome) / root.target-cell-width));
+    property <int> active-row: root.active-index >= 0 ? floor(root.active-index / root.columns) : 0;
+    property <length> row-pitch: root.row-height + Theme.pad-small;
+    property <length> active-top: root.active-row * root.row-pitch;
+
+    horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
+    viewport-y: root.active-index < 0 ? 0px : -clamp(root.active-top - (self.visible-height - root.row-height) / 2,
+                 0px, max(0px, self.viewport-height - self.visible-height));
+
+    VerticalLayout {
+        width: 100%;
+        alignment: start;
+        spacing: Theme.pad-small;
+
+        for row in (root.entries.length + root.columns - 1) / root.columns: HorizontalLayout {
+            spacing: Theme.pad-small;
+            height: root.row-height;
+
+            for col in root.columns: TextureTile {
+                property <int> index: row * root.columns + col;
+                property <GfxEntry> entry: root.entries[self.index];
+                name: entry.name;
+                thumb: entry.thumb;
+                tex-w: entry.tex-w;
+                tex-h: entry.tex-h;
+                selected: self.index == root.active-index;
+                clicked => {
+                    root.picked(entry.name);
+                }
+            }
+        }
+    }
+}

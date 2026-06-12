@@ -1,0 +1,109 @@
+import { Theme } from "../../foundation/theme.slint";
+import { PanelEditLine } from "../../widgets/inputs.slint";
+import { CommandButton } from "../../widgets/buttons.slint";
+import { FieldRow, SectionTitle } from "../../widgets/panel_field.slint";
+
+// Draw settings: the sector heights/flats and wall texture applied to geometry
+// drawn next. Shown while a Draw tool is active. Edits apply instantly to the
+// draw brush (no Apply button); drawn lines pick them up immediately.
+export global DrawSettingsController {
+    in property <bool> active: false;
+    in-out property <string> floor-h;
+    in-out property <string> ceil-h;
+    in-out property <string> floor-flat;
+    in-out property <string> ceil-flat;
+    in-out property <string> wall-tex;
+    // Open the flat/texture browser for a brush slot (Rust populates + shows it).
+    callback browse-floor();
+    callback browse-ceil();
+    callback browse-wall();
+    callback apply();
+}
+
+// Draw-settings section: shown inside the edit panel when a Draw tool is active.
+export component DrawSettings inherits VerticalLayout {
+    spacing: Theme.pad-small;
+
+    SectionTitle {
+        text: "Draw settings";
+    }
+
+    Text {
+        text: "applied to lines drawn next";
+        color: Theme.text-dim;
+    }
+
+    FieldRow {
+        label: "Floor h";
+        PanelEditLine {
+            text <=> DrawSettingsController.floor-h;
+            committed => {
+                DrawSettingsController.apply();
+            }
+        }
+    }
+
+    FieldRow {
+        label: "Ceil h";
+        PanelEditLine {
+            text <=> DrawSettingsController.ceil-h;
+            committed => {
+                DrawSettingsController.apply();
+            }
+        }
+    }
+
+    FieldRow {
+        label: "Floor";
+        PanelEditLine {
+            text <=> DrawSettingsController.floor-flat;
+            committed => {
+                DrawSettingsController.apply();
+            }
+        }
+
+        CommandButton {
+            label: "…";
+            button-min-width: 28px;
+            clicked => {
+                DrawSettingsController.browse-floor();
+            }
+        }
+    }
+
+    FieldRow {
+        label: "Ceil";
+        PanelEditLine {
+            text <=> DrawSettingsController.ceil-flat;
+            committed => {
+                DrawSettingsController.apply();
+            }
+        }
+
+        CommandButton {
+            label: "…";
+            button-min-width: 28px;
+            clicked => {
+                DrawSettingsController.browse-ceil();
+            }
+        }
+    }
+
+    FieldRow {
+        label: "Wall";
+        PanelEditLine {
+            text <=> DrawSettingsController.wall-tex;
+            committed => {
+                DrawSettingsController.apply();
+            }
+        }
+
+        CommandButton {
+            label: "…";
+            button-min-width: 28px;
+            clicked => {
+                DrawSettingsController.browse-wall();
+            }
+        }
+    }
+}

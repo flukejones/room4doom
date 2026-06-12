@@ -1,0 +1,63 @@
+import { Theme } from "../foundation/theme.slint";
+
+export component TextureTile inherits Rectangle {
+    in property <string> name;
+    in property <image> thumb;
+    in property <int> tex-w;
+    in property <int> tex-h;
+    in property <bool> selected;
+    callback clicked();
+
+    property <bool> filled: root.name != "";
+
+    border-radius: Theme.border-radius;
+    border-width: root.selected ? 2px : 0;
+    border-color: Theme.accent;
+    background: root.filled && (touch.has-hover || root.selected) ? Theme.tool-hover : transparent;
+    animate background, border-width {
+        duration: Theme.anim-fast;
+        easing: ease-out;
+    }
+
+    if root.filled: VerticalLayout {
+        width: 100%;
+        height: 100%;
+        padding: Theme.pad-small;
+        spacing: Theme.pad-small;
+
+        Rectangle {
+            vertical-stretch: 1;
+            clip: true;
+
+            Image {
+                source: root.thumb;
+                image-fit: contain;
+                width: min(parent.width, root.tex-w * 1px);
+                height: min(parent.height, root.tex-h * 1px);
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+            }
+        }
+
+        Text {
+            text: root.name;
+            color: Theme.text;
+            horizontal-alignment: center;
+            overflow: elide;
+        }
+
+        Text {
+            text: root.tex-w + " × " + root.tex-h;
+            color: Theme.text-dim;
+            font-size: 11px;
+            horizontal-alignment: center;
+        }
+    }
+
+    touch := TouchArea {
+        enabled: root.filled;
+        clicked => {
+            root.clicked();
+        }
+    }
+}

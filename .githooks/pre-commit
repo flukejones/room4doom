@@ -1,10 +1,11 @@
 #!/bin/sh
 # Pre-commit gate for room4doom.
 #
-# 1. rustfmt (nightly) the staged Rust files in place and fold the result into
-#    the commit. Partial stages are handled by stashing the unstaged portion.
-# 2. cargo test --workspace.
-# 3. If gameplay/, level/, or math/ changed, run the demo determinism
+# 1. rustfmt the staged Rust files in place and fold the result into the
+#    commit. Partial stages are handled by stashing the unstaged portion.
+# 2. slint-lsp format the staged .slint files in place and fold them in.
+# 3. cargo test --workspace.
+# 4. If gameplay/, level/, or math/ changed, run the demo determinism
 #    regression (headless playback vs golden hashes).
 #
 # Skip everything with: git commit --no-verify
@@ -29,6 +30,13 @@ if [ -n "$STAGED_RUST" ]; then
 	echo "$STAGED_RUST" | grep -v 'gameplay/src/info.rs' \
 		| xargs -r rustfmt
 	echo "$STAGED_RUST" | xargs -r git add
+fi
+
+# --- slint-lsp format staged .slint files ---
+STAGED_SLINT=$(printf '%s\n' "$STAGED" | grep '\.slint$' || true)
+if [ -n "$STAGED_SLINT" ] && command -v slint-lsp >/dev/null 2>&1; then
+	echo "$STAGED_SLINT" | xargs -r slint-lsp format -i
+	echo "$STAGED_SLINT" | xargs -r git add
 fi
 
 # --- tests ---

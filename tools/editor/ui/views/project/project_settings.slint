@@ -1,0 +1,164 @@
+import { ComboBox } from "../../widgets/combo.slint";
+import { PopupId } from "../../foundation/shared_types.slint";
+import { WindowController } from "../../foundation/globals.slint";
+import { Theme } from "../../foundation/theme.slint";
+import { PopupScaffold } from "../../widgets/popup.slint";
+import { EditLine } from "../../widgets/inputs.slint";
+import { CommandButton } from "../../widgets/buttons.slint";
+
+// Node lumps maps export with; mirrors editor_core::NodesFormat.
+export enum NodesFormat { room4doom, classic, both }
+
+// Per-project settings: which IWAD, node format, LAUNCH thing, last map. These
+// override the editor's "Preferred Defaults" while a project is open; the dialog
+// is only meaningful with a project loaded (`active`).
+export global ProjectSettingsController {
+    in-out property <bool> visible: false;
+    // Whether a project is open; the fields are disabled otherwise.
+    in property <bool> active: false;
+    in-out property <string> iwad-path;
+    in-out property <NodesFormat> nodes-format: NodesFormat.room4doom;
+    // Launch spawn marker: a named dropdown over the start things; the parallel
+    // kind values live in Rust (index resolves to a thing-type number).
+    in property <[string]> launch-types;
+    in-out property <int> launch-type-index;
+    // Read-only: the last-edited map recorded in the project.
+    in property <string> last-map;
+    callback pick-iwad-path();
+    callback apply();
+    // Open edge: fill the fields from the open project.
+    callback populate();
+}
+
+// One labelled field row.
+component FieldRow inherits HorizontalLayout {
+    in property <string> label;
+    spacing: Theme.pad-small;
+
+    Text {
+        text: root.label;
+        color: Theme.text-dim;
+        vertical-alignment: center;
+        width: 92px;
+    }
+
+    @children
+}
+
+export component ProjectSettingsPopup inherits PopupScaffold {
+    visible: ProjectSettingsController.visible;
+    title: "Project Settings";
+    id: PopupId.project-settings;
+    default-width: 460px;
+    default-height: 320px;
+    min-width-px: 380px;
+    min-height-px: 240px;
+    win-offset-x <=> WindowController.project-settings.x;
+    win-offset-y <=> WindowController.project-settings.y;
+    win-width <=> WindowController.project-settings.w;
+    win-height <=> WindowController.project-settings.h;
+    cancelled => {
+        ProjectSettingsController.visible = false;
+    }
+
+    // ComboBox is index-based; map index <-> enum here so the controller holds
+    // the enum (no magic int across the wire).
+    function nodes-index(f: NodesFormat) -> int {
+        if f == NodesFormat.room4doom {
+            return 0;
+        }
+        if f == NodesFormat.classic {
+            return 1;
+        }
+        return 2;
+    }
+    function nodes-from-index(i: int) -> NodesFormat {
+        if i == 0 {
+            return NodesFormat.room4doom;
+        }
+        if i == 1 {
+            return NodesFormat.classic;
+        }
+        return NodesFormat.both;
+    }
+
+    VerticalLayout {
+        spacing: Theme.pad-small;
+
+        if !ProjectSettingsController.active: Text {
+            text: "Open a project to edit its settings.";
+            color: Theme.text-dim;
+        }
+
+        FieldRow {
+            label: "IWAD";
+            EditLine {
+                horizontal-stretch: 1;
+                enabled: ProjectSettingsController.active;
+                text <=> ProjectSettingsController.iwad-path;
+            }
+
+            CommandButton {
+                label: "…";
+                button-min-width: 28px;
+                clicked => {
+                    ProjectSettingsController.pick-iwad-path();
+                }
+            }
+        }
+
+        FieldRow {
+            label: "Nodes";
+            ComboBox {
+                horizontal-stretch: 1;
+                model: ["Room4Doom", "Classic", "Both"];
+                current-index: root.nodes-index(ProjectSettingsController.nodes-format);
+                selected => {
+                    ProjectSettingsController.nodes-format = root.nodes-from-index(self.current-index);
+                }
+            }
+        }
+
+        FieldRow {
+            label: "Launch type";
+            ComboBox {
+                horizontal-stretch: 1;
+                model: ProjectSettingsController.launch-types;
+                current-index <=> ProjectSettingsController.launch-type-index;
+            }
+        }
+
+        FieldRow {
+            label: "Last map";
+            Text {
+                text: ProjectSettingsController.last-map == "" ? "(none)" : ProjectSettingsController.last-map;
+                color: Theme.text-dim;
+                vertical-alignment: center;
+            }
+        }
+
+        Rectangle {
+            vertical-stretch: 1;
+        }
+    }
+
+    HorizontalLayout {
+        spacing: Theme.pad-small;
+        alignment: end;
+
+        CommandButton {
+            label: "Apply";
+            clicked => {
+                ProjectSettingsController.apply();
+                ProjectSettingsController.visible = false;
+            }
+        }
+
+        CommandButton {
+            label: "Close";
+            clicked => {
+                ProjectSettingsController.visible = false;
+            }
+        }
+    }
+}

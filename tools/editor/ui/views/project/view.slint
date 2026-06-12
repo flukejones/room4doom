@@ -1,0 +1,442 @@
+import { ScrollView } from "std-widgets.slint";
+import { Theme } from "../../foundation/theme.slint";
+import { FlatButton } from "../../widgets/buttons.slint";
+import { EditLine } from "../../widgets/inputs.slint";
+import { ComboBox } from "../../widgets/combo.slint";
+import {
+    ProjectBrowserController,
+    LumpKind,
+    TreeRow,
+    LumpRow,
+} from "project_browser_controller.slint";
+
+// Vector wireframe of the selected map: three colour-coded `Path`s (one-sided,
+// two-sided, special) sharing the map-bounds viewbox, so it stays crisp at any
+// size. Path data + viewbox are pushed by Rust on selection.
+component MapWireframe inherits Rectangle {
+    background: Theme.window-background;
+    clip: true;
+
+    two-sided := Path {
+        width: 100%;
+        height: 100%;
+        viewbox-x: ProjectBrowserController.wf-vb-x;
+        viewbox-y: ProjectBrowserController.wf-vb-y;
+        viewbox-width: ProjectBrowserController.wf-vb-w;
+        viewbox-height: ProjectBrowserController.wf-vb-h;
+        commands: ProjectBrowserController.wf-two-sided;
+        stroke: ProjectBrowserController.wf-col-two-sided;
+        stroke-width: 1px;
+    }
+
+    one-sided := Path {
+        width: 100%;
+        height: 100%;
+        viewbox-x: ProjectBrowserController.wf-vb-x;
+        viewbox-y: ProjectBrowserController.wf-vb-y;
+        viewbox-width: ProjectBrowserController.wf-vb-w;
+        viewbox-height: ProjectBrowserController.wf-vb-h;
+        commands: ProjectBrowserController.wf-one-sided;
+        stroke: ProjectBrowserController.wf-col-one-sided;
+        stroke-width: 1px;
+    }
+
+    special := Path {
+        width: 100%;
+        height: 100%;
+        viewbox-x: ProjectBrowserController.wf-vb-x;
+        viewbox-y: ProjectBrowserController.wf-vb-y;
+        viewbox-width: ProjectBrowserController.wf-vb-w;
+        viewbox-height: ProjectBrowserController.wf-vb-h;
+        commands: ProjectBrowserController.wf-special;
+        stroke: ProjectBrowserController.wf-col-special;
+        stroke-width: 1px;
+    }
+}
+
+// A 5px drag handle that resizes the column to its left. `column-width` is the
+// bound width property; `min-px` clamps to fit-to-content; `done` fires on
+// release so Rust persists. Mirrors the map inspector splitter.
+component ColumnSplitter inherits Rectangle {
+    in-out property <length> column-width;
+    in property <length> min-px;
+    callback done();
+    width: 5px;
+    background: touch.has-hover ? Theme.accent : Theme.panel-border;
+    touch := TouchArea {
+        mouse-cursor: ew-resize;
+        moved => {
+            if (self.pressed) {
+                root.column-width = max(root.min-px, root.column-width + self.mouse-x - self.pressed-x);
+            }
+        }
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.up) {
+                root.done();
+            }
+        }
+    }
+}
+
+// Project/WAD browser tab view. Three columns: the active-WADs + project-dir
+// tree (left), the selected container's lumps (middle, hidden for a leaf file),
+// and the selected leaf's content preview (right). Pure presentation: it renders
+// the controller's `in` props and forwards semantic intents; Rust owns the data.
+export component ProjectBrowserView inherits HorizontalLayout {
+    padding: Theme.pad-small;
+    // Uniform list-row height: lets the scroll offset be a pure function of the
+    // active index (see scroll-into-view binding below).
+    property <length> row-h: 24px;
+
+    // Lump-list filters live on the controller so a project change can reset them.
+    // The kind dropdown (index 0 = All) is tested in Slint via enum equality; the
+    // NAME filter is a substring test Slint's string type can't do, so Rust computes
+    // each row's `matches` bool (see `name-filter-changed`) and Slint only collapses
+    // non-matching rows. Hidden rows stay in the model, so selection indices are
+    // unchanged.
+    property <[string]> kind-labels: [
+        "All",
+        "Maps",
+        "Map lumps",
+        "Flats",
+        "Patches",
+        "Sprites",
+        "Music",
+        "Sounds",
+        "Textures",
+        "Palette",
+        "Colourmap",
+        "Text",
+        "Other",
+    ];
+
+    // Dropdown index → LumpKind. Order matches `kind-labels` (after "All" at 0).
+    function kind-for(index: int) -> LumpKind {
+        if (index == 1) {
+            return LumpKind.map-marker;
+        }
+        if (index == 2) {
+            return LumpKind.map-sub-lump;
+        }
+        if (index == 3) {
+            return LumpKind.flat;
+        }
+        if (index == 4) {
+            return LumpKind.patch;
+        }
+        if (index == 5) {
+            return LumpKind.sprite;
+        }
+        if (index == 6) {
+            return LumpKind.music;
+        }
+        if (index == 7) {
+            return LumpKind.sound;
+        }
+        if (index == 8) {
+            return LumpKind.texture-defs;
+        }
+        if (index == 9) {
+            return LumpKind.palette;
+        }
+        if (index == 10) {
+            return LumpKind.colourmap;
+        }
+        if (index == 11) {
+            return LumpKind.text;
+        }
+        return LumpKind.other;
+    }
+
+    // Whether a lump row passes the active filters: `matches` is the Rust-computed
+    // name-substring result; the kind test is pure Slint enum equality.
+    function shown-row(matches: bool, kind: LumpKind) -> bool {
+        return matches && (ProjectBrowserController.kind-filter == 0 || kind == root.kind-for(ProjectBrowserController.kind-filter));
+    }
+
+    // Left: the flattened tree.
+    VerticalLayout {
+        width: ProjectBrowserController.tree-w;
+        spacing: Theme.pad-small;
+
+        FlatButton {
+            label: "Load WAD…";
+            clicked => {
+                ProjectBrowserController.load-pwad();
+            }
+        }
+
+        tree-focus := FocusScope {
+            vertical-stretch: 1;
+            // Up/down move the selection within the focused column; the select
+            // intent updates the preview. Clamped to the row range.
+            key-pressed(ev) => {
+                if (ev.text == Key.UpArrow) {
+                    ProjectBrowserController.select-tree-row(max(0, ProjectBrowserController.tree-active - 1));
+                    return accept;
+                }
+                if (ev.text == Key.DownArrow) {
+                    ProjectBrowserController.select-tree-row(min(ProjectBrowserController.tree-rows.length - 1, ProjectBrowserController.tree-active + 1));
+                    return accept;
+                }
+                reject
+            }
+
+            tree-scroll := ScrollView {
+                // Scroll the active row into view ONLY when it moves *and* lies
+                // outside the visible band — then push it to the near edge (top if
+                // above, bottom if below). An already-visible row does not move the
+                // view. Set imperatively on selection change (a binding would be
+                // overwritten by a user wheel/drag); pure arithmetic over uniform
+                // rows reads no laid-out item geometry → no recursion.
+                property <int> active: ProjectBrowserController.tree-active;
+                changed active => {
+                    self.bring-active-into-view();
+                }
+                // The tab destroys/recreates this view; on return scroll the
+                // remembered active row back into view (pure arithmetic, no
+                // laid-out reads → no recursion).
+                init => {
+                    self.bring-active-into-view();
+                }
+                function bring-active-into-view() {
+                    if (self.active >= 0) {
+                        if (self.active * root.row-h < -self.viewport-y) {
+                            self.viewport-y = -self.active * root.row-h;
+                        } else if ((self.active + 1) * root.row-h > -self.viewport-y + self.visible-height) {
+                            self.viewport-y = -((self.active + 1) * root.row-h - self.visible-height);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    width: 100%;
+                    alignment: start;
+
+                    for row[i] in ProjectBrowserController.tree-rows: Rectangle {
+                        height: root.row-h;
+                        border-radius: Theme.border-radius;
+                        background: i == ProjectBrowserController.tree-active ? Theme.tool-active : touch.has-hover ? Theme.tool-hover : transparent;
+
+                        // Row-wide select/open sits UNDERNEATH so the disclosure
+                        // arrow's TouchArea (declared later in the layout below) wins
+                        // the click — a later sibling is on top in Slint.
+                        touch := TouchArea {
+                            clicked => {
+                                tree-focus.focus();
+                                ProjectBrowserController.select-tree-row(i);
+                            }
+                            double-clicked => {
+                                tree-focus.focus();
+                                ProjectBrowserController.activate-tree-row(i);
+                            }
+                        }
+
+                        HorizontalLayout {
+                            x: Theme.pad-small + row.depth * 14px;
+                            spacing: 4px;
+
+                            arrow := Rectangle {
+                                width: 12px;
+                                Text {
+                                    text: row.expandable ? (row.expanded ? "▾" : "▸") : "";
+                                    color: Theme.text-dim;
+                                    vertical-alignment: center;
+                                }
+                                // Only expandable rows toggle; non-expandable rows
+                                // let the click fall through to row select below.
+                                if row.expandable: TouchArea {
+                                    clicked => {
+                                        ProjectBrowserController.toggle-expand(i);
+                                    }
+                                }
+                            }
+
+                            Text {
+                                text: row.label;
+                                color: Theme.text;
+                                font-weight: row.container ? 700 : 400;
+                                vertical-alignment: center;
+                                overflow: elide;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    ColumnSplitter {
+        column-width <=> ProjectBrowserController.tree-w;
+        min-px: 120px;
+        done => {
+            ProjectBrowserController.widths-changed();
+        }
+    }
+
+    // Middle: the selected container's lumps (hidden for a leaf file).
+    if ProjectBrowserController.container-visible: HorizontalLayout {
+        VerticalLayout {
+            width: ProjectBrowserController.lump-w;
+            spacing: Theme.pad-small;
+
+            // Name filter (Rust computes the substring match) + kind filter (Slint).
+            EditLine {
+                text <=> ProjectBrowserController.name-filter;
+                placeholder-text: "Filter…";
+                edited(text) => {
+                    ProjectBrowserController.name-filter-changed(text);
+                }
+            }
+
+            ComboBox {
+                model: root.kind-labels;
+                current-index <=> ProjectBrowserController.kind-filter;
+            }
+
+            lump-focus := FocusScope {
+                vertical-stretch: 1;
+                key-pressed(ev) => {
+                    if (ev.text == Key.UpArrow) {
+                        ProjectBrowserController.select-lump(max(0, ProjectBrowserController.lump-active - 1));
+                        return accept;
+                    }
+                    if (ev.text == Key.DownArrow) {
+                        ProjectBrowserController.select-lump(min(ProjectBrowserController.lump-rows.length - 1, ProjectBrowserController.lump-active + 1));
+                        return accept;
+                    }
+                    reject
+                }
+
+                lump-scroll := ScrollView {
+                    property <int> active: ProjectBrowserController.lump-active;
+                    changed active => {
+                        self.bring-active-into-view();
+                    }
+                    init => {
+                        self.bring-active-into-view();
+                    }
+                    // Offset assumes uniform rows (`active * row-h`); exact when no
+                    // filter collapses rows. Under a filter the active row may be
+                    // hidden anyway, so approximate scroll-to is acceptable.
+                    function bring-active-into-view() {
+                        if (self.active >= 0) {
+                            if (self.active * root.row-h < -self.viewport-y) {
+                                self.viewport-y = -self.active * root.row-h;
+                            } else if ((self.active + 1) * root.row-h > -self.viewport-y + self.visible-height) {
+                                self.viewport-y = -((self.active + 1) * root.row-h - self.visible-height);
+                            }
+                        }
+                    }
+
+                    VerticalLayout {
+                        width: 100%;
+                        alignment: start;
+
+                        for row[i] in ProjectBrowserController.lump-rows: Rectangle {
+                            property <bool> shown: root.shown-row(row.matches, row.kind);
+                            height: self.shown ? root.row-h : 0px;
+                            visible: self.shown;
+                            border-radius: Theme.border-radius;
+                            background: i == ProjectBrowserController.lump-active ? Theme.tool-active : lump-touch.has-hover ? Theme.tool-hover : transparent;
+
+                            HorizontalLayout {
+                                x: Theme.pad-small;
+                                spacing: Theme.pad;
+                                padding-left: Theme.pad;
+                                padding-right: Theme.pad;
+
+                                Text {
+                                    horizontal-stretch: 1;
+                                    text: row.name;
+                                    color: Theme.text;
+                                    vertical-alignment: center;
+                                    overflow: elide;
+                                }
+
+                                Text {
+                                    text: row.size;
+                                    color: Theme.text-dim;
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            lump-touch := TouchArea {
+                                clicked => {
+                                    lump-focus.focus();
+                                    ProjectBrowserController.select-lump(i);
+                                }
+                                double-clicked => {
+                                    lump-focus.focus();
+                                    ProjectBrowserController.activate-lump(i);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        ColumnSplitter {
+            column-width <=> ProjectBrowserController.lump-w;
+            min-px: 120px;
+            done => {
+                ProjectBrowserController.widths-changed();
+            }
+        }
+    }
+
+    // Right: the selected leaf's content preview.
+    Rectangle {
+        horizontal-stretch: 1;
+        background: Theme.window-glass;
+        border-width: Theme.border-width;
+        border-color: Theme.panel-border;
+
+        // A map (WAD marker OR project `.ron`): the same wireframe preview plus an
+        // Edit Map action. Both paths set `map-selected`, so there is one branch.
+        if ProjectBrowserController.map-selected: VerticalLayout {
+            spacing: Theme.pad;
+            padding: Theme.pad;
+
+            MapWireframe {
+                vertical-stretch: 1;
+                min-height: 160px;
+            }
+
+            Text {
+                text: ProjectBrowserController.content-text;
+                color: Theme.text-dim;
+                horizontal-alignment: center;
+            }
+
+            HorizontalLayout {
+                alignment: center;
+
+                FlatButton {
+                    label: "Edit Map";
+                    clicked => {
+                        ProjectBrowserController.edit-map(ProjectBrowserController.selected-map);
+                    }
+                }
+            }
+        }
+
+        // Image kinds render the real preview.
+        if !ProjectBrowserController.map-selected && (ProjectBrowserController.content-kind == LumpKind.flat || ProjectBrowserController.content-kind == LumpKind.patch || ProjectBrowserController.content-kind == LumpKind.sprite): Image {
+            source: ProjectBrowserController.content-image;
+            image-fit: contain;
+            image-rendering: pixelated;
+            width: 90%;
+            height: 90%;
+        }
+
+        // Everything else: a placeholder label.
+        if !ProjectBrowserController.map-selected && !(ProjectBrowserController.content-kind == LumpKind.flat || ProjectBrowserController.content-kind == LumpKind.patch || ProjectBrowserController.content-kind == LumpKind.sprite): Text {
+            text: ProjectBrowserController.content-text;
+            color: Theme.text-dim;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+}
