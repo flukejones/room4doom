@@ -1,6 +1,6 @@
 //! Parse a [`Bsp3dLump`] into the runtime [`BSP3D`]: materialize MapPtrs from
-//! lump indices, derive normals from winding, resolve the surface cache,
-//! triangulate, compute AABBs, and build the event tables.
+//! lump indices, read the rbsp-derived geometry (normals, triangulation, leaf
+//! bounds, poly tables), resolve the surface cache, and build the AABBs.
 
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
@@ -14,20 +14,7 @@ use crate::map_defs::{LineDef, Sector, SubSector};
 use glam::{Vec2, Vec3};
 use math::FixedT;
 use rbsp::bsp3d::{Bsp3dLump, HEIGHT_EPSILON, NO_INDEX, PolyFlags, TreeNode};
-use std::collections::HashSet;
 use std::iter;
-
-/// Signed shoelace area in XY over `verts` resolved through `indices`.
-fn shoelace(indices: &[usize], verts: &[Vec3]) -> f32 {
-    let n = indices.len();
-    (0..n)
-        .map(|i| {
-            let a = verts[indices[i]];
-            let b = verts[indices[(i + 1) % n]];
-            a.x * b.y - b.x * a.y
-        })
-        .sum()
-}
 
 impl BSP3D {
     /// Materialize the runtime structure from a lump.
@@ -45,6 +32,18 @@ impl BSP3D {
     ) -> Self {
         #[cfg(feature = "hprof")]
         profile!("BSP3D::from_lump");
+
+        // Geometry that is a pure function of the lump (winding normals,
+        // triangulation, leaf bounds, per-sector/linedef poly lists) is derived
+        // in rbsp. Read it before the lump is consumed below.
+        let subsector_sectors: Vec<u32> =
+            subsectors.iter().map(|ss| ss.sector.num as u32).collect();
+        let poly_normals = lump.poly_normals();
+        let triangles = lump.triangles();
+        let leaf_bounds = lump.leaf_bounds();
+        let (sector_floor_polys, sector_ceiling_polys, sector_wall_polys) =
+            lump.sector_poly_tables(&subsector_sectors, sectors.len());
+        let linedef_wall_polys = lump.linedef_wall_polys(linedefs.len());
 
         let Bsp3dLump {
             tree,
@@ -126,7 +125,8 @@ impl BSP3D {
             })
             .collect();
 
-        // Per-polygon: ranges, base flags, winding-derived normals, MapPtrs.
+        // Per-polygon: vertex ranges, base flags, MapPtrs. Normals and the
+        // linedef side come from the lump (geometry derived in rbsp).
         let n = polys.len();
         let mut poly_vertex_range: Vec<(usize, usize)> = Vec::with_capacity(n);
         let mut poly_flags: Vec<PolyFlags> = Vec::with_capacity(n);
@@ -137,15 +137,13 @@ impl BSP3D {
             let end = start + leaf.poly_count;
             debug_assert_eq!(start, polygons.len(), "lump must be leaf-contiguous");
             for rec in &polys[start..end] {
+                let gi = polygons.len();
                 let vs = rec.vert_start as usize;
-                let indices = &poly_verts[vs..vs + rec.vert_count as usize];
+                let normal = poly_normals[gi];
                 let mut flags = rec.flags & PolyFlags::LUMP_BITS;
 
                 let polygon = if rec.is_flat() {
                     flags |= PolyFlags::IS_FLAT;
-                    let area = shoelace(indices, &vertices);
-                    debug_assert!(area != 0.0, "flat with zero area survived the builder");
-                    let normal = if area > 0.0 { Vec3::Z } else { Vec3::NEG_Z };
                     Polygon3D {
                         normal,
                         sector: leaf.sector.clone(),
@@ -156,30 +154,7 @@ impl BSP3D {
                     }
                 } else {
                     let ld_ptr = MapPtr::new(&mut linedefs[rec.linedef as usize]);
-                    // The linedef side is derived from the quad's traversal
-                    // direction (front segs run with the linedef, back segs
-                    // against it) — sidedef identity can't discriminate when a
-                    // map reuses one sidedef on both sides. Sliver segs whose
-                    // endpoints deduped to one vertex (zero-area quads) fall
-                    // back to the recorded sidedef index.
-                    let ld_dir = (ld_ptr.v2.pos - ld_ptr.v1.pos).normalize_or_zero();
-                    let v0 = vertices[indices[0]];
-                    let v1 = vertices[indices[1]];
-                    let seg_dir = Vec2::new(v1.x - v0.x, v1.y - v0.y).try_normalize();
-                    let is_front = match seg_dir {
-                        Some(d) => d.dot(ld_dir) >= 0.0,
-                        None => rec.sidedef == ld_ptr.sides[0] as u32,
-                    };
-                    #[cfg(debug_assertions)]
-                    {
-                        let expected = ld_ptr.sides[usize::from(!is_front)] as u32;
-                        debug_assert_eq!(
-                            rec.sidedef, expected,
-                            "lump sidedef disagrees with the geometric side (linedef {})",
-                            rec.linedef,
-                        );
-                    }
-                    let (sidedef, back_sidedef) = if is_front {
+                    let (sidedef, back_sidedef) = if rec.is_front() {
                         (ld_ptr.front_sidedef.clone(), ld_ptr.back_sidedef.clone())
                     } else {
                         (
@@ -191,10 +166,6 @@ impl BSP3D {
                         )
                     };
                     let sector = sidedef.sector.clone();
-                    // Winding contract: walls run along the seg direction, so
-                    // the right-hand horizontal normal faces the sidedef side.
-                    let d = seg_dir.unwrap_or(if is_front { ld_dir } else { -ld_dir });
-                    let normal = Vec3::new(d.y, -d.x, 0.0);
                     Polygon3D {
                         normal,
                         sector,
@@ -211,66 +182,21 @@ impl BSP3D {
         }
         debug_assert_eq!(polygons.len(), n, "leaf ranges must cover all polys");
 
-        // Fan triangulation over the convex polys.
-        let tri_count: usize = poly_vertex_range
-            .iter()
-            .map(|&(s, e)| (e - s).saturating_sub(2))
-            .sum();
-        let mut triangles: Vec<[u32; 3]> = Vec::with_capacity(tri_count);
-        for &(s, e) in &poly_vertex_range {
-            let count = e - s;
-            if count < 3 {
-                continue;
-            }
-            // The triangle list is the GPU index buffer — u32 by contract.
-            let v0 = poly_verts[s] as u32;
-            for i in 1..count - 1 {
-                triangles.push([v0, poly_verts[s + i] as u32, poly_verts[s + i + 1] as u32]);
-            }
-        }
-
-        // Lookup + event tables.
+        // Widen the rbsp-derived index tables for runtime use.
+        let widen = |t: Vec<Vec<u32>>| -> Vec<Vec<usize>> {
+            t.into_iter()
+                .map(|v| v.into_iter().map(|i| i as usize).collect())
+                .collect()
+        };
+        let sector_floor_polys = widen(sector_floor_polys);
+        let sector_ceiling_polys = widen(sector_ceiling_polys);
+        let sector_wall_polys = widen(sector_wall_polys);
+        let linedef_wall_polys = widen(linedef_wall_polys);
         let mut sector_leaves: Vec<Vec<usize>> = vec![Vec::new(); sectors.len()];
         for (leaf_id, leaf) in leaves.iter().enumerate() {
             let sector_id = leaf.sector.num as usize;
             if sector_id < sectors.len() {
                 sector_leaves[sector_id].push(leaf_id);
-            }
-        }
-        let mut sector_floor_polys: Vec<Vec<usize>> = vec![Vec::new(); sectors.len()];
-        let mut sector_ceiling_polys: Vec<Vec<usize>> = vec![Vec::new(); sectors.len()];
-        let mut sector_wall_polys: Vec<Vec<usize>> = vec![Vec::new(); sectors.len()];
-        for (sector_id, leaf_ids) in sector_leaves.iter().enumerate() {
-            // A two-sided wall is shared into several leaves; one entry per
-            // sector.
-            let mut seen: HashSet<usize> = HashSet::new();
-            for &leaf_id in leaf_ids {
-                let leaf = &leaves[leaf_id];
-                let own_end = leaf.poly_start + leaf.poly_count;
-                for gi in leaf.poly_start..own_end {
-                    if poly_flags[gi].contains(PolyFlags::IS_FLAT) {
-                        if polygons[gi].normal.z > 0.0 {
-                            sector_floor_polys[sector_id].push(gi);
-                        } else {
-                            sector_ceiling_polys[sector_id].push(gi);
-                        }
-                    } else if seen.insert(gi) {
-                        sector_wall_polys[sector_id].push(gi);
-                    }
-                }
-                let shared =
-                    &shared_walls[leaf.shared_start..leaf.shared_start + leaf.shared_count];
-                for &gi in shared {
-                    if seen.insert(gi) {
-                        sector_wall_polys[sector_id].push(gi);
-                    }
-                }
-            }
-        }
-        let mut linedef_wall_polys: Vec<Vec<usize>> = vec![Vec::new(); linedefs.len()];
-        for (gi, p) in polygons.iter().enumerate() {
-            if let Some(ld) = &p.linedef {
-                linedef_wall_polys[ld.num].push(gi);
             }
         }
 
@@ -317,10 +243,13 @@ impl BSP3D {
             }
         }
 
-        // AABBs: leaves from geometry, nodes bottom-up, then mover expansion.
-        for ss_id in 0..bsp.leaves.len() {
-            let aabb = bsp.compute_leaf_aabb(ss_id);
-            bsp.leaves[ss_id].aabb = aabb;
+        // AABBs: per-leaf geometry bounds derived in rbsp, nodes bottom-up,
+        // then mover expansion (the only AABB step needing live sectors).
+        for (ss_id, b) in leaf_bounds.iter().enumerate() {
+            bsp.leaves[ss_id].aabb = AABB {
+                min: b.min,
+                max: b.max,
+            };
         }
         bsp.update_node_aabbs_recursive(bsp.root_node);
         bsp.expand_node_aabbs_for_movers(sectors, linedefs);
@@ -406,6 +335,7 @@ impl BSP3D {
 mod tests {
     use super::*;
     use math::FixedT;
+    use rbsp::Side;
     use rbsp::bsp3d::{LeafRecord, PolyRecord};
 
     /// One subsector volume z-split at 64 into two leaves by a plane node.
@@ -430,6 +360,7 @@ mod tests {
             flags: PolyFlags::empty(),
             linedef: NO_INDEX,
             sidedef: NO_INDEX,
+            linedef_side: Side::Front,
             seg_offset: 0.0,
         };
         let leaf = |poly_start: u32| LeafRecord {

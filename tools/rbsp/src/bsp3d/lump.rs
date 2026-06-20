@@ -2,7 +2,7 @@
 //! [`Bsp3dLump`] is what the builder emits and what the runtime parses; it is
 //! the disk format for the RBSP lump's 3D sections.
 
-use crate::types::Node;
+use crate::types::{Node, Side};
 use bitflags::bitflags;
 use glam::Vec3;
 
@@ -56,6 +56,8 @@ pub struct PolyRecord {
     /// The building seg's sidedef index; [`NO_INDEX`] = flat. Sky fillers keep
     /// their seg's sidedef (front sector derives from it).
     pub sidedef: u32,
+    /// Which linedef side the wall faces. `Front` for flats (unused). Like 2D `Seg.side`.
+    pub linedef_side: Side,
     /// U anchor along the linedef (front traversal), in map units.
     pub seg_offset: f32,
 }
@@ -63,6 +65,11 @@ pub struct PolyRecord {
 impl PolyRecord {
     pub const fn is_flat(&self) -> bool {
         self.linedef == NO_INDEX
+    }
+
+    /// Wall faces the linedef front side. Walls only.
+    pub const fn is_front(&self) -> bool {
+        matches!(self.linedef_side, Side::Front)
     }
 }
 
@@ -110,6 +117,56 @@ pub struct Bsp3dLump {
     pub leaves: Vec<LeafRecord>,
     /// Flat shared-wall polygon indices; leaves reference by range.
     pub shared_walls: Vec<u32>,
+}
+
+impl Bsp3dLump {
+    /// Vertex indices of polygon `gi` (slice into [`Self::poly_verts`]).
+    pub fn poly_vert_indices(&self, gi: usize) -> &[u32] {
+        let p = &self.polys[gi];
+        let s = p.vert_start as usize;
+        &self.poly_verts[s..s + p.vert_count as usize]
+    }
+
+    /// Fan triangles of polygon `gi`: `(v0, vi, vi+1)` as vertex indices. Empty
+    /// for polygons with fewer than 3 vertices.
+    pub fn poly_triangles(&self, gi: usize) -> impl Iterator<Item = [u32; 3]> + '_ {
+        let idx = self.poly_vert_indices(gi);
+        (1..idx.len().saturating_sub(1)).map(move |i| [idx[0], idx[i], idx[i + 1]])
+    }
+
+    /// Fan triangles of every polygon owned by leaf `i`, in poly order.
+    pub fn leaf_triangles(&self, i: usize) -> impl Iterator<Item = [u32; 3]> + '_ {
+        let leaf = &self.leaves[i];
+        let range = leaf.poly_start as usize..leaf.poly_start as usize + leaf.poly_count as usize;
+        range.flat_map(move |gi| self.poly_triangles(gi))
+    }
+
+    /// Vertex-index rings of every polygon owned by leaf `i`, in poly order.
+    pub fn leaf_ngons(&self, i: usize) -> impl Iterator<Item = &[u32]> + '_ {
+        let leaf = &self.leaves[i];
+        let range = leaf.poly_start as usize..leaf.poly_start as usize + leaf.poly_count as usize;
+        range.map(move |gi| self.poly_vert_indices(gi))
+    }
+
+    /// Fan triangulation of the whole map, in poly order — the GPU-ready fan
+    /// index buffer parallel to [`Self::polys`].
+    pub fn triangles(&self) -> Vec<[u32; 3]> {
+        let tri_total: usize = self
+            .polys
+            .iter()
+            .map(|p| (p.vert_count as usize).saturating_sub(2))
+            .sum();
+        let mut out = Vec::with_capacity(tri_total);
+        for gi in 0..self.polys.len() {
+            out.extend(self.poly_triangles(gi));
+        }
+        out
+    }
+
+    /// Vertex-index rings of the whole map, in poly order.
+    pub fn poly_ngons(&self) -> impl Iterator<Item = &[u32]> + '_ {
+        (0..self.polys.len()).map(move |gi| self.poly_vert_indices(gi))
+    }
 }
 
 /// Lift the 2D pass's nodes into the unified tree (all vertical).

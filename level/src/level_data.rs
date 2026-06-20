@@ -201,8 +201,8 @@ impl LevelData {
         self.load_sectors(map_name, wad, &flat_num_for_name);
         self.load_sidedefs(map_name, wad, &tex_order);
 
-        // 2D BSP + 3D geometry, always in lump form: WAD lump, sidecar
-        // cache, or built fresh (then cached).
+        // 2D BSP + 3D geometry, always in lump form: WAD lump, cache,
+        // or built fresh (then cached).
         let (bsp, bsp3d_lump) = load_or_build_bsp(map_name, wad, sky_num, sky_pic);
 
         let wad_linedefs: Vec<WadLineDef> = wad
@@ -952,7 +952,7 @@ impl LevelData {
 const SKY_FLAT_NAME: &str = "F_SKY1";
 
 /// The map's 2D BSP + 3D geometry, always in lump form: from the WAD's
-/// `RBSP` lump when present, else from the sidecar cache, else built via the
+/// `RBSP` lump when present, else from the cache, else built via the
 /// rbsp crate (and written to the cache for the next run).
 fn load_or_build_bsp(
     map_name: &str,

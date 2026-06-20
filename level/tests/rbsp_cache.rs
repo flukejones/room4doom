@@ -1,4 +1,4 @@
-//! Lump-path equivalence: the sidecar cache and a tool-emitted WAD `RBSP`
+//! Lump-path equivalence: the cache and a tool-emitted WAD `RBSP`
 //! lump must materialize runtime data identical to an in-process build.
 
 use level::LevelData;
@@ -87,7 +87,7 @@ fn wad_lump_matches_built() {
 }
 
 #[test]
-fn sidecar_cache_hit_produces_identical_runtime() {
+fn cache_hit_produces_identical_runtime() {
     let a = load_map(&doom1_wad_path(), "E1M2");
 
     // test-utils points ROOM4DOOM_CACHE_DIR at a per-process temp dir; the

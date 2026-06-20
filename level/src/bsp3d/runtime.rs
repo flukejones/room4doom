@@ -154,7 +154,7 @@ impl Node3D {
 /// per-frame light lookup. The render path reads the SoA arrays on [`BSP3D`].
 #[derive(Debug)]
 pub struct Polygon3D {
-    /// Derived from winding at parse: flats ±Z, walls the sidedef side.
+    /// Winding normal from the lump: flats ±Z, walls the sidedef side.
     pub normal: Vec3,
     /// Front sector (flats: the only reference set).
     pub sector: MapPtr<Sector>,

@@ -5,7 +5,7 @@
 //! participate in lifts, doors, and platforms. Runs on [`Bsp3dBuilder`] before
 //! condensing, so the engine runtime never edits polygon vertex lists.
 
-use super::build::{
+use super::builder::{
     Bsp3dBuilder, BuildKind, HEIGHT_EPSILON, QUANT_PRECISION, QuantizedVec3, WallType,
 };
 use super::input::{Bsp3dInput, NO_REF};

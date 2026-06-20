@@ -12,7 +12,7 @@ use crate::types::*;
 use glam::Vec3;
 
 const MAGIC: &[u8; 4] = b"RBSP";
-const VERSION: u16 = 4;
+const VERSION: u16 = 5;
 const NUM_SECTIONS: usize = 12;
 const HEADER_SIZE: usize = 16;
 const DIR_ENTRY_SIZE: usize = 8;
@@ -22,7 +22,7 @@ const SEG_SIZE: usize = 20;
 const SUBSECTOR_SIZE: usize = 20;
 const NODE_SIZE: usize = 56;
 const VERT3D_SIZE: usize = 12;
-const POLY_SIZE: usize = 19;
+const POLY_SIZE: usize = 20;
 const LEAF3D_SIZE: usize = 16;
 const TREE_VERTICAL_SIZE: usize = 57;
 const TREE_PLANE_SIZE: usize = 25;
@@ -161,6 +161,10 @@ pub fn write_rbsp_lump(output: &BspOutput, bsp3d: &Bsp3dLump, classic_nodes: boo
         buf.push(p.flags.bits());
         buf.extend_from_slice(&p.linedef.to_le_bytes());
         buf.extend_from_slice(&p.sidedef.to_le_bytes());
+        buf.push(match p.linedef_side {
+            Side::Front => 0,
+            Side::Back => 1,
+        });
         buf.extend_from_slice(&p.seg_offset.to_le_bytes());
     }
 
@@ -248,8 +252,8 @@ pub fn read_rbsp_lump(data: &[u8]) -> Option<(BspOutput, Bsp3dLump)> {
         offsets[i] = u32::from_le_bytes(data[base..base + 4].try_into().ok()?);
         counts[i] = u32::from_le_bytes(data[base + 4..base + 8].try_into().ok()?);
     }
-    // Reject truncated or layout-mismatched data (e.g. a corrupt sidecar
-    // cache): sections must be contiguous at exactly these record sizes.
+    // Reject truncated or layout-mismatched data (e.g. a corrupt cache):
+    // sections must be contiguous at exactly these record sizes.
     let entry_sizes = [
         VERTEX_SIZE,
         SEG_SIZE,
@@ -413,7 +417,12 @@ pub fn read_rbsp_lump(data: &[u8]) -> Option<(BspOutput, Bsp3dLump)> {
             flags: PolyFlags::from_bits_truncate(data[off + 6]) & PolyFlags::LUMP_BITS,
             linedef: rd_u32(off + 7),
             sidedef: rd_u32(off + 11),
-            seg_offset: rd_f32(off + 15),
+            linedef_side: if data[off + 15] == 0 {
+                Side::Front
+            } else {
+                Side::Back
+            },
+            seg_offset: rd_f32(off + 16),
         });
         off += POLY_SIZE;
     }
@@ -600,6 +609,7 @@ mod tests {
                 flags: PolyFlags::MOVES,
                 linedef: 7,
                 sidedef: 9,
+                linedef_side: Side::Back,
                 seg_offset: 16.5,
             }],
             leaves: vec![LeafRecord {
