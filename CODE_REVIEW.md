@@ -2,11 +2,54 @@
 
 What to look for when reviewing a commit. Each item is a check, not an assertion.
 
-Items already enforced by clippy / rustc are not repeated here — trust CI for those; review covers what tools cannot. The rules below are the ones that bit us in practice: a Doom port has fixed-point math, a shared BSP3D fed to two renderers (CPU `software3d` + GPU `wgpu3d`), per-frame hot paths, and WGSL/Rust layout coupling that compiles cleanly and fails (or silently corrupts) only at runtime.
+Items already enforced by clippy / rustc or by a kb-hook lint are not repeated here — trust the tools for those; review covers what they cannot. `kb-hook audit` lists what the lints find across the tree, and each refusal carries the rule, so an item removed from this file is not a rule dropped. The rules below are the ones that bit us in practice: a Doom port has fixed-point math, a shared BSP3D fed to two renderers (CPU `software3d` + GPU `wgpu3d`), per-frame hot paths, and WGSL/Rust layout coupling that compiles cleanly and fails (or silently corrupts) only at runtime.
 
 Project conventions live in `CLAUDE.md` and `~/.claude/rules/rust.md`; this file is the review lens, not a restatement.
 
 **Audit documented contracts against call sites.** A rule this file states as enforced is a claim, not a fact — this file once said the draw path's `affected == newly_created` bug was fixed while the code still shipped it. When a review touches an area with a written contract, grep the call sites and verify.
+
+## Module structure
+
+- **Look for single-file folders** — `foo/mod.rs` with no siblings. Should be flat `foo.rs`.
+- **Check for mutual sibling imports** — if `a.rs` and `b.rs` import each other, the boundary is wrong.
+- **Look for shape fragmentation** — three `impl Foo` blocks in three files should be one file.
+- **Watch for the inverse: 1000-LOC files mixing 3+ concerns** — WAD I/O + geometry + render state in one file is the same anti-pattern.
+- **Verify `mod.rs`/`lib.rs` stays small** — re-exports and the cross-cutting type, not a dumping ground.
+- **Look for two-level dispatch** — a folder split by category over an enum, where each file is a second match on the same enum. One match should suffice.
+- **Verify a function lives in the module that uses it** — used by only one other module → it probably belongs there.
+
+## Naming
+
+- **Verify variable names describe role, not type** — renaming on type change is noise.
+- **Flag stringly-typed values for finite sets** — render modes, tool kinds, sky modes, thing classes. Enums, with `TryFrom` for WAD-parsed input; never silent-default.
+- **Check for module-name collisions** — the same module name reachable via two `use` paths. Rename the more deeply-nested one.
+- **Verify map keys cover the full identity** — keying a texture by name when identity is `(name, kind)` silently collides walls with flats.
+
+## Public API
+
+- **Audit every `pub use`** — confirm a caller reaches it. An unused re-export blocks dead-code detection and misleads about the surface.
+- **Prefer `pub(crate)` over `pub`** for items used only inside the crate — a `pub` BSP3D field read only inside `build.rs` should be `pub(crate)`.
+- **Flag a field made `pub` to let one caller read one value** — an accessor keeps the invariant.
+
+## Type system and ownership
+
+- **Flag `Option<&T>` returns** that could be `&Option<T>`, or the reverse — the wrong shape forces awkward call sites.
+- **Flag two `Option` fields only valid together**, where one branch silently ignores the other. Collapse into an enum.
+- **Flag a wrapper struct carrying parallel data** — change the base type or define a richer local type.
+- **Check trait bounds on generics** — bounds live at the impl/fn that needs them, not duplicated everywhere.
+- **Flag `'static` bounds added without justification** — usually an ownership workaround.
+- **Check for `Arc<Mutex<T>>` where `&mut T` would suffice** — shared ownership for single-threaded state is overkill.
+
+## One source of truth
+
+- **Flag a value reachable by more than one field or path.** Two homes means a search finds several sites and none is authoritative, with no signal if they disagree. Pick the canonical location and delete the duplicates.
+- **A derived struct must not carry its own `Default`** of the values it derives from.
+
+## Error handling
+
+- **Flag `unwrap_or_default()` on fallible ops** — a transient failure becomes a plausible-looking default with no log.
+- **Flag bare `.unwrap()`** on runtime-fallible ops (locks, channels, I/O, WAD lookups). `expect("reason")` or handling; `.unwrap()` only on compile-time-provable invariants.
+- **Verify error variants carry context** — an error without a detail field is unhelpful at the call site.
 
 ## Allocations, clones, hot paths
 
@@ -59,7 +102,6 @@ Strictly typed and memory-safe, but logical and layout traps remain. Shaders are
 ### Safety & correctness
 - **Out-of-bounds storage indexing.** Indexing `wall_rects[tex]` / `sector_light[sector]` / `*_translation[tex]` with an id outside that array's namespace (a flat id into the wall table, `NO_TEX` = `u32::MAX`) is OOB. Default bounds-checking clamps the read (silent wrong value) and a write is UB. Index only inside the branch that owns that namespace; don't read a wall table for a flat fragment.
 - **Per-kind translation tables.** Walls and flats are separate atlases/rect/translation arrays — never cross-index.
-- **Uninitialised vars.** WGSL gives no safe default; initialise on declaration.
 - **`discard` divergence.** Masked-midtex / transparent-texel discards are fine, but keep the branch shape simple; avoid deep per-fragment divergence in lockstep invocations.
 
 ### Pipeline & layout (the silent corruptor)
@@ -74,17 +116,12 @@ Strictly typed and memory-safe, but logical and layout traps remain. Shaders are
 
 ## Comments & docs
 
-- **Flag comments narrating the technique or the diff** — `// disjoint-field borrow (no clone)`, `// removed unused field`, `// based on previous discussion`. The code shows *how*; comments justify the non-obvious *why* only. Borrow-checker mechanics are self-evident from the code.
 - **One short line max** for a doc comment on a non-obvious item. No multi-paragraph rambles, no decorative dividers.
 - **Self-contained.** Readable in 6 months with no chat context. "TODO ask user", "see the workflow" belongs in chat, not the file.
-- **Never the word "seam".** Use the actual geometry/UV term.
 
 ## Imports, constants, types
 
 - **File layout order, top to bottom:** `mod` → `use` (incl. re-exports) → `const`/`static` → newtypes → simple enums/structs (unit/no-impl or basic-impl) → richer structs/enums → everything else in *use order*, each item declared before it is used. Flag a newtype or `const` stranded between functions, or an item referenced above its declaration.
-- **No inline multi-segment path qualifiers** outside `use` (`std::f32::consts::PI` inline → `use std::f32::consts::PI;`). Single-segment `crate::`/`super::` is fine. `#[cfg(...)]`-gated imports get the same `#[cfg]` on the `use`.
-- **No `use` inside fn bodies** (except `use super::*;` in `#[cfg(test)] mod tests`).
-- **No `const` inside fn bodies/closures** — module top.
 - **Magic numbers** (atlas size, tic rate, scroll/scale tuning, light falloff) are named `const` at module top, not bare literals — especially when the same value is duplicated in a WGSL shader (cross-language drift risk; cross-reference it).
 - **Scalar constants shared across a language boundary have ONE source.** A comment saying "must match X in Y" is not a contract — it drifts silently. WGSL: substitute the Rust values over defaults declared in the shader file (the editor's `surface_wgsl` rewrites `SURFACE_*`, fill thresholds, sentinels in place — prepending instead leaves the file broken for wgsl-analyzer). Slint: shared indices/values live in a Slint global Rust reads (`Tabs`), or a typed enum mirrored via explicit `match` — never bare `0/1/2` on both sides.
 - **Enum ↔ int via explicit `match`, never `as`** for GPU/config mappings — `SkyMode as u32` silently breaks if a variant is reordered; `match mode { Static => 0, Dynamic => 1 }` is stable and documents the wire contract.
@@ -95,7 +132,7 @@ Strictly typed and memory-safe, but logical and layout traps remain. Shaders are
 ## Tests & git hygiene
 
 - **Tests in the same file** (`#[cfg(test)] mod tests`); validate mock WAD/parser data through the real loader, not hand-built structs.
-- **WAD-dependent tests are `#[ignore]`/feature-gated** with the WAD named in the header (`wad-doom`, `wad-sunder`); E1M1/shareware paths run in CI.
+- **A WAD-dependent test names the WAD it needs** — `wad-doom`, `wad-sunder`. `clippy::ignore_without_reason` enforces that `#[ignore]` carries a reason; which WAD, and whether it is feature-gated rather than ignored, it cannot know.
 - **Every commit leaves the repo green** — `cargo build` (dev only, never `--release`) + `cargo fmt` + `cargo clippy` clean. The pre-commit hook runs the suite + demo regression.
 - **`just lint` is the source of truth, not `cargo clippy -p <crate>`.** It runs clippy with `-D warnings` over the workspace *including test modules* (so `iter_over_hash_type` on a `for … in &hashmap`, etc., fail the build even in `#[cfg(test)]`) and the custom `lint-editor-patterns` ripgrep checks. A crate-scoped `cargo clippy` can pass while `just lint` fails; run `just lint` before declaring done. The `lint-editor-patterns` inline-`crate::` check excludes `use` lines of any visibility (`pub`, `pub(crate)`, `pub(super)`) and doc-comment intra-doc links (`///`/`//!`) — a multi-segment `crate::a::B` in a doc link or a re-export is idiomatic, not a code-site qualifier; only flag inline qualifiers in executable code.
 - **No hash-order-dependent outcomes.** The `iter_over_hash_type` lint catches `for` loops, but `.reduce`/min/max ties over a `HashSet`, hash-ordered seed selection, and `HashSet`-driven write order escape it — tie-break by lowest key (the `inner_edge` trace start was a run-to-run flake). Sort sets into Vecs before order matters.
@@ -108,7 +145,6 @@ Strictly typed and memory-safe, but logical and layout traps remain. Shaders are
 
 The codebase is sync-threaded — no async runtime, no `.await`, no `async_lock`. The sound backend owns a dedicated thread fed by a channel (`SoundAction`); the editor offloads BSP export/launch to a one-shot `std::thread` and bridges results back over `std::sync::mpsc`. New concurrency should follow that channel-bridge shape, not introduce an executor.
 
-- **Verify channel send/recv errors are handled** — a silent `.ok()`/`let _ =` on a `Sender::send` drops the message; at minimum `log::warn!` (the sound protocol and editor `JobOutcome` sends are the live channels).
 - **Flag a `!Send` value (`Rc`, `RefCell`, Slint `Weak`'s borrowed state) captured into a spawned thread.** The worker must take an owned snapshot; cross back to the UI with `upgrade_in_event_loop`, never by sharing the `Rc`.
 - **Flag blocking/long work on a thread that must stay responsive** — heavy CPU (BSP build) or sync I/O on the Slint event loop freezes the UI. Move it to the worker thread (see `jobs.rs`).
 - **Flag held-across-statement lock guards on sync mutexes.** `let lock = m.lock(); let n = lock.foo().bar;` holds the lock for the rest of the scope. Prefer a single chained expression: `let n = m.lock()…foo().bar;`. Multi-line bodies that need the guard longer should `drop(lock);` at the earliest safe point. Same judgement for a long-lived `RefCell` `borrow_mut()` held across a re-entrant call.
@@ -129,7 +165,6 @@ The editor's `.slint` lives in `tools/editor/ui/`. Globals are split: typed `*Co
 - **Flag hardcoded colors, font sizes, radii, spacing.** Use the local `Theme` global: colours (`Theme.text`), spacing (`Theme.pad`), radii (`Theme.border-radius`/`border-radius-small`), and the type scale (`Theme.font-size-small/caption/body/heading/title`). New chrome colours go through `ThemeController` so both light/dark resolve; deliberately theme-invariant colours (the missing-resource magenta) still get a `Theme` token; canvas raster colours stay in Rust (`render/style.rs`), not Slint. Widgets use the themed `widgets/` controls — a `std-widgets` `CheckBox`/`ComboBox` follows the OS palette, not the editor theme.
 - **Flag Rust handling `slint::Image` for display decisions.** Rust builds the pixel data (tiles, texture previews, browser thumbs) and pushes `image`/`TileData`/`GfxEntry`; Slint only places it. Don't push display *logic* (which image to show) into Slint via raw `Image` swaps it shouldn't decide.
 - **Flag x/y positioning** where layouts would do. Overlays and modals are the exception — absolute positioning is inherent there (hover preview cards, `PopupScaffold` centring).
-- **Flag `visible: false` without zeroing width/height.** The element still occupies layout space.
 - **Flag reading a repeated item's laid-out `y`/`height` from a `changed`/`init` handler that writes a layout-affecting property** (e.g. `viewport-y`). It panics at runtime with "Recursion detected": the geometry read forces a layout pass that re-fires the repeater/handler. Scroll-into-view must be a **pure binding** of inputs (`viewport-y: <expr of active-index, columns, row-height>`) with a calculated offset (uniform row height), never `bring-into-view(self.y, …)` from a handler. Also derive grid `columns` from the element's own `width`, not `visible-width` (the scrollbar toggling `visible-width` rebuilds the rows and can feed the loop).
 
 ## Slint-Rust boundary
