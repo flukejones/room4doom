@@ -21,6 +21,10 @@ pub const PSPRITE_SRC: &str = concat!(
 );
 /// Voxel pass: self-contained (own face-corner table + camera/light structs).
 pub const VOXEL_SRC: &str = include_str!("voxel.wgsl");
+/// Teleport aim arc + landing ring: self-contained.
+pub const TELEPORT_SRC: &str = include_str!("teleport.wgsl");
+/// Tracked hand skeletons: self-contained.
+pub const HANDS_SRC: &str = include_str!("hands.wgsl");
 
 /// Uniform buffer binding.
 pub fn bind_uniform_entry(binding: u32, vis: wgpu::ShaderStages) -> wgpu::BindGroupLayoutEntry {
@@ -119,6 +123,8 @@ mod tests {
             ("sprite", SPRITE_SRC),
             ("psprite", PSPRITE_SRC),
             ("voxel", VOXEL_SRC),
+            ("teleport", TELEPORT_SRC),
+            ("hands", HANDS_SRC),
         ] {
             let module = naga::front::wgsl::parse_str(src)
                 .unwrap_or_else(|e| panic!("{name} parses: {e:?}"));

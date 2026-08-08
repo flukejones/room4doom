@@ -687,7 +687,7 @@ pub(crate) fn a_posattack(actor: &mut MapObject) {
 
     a_facetarget(actor);
     let distance: FixedT = MISSILERANGE.into();
-    let slope = actor.aim_line_attack(distance);
+    let slope = actor.aim_line_attack(distance, None);
 
     actor.start_sound(SfxName::Pistol);
 
@@ -695,7 +695,13 @@ pub(crate) fn a_posattack(actor: &mut MapObject) {
     let spread = ((p_random() - p_random()) << 20) as u32;
     let angle = Angle::from_bam(actor.angle.to_bam().wrapping_add(spread));
     let damage = ((p_random() % 5) + 1) * 3;
-    actor.line_attack(damage, distance, angle, slope);
+    actor.line_attack(
+        damage,
+        distance,
+        angle,
+        slope.map_or(FixedT::ZERO, |res| res.aimslope),
+        None,
+    );
 }
 
 pub(crate) fn a_sposattack(actor: &mut MapObject) {
@@ -705,7 +711,7 @@ pub(crate) fn a_sposattack(actor: &mut MapObject) {
 
     a_facetarget(actor);
     let distance: FixedT = MISSILERANGE.into();
-    let slope = actor.aim_line_attack(distance);
+    let slope = actor.aim_line_attack(distance, None);
 
     actor.start_sound(SfxName::Shotgn);
 
@@ -714,7 +720,13 @@ pub(crate) fn a_sposattack(actor: &mut MapObject) {
         let spread = ((p_random() - p_random()) << 20) as u32;
         let angle = Angle::from_bam(actor.angle.to_bam().wrapping_add(spread));
         let damage = ((p_random() % 5) + 1) * 3;
-        actor.line_attack(damage, distance, angle, slope.clone());
+        actor.line_attack(
+            damage,
+            distance,
+            angle,
+            slope.clone().map_or(FixedT::ZERO, |res| res.aimslope),
+            None,
+        );
     }
 }
 
@@ -725,7 +737,7 @@ pub(crate) fn a_cposattack(actor: &mut MapObject) {
 
     a_facetarget(actor);
     let distance: FixedT = MISSILERANGE.into();
-    let slope = actor.aim_line_attack(distance);
+    let slope = actor.aim_line_attack(distance, None);
 
     actor.start_sound(SfxName::Shotgn);
 
@@ -733,7 +745,13 @@ pub(crate) fn a_cposattack(actor: &mut MapObject) {
     let spread = ((p_random() - p_random()) << 20) as u32;
     let angle = Angle::from_bam(actor.angle.to_bam().wrapping_add(spread));
     let damage = ((p_random() % 5) + 1) * 3;
-    actor.line_attack(damage, distance, angle, slope);
+    actor.line_attack(
+        damage,
+        distance,
+        angle,
+        slope.map_or(FixedT::ZERO, |res| res.aimslope),
+        None,
+    );
 }
 
 pub(crate) fn a_bspiattack(actor: &mut MapObject) {

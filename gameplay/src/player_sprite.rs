@@ -69,7 +69,6 @@ pub(crate) fn a_weaponready(player: &mut Player, pspr: &mut PspDef) {
     // check for change
     //  if player is dead, put the weapon away
     if player.pendingweapon != WeaponType::NoChange || player.status.health <= 0 {
-        // change weapon
         //  (pending weapon should allready be validated)
         if player.status.readyweapon != WeaponType::NoChange {
             let new_state = WEAPON_INFO[player.status.readyweapon as usize].downstate;
@@ -142,12 +141,13 @@ pub(crate) fn a_raise(player: &mut Player, pspr: &mut PspDef) {
 fn shoot_bullet(player: &mut Player) {
     let distance: FixedT = MISSILERANGE.into();
     let refire = player.refire;
+    let aim = player.aim;
     if let Some(mobj) = player.mobj_mut() {
         mobj.start_sound(SfxName::Pistol);
         mobj.set_state(StateNum::PLAY_ATK2);
 
-        let bullet_slope = mobj.bullet_slope(distance);
-        mobj.gun_shot(refire == 0, distance, bullet_slope);
+        let slope = mobj.aim_slope(distance, aim);
+        mobj.gun_shot(refire == 0, distance, slope, aim);
     }
 }
 
@@ -162,15 +162,16 @@ pub(crate) fn a_firepistol(player: &mut Player, _pspr: &mut PspDef) {
 
 pub(crate) fn a_fireshotgun(player: &mut Player, _pspr: &mut PspDef) {
     let distance: FixedT = MISSILERANGE.into();
+    let aim = player.aim;
 
     if let Some(mobj) = player.mobj_mut() {
         mobj.start_sound(SfxName::Shotgn);
         mobj.set_state(StateNum::PLAY_ATK2);
 
-        let bullet_slope = mobj.bullet_slope(distance);
+        let slope = mobj.aim_slope(distance, aim);
 
         for _ in 0..7 {
-            mobj.gun_shot(false, distance, bullet_slope.clone());
+            mobj.gun_shot(false, distance, slope, aim);
         }
     }
 
@@ -183,25 +184,29 @@ pub(crate) fn a_fireshotgun(player: &mut Player, _pspr: &mut PspDef) {
 
 pub(crate) fn a_fireshotgun2(player: &mut Player, _pspr: &mut PspDef) {
     let distance: FixedT = MISSILERANGE.into();
+    let aim = player.aim;
 
     if let Some(mobj) = player.mobj_mut() {
         mobj.start_sound(SfxName::Dshtgn);
         mobj.set_state(StateNum::PLAY_ATK2);
 
-        let bullet_slope = mobj.bullet_slope(distance);
+        let aimed = match aim {
+            Some(ray) => Some(ray.slope),
+            None => mobj.bullet_slope(distance).map(|res| res.aimslope),
+        };
+        let base_angle = aim.map_or(mobj.angle, |ray| ray.angle);
 
         for _ in 0..20 {
             let damage = 5 * (p_random() % 3 + 1);
             // OG: angle += (P_Random()-P_Random())<<19
             let spread = ((p_random() - p_random()) << 19) as u32;
-            let angle = Angle::from_bam(mobj.angle.to_bam().wrapping_add(spread));
-            // OG: bulletslope + ((P_Random()-P_Random())<<5) — slope adjusted per pellet
-            let slope_adj = bullet_slope.clone().map(|mut res| {
-                let adj = FixedT::from_fixed((p_random() - p_random()) << 5);
-                res.aimslope += adj;
-                res
+            let angle = Angle::from_bam(base_angle.to_bam().wrapping_add(spread));
+            // OG: bulletslope + ((P_Random()-P_Random())<<5). Rolled only when
+            // there is a slope to adjust — making it unconditional desyncs demos.
+            let slope = aimed.map_or(FixedT::ZERO, |slope| {
+                slope + FixedT::from_fixed((p_random() - p_random()) << 5)
             });
-            mobj.line_attack(damage, distance, angle, slope_adj);
+            mobj.line_attack(damage, distance, angle, slope, aim);
         }
     }
 
@@ -234,6 +239,7 @@ pub(crate) fn a_fireplasma(player: &mut Player, _pspr: &mut PspDef) {
         (WEAPON_INFO[player.status.readyweapon as usize].flashstate as u16 + p_random() as u16) & 1,
     );
     player.set_psprite(PsprNum::Flash as usize, state);
+    let aim = player.aim;
     if let Some(mobj) = player.mobj_raw() {
         unsafe {
             (*mobj).start_sound(SfxName::Plasma);
@@ -241,6 +247,7 @@ pub(crate) fn a_fireplasma(player: &mut Player, _pspr: &mut PspDef) {
                 &mut *mobj,
                 MapObjKind::MT_PLASMA,
                 &mut (*(*mobj).level),
+                aim,
             );
         }
     }
@@ -252,6 +259,7 @@ pub(crate) fn a_firemissile(player: &mut Player, _pspr: &mut PspDef) {
     //     PsprNum::Flash as usize,
     //     WEAPON_INFO[player.status.readyweapon as usize].flashstate,
     // );
+    let aim = player.aim;
     if let Some(mobj) = player.mobj_raw() {
         unsafe {
             (*mobj).start_sound(SfxName::Rlaunc);
@@ -259,6 +267,7 @@ pub(crate) fn a_firemissile(player: &mut Player, _pspr: &mut PspDef) {
                 &mut *mobj,
                 MapObjKind::MT_ROCKET,
                 &mut (*(*mobj).level),
+                aim,
             );
         }
     }
@@ -270,9 +279,15 @@ pub(crate) fn a_firebfg(player: &mut Player, _pspr: &mut PspDef) {
     //     PsprNum::Flash as usize,
     //     WEAPON_INFO[player.status.readyweapon as usize].flashstate,
     // );
+    let aim = player.aim;
     if let Some(mobj) = player.mobj_raw() {
         unsafe {
-            MapObject::spawn_player_missile(&mut *mobj, MapObjKind::MT_BFG, &mut (*(*mobj).level));
+            MapObject::spawn_player_missile(
+                &mut *mobj,
+                MapObjKind::MT_BFG,
+                &mut (*(*mobj).level),
+                aim,
+            );
         }
     }
 }
@@ -294,7 +309,7 @@ pub(crate) fn a_bfgspray(player: &mut MapObject) {
         let angle = Angle::from_bam(bam);
         let old_angle = player.angle;
         player.angle = angle;
-        let aim = player.aim_line_attack(distance);
+        let aim = player.aim_line_attack(distance, None);
         player.angle = old_angle;
         if let Some(aim) = aim {
             let mut lt = aim.line_target;
@@ -329,26 +344,32 @@ pub(crate) fn a_punch(player: &mut Player, _pspr: &mut PspDef) {
         damage *= 10;
     }
 
+    let aim = player.aim;
     if let Some(mobj) = player.mobj_mut() {
         // OG: angle += (P_Random()-P_Random())<<18
         let spread = ((p_random() - p_random()) << 18) as u32;
-        let angle = Angle::from_bam(mobj.angle.to_bam().wrapping_add(spread));
+        let base = aim.map_or(mobj.angle, |ray| ray.angle);
+        let angle = Angle::from_bam(base.to_bam().wrapping_add(spread));
 
         let melee: FixedT = MELEERANGE.into();
         // OG: aim uses spread angle
         let old_angle = mobj.angle;
         mobj.angle = angle;
-        let slope = mobj.aim_line_attack(melee);
+        let slope = mobj.aim_line_attack(melee, aim);
         mobj.angle = old_angle;
-        mobj.line_attack(damage, melee, angle, slope.clone());
+        let punch = slope.clone().map_or(FixedT::ZERO, |res| res.aimslope);
+        mobj.line_attack(damage, melee, angle, punch, aim);
 
         if let Some(res) = slope {
             let target = res.line_target;
             mobj.start_sound(SfxName::Punch);
-            // OG: R_PointToAngle2
-            let dx = target.x - mobj.x;
-            let dy = target.y - mobj.y;
-            mobj.angle = Angle::from_bam(r_point_to_angle(dx, dy));
+            // Writing the angle re-anchors a headset's play space.
+            if aim.is_none() {
+                // OG: R_PointToAngle2
+                let dx = target.x - mobj.x;
+                let dy = target.y - mobj.y;
+                mobj.angle = Angle::from_bam(r_point_to_angle(dx, dy));
+            }
         }
     }
 }
@@ -373,18 +394,21 @@ pub(crate) fn a_closeshotgun2(player: &mut Player, pspr: &mut PspDef) {
 pub(crate) fn a_saw(player: &mut Player, _pspr: &mut PspDef) {
     let damage = 2 * (p_random() % 10 + 1);
 
+    let aim = player.aim;
     if let Some(mobj) = player.mobj_mut() {
         // OG: angle += (P_Random()-P_Random())<<18
         let spread = ((p_random() - p_random()) << 18) as u32;
-        let angle = Angle::from_bam(mobj.angle.to_bam().wrapping_add(spread));
+        let base = aim.map_or(mobj.angle, |ray| ray.angle);
+        let angle = Angle::from_bam(base.to_bam().wrapping_add(spread));
 
         let melee: FixedT = (MELEERANGE + 1).into();
         // OG: aim uses spread angle
         let old_angle = mobj.angle;
         mobj.angle = angle;
-        let slope = mobj.aim_line_attack(melee);
+        let slope = mobj.aim_line_attack(melee, aim);
         mobj.angle = old_angle;
-        mobj.line_attack(damage, melee, angle, slope.clone());
+        let cut = slope.clone().map_or(FixedT::ZERO, |res| res.aimslope);
+        mobj.line_attack(damage, melee, angle, cut, aim);
 
         if slope.is_none() {
             mobj.start_sound(SfxName::Sawful);
@@ -392,6 +416,10 @@ pub(crate) fn a_saw(player: &mut Player, _pspr: &mut PspDef) {
         }
 
         mobj.start_sound(SfxName::Sawhit);
+        // Writing the angle re-anchors a headset's play space; never under a ray.
+        if aim.is_some() {
+            return;
+        }
         if let Some(res) = slope {
             let target = res.line_target;
             // OG: R_PointToAngle2 + BAM angle adjustment

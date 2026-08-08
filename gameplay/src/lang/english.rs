@@ -119,6 +119,7 @@ pub const OPT_DETAIL_LOW: &str = "LOW";
 pub const OPT_INPUT: &str = "INPUT SETUP..";
 pub const OPT_MOUSE_SENS: &str = "MOUSE SENSITIVITY";
 pub const OPT_INVERT_Y: &str = "INVERT Y AXIS";
+pub const OPT_FREE_LOOK_SHOOT: &str = "FREE-LOOK AIM";
 
 pub const OPT_HUD: &str = "HUD SETUP..";
 pub const OPT_HUD_SIZE: &str = "SIZE";
@@ -132,6 +133,23 @@ pub const OPT_HUD_MSG_OFF: &str = "OFF";
 pub const OPT_HUD_MSG_STACK: &str = "STACK";
 pub const OPT_HUD_MSG_OVER: &str = "OVERWRITE";
 pub const OPT_HUD_MSG_TIME: &str = "MSG TIME";
+
+pub const OPT_VR: &str = "HEADSET..";
+pub const OPT_VR_DISPLAY: &str = "OUTPUT";
+pub const OPT_VR_DISPLAY_WINDOW: &str = "WINDOW";
+pub const OPT_VR_DISPLAY_HEADSET: &str = "HEADSET";
+pub const OPT_VR_LOCOMOTION: &str = "MOVEMENT";
+pub const OPT_VR_LOCO_TELEPORT: &str = "TELEPORT";
+pub const OPT_VR_LOCO_SMOOTH: &str = "SMOOTH";
+pub const OPT_VR_SNAP_TURN: &str = "SNAP TURN";
+pub const OPT_VR_SNAP_30: &str = "30 DEGREES";
+pub const OPT_VR_SNAP_45: &str = "45 DEGREES";
+pub const OPT_VR_HIDE_HUD: &str = "HIDE HUD";
+pub const OPT_VR_SHOW_HANDS: &str = "SHOW HANDS";
+pub const OPT_VR_HUD_DIST: &str = "HUD DISTANCE";
+pub const OPT_VR_HUD_WIDTH: &str = "HUD WIDTH";
+pub const OPT_VR_HUD_PITCH: &str = "HUD HEIGHT";
+pub const OPT_VR_WEAPON_SCALE: &str = "WEAPON SIZE";
 
 pub const OPT_APPLY: &str = "APPLY";
 pub const OPT_ON: &str = "ON";

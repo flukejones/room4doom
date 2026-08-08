@@ -53,6 +53,9 @@ fn build_view(level: &mut LevelData) -> RenderView {
         frac: 1.0,
         frac_fp: fp(1.0),
         game_tic: 0,
+        head_rotation: None,
+        weapon_anchor: None,
+        teleport: None,
     }
 }
 

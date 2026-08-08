@@ -4,7 +4,7 @@
 //! `clip = view_proj * vec4(pos - camera_pos, 1)`.
 
 use glam::{Mat4, Vec3};
-use render_common::RenderView;
+use render_common::{CRT_STRETCH, RenderView};
 use std::f32::consts::PI;
 
 const NEAR_Z: f32 = 4.0;
@@ -48,7 +48,10 @@ impl CameraUniform {
             pitch.sin(),
         );
         let view_matrix = Mat4::look_at_rh(Vec3::ZERO, forward, Vec3::Z);
-        let view_proj = projection * view_matrix;
+        // Doom's tall-pixel look: the world renders 1.2× taller about the
+        // camera (matches wgpu3d::camera::world_stretch).
+        let view_proj =
+            projection * view_matrix * Mat4::from_scale(Vec3::new(1.0, 1.0, CRT_STRETCH));
         Self {
             view_proj: view_proj.to_cols_array_2d(),
             camera_pos: pos.to_array(),

@@ -64,6 +64,18 @@ pub enum ConfigKey {
     HealthBleed,
     MouseSensitivity,
     InvertY,
+    FreeLookShoot,
+    // Headset settings. Lengths are centimetres, angles whole degrees, and the
+    // weapon scale is map units per sprite pixel ×1000.
+    VrDisplay,
+    VrLocomotion,
+    VrSnapTurn,
+    VrHideHud,
+    VrShowHands,
+    VrHudDistance,
+    VrHudWidth,
+    VrHudPitch,
+    VrWeaponScale,
     KeyCount,
 }
 

@@ -23,19 +23,20 @@ use std::ptr;
 use gameplay::{MapObjFlag, Player};
 use gamestate::Game;
 use gamestate::subsystems::GameSubsystem;
-use gamestate_traits::{GameState, KeyCode, SubsystemTrait};
+use gamestate_traits::{ConfigKey, GameState, KeyCode, SubsystemTrait};
 use hud_util::{draw_patch, draw_text_line, fullscreen_scale, hud_scale, measure_text_line};
 use input::InputState;
 use log::error;
-use math::{Angle, Bam, FixedT};
+use math::{Angle, Bam, FixedT, lookdir_to_radian};
 #[cfg(feature = "wgpu3d")]
 use pic_data::resolve_tint_state;
 use render_backend::RenderStack;
 #[cfg(feature = "wgpu3d")]
 use render_backend::ScreenEffects;
-use render_common::{ByteOrder, DrawBuffer, PixelFmt, RenderPspDef, RenderView};
+use render_common::{
+    ByteOrder, DrawBuffer, HeadFrame, PixelFmt, RenderPspDef, RenderView, offset_view,
+};
 use sound_common::SoundAction;
-use std::f32::consts::PI;
 use std::path::Path;
 use std::sync::Arc;
 use wad::types::{BLACK, WadPalette, WadPatch};
@@ -83,7 +84,7 @@ fn build_render_view(player: &Player, frac: f32, game_tic: u32) -> Option<Render
         viewz: lerp_fp(prev.viewz, player.viewz),
         viewheight: player.viewheight,
         angle: Angle::<Bam>::from_bam(interp_bam),
-        lookdir: interp_lookdir * PI / i32::MAX as f32,
+        lookdir: lookdir_to_radian(interp_lookdir),
         fixedcolormap: player.fixedcolormap as usize,
         extralight: player.extralight,
         is_shadow: mobj.flags.contains(MapObjFlag::Shadow),
@@ -93,6 +94,9 @@ fn build_render_view(player: &Player, frac: f32, game_tic: u32) -> Option<Render
         frac,
         frac_fp,
         game_tic,
+        head_rotation: None,
+        weapon_anchor: None,
+        teleport: None,
     })
 }
 
@@ -215,7 +219,7 @@ pub(crate) fn input_responder(
 }
 
 /// Advance game state by one tic: demo advance, menu tick, game tick,
-/// and build the tic command from current input.
+/// and build the tic command from current input. Returns whether the menu shows.
 pub(crate) fn run_game_tic(
     game: &mut Game,
     input: &mut InputState,
@@ -226,10 +230,11 @@ pub(crate) fn run_game_tic(
         impl SubsystemTrait,
         impl SubsystemTrait,
     >,
-) {
+) -> bool {
     if game.demo.advance {
         game.do_advance_demo();
     }
+    set_look_aim(game);
     let menu_active = menu.ticker(game);
     let in_user_game = game.gamestate == GameState::Level && !game.demo.playback;
     let menu_blocks = menu_active && in_user_game;
@@ -246,9 +251,20 @@ pub(crate) fn run_game_tic(
 
     let console_player = game.consoleplayer;
     if game.gamestate == game.wipe_game_state {
-        let cmd = input.events.build_tic_cmd(&input.config);
-        game.netcmds[console_player][0] = cmd;
+        game.netcmds[console_player][0] = input.events.build_tic_cmd(&input.config);
     }
+    menu_active
+}
+
+/// Point shots where the player looks, on a monitor. A headset writes its own
+/// ray before the tic and wins; leaving `None` keeps the auto-aim demos need.
+fn set_look_aim(game: &mut Game) {
+    let player = &game.players[game.consoleplayer];
+    if player.aim.is_some() || game.config_values[ConfigKey::FreeLookShoot as usize] == 0 {
+        return;
+    }
+    let ray = player.look_ray();
+    game.players[game.consoleplayer].aim = ray;
 }
 
 /// Update the sound listener position from the console player.
@@ -293,6 +309,8 @@ pub(crate) fn d_display<P: PixelFmt>(
     game: &mut Game,
     frac: f32,
     fps: &str,
+    hide_hud: bool,
+    head: HeadFrame,
 ) {
     let wipe = game.gamestate != game.wipe_game_state;
     if wipe {
@@ -310,6 +328,82 @@ pub(crate) fn d_display<P: PixelFmt>(
         frac
     };
 
+    // The eyes are two views of one instant: game state (wipe progress,
+    // prev_render) must only advance outside this loop.
+    for eye in 0..screen.eye_count() {
+        screen.set_eye(eye);
+        render_eye(screen, game, frac, &head, eye);
+        // Must follow the scene: a display without UI planes of its own hands
+        // back the buffer the software renderers just filled.
+        if eye == 0 {
+            draw_ui(screen, menu, machines, game, fps, hide_hud);
+            screen.upload_ui();
+        }
+        screen.present(wipe);
+    }
+
+    // Advance the wipe (CPU melts the previous frame; GPU steps the melt offsets).
+    // The melt runs over several frames; advance the wipe state only once it has
+    // fully completed. `build_tic_cmd` resumes when gamestate == wipe_game_state.
+    if wipe && screen.do_wipe() {
+        game.wipe_game_state = game.gamestate;
+        // Snap player prev_render so the first interpolated frame after the wipe
+        // doesn't jump from a stale position.
+        let player = &mut game.players[game.consoleplayer];
+        player.save_prev_render();
+    }
+}
+
+/// Draw every UI subsystem into its plane.
+fn draw_ui<P: PixelFmt>(
+    screen: &mut RenderStack<P>,
+    menu: &mut impl SubsystemTrait,
+    machines: &mut GameSubsystem<
+        impl SubsystemTrait,
+        impl SubsystemTrait,
+        impl SubsystemTrait,
+        impl SubsystemTrait,
+    >,
+    game: &mut Game,
+    fps: &str,
+    hide_hud: bool,
+) {
+    match game.gamestate {
+        GameState::Level => {
+            if !hide_hud {
+                machines.statusbar.draw(&mut screen.hud_frame());
+                machines.hud_msgs.draw(&mut screen.hud_frame());
+            }
+        }
+        GameState::Intermission => machines.intermission.draw(&mut screen.screen_frame()),
+        GameState::Finale => machines.finale.draw(&mut screen.screen_frame()),
+        GameState::DemoScreen => {
+            refresh_title_page(game);
+            page_drawer(game, &mut screen.screen_frame());
+        }
+        GameState::ForceWipe => {}
+    }
+
+    if !fps.is_empty() {
+        let palette = game.pic_data.wad_palette();
+        let ui = screen.hud_frame();
+        let (sx, sy) = hud_scale(ui);
+        let x = ui.size().width_f32() - measure_text_line(fps, sx) - 4.0 * sx;
+        draw_text_line(fps, x, 2.0, sx, sy, palette, ui);
+    }
+    menu.draw(&mut screen.screen_frame());
+}
+
+/// Render the world for one view: once for a monitor, twice for a headset.
+fn render_eye<P: PixelFmt>(
+    screen: &mut RenderStack<P>,
+    game: &mut Game,
+    frac: f32,
+    head: &HeadFrame,
+    eye: usize,
+) {
+    screen.set_eye_fov(head.eye(eye).map(|e| e.fov));
+
     match game.gamestate {
         GameState::Level => {
             if let Some(level) = game.level.as_mut()
@@ -317,7 +411,9 @@ pub(crate) fn d_display<P: PixelFmt>(
             {
                 level.level_data.apply_render_interpolation(frac);
                 let player = &game.players[game.consoleplayer];
-                if let Some(view) = build_render_view(player, frac, game.game_tic) {
+                if let Some(view) = build_render_view(player, frac, game.game_tic)
+                    .map(|v| offset_view(v, head, eye))
+                {
                     game.pic_data.set_player_palette(
                         player.status.damagecount,
                         player.status.bonuscount,
@@ -326,9 +422,8 @@ pub(crate) fn d_display<P: PixelFmt>(
                     );
                     #[cfg(feature = "wgpu3d")]
                     {
-                        let bleed_enabled = game.config_values
-                            [gamestate_traits::ConfigKey::HealthBleed as usize]
-                            != 0;
+                        let bleed_enabled =
+                            game.config_values[ConfigKey::HealthBleed as usize] != 0;
                         let player = &game.players[game.consoleplayer];
                         screen.set_screen_effects(build_screen_effects(player, bleed_enabled));
                     }
@@ -347,37 +442,12 @@ pub(crate) fn d_display<P: PixelFmt>(
                     level.level_data.bsp_3d_mut().clear_texture_dirty();
                 }
             }
-            machines.statusbar.draw(&mut screen.ui_frame());
-            machines.hud_msgs.draw(&mut screen.ui_frame());
         }
-        GameState::Intermission => machines.intermission.draw(&mut screen.ui_frame()),
-        GameState::Finale => machines.finale.draw(&mut screen.ui_frame()),
-        GameState::DemoScreen => {
-            refresh_title_page(game);
-            page_drawer(game, &mut screen.ui_frame());
-        }
-        GameState::ForceWipe => {}
+        GameState::Intermission
+        | GameState::Finale
+        | GameState::DemoScreen
+        | GameState::ForceWipe => {}
     }
-
-    // Advance the wipe (CPU melts the previous frame; GPU steps the melt offsets).
-    // The melt runs over several frames; advance the wipe state only once it has
-    // fully completed. `build_tic_cmd` resumes when gamestate == wipe_game_state.
-    if wipe && screen.do_wipe() {
-        game.wipe_game_state = game.gamestate;
-        // Snap player prev_render so the first interpolated frame after the wipe
-        // doesn't jump from a stale position.
-        let player = &mut game.players[game.consoleplayer];
-        player.save_prev_render();
-    }
-    if !fps.is_empty() {
-        let palette = game.pic_data.wad_palette();
-        let ui = screen.ui_frame();
-        let (sx, sy) = hud_scale(ui);
-        let x = ui.size().width_f32() - measure_text_line(fps, sx) - 4.0 * sx;
-        draw_text_line(fps, x, 2.0, sx, sy, palette, ui);
-    }
-    menu.draw(&mut screen.ui_frame());
-    screen.present(wipe);
 }
 
 /// Refresh the cached TITLEPIC patch when the page name changed.

@@ -6,7 +6,7 @@ use level::{AABB, BSP3D, LevelData, is_leaf, leaf_index, light_band};
 use math::Angle;
 use pic_data::sky::{SKY_TILES, SKY_V_STRETCH, build_sky_extended, nearest_palette_index};
 use pic_data::{ByteOrder, PicData, PixelFmt, VoxelManager};
-use render_common::{DrawBuffer as _, PixelTarget, RenderView};
+use render_common::{CRT_STRETCH, DrawBuffer as _, PixelTarget, RenderView};
 
 use std::f32::consts::{PI, TAU};
 use std::sync::Arc;
@@ -512,8 +512,11 @@ impl Software3D {
         // is applied separately in get_transformed_vertex by subtracting
         // camera_pos before rotation. This avoids catastrophic cancellation
         // when large world coords are baked into the matrix.
+        // The trailing scale is Doom's tall-pixel look: the world renders
+        // 1.2× taller about the camera.
         self.camera_pos = pos;
-        self.view_matrix = Mat4::look_at_rh(Vec3::ZERO, forward, up);
+        self.view_matrix = Mat4::look_at_rh(Vec3::ZERO, forward, up)
+            * Mat4::from_scale(Vec3::new(1.0, 1.0, CRT_STRETCH));
         self.view_projection = self.projection_matrix * self.view_matrix;
         self.frustum = Frustum::new(pos, angle, pitch, self.hfov, self.vfov);
     }

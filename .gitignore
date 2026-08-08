@@ -58,7 +58,11 @@ android/local.properties
 
 # AI Agents & Local AI Tools (Claude Code, ChatGPT/Cursor, Cline)
 .CLAUDE.md
-.claude/
+# The directory is un-ignored first because a child cannot be re-included while
+# its parent stays excluded, and the global ignore file excludes `.claude/`.
+!.claude/
+.claude/*
+!.claude/kb.toml
 .cline/
 .cursor/
 /chats/
@@ -80,3 +84,4 @@ node_modules/
 
 # Subagent-driven dev scratch
 .superpowers/
+.claude/

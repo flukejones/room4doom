@@ -337,6 +337,110 @@ impl FromStr for MusicType {
     }
 }
 
+/// How far one snap turn rotates the player. Snap rather than smooth: a
+/// view that turns while the head is still is the usual cause of
+/// simulator sickness.
+#[derive(Debug, Default, Clone, Copy, PartialEq, DeRon, SerRon)]
+pub enum SnapTurn {
+    #[default]
+    Deg30,
+    Deg45,
+}
+
+/// How the player moves around the map in a headset.
+#[derive(Debug, Default, Clone, Copy, PartialEq, DeRon, SerRon)]
+pub enum Locomotion {
+    /// Aim a ballistic arc and dash to where it lands. Nothing moves under the
+    /// player while their head is still, which is why it is the default.
+    #[default]
+    Teleport,
+    /// Walk on the stick, as a monitor does.
+    Smooth,
+}
+
+/// Where finished frames go. Orthogonal to [`RenderType`], which is how
+/// the player view is drawn: a headset renders through `Wgpu3D` like the
+/// window does, it just wants two views and owns the frame clock.
+#[derive(Debug, Default, Clone, Copy, PartialEq, DeRon, SerRon)]
+pub enum Display {
+    #[default]
+    Window,
+    /// An OpenXR runtime, falling back to the window if none answers.
+    Headset,
+}
+
+/// Where one of the headset's virtual screens floats.
+#[derive(Debug, Clone, Copy, PartialEq, DeRon, SerRon)]
+pub struct PanelConfig {
+    /// Distance in front of the viewer, centimetres.
+    pub distance_cm: i32,
+    /// Angle the panel subtends, whole degrees.
+    pub width_deg: i32,
+    /// Panel centre relative to eye level, whole degrees; negative is below.
+    pub pitch_deg: i32,
+}
+
+/// Headset settings; only read when [`Display::Headset`] is selected.
+///
+/// Every field added after a config file could already exist carries a serde
+/// default: a missing one otherwise fails the whole parse, and the file is then
+/// rewritten from defaults, silently losing every other setting with it.
+#[derive(Debug, Clone, Copy, PartialEq, DeRon, SerRon)]
+pub struct VrConfig {
+    #[nserde(default)]
+    pub locomotion: Locomotion,
+    pub snap_turn: SnapTurn,
+    /// Leave the statusbar and messages undrawn. Not the weapon — that is a
+    /// world object on the player's hand.
+    pub hide_hud: bool,
+    /// Draw the tracked hand skeletons in the world.
+    #[nserde(default)]
+    pub show_hands: bool,
+    /// Near panel the statusbar and messages ride, held to the head.
+    #[nserde(default_with = "default_hud_panel")]
+    pub hud_panel: PanelConfig,
+    /// Larger panel for menus, intermission and finale, held to the facing.
+    #[nserde(default_with = "default_screen_panel")]
+    pub screen_panel: PanelConfig,
+    /// Map units per weapon-sprite pixel, ×1000.
+    #[nserde(default_with = "default_weapon_scale")]
+    pub weapon_scale: i32,
+}
+
+fn default_weapon_scale() -> i32 {
+    75
+}
+
+fn default_hud_panel() -> PanelConfig {
+    PanelConfig {
+        distance_cm: 200,
+        width_deg: 75,
+        pitch_deg: -10,
+    }
+}
+
+fn default_screen_panel() -> PanelConfig {
+    PanelConfig {
+        distance_cm: 270,
+        width_deg: 75,
+        pitch_deg: 5,
+    }
+}
+
+impl Default for VrConfig {
+    fn default() -> Self {
+        Self {
+            locomotion: Locomotion::default(),
+            snap_turn: SnapTurn::default(),
+            hide_hud: false,
+            show_hands: true,
+            hud_panel: default_hud_panel(),
+            screen_panel: default_screen_panel(),
+            weapon_scale: default_weapon_scale(),
+        }
+    }
+}
+
 #[derive(Debug, Default, Clone, DeRon, SerRon)]
 pub struct UserConfig {
     pub iwad: String,
@@ -369,7 +473,16 @@ pub struct UserConfig {
     pub health_bleed: bool,
     pub mouse_sensitivity: i32,
     pub invert_y: bool,
+    /// Shoot where the view looks rather than through vanilla auto-aim.
+    #[nserde(default)]
+    pub free_look_shoot: bool,
     pub sf2_path: String,
+    /// Defaulted so a config written before headsets existed still loads
+    /// instead of being discarded and rewritten.
+    #[nserde(default)]
+    pub display: Display,
+    #[nserde(default)]
+    pub vr: VrConfig,
 }
 
 impl UserConfig {
@@ -426,6 +539,7 @@ impl UserConfig {
             health_bleed: true,
             mouse_sensitivity: 5,
             invert_y: false,
+            free_look_shoot: false,
             light_gamma: 120,
             sf2_path: "gm.sf2".to_owned(),
             voxels_path: find_voxel_pk3(),
@@ -496,6 +610,25 @@ impl UserConfig {
         a[ConfigKey::HealthBleed as usize] = self.health_bleed as i32;
         a[ConfigKey::MouseSensitivity as usize] = self.mouse_sensitivity;
         a[ConfigKey::InvertY as usize] = self.invert_y as i32;
+        a[ConfigKey::FreeLookShoot as usize] = self.free_look_shoot as i32;
+        a[ConfigKey::VrDisplay as usize] = match self.display {
+            Display::Window => 0,
+            Display::Headset => 1,
+        };
+        a[ConfigKey::VrLocomotion as usize] = match self.vr.locomotion {
+            Locomotion::Teleport => 0,
+            Locomotion::Smooth => 1,
+        };
+        a[ConfigKey::VrSnapTurn as usize] = match self.vr.snap_turn {
+            SnapTurn::Deg30 => 0,
+            SnapTurn::Deg45 => 1,
+        };
+        a[ConfigKey::VrHideHud as usize] = self.vr.hide_hud as i32;
+        a[ConfigKey::VrShowHands as usize] = self.vr.show_hands as i32;
+        a[ConfigKey::VrHudDistance as usize] = self.vr.hud_panel.distance_cm;
+        a[ConfigKey::VrHudWidth as usize] = self.vr.hud_panel.width_deg;
+        a[ConfigKey::VrHudPitch as usize] = self.vr.hud_panel.pitch_deg;
+        a[ConfigKey::VrWeaponScale as usize] = self.vr.weapon_scale;
         a
     }
 
@@ -548,6 +681,27 @@ impl UserConfig {
         self.health_bleed = vals[ConfigKey::HealthBleed as usize] != 0;
         self.mouse_sensitivity = vals[ConfigKey::MouseSensitivity as usize];
         self.invert_y = vals[ConfigKey::InvertY as usize] != 0;
+        self.free_look_shoot = vals[ConfigKey::FreeLookShoot as usize] != 0;
+        self.display = match vals[ConfigKey::VrDisplay as usize] {
+            1 => Display::Headset,
+            _ => Display::Window,
+        };
+        self.vr.locomotion = match vals[ConfigKey::VrLocomotion as usize] {
+            1 => Locomotion::Smooth,
+            _ => Locomotion::Teleport,
+        };
+        self.vr.snap_turn = match vals[ConfigKey::VrSnapTurn as usize] {
+            1 => SnapTurn::Deg45,
+            _ => SnapTurn::Deg30,
+        };
+        self.vr.hide_hud = vals[ConfigKey::VrHideHud as usize] != 0;
+        self.vr.show_hands = vals[ConfigKey::VrShowHands as usize] != 0;
+        self.vr.hud_panel = PanelConfig {
+            distance_cm: vals[ConfigKey::VrHudDistance as usize],
+            width_deg: vals[ConfigKey::VrHudWidth as usize],
+            pitch_deg: vals[ConfigKey::VrHudPitch as usize],
+        };
+        self.vr.weapon_scale = vals[ConfigKey::VrWeaponScale as usize];
     }
 
     /// Sync the CLI options and UserOptions with each other

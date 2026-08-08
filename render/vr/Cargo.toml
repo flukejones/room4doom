@@ -1,0 +1,17 @@
+[package]
+name = "vr"
+description = "OpenXR stereo backend: runs the wgpu renderer against a VR runtime"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+log.workspace = true
+wgpu.workspace = true
+wgpu-hal = "29"
+pollster.workspace = true
+openxr-sys = "0.13.1"
+objc2 = "0.6.4"
+objc2-metal = "0.3.2"
+libc = "0.2"

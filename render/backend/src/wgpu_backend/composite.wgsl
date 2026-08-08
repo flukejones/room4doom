@@ -1,12 +1,9 @@
 // Apply gameplay scene effects (player tint + invuln inverse) to the scene
-// colour, then composite the UI texture over the result into the frame texture.
-// Effects hit the scene only — the UI mixes over the tinted scene, so the HUD
-// stays untinted (matching vanilla).
+// colour, into the frame texture. The UI arrives afterwards as panel quads, so
+// these effects never touch it and the HUD stays untinted (matching vanilla).
 
 @group(0) @binding(0) var scene_tex: texture_2d<f32>;
 @group(0) @binding(1) var scene_smp: sampler;
-@group(0) @binding(2) var ui_tex: texture_2d<f32>;
-@group(0) @binding(3) var ui_smp: sampler;
 
 // Byte-matches the Rust `wgpu3d::SceneEffects`.
 struct SceneEffects {
@@ -15,11 +12,11 @@ struct SceneEffects {
     invert: f32,
     bleed_active: f32,
 };
-@group(0) @binding(4) var<uniform> fx: SceneEffects;
+@group(0) @binding(2) var<uniform> fx: SceneEffects;
 
 // Per-column health-bleed geometry: [shown, bound0, bound1, _] in pixels.
 // Mirrors render_common::HealthBleed (one element per scene column).
-@group(0) @binding(5) var<storage, read> bleed_cols: array<vec4<f32>>;
+@group(0) @binding(3) var<storage, read> bleed_cols: array<vec4<f32>>;
 
 // Red ramp the 3 bleed bands darken through (top band darkest), the GPU analogue
 // of the PLAYPAL red palettes the CPU path remaps through.
@@ -75,9 +72,5 @@ fn fs_main(in: VsOut) -> @location(0) vec4<f32> {
         let px = vec2<i32>(in.uv * dims);
         scene = apply_bleed(scene, px);
     }
-
-    let ui = textureSample(ui_tex, ui_smp, in.uv);
-    // UI alpha selects UI over scene (transparent UI shows the scene).
-    let rgb = mix(scene, ui.rgb, ui.a);
-    return vec4<f32>(rgb, 1.0);
+    return vec4<f32>(scene, 1.0);
 }

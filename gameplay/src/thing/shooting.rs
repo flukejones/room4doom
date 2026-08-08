@@ -13,7 +13,9 @@ use crate::doom_def::{MAXPLAYERS, MAXRADIUS, MELEERANGE};
 use crate::env::specials::shoot_special_line;
 use crate::info::{MOBJINFO, StateNum};
 use crate::maputl::{Intercept, PortalZ, p_divline_side_raw, path_traverse_blockmap};
+use crate::player::AimRay;
 use crate::{MapObjKind, MapObject};
+use level::Sector;
 use level::map_defs::LineDef;
 use level::{LevelData, LineDefFlags, MapPtr, is_leaf, leaf_index};
 use math::Angle;
@@ -52,27 +54,29 @@ impl MapObject {
     /// Walks the blockmap collecting line and thing intercepts, narrowing
     /// the vertical slope window at each two-sided line portal. Returns
     /// the first shootable thing hit (with its aim slope) or `None`.
-    pub(crate) fn aim_line_attack(&mut self, distance: FixedT) -> Option<AimResult> {
-        let shootz = self.z + self.height.shr(1) + 8;
-        let mut aim_traverse = SubSectTraverse::new(
-            // OG: topslope = 100*FRACUNIT/160, bottomslope = -100*FRACUNIT/160
-            FixedT::from_fixed(100 * 0x10000 / 160),
-            FixedT::from_fixed(-100 * 0x10000 / 160),
-            distance,
-            shootz,
-        );
+    pub(crate) fn aim_line_attack(
+        &mut self,
+        distance: FixedT,
+        aim: Option<AimRay>,
+    ) -> Option<AimResult> {
+        let (ox, oy, shootz) = self.shot_origin(aim);
+        // OG: topslope = 100*FRACUNIT/160, bottomslope = -100*FRACUNIT/160.
+        // A hand keeps that width but carries it to where the hand points.
+        let half = FixedT::from_fixed(100 * 0x10000 / 160);
+        let centre = aim.map_or(FixedT::ZERO, |a| a.slope);
+        let mut aim_traverse = SubSectTraverse::new(centre + half, centre - half, distance, shootz);
 
         // OG: x + (distance >> FRACBITS) * finecosine[angle]
-        let bam = self.angle.to_bam();
+        let bam = aim.map_or(self.angle, |a| a.angle).to_bam();
         let cos = math::fine_cos(bam);
         let sin = math::fine_sin(bam);
-        let xy2_x = self.x + cos * distance.to_i32();
-        let xy2_y = self.y + sin * distance.to_i32();
+        let xy2_x = ox + cos * distance.to_i32();
+        let xy2_y = oy + sin * distance.to_i32();
 
         let level = unsafe { &mut *self.level };
         path_traverse_blockmap(
-            self.x,
-            self.y,
+            ox,
+            oy,
             xy2_x,
             xy2_y,
             PT_ADDLINES | PT_ADDTHINGS,
@@ -81,6 +85,15 @@ impl MapObject {
         );
 
         aim_traverse.result()
+    }
+
+    /// Where a shot starts: the tracked hand when one holds the weapon, else
+    /// the shooter's own chest.
+    fn shot_origin(&self, aim: Option<AimRay>) -> (FixedT, FixedT, FixedT) {
+        match aim {
+            Some(a) => a.origin,
+            None => (self.x, self.y, self.z + self.height.shr(1) + 8),
+        }
     }
 
     /// Fire a hitscan line attack along `angle` with fixed `aim_slope`
@@ -95,20 +108,21 @@ impl MapObject {
         angle: Angle<Bam>,
         aim_slope: FixedT,
         damage: i32,
+        aim: Option<AimRay>,
     ) {
-        let shootz = self.z + self.height.shr(1) + 8;
+        let (start_x, start_y, shootz) = self.shot_origin(aim);
         // OG: x + (distance >> FRACBITS) * finecosine[angle]
         let bam = angle.to_bam();
         let cos = math::fine_cos(bam);
         let sin = math::fine_sin(bam);
-        let xy2_x = self.x + cos * attack_range.to_i32();
-        let xy2_y = self.y + sin * attack_range.to_i32();
+        let xy2_x = start_x + cos * attack_range.to_i32();
+        let xy2_y = start_y + sin * attack_range.to_i32();
         let level = unsafe { &mut *self.level };
         // OG: trace origin is nudged inside P_PathTraverse before trace
         // global is set. Replicate the nudge for ShootTraverse.
         let bm = level.level_data.blockmap();
-        let mut ox = self.x.to_fixed_raw();
-        let mut oy = self.y.to_fixed_raw();
+        let mut ox = start_x.to_fixed_raw();
+        let mut oy = start_y.to_fixed_raw();
         if (ox - bm.x_origin) & ((128 << 16) - 1) == 0 {
             ox += 0x10000;
         }
@@ -119,7 +133,12 @@ impl MapObject {
         let trace_y = FixedT::from_fixed(oy);
         let trace_dx = xy2_x - trace_x;
         let trace_dy = xy2_y - trace_y;
-        let shoot_traverse = ShootTraverse::new(
+        // Only free-look shots clip: bounding a vanilla one diverges demos.
+        let clip = aim.is_some().then(|| {
+            let subsect = &*level.level_data.point_in_subsector(start_x, start_y);
+            subsect.sector.clone()
+        });
+        let mut shoot_traverse = ShootTraverse::new(
             aim_slope,
             attack_range,
             damage,
@@ -129,16 +148,21 @@ impl MapObject {
             trace_dx,
             trace_dy,
             self.level().sky_num,
+            clip,
         );
-        path_traverse_blockmap(
-            self.x,
-            self.y,
+        let stopped = !path_traverse_blockmap(
+            start_x,
+            start_y,
             xy2_x,
             xy2_y,
             PT_ADDLINES | PT_ADDTHINGS,
             level,
             |intercept| shoot_traverse.resolve(self, intercept),
         );
+        // The span out to full range is still unchecked; open floor ends there.
+        if !stopped {
+            shoot_traverse.hit_bound(self, FixedT::ONE);
+        }
     }
 
     /// Source is the creature that caused the explosion at spot(self).
@@ -223,18 +247,19 @@ impl MapObject {
     /// Determine the aim slope for bullet weapons (`P_BulletSlope`).
     ///
     /// Tries auto-aim at the current angle, then +/- 5.625 degrees.
-    /// Restores the original angle after probing.
+    /// Restores the original angle after probing. This *is* the auto-aim, so a
+    /// hand-aimed shot never reaches it.
     pub(crate) fn bullet_slope(&mut self, distance: FixedT) -> Option<AimResult> {
-        let mut bullet_slope = self.aim_line_attack(distance);
+        let mut bullet_slope = self.aim_line_attack(distance, None);
         let old_angle = self.angle;
         if bullet_slope.is_none() {
             // OG: an += 1<<26 (ANG90/16 = 5.625 degrees)
             self.angle = Angle::from_bam(self.angle.to_bam().wrapping_add(1 << 26));
-            bullet_slope = self.aim_line_attack(distance);
+            bullet_slope = self.aim_line_attack(distance, None);
             if bullet_slope.is_none() {
                 // OG: an -= 2<<26
                 self.angle = Angle::from_bam(self.angle.to_bam().wrapping_sub(2 << 26));
-                bullet_slope = self.aim_line_attack(distance);
+                bullet_slope = self.aim_line_attack(distance, None);
             }
         }
         self.angle = old_angle;
@@ -249,10 +274,11 @@ impl MapObject {
         &mut self,
         accurate: bool,
         distance: FixedT,
-        bullet_slope: Option<AimResult>,
+        slope: FixedT,
+        aim: Option<AimRay>,
     ) {
         let damage = 5 * (p_random() % 3 + 1);
-        let mut angle = self.angle;
+        let mut angle = aim.map_or(self.angle, |ray| ray.angle);
 
         if !accurate {
             // OG: angle += (P_Random()-P_Random())<<18
@@ -260,25 +286,29 @@ impl MapObject {
             angle = Angle::from_bam(angle.to_bam().wrapping_add(spread));
         }
 
-        if let Some(res) = bullet_slope {
-            self.shoot_line_attack(distance, angle, res.aimslope, damage);
-        } else {
-            self.shoot_line_attack(distance, angle, FixedT::ZERO, damage);
-        }
+        self.shoot_line_attack(distance, angle, slope, damage, aim);
     }
 
-    /// Fire a line attack along the given angle using the previous `AimResult`.
+    /// Fire a line attack along the given angle and slope.
     pub(crate) fn line_attack(
         &mut self,
         damage: i32,
         distance: FixedT,
         angle: Angle<Bam>,
-        bullet_slope: Option<AimResult>,
+        slope: FixedT,
+        aim: Option<AimRay>,
     ) {
-        if let Some(res) = bullet_slope {
-            self.shoot_line_attack(distance, angle, res.aimslope, damage);
-        } else {
-            self.shoot_line_attack(distance, angle, FixedT::ZERO, damage);
+        self.shoot_line_attack(distance, angle, slope, damage, aim);
+    }
+
+    /// The slope a shot leaves at: the hand's when one aims, else whatever
+    /// auto-aim finds. `None` from auto-aim is flat, as OG.
+    pub(crate) fn aim_slope(&mut self, distance: FixedT, aim: Option<AimRay>) -> FixedT {
+        match aim {
+            Some(ray) => ray.slope,
+            None => self
+                .bullet_slope(distance)
+                .map_or(FixedT::ZERO, |res| res.aimslope),
         }
     }
 
@@ -435,7 +465,6 @@ impl MapObject {
                 return false;
             }
 
-            // Was just attacked, fight back!
             if self.flags.contains(MapObjFlag::Justhit) {
                 self.flags.remove(MapObjFlag::Justhit);
                 return true;
@@ -606,6 +635,14 @@ struct ShootTraverse {
     trace_dx: FixedT,
     trace_dy: FixedT,
     sky_num: usize,
+    /// Sector the ray is crossing. `None` leaves the shot unbounded vertically,
+    /// as vanilla is.
+    clip: Option<MapPtr<Sector>>,
+    /// Where the last span ended; crossings are sought over `span..frac`.
+    span: FixedT,
+    /// Set once the ray leaves through sky, suspending bounds until it is
+    /// inside a sector again — else a ceiling it is already above takes it.
+    outside: bool,
 }
 
 impl ShootTraverse {
@@ -619,6 +656,7 @@ impl ShootTraverse {
         trace_dx: FixedT,
         trace_dy: FixedT,
         sky_num: usize,
+        clip: Option<MapPtr<Sector>>,
     ) -> Self {
         Self {
             aim_slope,
@@ -630,7 +668,66 @@ impl ShootTraverse {
             trace_dx,
             trace_dy,
             sky_num,
+            clip,
+            span: FixedT::ZERO,
+            outside: false,
         }
+    }
+
+    /// Ray height at `frac` of the attack range.
+    fn z_at(&self, frac: FixedT) -> FixedT {
+        self.shootz + self.aim_slope.fixed_mul(frac.fixed_mul(self.attack_range))
+    }
+
+    /// Stop the shot if it left its sector between the last span and `frac`.
+    /// Sky is a hole: passing through neither puffs nor stops. True when spent.
+    fn hit_bound(&mut self, shooter: &mut MapObject, frac: FixedT) -> bool {
+        let Some(sector) = self.clip.clone() else {
+            return false;
+        };
+        // Only the far end: a linear ray cannot leave a flat band and return.
+        let to = self.z_at(frac);
+        self.span = frac;
+
+        let floor = FixedT::from_fixed(sector.floorheight.to_fixed_raw());
+        let ceil = FixedT::from_fixed(sector.ceilingheight.to_fixed_raw());
+        if self.outside {
+            // Back within a sector's band, so bounds bite again.
+            self.outside = !(to >= floor && to <= ceil);
+            return false;
+        }
+
+        let (bound, sky) = if to < floor {
+            (floor, sector.floorpic == self.sky_num)
+        } else if to > ceil {
+            (ceil, sector.ceilingpic == self.sky_num)
+        } else {
+            return false;
+        };
+        if sky {
+            self.outside = true;
+            return false;
+        }
+        // A level ray crosses no horizontal plane, and this would divide by
+        // zero rather than reach an infinity.
+        if self.aim_slope == FixedT::ZERO {
+            return false;
+        }
+
+        let travel = self.aim_slope.fixed_mul(self.attack_range);
+        let hit = ((bound - self.shootz) / travel).clamp(FixedT::ZERO, frac);
+        // Pull back off the surface, as `hit_line` does at a wall.
+        let hit = hit - (4 / self.attack_range);
+        // SAFETY: the shooter is linked into this level for the whole trace.
+        let level = unsafe { &mut *shooter.level };
+        MapObject::spawn_puff(
+            self.trace_x + self.trace_dx * hit,
+            self.trace_y + self.trace_dy * hit,
+            self.z_at(hit),
+            self.attack_range,
+            level,
+        );
+        true
     }
 
     /// Spawn a bullet puff at the wall hit point, respecting sky ceilings.
@@ -665,7 +762,10 @@ impl ShootTraverse {
     /// - Lines: activates specials, checks portal slopes, spawns puffs on walls
     /// - Things: skips self and non-shootable, spawns blood/puff and applies
     ///   damage
-    fn resolve(&self, shooter: &mut MapObject, intercept: &mut Intercept) -> bool {
+    fn resolve(&mut self, shooter: &mut MapObject, intercept: &mut Intercept) -> bool {
+        if self.hit_bound(shooter, intercept.frac) {
+            return false;
+        }
         if let Some(line) = intercept.line.as_mut() {
             if line.special != 0 {
                 shoot_special_line(line.clone(), shooter);
@@ -697,6 +797,16 @@ impl ShootTraverse {
                 }
             }
 
+            // Through the opening, so the far side is what bounds the ray now.
+            if let Some(current) = self.clip.as_mut()
+                && let Some(back) = line.backsector.as_ref()
+            {
+                *current = if ptr::eq(current.as_ref(), line.frontsector.as_ref()) {
+                    back.clone()
+                } else {
+                    line.frontsector.clone()
+                };
+            }
             return true;
         } else if let Some(thing) = intercept.thing.as_mut() {
             if ptr::eq(shooter, thing.as_ref()) {
@@ -977,13 +1087,13 @@ mod shooting_tests {
         let accurate_cost = {
             let _g = rng_guard();
             let before = get_prndindex();
-            shooter.gun_shot(true, FixedT::from(2048), None);
+            shooter.gun_shot(true, FixedT::from(2048), FixedT::ZERO, None);
             get_prndindex().wrapping_sub(before)
         };
         let inaccurate_cost = {
             let _g = rng_guard();
             let before = get_prndindex();
-            shooter.gun_shot(false, FixedT::from(2048), None);
+            shooter.gun_shot(false, FixedT::from(2048), FixedT::ZERO, None);
             get_prndindex().wrapping_sub(before)
         };
 

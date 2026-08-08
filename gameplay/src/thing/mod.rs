@@ -30,7 +30,7 @@ use wad::types::WadThing;
 use crate::doom_def::{MAXPLAYERS, MTF_AMBUSH, ONCEILINGZ, ONFLOORZ, TICRATE, VIEWHEIGHT};
 use crate::info::{MOBJINFO, MapObjInfo, MapObjKind, STATES, SpriteNum, StateData, StateNum};
 use crate::maputl::BestSlide;
-use crate::player::{Player, PlayerState};
+use crate::player::{AimRay, Player, PlayerState};
 use level::map_defs::SubSector;
 use math::{ANG45, Angle, p_random, p_subrandom};
 
@@ -105,11 +105,8 @@ pub struct MapObject {
     /// out of the `Thinker` then you must update sector thing lists and self
     /// linked list. This is a pointer to the `Thinker` storage.
     pub(crate) thinker: *mut Thinker,
-    /// Specific to Doom II. These are pointers to targets that the
-    /// final boss shoots demon spawn cubes towards. It is expected that
-    /// because these are level items they will never shift their memory
-    /// location. The raw pointers here are to map entities that never
-    /// move/delete themselves.
+    /// Doom II boss spawn-cube targets. Raw pointers are sound here only
+    /// because these are level items, which never move or free themselves.
     pub(crate) boss_targets: Vec<*mut Thinker>,
     /// Specific to Doom II. The current target (spawn point for demons)
     pub(crate) boss_target_on: usize,
@@ -731,33 +728,40 @@ impl MapObject {
         source: &mut Self,
         kind: MapObjKind,
         level: &mut LevelState,
+        aim: Option<AimRay>,
     ) {
         // OG: aim from source (player) BEFORE spawning missile
         let orig_angle = source.angle;
         let mut an = orig_angle;
         // OG uses 16*64*FRACUNIT (not MISSILERANGE which is 32*64*FRACUNIT)
         let distance: FixedT = (16 * 64_i32).into();
-        let mut slope = source.aim_line_attack(distance);
+        let mut slope = None;
 
-        if slope.is_none() {
-            an += Angle::from_bam(1 << 26);
-            source.angle = an;
-            slope = source.aim_line_attack(distance);
+        if let Some(ray) = aim {
+            an = ray.angle;
+        } else {
+            slope = source.aim_line_attack(distance, None);
             if slope.is_none() {
-                an -= Angle::from_bam(2 << 26);
+                an += Angle::from_bam(1 << 26);
                 source.angle = an;
-                slope = source.aim_line_attack(distance);
-            }
-            if slope.is_none() {
-                an = orig_angle;
+                slope = source.aim_line_attack(distance, None);
+                if slope.is_none() {
+                    an -= Angle::from_bam(2 << 26);
+                    source.angle = an;
+                    slope = source.aim_line_attack(distance, None);
+                }
+                if slope.is_none() {
+                    an = orig_angle;
+                }
             }
         }
         // Restore source angle (OG doesn't modify source->angle)
         source.angle = orig_angle;
 
-        let x = source.x;
-        let y = source.y;
-        let z = source.z + 32;
+        let (x, y, z) = match aim {
+            Some(ray) => ray.origin,
+            None => (source.x, source.y, source.z + 32),
+        };
 
         let mobj = Self::spawn_map_object(x, y, z, kind, level);
         let mobj = unsafe { &mut *mobj };
@@ -772,9 +776,10 @@ impl MapObject {
         let speed = FixedT::from_fixed(mobj.info.speed);
         mobj.momx = speed.fixed_mul(FixedT::cos_bam(bam));
         mobj.momy = speed.fixed_mul(FixedT::sin_bam(bam));
-        mobj.momz = slope
-            .map(|s| speed.fixed_mul(s.aimslope))
-            .unwrap_or(FixedT::ZERO);
+        mobj.momz = match aim {
+            Some(ray) => speed.fixed_mul(ray.slope),
+            None => slope.map_or(FixedT::ZERO, |s| speed.fixed_mul(s.aimslope)),
+        };
         mobj.check_missile_spawn();
     }
 

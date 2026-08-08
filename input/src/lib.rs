@@ -19,6 +19,19 @@ pub enum RawEvent {
     Resized,
 }
 
+/// One tic's worth of motion-controller input, in the terms the command
+/// needs: sticks as -1..1, buttons already edge-resolved by whoever read
+/// the device.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct PadState {
+    /// +x right, +y forward, in the player's frame. -1..1.
+    pub move_axes: [f32; 2],
+    pub fire: bool,
+    pub use_: bool,
+    pub weapon_next: bool,
+    pub weapon_prev: bool,
+}
+
 #[derive(Default, Clone)]
 pub struct InputEvents {
     key_state: HashSet<KeyCode>,
@@ -29,6 +42,12 @@ pub struct InputEvents {
     mouse_acceleration: f32,
     turn_held: u32,
     invert_y: bool,
+    /// Motion-controller input for the tic being built; the keyboard and
+    /// this fold into one command rather than competing.
+    pad: PadState,
+    /// Weapon the pad cycled to, since Doom's command carries a weapon
+    /// number rather than a "next" bit.
+    pad_weapon: u8,
 }
 
 impl InputEvents {
@@ -190,6 +209,37 @@ impl InputEvents {
         }
         self.reset_mouse_delta();
 
+        // Player frame == gaze frame: the stick needs no rotation.
+        let pad = self.pad;
+        forward += (pad.move_axes[1] * FORWARDMOVE[1] as f32) as i32;
+        side += (pad.move_axes[0] * SIDEMOVE[1] as f32) as i32;
+        if pad.fire {
+            cmd.buttons |= TIC_CMD_BUTTONS.bt_attack;
+        }
+        if pad.use_ {
+            cmd.buttons |= TIC_CMD_BUTTONS.bt_use;
+        }
+        if pad.weapon_next || pad.weapon_prev {
+            let last = WeaponType::NumWeapons as u8 - 1;
+            self.pad_weapon = if pad.weapon_next {
+                if self.pad_weapon >= last {
+                    0
+                } else {
+                    self.pad_weapon + 1
+                }
+            } else if self.pad_weapon == 0 {
+                last
+            } else {
+                self.pad_weapon - 1
+            };
+            cmd.buttons |= TIC_CMD_BUTTONS.bt_change;
+            cmd.buttons |= self.pad_weapon << TIC_CMD_BUTTONS.bt_weaponshift;
+        }
+        // Edges are spent by the tic that saw them; levels stay until
+        // the next reading replaces them.
+        self.pad.weapon_next = false;
+        self.pad.weapon_prev = false;
+
         forward = forward.clamp(-MAXPLMOVE, MAXPLMOVE);
         side = side.clamp(-MAXPLMOVE, MAXPLMOVE);
 
@@ -197,6 +247,22 @@ impl InputEvents {
         cmd.sidemove += side as i8;
 
         cmd
+    }
+
+    /// Hands a motion-controller reading to the next
+    /// [`Self::build_tic_cmd`].
+    ///
+    /// Called once per rendered frame, which is faster than the tic rate,
+    /// so the two kinds of input merge differently. Sticks and held
+    /// buttons describe the present, so the newest reading wins. A weapon
+    /// change is an edge and must survive until a tic spends it —
+    /// overwriting those loses most of them.
+    pub fn set_pad(&mut self, pad: PadState) {
+        self.pad.move_axes = pad.move_axes;
+        self.pad.fire = pad.fire;
+        self.pad.use_ = pad.use_;
+        self.pad.weapon_next |= pad.weapon_next;
+        self.pad.weapon_prev |= pad.weapon_prev;
     }
 }
 

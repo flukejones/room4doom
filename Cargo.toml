@@ -15,6 +15,7 @@ members = [
   "render/software3d",
   "render/wgpu3d",
   "render/wgpu3dbsp",
+  "render/vr",
   "tools/voxel-viewer",
   "sound/common",
   "sound/rodio",
@@ -64,6 +65,7 @@ software3d = { path = "./render/software3d" }
 software25d = { path = "./render/software25d" }
 wgpu3d = { path = "./render/wgpu3d" }
 wgpu3dbsp = { path = "./render/wgpu3dbsp" }
+vr = { path = "./render/vr" }
 level = { path = "./level" }
 rbsp = { path = "./tools/rbsp" }
 geom-kernel = { path = "./tools/geom-kernel" }

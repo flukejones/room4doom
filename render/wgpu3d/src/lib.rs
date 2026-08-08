@@ -9,22 +9,25 @@ use std::sync::Arc;
 use glam::Mat4;
 use level::LevelData;
 use pic_data::{PicData, VoxelManager};
-use render_common::RenderView;
+use render_common::{HandPose, RenderView};
 
 mod assets;
 mod camera;
 mod geometry;
+mod hands;
 mod light;
 mod scene;
 mod screen_effects;
 mod shaders;
 mod sky;
 mod sprites;
+mod teleport;
 mod voxel;
 
 use assets::Atlas;
 use camera::CameraUniform;
 use geometry::{CornerAttr, Mesh, Position, corner_attr_of};
+use hands::HandsPipeline;
 use light::LightParams;
 pub use light::RenderConfig;
 pub use scene::{DEPTH_FORMAT, SCENE_FORMAT};
@@ -32,6 +35,7 @@ use scene::{GpuAtlas, GpuMesh, ScenePipeline};
 pub use screen_effects::SceneEffects;
 use sky::{Sky, SkyMode};
 use sprites::{SpriteCam, SpritePipeline, SpriteScratch};
+use teleport::TeleportPipeline;
 use voxel::{VoxelPipeline, VoxelScratch};
 
 /// Doom tic rate; converts `game_tic` to seconds for the dynamic sky scroll.
@@ -66,8 +70,8 @@ pub struct Wgpu3D {
     mesh: Option<LevelMesh>,
     /// Wall + flat atlases, baked once from the WAD textures.
     atlas: Option<GpuAtlas>,
-    /// `pic_data.palette_generation()` the atlases were baked at; re-bake on
-    /// change (CRT gamma re-tones the palette the atlas pixels resolve through).
+    /// Palette generation the atlases hold. A stale one means the atlas pixels
+    /// resolve through a palette CRT gamma has since re-toned.
     atlas_palette_gen: u64,
     /// Sky (static + dynamic), rebuilt when the episode sky texture changes.
     sky: Option<Sky>,
@@ -101,9 +105,26 @@ pub struct Wgpu3D {
     voxel_manager: Option<Arc<VoxelManager>>,
     /// Palette generation the voxel face buffers were baked at; re-bake on change.
     voxel_palette_gen: u64,
+    /// Teleport aim overlay. Built on the first frame one is aimed, so a game
+    /// that never teleports never pays for it.
+    teleport_pipeline: Option<TeleportPipeline>,
+    /// Hand skeleton overlay, built on the first frame hands are tracked.
+    hands_pipeline: Option<HandsPipeline>,
+    /// Hands for this frame; cleared when tracking or the option goes away.
+    hands: Option<HandPose>,
 }
 
 impl Wgpu3D {
+    /// Renders the next views through a headset's asymmetric per-eye
+    /// frustum (left, right, up, down radians); `None` restores the flat
+    /// symmetric projection.
+    pub fn set_eye_fov(&mut self, fov: Option<[f32; 4]>, base_fov: f32) {
+        self.projection = match fov {
+            Some(angles) => CameraUniform::projection_from_angles(angles),
+            None => CameraUniform::projection(base_fov, self.width, self.view_height),
+        };
+    }
+
     /// `width`/`view_height` are the engine buffer dims; `fov` in radians.
     pub fn new(width: f32, view_height: f32, fov: f32) -> Self {
         Self {
@@ -130,7 +151,15 @@ impl Wgpu3D {
             voxels: VoxelScratch::default(),
             voxel_manager: None,
             voxel_palette_gen: u64::MAX,
+            teleport_pipeline: None,
+            hands_pipeline: None,
+            hands: None,
         }
+    }
+
+    /// The tracked hands to draw next frame; `None` draws none.
+    pub fn set_hands(&mut self, hands: Option<HandPose>) {
+        self.hands = hands;
     }
 
     /// Set the active voxel model set (the voxels config flag turned on). Models
@@ -352,43 +381,59 @@ impl Wgpu3D {
             self.voxels.collect(view, level_data, mgr);
         }
         let sprite_cam = SpriteCam::new(view, self.projection);
+        let aim = view.teleport;
+        if aim.is_some() {
+            self.teleport_pipeline
+                .get_or_insert_with(|| TeleportPipeline::new(frame.device));
+        }
+        if self.hands.is_some() {
+            self.hands_pipeline
+                .get_or_insert_with(|| HandsPipeline::new(frame.device));
+        }
         let Self {
             sprite_pipeline,
             sprites,
             voxel_pipeline,
             voxels,
+            teleport_pipeline,
+            hands_pipeline,
+            hands,
             ..
         } = self;
         let sprite_pipeline = sprite_pipeline
             .as_mut()
             .expect("sprite pipeline built above");
-        // World billboards first (depth-tested world geometry).
-        sprite_pipeline.render_world(
-            frame.device,
-            frame.queue,
-            frame.encoder,
-            frame.scene_view,
-            frame.depth_view,
-            &sprite_cam,
-            &light,
-            sprites,
-        );
-        // Voxels next (also depth-tested world geometry) — only when active.
-        if voxel_mgr.is_some()
-            && let Some(vp) = voxel_pipeline.as_mut()
-            && !voxels.is_empty()
-        {
-            vp.render(
-                frame.device,
-                frame.queue,
-                frame.encoder,
-                frame.scene_view,
-                frame.depth_view,
-                &sprite_cam,
-                &light,
-                voxels,
-            );
+
+        // Every buffer write must land before the pass opens.
+        sprite_pipeline.upload_world(frame.device, frame.queue, &sprite_cam, &light, sprites);
+        let voxels_live = voxel_mgr.is_some() && !voxels.is_empty();
+        if voxels_live && let Some(vp) = voxel_pipeline.as_mut() {
+            vp.upload(frame.device, frame.queue, &sprite_cam, &light, voxels);
         }
+        if let (Some(aim), Some(tp)) = (aim.as_ref(), teleport_pipeline.as_ref()) {
+            tp.upload(frame.queue, &sprite_cam, aim);
+        }
+        if let (Some(pose), Some(hp)) = (hands.as_ref(), hands_pipeline.as_ref()) {
+            hp.upload(frame.queue, &sprite_cam, pose);
+        }
+
+        // One pass for everything that sits in world space with depth. Voxels
+        // draw before sprites so spectre fuzz halves them rather than the
+        // background they stand in front of.
+        {
+            let mut rpass = world_pass(frame);
+            if voxels_live && let Some(vp) = voxel_pipeline.as_ref() {
+                vp.record(&mut rpass, voxels);
+            }
+            sprite_pipeline.record_world(&mut rpass, sprites);
+            if let (Some(_), Some(tp)) = (aim.as_ref(), teleport_pipeline.as_ref()) {
+                tp.record(&mut rpass);
+            }
+            if let (Some(_), Some(hp)) = (hands.as_ref(), hands_pipeline.as_ref()) {
+                hp.record(&mut rpass);
+            }
+        }
+
         // Weapon psprite last (screen-space, on top of everything).
         sprite_pipeline.render_psprites(
             frame.queue,
@@ -398,4 +443,34 @@ impl Wgpu3D {
             view.is_shadow,
         );
     }
+}
+
+/// The depth-tested overlay pass: sprites, voxels and the teleport aim all
+/// target the scene colour + depth the scene pass just wrote.
+fn world_pass<'a>(frame: &'a mut GpuHandle<'_>) -> wgpu::RenderPass<'a> {
+    frame
+        .encoder
+        .begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("world_overlay_pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: frame.scene_view,
+                depth_slice: None,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Load,
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                view: frame.depth_view,
+                depth_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Load,
+                    store: wgpu::StoreOp::Store,
+                }),
+                stencil_ops: None,
+            }),
+            timestamp_writes: None,
+            occlusion_query_set: None,
+            multiview_mask: None,
+        })
 }

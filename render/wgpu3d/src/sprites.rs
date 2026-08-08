@@ -22,11 +22,11 @@ use glam::{Mat4, Vec2, Vec3, Vec4};
 use level::{LevelData, Sector};
 use math::{FixedT, point_to_angle_2};
 use pic_data::{PicData, VoxelManager};
-use render_common::RenderView;
 use render_common::light::{WEAPON_LIGHT_BOOST, WEAPON_LIGHT_INDEX_MAX, WEAPON_LIGHT_INDEX_SPAN};
+use render_common::{CRT_STRETCH, EyeBasis, RenderView};
 
 use crate::assets::{Atlas, AtlasRect, SpriteAtlas, SpriteMeta};
-use crate::camera::MAX_PITCH;
+use crate::camera::{MAX_PITCH, world_stretch};
 use crate::light::{LIGHT_LEVELS, LightParams};
 use crate::scene::{DEPTH_FORMAT, SCENE_FORMAT, upload_atlas_texture, write_atlas_pixels};
 use crate::shaders::{
@@ -40,6 +40,9 @@ const VERTS_PER_QUAD: u32 = 6;
 const MAX_PSPRITES: usize = 2;
 /// `SpriteInstance.flags` bit0: spectre/shadow → fuzz (RGB-halve) pipeline.
 const SPRITE_FLAG_FUZZ: u32 = 1;
+/// `SpriteInstance.flags` bit1: rise along the view's up axis, not world Z, so
+/// the quad squares up to the viewer instead of standing upright.
+const SPRITE_FLAG_FACING: u32 = 2;
 /// Thing frame flags (Doom): full-bright bit, and the mask for the frame index.
 const FF_FULLBRIGHT: u32 = 0x8000;
 const FF_FRAMEMASK: u32 = 0x7FFF;
@@ -72,23 +75,23 @@ pub struct SpriteCam {
 }
 
 impl SpriteCam {
-    /// Build from the player view + the shared projection matrix. `cam_right`
-    /// matches software3d (`(sin angle, -cos angle)`); `cam_up` is world Z.
+    /// Build from the player view + the shared projection matrix.
     pub fn new(view: &RenderView, projection: Mat4) -> Self {
         let pos = Vec3::new(view.x.into(), view.y.into(), view.viewz.into());
-        let angle = view.angle.rad();
-        let pitch = view.lookdir.clamp(-MAX_PITCH, MAX_PITCH);
-        let forward = Vec3::new(
-            angle.cos() * pitch.cos(),
-            angle.sin() * pitch.cos(),
-            pitch.sin(),
-        );
-        let view_proj = projection * Mat4::look_at_rh(Vec3::ZERO, forward, Vec3::Z);
+        let basis = EyeBasis::new(view);
+        let (right, up) = (basis.right, basis.up);
+        let view_proj = projection
+            * Mat4::look_at_rh(
+                Vec3::ZERO,
+                Vec3::from_array(basis.forward),
+                Vec3::from_array(up),
+            )
+            * world_stretch();
         Self {
             view_proj: view_proj.to_cols_array_2d(),
             camera_pos: [pos.x, pos.y, pos.z, 0.0],
-            cam_right: [angle.sin(), -angle.cos(), 0.0, 0.0],
-            cam_up: [0.0, 0.0, 1.0, 0.0],
+            cam_right: [right[0], right[1], right[2], 0.0],
+            cam_up: [up[0], up[1], up[2], 0.0],
             extralight: [view.extralight as f32, 0.0, 0.0, 0.0],
         }
     }
@@ -145,6 +148,8 @@ pub struct SpriteScratch {
     opaque_count: u32,
     /// Weapon psprite upload scratch (≤ [`MAX_PSPRITES`] layers).
     psprites: Vec<PspriteInstance>,
+    /// Anchored-weapon scratch, merged into `instances` (≤ [`MAX_PSPRITES`]).
+    weapon: Vec<SpriteInstance>,
 }
 
 impl SpriteScratch {
@@ -302,10 +307,12 @@ impl SpriteScratch {
         );
     }
 
-    /// Build the weapon psprite quads (≤ [`MAX_PSPRITES`] layers), converting
-    /// Doom's 320×200 placement to NDC (matches software3d weapon.rs).
-    /// Screen-space, drawn last with no depth; `view.is_shadow` picks the fuzz
-    /// variant at draw time. `screen_w`/`screen_h` are the engine buffer dims.
+    /// Build the weapon quads (≤ [`MAX_PSPRITES`] layers) from Doom's 320×200
+    /// placement (matches software3d weapon.rs). Without a
+    /// [`RenderView::weapon_anchor`] they are screen-space NDC overlays drawn
+    /// last with no depth; with one they become world billboards at the anchor.
+    /// `view.is_shadow` picks the fuzz variant at draw time. `screen_w`/
+    /// `screen_h` are the engine buffer dims.
     pub fn collect_psprites(
         &mut self,
         view: &RenderView,
@@ -352,6 +359,10 @@ impl SpriteScratch {
             let texture_mid = PSP_HALF_HEIGHT - (psp.sy - patch.top_offset as f32);
             let y1 = (screen_h * 0.5 - texture_mid * base_scale).round();
             let y2 = y1 + rows * base_scale;
+            // Match the world's 1.2× vertical scale, anchored at the
+            // screen bottom.
+            let stretch = |py: f32| screen_h - (screen_h - py) * CRT_STRETCH;
+            let (y1, y2) = (stretch(y1), stretch(y2));
             if x2 < 0.0 || x1 >= screen_w || y2 < 0.0 || y1 >= screen_h {
                 continue;
             }
@@ -371,6 +382,33 @@ impl SpriteScratch {
             let row = (startmap - weapon_light_scale * 0.5).clamp(0.0, light.max_row());
             let intensity = (1.0 - row / light.max_row()).powf(light.light_gamma());
 
+            if let Some(anchor) = view.weapon_anchor {
+                // Every layer shares the anchor and basis, so the muzzle flash
+                // stays on the barrel.
+                let to_units = anchor.units_per_pixel / base_scale;
+                let centre_x = (x1 + x2) * 0.5 - screen_w * 0.5;
+                let (left, right) = ((x1 - x2) * 0.5, (x2 - x1) * 0.5);
+                let basis = EyeBasis::new(view);
+                let (right_axis, up) = (Vec3::from(basis.right), Vec3::from(basis.up));
+                // The instance rises from its anchor, so drop it half a height.
+                let bottom = Vec3::from(anchor.position) + right_axis * (centre_x * to_units)
+                    - up * ((y2 - y1) * 0.5 * to_units);
+                self.weapon.push(SpriteInstance {
+                    center: bottom.into(),
+                    left_dist: left * to_units,
+                    right_dist: right * to_units,
+                    height: (y2 - y1) * to_units,
+                    rect_origin: rect.origin,
+                    rect_size: rect.size,
+                    layer: rect.layer,
+                    flip: u32::from(flip),
+                    brightness: band as u32,
+                    flags: SPRITE_FLAG_FACING,
+                    _pad: [0; 2],
+                });
+                continue;
+            }
+
             // Pixel rect -> NDC (x right, y up; pixel y is top-down).
             let ndc = |px: f32, py: f32| [px / screen_w * 2.0 - 1.0, 1.0 - py / screen_h * 2.0];
             self.psprites.push(PspriteInstance {
@@ -383,6 +421,11 @@ impl SpriteScratch {
                 light: intensity,
                 flags: 0,
             });
+        }
+        // Near end of the back-to-front opaque run, ahead of the fuzz group.
+        for weapon in self.weapon.drain(..) {
+            self.instances.insert(self.opaque_count as usize, weapon);
+            self.opaque_count += 1;
         }
     }
 }
@@ -520,7 +563,7 @@ impl SpritePipeline {
             &shader,
             "fs_main",
             wgpu::BlendState::REPLACE,
-            Some(true),
+            Depth::Tested,
             "sprite_pipeline",
         );
         // Spectre fuzz: RGB-halve the background (src*0 + dst*(1-srcAlpha)).
@@ -540,7 +583,7 @@ impl SpritePipeline {
             &shader,
             "fs_fuzz",
             fuzz_blend,
-            Some(true),
+            Depth::Tested,
             "sprite_fuzz_pipeline",
         );
 
@@ -575,7 +618,7 @@ impl SpritePipeline {
             &psp_shader,
             "fs_main",
             wgpu::BlendState::REPLACE,
-            None,
+            Depth::Ignored,
             "psprite_pipeline",
         );
         let psp_fuzz_pipeline = make_pipeline(
@@ -584,7 +627,7 @@ impl SpritePipeline {
             &psp_shader,
             "fs_fuzz",
             fuzz_blend,
-            None,
+            Depth::Ignored,
             "psprite_fuzz_pipeline",
         );
 
@@ -608,16 +651,12 @@ impl SpritePipeline {
         }
     }
 
-    /// Upload and draw the frame's world billboards (over the scene, with depth).
-    /// Split from the psprite draw so the voxel pass can run between them (voxels
-    /// are world geometry; the psprite is screen-space and must stay on top).
-    pub fn render_world(
+    /// Stage the frame's world billboards. Call before the world pass opens —
+    /// buffer writes cannot happen inside one.
+    pub fn upload_world(
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        encoder: &mut wgpu::CommandEncoder,
-        scene_view: &wgpu::TextureView,
-        depth_view: &wgpu::TextureView,
         cam: &SpriteCam,
         light: &LightParams,
         scratch: &SpriteScratch,
@@ -625,13 +664,6 @@ impl SpritePipeline {
         self.set_camera(queue, cam);
         self.set_light(queue, light);
         self.upload_instances(device, queue, &scratch.instances);
-        self.draw(
-            encoder,
-            scene_view,
-            depth_view,
-            scratch.opaque_count,
-            scratch.instances.len() as u32,
-        );
     }
 
     /// Draw the weapon psprite (screen-space, no depth, on top). Called last, after
@@ -661,8 +693,8 @@ impl SpritePipeline {
         queue.write_buffer(&self.light_buf, 0, cast_slice(slice::from_ref(light)));
     }
 
-    /// Re-bake the sprite atlas pixels into the existing texture (CRT gamma
-    /// changed the palette). Dimensions are palette-independent.
+    /// Re-bake the atlas pixels in place after a palette change; the layout is
+    /// unchanged, so the texture is kept.
     pub fn reupload_atlas(&self, queue: &wgpu::Queue, atlas: &Atlas) {
         write_atlas_pixels(queue, &self.atlas_tex, atlas);
     }
@@ -687,41 +719,11 @@ impl SpritePipeline {
         }
     }
 
-    /// Record the sprite pass into the scene colour + depth views. The instance
-    /// buffer is partitioned `[0, opaque_count)` opaque (cutout) and
+    /// Record the world billboards into an open world pass. The instance buffer
+    /// is partitioned `[0, opaque_count)` opaque (cutout) and
     /// `[opaque_count, count)` fuzz (spectre); each is drawn with its pipeline.
-    /// Depth loads (the scene pass wrote it); colour loads too.
-    fn draw(
-        &self,
-        encoder: &mut wgpu::CommandEncoder,
-        scene_view: &wgpu::TextureView,
-        depth_view: &wgpu::TextureView,
-        opaque_count: u32,
-        count: u32,
-    ) {
-        let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("sprite_pass"),
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: scene_view,
-                depth_slice: None,
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Load,
-                    store: wgpu::StoreOp::Store,
-                },
-            })],
-            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                view: depth_view,
-                depth_ops: Some(wgpu::Operations {
-                    load: wgpu::LoadOp::Load,
-                    store: wgpu::StoreOp::Store,
-                }),
-                stencil_ops: None,
-            }),
-            timestamp_writes: None,
-            occlusion_query_set: None,
-            multiview_mask: None,
-        });
+    pub fn record_world(&self, rpass: &mut wgpu::RenderPass<'_>, scratch: &SpriteScratch) {
+        let (opaque_count, count) = (scratch.opaque_count, scratch.instances.len() as u32);
         if count == 0 {
             return;
         }
@@ -786,21 +788,29 @@ impl SpritePipeline {
     }
 }
 
+/// How a sprite pipeline uses the depth buffer.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Depth {
+    /// Tested `LessEqual` and written, so world billboards occlude each other.
+    Tested,
+    /// No depth attachment: the weapon overlay sits on top of everything.
+    Ignored,
+}
+
 /// Build a sprite render pipeline. Shared `vs_main`, no cull; the fragment
-/// entry and colour blend vary. `depth = Some(write)` → depth-tested `LessEqual`
-/// (world billboards); `None` → no depth attachment (screen-space psprites).
+/// entry and colour blend vary.
 fn make_pipeline(
     device: &wgpu::Device,
     layout: &wgpu::PipelineLayout,
     shader: &wgpu::ShaderModule,
     fs_entry: &str,
     blend: wgpu::BlendState,
-    depth: Option<bool>,
+    depth: Depth,
     label: &str,
 ) -> wgpu::RenderPipeline {
-    let depth_stencil = depth.map(|write| wgpu::DepthStencilState {
+    let depth_stencil = (depth == Depth::Tested).then(|| wgpu::DepthStencilState {
         format: DEPTH_FORMAT,
-        depth_write_enabled: Some(write),
+        depth_write_enabled: Some(true),
         depth_compare: Some(wgpu::CompareFunction::LessEqual),
         stencil: wgpu::StencilState::default(),
         bias: wgpu::DepthBiasState::default(),

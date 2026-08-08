@@ -19,6 +19,21 @@ install-hooks:
 run *ARGS:
 	cargo run --release -- --iwad data/doom1.wad {{ARGS}}
 
+headgasket := env("HEADGASKET_DIR", home_directory() / "Applications/Headgasket.app")
+xr_loader := env("OPENXR_LOADER", home_directory() / "Projects/OpenXR-SDK-Source/build/src/loader/libopenxr_loader.dylib")
+
+# Run in VR against the Headgasket runtime. The daemon must be running
+# (`just daemon` in macos-vr); headset vs window is the game config's
+# `display` field. Extra args pass through.
+vr *ARGS:
+	OPENXR_LOADER={{xr_loader}} \
+	XR_RUNTIME_JSON={{headgasket}}/dist/Headgasket.app/Contents/Resources/headgasket.json \
+	cargo run --release --features vr -- --iwad data/doom1.wad {{ARGS}}
+
+# Build the VR binary without running it.
+build-vr:
+	cargo build --release --features vr
+
 # Run the BSP viewer. Extra args pass through.
 bsp-viewer *ARGS:
 	cargo run --release -p bsp-viewer -- {{ARGS}}

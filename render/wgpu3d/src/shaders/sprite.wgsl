@@ -9,8 +9,8 @@
 struct SpriteCam {
     view_proj: mat4x4<f32>,
     camera_pos: vec4<f32>,  // xyz eye, w unused
-    cam_right: vec4<f32>,   // (sin angle, -cos angle, 0), w unused
-    cam_up: vec4<f32>,      // (0, 0, 1, 0)
+    cam_right: vec4<f32>,   // view right in world, w unused
+    cam_up: vec4<f32>,      // view up in world; used by FACING instances only
     extralight: f32,
     pad0: f32,
     pad1: f32,
@@ -27,10 +27,14 @@ struct SpriteInstance {
     layer: u32,             // atlas array layer
     flip: u32,              // 0/1 horizontal flip (U swap)
     brightness: u32,        // 0..15 sector/full-bright light level
-    flags: u32,             // bit0 fuzz/shadow (handled by pipeline variant)
+    flags: u32,             // bit0 fuzz/shadow (pipeline variant), bit1 full-facing
     pad0: u32,
     pad1: u32,
 };
+
+// Rise along cam_up, not world Z. Without it a sprite held below eye level goes
+// edge-on when looked down at.
+const SPRITE_FLAG_FACING: u32 = 2u;
 
 // corner_uv comes from sprite_quad_common.wgsl (concatenated ahead).
 // LightParams byte-matches the Rust LightParams (light.rs); see scene.wgsl.
@@ -72,13 +76,11 @@ fn vs_main(@builtin(vertex_index) corner: u32, @builtin(instance_index) inst: u3
 
     // Horizontal world offset along cam_right; vertical along world Z.
     let dist = mix(s.left_dist, s.right_dist, quad.x);
-    let top_z = s.center.z + s.height;
-    let z = mix(top_z, s.center.z, quad.y);
-    let world = vec3<f32>(
-        s.center.x + cam.cam_right.x * dist,
-        s.center.y + cam.cam_right.y * dist,
-        z,
-    );
+    let rise = mix(s.height, 0.0, quad.y);
+    let across = s.center + cam.cam_right.xyz * dist;
+    let upright = vec3<f32>(across.x, across.y, s.center.z + rise);
+    let facing = across + cam.cam_up.xyz * rise;
+    let world = select(upright, facing, (s.flags & SPRITE_FLAG_FACING) != 0u);
 
     var out: VsOut;
     out.pos = cam.view_proj * vec4<f32>(world - cam.camera_pos.xyz, 1.0);

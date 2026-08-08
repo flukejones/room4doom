@@ -1,7 +1,8 @@
 use std::ptr;
 
 use bitflags::bitflags;
-use math::{ANG90, ANG180, Bam, FixedT};
+use glam::Vec3;
+use math::{ANG90, ANG180, Bam, FixedT, lookdir_to_radian};
 
 use log::{debug, error, info};
 use sound_common::SfxName;
@@ -13,6 +14,7 @@ use crate::doom_def::{
 use crate::info::{STATES, StateNum};
 use crate::level::LevelState;
 use crate::player_sprite::{PspDef, WEAPONBOTTOM};
+use crate::teleport_aim::{self, TELEPORT_TICS, TeleportDash};
 use crate::thing::enemy::noise_alert;
 use crate::thing::{BONUSADD, MapObjFlag, MapObject};
 use game_config::tic_cmd::{TIC_CMD_BUTTONS, TicCmd};
@@ -96,9 +98,21 @@ pub struct WorldEndPlayerInfo {
     pub score: i32,
 }
 
-/// Contains the players current status such as attacking, loadout, health. This
-/// is also used by the statusbar to show the player what their current status
-/// is.
+/// Steepest shot a free-look aim can take; past this the fixed-point trace
+/// loses precision for no gain. Doom's own auto-aim window is 100/160.
+pub const MAX_AIM_SLOPE: f32 = 4.0;
+
+/// Where a shot leaves from and where it goes, replacing the body-relative
+/// origin and the auto-aimed slope together.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct AimRay {
+    pub origin: (FixedT, FixedT, FixedT),
+    pub angle: Angle<Bam>,
+    /// Doom slope: rise over run.
+    pub slope: FixedT,
+}
+
+/// The player's attacking state, loadout and health.
 #[derive(Debug, Clone)]
 pub struct PlayerStatus {
     /// True if button down last tic.
@@ -223,6 +237,11 @@ pub struct Player {
     pub lookdir: i32,
     /// Previous tic state for rendering interpolation.
     pub prev_render: PrevRenderState,
+    /// An aimed teleport in flight; it owns the player's motion until it lands.
+    teleport_dash: Option<TeleportDash>,
+    /// Where shots start and point when a tracked hand holds the weapon.
+    /// `None` puts them on the body, facing where the player faces.
+    pub aim: Option<AimRay>,
 }
 
 impl Default for Player {
@@ -265,6 +284,8 @@ impl Player {
             head_bob: true,
             lookdir: 0,
             prev_render: PrevRenderState::default(),
+            teleport_dash: None,
+            aim: None,
 
             psprites: [
                 PspDef {
@@ -414,7 +435,6 @@ impl Player {
             // OG: bob = FixedMul(player->bob/2, finesine[angle])
             let bob = self.bob.shr(1).fixed_mul(math::finesine(fine_angle));
 
-            // move viewheight
             if self.player_state == PlayerState::Live {
                 self.viewheight += self.deltaviewheight;
 
@@ -920,6 +940,50 @@ impl Player {
         }
     }
 
+    /// A ray along the view, so a monitor shoots where the player looks
+    /// instead of through auto-aim. `None` without a body to shoot from.
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "a look pitch is meaningful far above f32's mantissa"
+    )]
+    pub fn look_ray(&self) -> Option<AimRay> {
+        let mobj = self.mobj()?;
+        // Doom slope is the tangent of the look pitch.
+        let pitch = lookdir_to_radian(self.lookdir as f32);
+        Some(AimRay {
+            origin: (mobj.x, mobj.y, mobj.z + mobj.height.shr(1) + 8),
+            angle: mobj.angle,
+            slope: FixedT::from_f32(pitch.tan().clamp(-MAX_AIM_SLOPE, MAX_AIM_SLOPE)),
+        })
+    }
+
+    /// Send the player to `target` over [`TELEPORT_TICS`]. The aim that
+    /// produced `target` already proved the path clear.
+    pub fn start_teleport(&mut self, target: Vec3) {
+        self.teleport_dash = Some(TeleportDash {
+            target,
+            tics: TELEPORT_TICS,
+        });
+    }
+
+    /// True while a dash owns the player's motion, so normal movement is
+    /// skipped for the tic.
+    fn step_teleport(&mut self, level: &mut LevelState) -> bool {
+        let Some(dash) = self.teleport_dash.as_mut() else {
+            return false;
+        };
+        dash.tics = dash.tics.saturating_sub(1);
+        let (target, tics) = (dash.target, dash.tics);
+        let Some(mobj) = self.mobj_mut() else {
+            self.teleport_dash = None;
+            return false;
+        };
+        if teleport_aim::step_dash(target, tics, mobj, level) {
+            self.teleport_dash = None;
+        }
+        true
+    }
+
     pub fn think(&mut self, level: &mut LevelState) -> bool {
         self.save_prev_render();
         if let Some(mobj) = self.mobj {
@@ -945,7 +1009,9 @@ impl Player {
         }
 
         // TODO: not feature complete with P_PlayerThink
-        if let Some(mobj) = self.mobj_mut() {
+        if !self.step_teleport(level)
+            && let Some(mobj) = self.mobj_mut()
+        {
             if mobj.reactiontime > 0 {
                 mobj.reactiontime -= 1;
             } else {

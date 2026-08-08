@@ -8,9 +8,11 @@
 //! - [`SoftwarePresent`] — show the engine's finished CPU `[P]` frame.
 //! - [`HardwarePresent`] — own the GPU device + present pipeline (composite,
 //!   melt, post-chain) and hold the live encoder across one frame's steps.
-//!   [`RenderStack`](crate::RenderStack) drives it per step (set effects → start
-//!   wipe → begin scene → advance wipe → finish frame), mirroring the software
-//!   per-step path; UI is drawn into the shared CPU [`Frame`](crate::Frame).
+//!   [`RenderStack`](crate::RenderStack) drives it per step (set effects →
+//!   start wipe → upload UI → begin scene → advance wipe → finish frame),
+//!   mirroring the software per-step path. UI is drawn into CPU
+//!   [`UiSurface`](crate::UiSurface)s and uploaded once per frame; the scene and
+//!   the present run once per eye.
 //!
 //! The traits hand out a borrowed [`GpuHandle`], so they are static bounds only,
 //! never `dyn`.
@@ -22,6 +24,8 @@
 use std::sync::Arc;
 
 use pic_data::PixelFmt;
+#[cfg(feature = "vr")]
+use render_common::{EYE_COUNT, EyeView};
 #[cfg(feature = "wgpu3d")]
 use wgpu3d::GpuHandle;
 
@@ -69,8 +73,10 @@ pub(crate) trait SoftwarePresent<P: PixelFmt>: Backend {
 /// Own the GPU device + present pipeline, holding the live encoder across one
 /// frame's steps. `w`×`h` is the engine buffer size; the backend sources the
 /// window size itself.
+/// The GPU path is `Bgra8Unorm` throughout, so this is not generic over the
+/// surface pixel type the way [`SoftwarePresent`] is.
 #[cfg(feature = "wgpu3d")]
-pub(crate) trait HardwarePresent<P: PixelFmt>: Backend {
+pub(crate) trait HardwarePresent: Backend {
     /// Resolve tint/bleed into the composite uniform (Level state only).
     fn set_screen_effects(&mut self, effects: ScreenEffects, w: u32, h: u32);
     /// Seed the melt offsets at a wipe's start.
@@ -78,12 +84,63 @@ pub(crate) trait HardwarePresent<P: PixelFmt>: Backend {
     fn is_wiping(&self) -> bool;
     /// Begin recording the scene; the returned handle borrows the held encoder.
     fn begin_scene(&mut self, w: u32, h: u32) -> GpuHandle<'_>;
+    /// Views this backend needs per frame: 1 for a window, 2 for a headset.
+    fn eye_count(&self) -> usize {
+        1
+    }
+    /// Open the display's frame and report where each eye looks from. `None`
+    /// on a display with a single fixed viewpoint, or when the runtime refused
+    /// the frame — in which case no eye should be drawn.
+    #[cfg(feature = "vr")]
+    fn begin_frame(&mut self) -> Option<[Option<EyeView>; EYE_COUNT]> {
+        None
+    }
+    /// Target the next scene and present at `eye`, of the frame already begun.
+    #[cfg(feature = "vr")]
+    fn set_eye(&mut self, _eye: usize) {}
+    /// Pin the facing-locked panel to where the player is looking now.
+    #[cfg(feature = "vr")]
+    fn anchor_panels(&mut self) {}
+    /// Panel geometry for the display's virtual screens.
+    #[cfg(feature = "vr")]
+    fn set_panels(&mut self, _hud: PanelPlacement, _screen: PanelPlacement) {}
     /// Step the melt offsets (no GPU work); `true` once complete.
     fn advance_wipe(&mut self) -> bool;
-    /// Consume the encoder: upload `front` as the UI texture, composite over the
-    /// scene, melt at the current offsets when `wiping`, post-chain, present.
-    fn finish_frame(&mut self, front: &[P], w: u32, h: u32, wiping: bool);
+    /// Upload the UI planes for the frame in flight, once per frame.
+    fn upload_ui(&mut self, planes: UiPlanes<'_>);
+    /// Consume the encoder for one eye: scene effects, UI panels over the
+    /// result, melt at the current offsets when `wiping`, post-chain, present.
+    fn finish_frame(&mut self, scene_w: u32, scene_h: u32, wiping: bool);
     fn reset_health_bleed(&mut self);
+}
+
+/// One UI plane's pixels for [`HardwarePresent::upload_ui`].
+#[cfg(feature = "wgpu3d")]
+pub(crate) struct UiPixels<'a> {
+    pub pixels: &'a [u32],
+    pub w: u32,
+    pub h: u32,
+}
+
+/// The UI planes for one frame. `None` = nothing drew on that plane, so it is
+/// neither uploaded nor drawn. On a flat display the whole UI is `hud` and
+/// `screen` is always `None`.
+#[cfg(feature = "wgpu3d")]
+pub(crate) struct UiPlanes<'a> {
+    pub hud: Option<UiPixels<'a>>,
+    pub screen: Option<UiPixels<'a>>,
+}
+
+/// Where a headset's virtual screen sits and how big it is. What it is anchored
+/// to is fixed per plane and belongs to the display, not here.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PanelPlacement {
+    /// Distance in front of the viewer, metres.
+    pub distance_m: f32,
+    /// Angle the panel subtends, degrees.
+    pub width_deg: f32,
+    /// Panel centre relative to eye level, degrees; negative is below.
+    pub pitch_deg: f32,
 }
 
 /// Per-frame screen-effect inputs passed by value; the hardware present resolves
@@ -135,6 +192,17 @@ pub fn new_wgpu<P: PixelFmt>(
     post: Vec<PostEffect>,
 ) -> ActiveBackend<P> {
     crate::wgpu_backend::WgpuBackend::new(window, vsync, post)
+}
+
+/// wgpu backend presenting to a VR runtime instead of the window surface.
+/// The window is kept for input and OS activation.
+#[cfg(all(feature = "vr", not(feature = "display-sdl2")))]
+pub fn new_vr<P: PixelFmt>(
+    window: Arc<winit::window::Window>,
+    session: vr::Session,
+    post: Vec<PostEffect>,
+) -> ActiveBackend<P> {
+    crate::wgpu_backend::WgpuBackend::new_vr(window, session, post)
 }
 
 /// SDL2 software backend from a built canvas.

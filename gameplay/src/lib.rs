@@ -25,6 +25,7 @@ mod player;
 mod player_sprite;
 pub mod save;
 pub(crate) mod sector_ext;
+mod teleport_aim;
 #[cfg(test)]
 mod test_support;
 mod thing;
@@ -39,9 +40,12 @@ pub use info::{MapObjKind, SPRNAMES, STATES, StateNum};
 pub use lang::english;
 pub use level::LevelState;
 pub use pic::{Button, ButtonWhere};
-pub use player::{Player, PlayerCheat, PlayerState, PlayerStatus, WorldEndPlayerInfo};
+pub use player::{
+    AimRay, MAX_AIM_SLOPE, Player, PlayerCheat, PlayerState, PlayerStatus, WorldEndPlayerInfo,
+};
 pub use player_sprite::PspDef;
 pub use sector_ext::SectorExt;
+pub use teleport_aim::{TELEPORT_TICS, TeleportAim, TeleportScratch, aim_teleport};
 pub use thing::{MapObjFlag, MapObject};
 
 /// Normalise an angle in radians into `[0, TAU)`, handling any magnitude.

@@ -2,7 +2,9 @@ use pic_data::PicData;
 use render_common::light::{
     LIGHT_LEVELS, WEAPON_LIGHT_BOOST, WEAPON_LIGHT_INDEX_MAX, WEAPON_LIGHT_INDEX_SPAN,
 };
-use render_common::{DrawBuffer as _, FUZZ_TABLE, PixelFmt, PixelTarget, RenderPspDef, RenderView};
+use render_common::{
+    CRT_STRETCH, DrawBuffer as _, FUZZ_TABLE, PixelFmt, PixelTarget, RenderPspDef, RenderView,
+};
 
 use crate::Software3D;
 
@@ -18,18 +20,9 @@ const ORIGINAL_WIDTH: f32 = 320.0;
 const ORIGINAL_HEIGHT: f32 = 200.0;
 const ORIGINAL_HALF_WIDTH: f32 = ORIGINAL_WIDTH / 2.0; // 160.0
 const ORIGINAL_HALF_HEIGHT: f32 = ORIGINAL_HEIGHT / 2.0; // 100.0
-/// Convert a distance/offset from Doom's 320-wide coordinate space to screen
-/// pixels. Uses height-based scaling (same as menu/title screens) so that the
-/// blit's CRT stretch produces correct proportions.
+/// Doom 320×200 virtual units to screen pixels, uniform for both axes.
 #[inline(always)]
-fn scale_x(original: f32, screen_height: f32) -> f32 {
-    original * (screen_height / ORIGINAL_HEIGHT)
-}
-
-/// Convert a distance/offset from Doom's 200-tall coordinate space to screen
-/// pixels. CRT pixel aspect (1.2×) is handled by the blit layer.
-#[inline(always)]
-fn scale_y(original: f32, screen_height: f32) -> f32 {
+fn scale_virtual(original: f32, screen_height: f32) -> f32 {
     original * (screen_height / ORIGINAL_HEIGHT)
 }
 
@@ -110,19 +103,21 @@ impl Software3D {
         // left_offset anchors the sprite's origin within the patch.
         let offset_x = (psp.sx - ORIGINAL_HALF_WIDTH) - patch.left_offset as f32;
         // Round x1 to integer to ensure 1:1 texel-to-pixel mapping (no doubled columns)
-        let x1 = (screen_w * 0.5 + scale_x(offset_x, screen_h)).round();
-        let x2 = x1 + scale_x(sprite_cols as f32, screen_h);
+        let x1 = (screen_w * 0.5 + scale_virtual(offset_x, screen_h)).round();
+        let x2 = x1 + scale_virtual(sprite_cols as f32, screen_h);
 
         // texture_mid positions the sprite vertically in 200px space.
-        // 100 = vertical center of 200px; top_offset anchors the sprite within the
-        // patch. Position uses base scaling (no CRT stretch) so the anchor
-        // stays at the correct screen location; only the sprite height is
-        // CRT-stretched.
+        // 100 = vertical center of 200px; top_offset anchors the sprite
+        // within the patch.
         let texture_mid = ORIGINAL_HALF_HEIGHT - (psp.sy - patch.top_offset as f32);
         let base_scale = screen_h / ORIGINAL_HEIGHT;
         // Round y1 to integer to ensure 1:1 texel-to-pixel mapping (no doubled rows)
         let y1 = (screen_h * 0.5 - texture_mid * base_scale).round();
-        let y2 = y1 + scale_y(sprite_rows as f32, screen_h);
+        let y2 = y1 + scale_virtual(sprite_rows as f32, screen_h);
+        // Match the world's 1.2× vertical scale, anchored at the screen
+        // bottom.
+        let stretch = |py: f32| screen_h - (screen_h - py) * CRT_STRETCH;
+        let (y1, y2) = (stretch(y1).round(), stretch(y2).round());
 
         // Early reject if entirely off-screen
         if x2 < 0.0 || x1 >= screen_w || y2 < 0.0 || y1 >= screen_h {

@@ -418,15 +418,12 @@ impl VoxelPipeline {
         self.models.clear();
     }
 
-    /// Upload the frame's instances + camera/light, then draw one instanced batch
-    /// per model. Depth loads (scene + sprites wrote it) and writes.
-    pub fn render(
+    /// Stage the frame's instances + camera/light. Call before the world pass
+    /// opens — buffer writes cannot happen inside one.
+    pub fn upload(
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        encoder: &mut wgpu::CommandEncoder,
-        scene_view: &wgpu::TextureView,
-        depth_view: &wgpu::TextureView,
         cam: &SpriteCam,
         light: &LightParams,
         scratch: &VoxelScratch,
@@ -434,30 +431,10 @@ impl VoxelPipeline {
         queue.write_buffer(&self.cam_buf, 0, cast_slice(slice::from_ref(cam)));
         queue.write_buffer(&self.light_buf, 0, cast_slice(slice::from_ref(light)));
         self.upload_instances(device, queue, &scratch.instances);
+    }
 
-        let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("voxel_pass"),
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: scene_view,
-                depth_slice: None,
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Load,
-                    store: wgpu::StoreOp::Store,
-                },
-            })],
-            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                view: depth_view,
-                depth_ops: Some(wgpu::Operations {
-                    load: wgpu::LoadOp::Load,
-                    store: wgpu::StoreOp::Store,
-                }),
-                stencil_ops: None,
-            }),
-            timestamp_writes: None,
-            occlusion_query_set: None,
-            multiview_mask: None,
-        });
+    /// Record one instanced batch per model into an open world pass.
+    pub fn record(&self, rpass: &mut wgpu::RenderPass<'_>, scratch: &VoxelScratch) {
         if scratch.instances.is_empty() {
             return;
         }

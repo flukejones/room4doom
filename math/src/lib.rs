@@ -1,6 +1,7 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 pub mod angle;
+mod ballistic;
 pub mod bam;
 pub mod doom_trig;
 pub mod fixed_point;
@@ -9,7 +10,10 @@ mod intercept;
 mod trig;
 
 pub use angle::*;
-pub use bam::{ANG45, ANG90, ANG180, ANG270, Bam, bam_to_radian, radian_to_bam};
+pub use ballistic::{
+    MAX_TELEPORT_RANGE, TELEPORT_FLIGHT_SECS, TELEPORT_GRAVITY, TELEPORT_SPEED, ballistic_point,
+};
+pub use bam::{ANG45, ANG90, ANG180, ANG270, Bam, bam_to_radian, lookdir_to_radian, radian_to_bam};
 pub use doom_trig::{
     ANGLETOFINESHIFT, fine_cos, fine_sin, fine_tan, finecosine, finesine, r_point_to_angle,
     r_point_to_dist,

@@ -12,8 +12,25 @@ mod loop_sdl2;
 ))]
 mod loop_winit;
 mod timestep;
+#[cfg(feature = "vr")]
+mod vr_bridge;
 
 use cli::*;
+#[cfg(all(
+    any(feature = "display-softbuffer", feature = "display-wgpu"),
+    not(feature = "display-sdl2")
+))]
+use doom_ui::{Finale, GameMenu, Intermission, Messages, Statusbar};
+#[cfg(all(
+    any(feature = "display-softbuffer", feature = "display-wgpu"),
+    not(feature = "display-sdl2")
+))]
+use gamestate::subsystems::GameSubsystem;
+#[cfg(all(
+    any(feature = "display-softbuffer", feature = "display-wgpu"),
+    not(feature = "display-sdl2")
+))]
+use gamestate_traits::SubsystemTrait as _;
 use mimalloc::MiMalloc;
 #[cfg(feature = "display-sdl2")]
 use pic_data::PixelFmt;
@@ -23,7 +40,14 @@ use std::path::PathBuf;
 
 use gamestate::{Game, prepare_wad};
 
+#[cfg(feature = "display-sdl2")]
+use crate::config::PixelMode;
 use crate::config::UserConfig;
+#[cfg(all(
+    any(feature = "display-softbuffer", feature = "display-wgpu"),
+    not(feature = "display-sdl2")
+))]
+use crate::d_main::run_game_tic;
 #[cfg(feature = "display-sdl2")]
 use log::info;
 use log::warn;
@@ -42,6 +66,14 @@ use loop_winit::DoomApp;
     not(feature = "display-sdl2")
 ))]
 use winit::event_loop::EventLoop;
+
+/// Virtual screen width the headless menu lays out against; nothing is drawn,
+/// but the menu still sizes itself from it.
+#[cfg(all(
+    any(feature = "display-softbuffer", feature = "display-wgpu"),
+    not(feature = "display-sdl2")
+))]
+const HEADLESS_WIDTH: i32 = 320;
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
@@ -69,8 +101,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     #[cfg(feature = "display-sdl2")]
     {
-        use crate::config::PixelMode;
-
         match options.pixels {
             Some(PixelMode::Rgb565) => {
                 run_sdl2::<u16>(game_options, wad, &user_config, options)?;
@@ -184,13 +214,6 @@ fn run_winit(
     not(feature = "display-sdl2")
 ))]
 fn run_headless(mut game: Game, mut input: input::InputState, options: CLIOptions) {
-    use crate::d_main::run_game_tic;
-    use doom_ui::{Finale, GameMenu, Intermission, Messages, Statusbar};
-    use gamestate::subsystems::GameSubsystem;
-    use gamestate_traits::SubsystemTrait as _;
-
-    const HEADLESS_WIDTH: i32 = 320;
-
     let mut machines = GameSubsystem {
         statusbar: Statusbar::new(game.game_type.mode, &game.wad_data),
         intermission: Intermission::new(game.game_type.mode, &game.wad_data, &game.umapinfo),

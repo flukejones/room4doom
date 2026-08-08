@@ -14,10 +14,13 @@ use gamestate::subsystems::GameSubsystem;
 use gamestate_traits::{ConfigTraits as _, SubsystemTrait as _};
 use input::InputState;
 use log::{info, warn};
-use render_backend::{ActiveBackend, RenderStack};
+use render_backend::{ActiveBackend, PostEffect, RenderStack};
+
+use crate::config::PostEffect as ConfigPostEffect;
 
 /// The display backend for the winit loop (always `u32` surface).
 type WinitBackend = ActiveBackend<u32>;
+
 use render_common::STBAR_HEIGHT;
 use winit::application::ApplicationHandler;
 use winit::event::{DeviceEvent, DeviceId, ElementState, WindowEvent};
@@ -37,16 +40,35 @@ fn new_backend(
     window: Arc<Window>,
     vsync: bool,
     post: &[crate::config::PostEffect],
+    display: crate::config::Display,
+    vr: crate::config::VrConfig,
 ) -> WinitBackend {
-    use crate::config::PostEffect as Cfg;
-    use render_backend::PostEffect;
+    // Only the headset path reads these.
+    #[cfg(not(feature = "vr"))]
+    let _ = (display, vr);
     let chain = post
         .iter()
         .map(|p| match p {
-            Cfg::Stretch => PostEffect::Stretch,
-            Cfg::Crt => PostEffect::Crt,
+            ConfigPostEffect::Stretch => PostEffect::Stretch,
+            ConfigPostEffect::Crt => PostEffect::Crt,
         })
         .collect();
+
+    // A headset takes over presentation when one is asked for and a runtime
+    // answers; a failure falls back to the window rather than refusing to
+    // start.
+    #[cfg(feature = "vr")]
+    if display == crate::config::Display::Headset {
+        let snap = match vr.snap_turn {
+            crate::config::SnapTurn::Deg30 => vr::SnapTurn::Deg30,
+            crate::config::SnapTurn::Deg45 => vr::SnapTurn::Deg45,
+        };
+        match vr::Session::new("room4doom", snap) {
+            Ok(session) => return render_backend::new_vr(window, session, chain),
+            Err(e) => log::warn!("headset unavailable ({e}); using the window"),
+        }
+    }
+
     render_backend::new_wgpu(window, vsync, chain)
 }
 
@@ -81,6 +103,10 @@ pub struct DoomApp {
     user_config: crate::config::UserConfig,
     /// Parsed post-process chain (wgpu backend); empty = stretch only.
     post: Vec<crate::config::PostEffect>,
+    #[cfg(feature = "vr")]
+    vr: crate::vr_bridge::VrBridge,
+    /// Whether the menu was showing at the last tic.
+    menu_active: bool,
 }
 
 impl DoomApp {
@@ -133,6 +159,9 @@ impl DoomApp {
             voxel_manager,
             user_config,
             post,
+            #[cfg(feature = "vr")]
+            vr: crate::vr_bridge::VrBridge::default(),
+            menu_active: false,
         }
     }
 }
@@ -273,6 +302,8 @@ impl ApplicationHandler for DoomApp {
             window.clone(),
             self.options.vsync.unwrap_or(true),
             &self.post,
+            self.user_config.display,
+            self.user_config.vr,
         );
 
         let mut render_backend = RenderStack::new(
@@ -381,13 +412,22 @@ impl ApplicationHandler for DoomApp {
                 let skip = self.render_backend.as_ref().is_some_and(|s| {
                     let bs = s.buffer_size();
                     let unchanged = bs.width() as u32 == new_buf_w && bs.height() as u32 == buf_h;
-                    unchanged || s.is_wiping()
+                    // A headset's buffer size comes from the runtime, so a
+                    // window resize is not a reason to rebuild — and doing
+                    // so would try to open a second XrInstance.
+                    unchanged || s.is_wiping() || s.eye_count() > 1
                 });
                 if skip {
                     return;
                 }
                 if let Some(window) = &self.window {
-                    let backend = new_backend(window.clone(), self.user_config.vsync, &self.post);
+                    let backend = new_backend(
+                        window.clone(),
+                        self.user_config.vsync,
+                        &self.post,
+                        self.user_config.display,
+                        self.user_config.vr,
+                    );
                     let prev_state = self.menu.as_ref().map(|m| m.save_state());
                     let mut rt = RenderStack::new(
                         self.user_config.hi_res,
@@ -428,8 +468,23 @@ impl ApplicationHandler for DoomApp {
                         .expect("render target not initialized");
                     let menu = self.menu.as_mut().expect("menu not initialized");
 
+                    #[cfg(feature = "vr")]
+                    let head = self.vr.run(
+                        rt,
+                        &mut self.game,
+                        &mut self.input,
+                        menu,
+                        &mut self.machines,
+                        &mut self.cheats,
+                        &self.user_config,
+                        self.menu_active,
+                    );
+                    #[cfg(not(feature = "vr"))]
+                    let head = render_common::HeadFrame::default();
+
                     self.timestep.run_this(|| {
-                        run_game_tic(&mut self.game, &mut self.input, menu, &mut self.machines);
+                        self.menu_active =
+                            run_game_tic(&mut self.game, &mut self.input, menu, &mut self.machines);
                     });
 
                     let frac = if self.user_config.frame_interpolation {
@@ -448,7 +503,16 @@ impl ApplicationHandler for DoomApp {
                     } else {
                         ""
                     };
-                    d_display(rt, menu, &mut self.machines, &mut self.game, frac, fps);
+                    d_display(
+                        rt,
+                        menu,
+                        &mut self.machines,
+                        &mut self.game,
+                        frac,
+                        fps,
+                        self.user_config.vr.hide_hud,
+                        head,
+                    );
                 }
 
                 if self.game.is_config_dirty() {
@@ -499,10 +563,13 @@ impl ApplicationHandler for DoomApp {
                         let type_val = self.game.config_values
                             [gamestate_traits::ConfigKey::MusicType as usize];
                         if let Ok(music_type) = sound_common::MusicType::try_from(type_val) {
-                            let _ = self
+                            if let Err(e) = self
                                 .game
                                 .sound_cmd
-                                .send(sound_common::SoundAction::SetMusicType(music_type));
+                                .send(sound_common::SoundAction::SetMusicType(music_type))
+                            {
+                                warn!("Could not set music type, sound thread gone: {e}");
+                            }
                             self.game.replay_current_music();
                         } else {
                             log::warn!("Invalid MusicType config value: {type_val}");

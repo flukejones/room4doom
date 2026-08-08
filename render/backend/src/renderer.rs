@@ -11,6 +11,9 @@ use level::LevelData;
 use pic_data::{PicData, PixelFmt, VoxelManager};
 use render_common::{PixelTarget, RenderView};
 
+#[cfg(feature = "wgpu3d")]
+use render_common::HandPose;
+
 #[cfg(feature = "software3d")]
 use hud_util::{draw_text_line, hud_scale, measure_text_line};
 #[cfg(feature = "software3d")]
@@ -23,6 +26,9 @@ use software25d::Software25D;
 use wgpu3d::{GpuHandle, RenderConfig, Wgpu3D};
 
 use crate::RenderType;
+
+/// Horizontal field of view every renderer is built with, radians.
+const HFOV: f32 = 90f32.to_radians();
 
 /// The active renderer. Exactly one variant per the chosen [`RenderType`].
 pub enum WorldRenderer {
@@ -39,24 +45,23 @@ pub enum WorldRenderer {
 impl WorldRenderer {
     /// Build the renderer for `render_type` at the given buffer size (px).
     pub(crate) fn new(render_type: RenderType, buf_width: f32, buf_height: f32) -> Self {
-        let hfov = 90f32.to_radians();
         match render_type {
             #[cfg(feature = "software25d")]
             RenderType::Software => Self::Software(Box::new(Software25D::new(
-                hfov,
+                HFOV,
                 buf_width,
                 buf_height,
                 buf_height > 200.0,
             ))),
             #[cfg(feature = "software3d")]
             RenderType::Software3D => {
-                Self::Software3D(Box::new(Software3D::new(buf_width, buf_height, hfov)))
+                Self::Software3D(Box::new(Software3D::new(buf_width, buf_height, HFOV)))
             }
             #[cfg(feature = "wgpu3d")]
-            RenderType::Wgpu3D => Self::Wgpu3D(Box::new(Wgpu3D::new(buf_width, buf_height, hfov))),
+            RenderType::Wgpu3D => Self::Wgpu3D(Box::new(Wgpu3D::new(buf_width, buf_height, HFOV))),
             #[cfg(feature = "wgpu3dbsp")]
             RenderType::Wgpu3DBsp => Self::Wgpu3DBsp(Box::new(wgpu3dbsp::Wgpu3D::new(
-                buf_width, buf_height, hfov,
+                buf_width, buf_height, HFOV,
             ))),
         }
     }
@@ -74,6 +79,22 @@ impl WorldRenderer {
         }
         #[cfg(not(feature = "wgpu3d"))]
         false
+    }
+
+    /// Render the next view through a headset's asymmetric per-eye
+    /// frustum; `None` restores the flat projection. Only the GPU
+    /// renderer can do this — the others are fixed-projection.
+    pub(crate) fn set_eye_fov(&mut self, fov: Option<[f32; 4]>) {
+        match self {
+            #[cfg(feature = "software25d")]
+            Self::Software(_) => {}
+            #[cfg(feature = "software3d")]
+            Self::Software3D(_) => {}
+            #[cfg(feature = "wgpu3d")]
+            Self::Wgpu3D(r) => r.set_eye_fov(fov, HFOV),
+            #[cfg(feature = "wgpu3dbsp")]
+            Self::Wgpu3DBsp(_) => {}
+        }
     }
 
     /// Push a new view height (statusbar toggle) to the renderer.
@@ -112,6 +133,16 @@ impl WorldRenderer {
             Self::Wgpu3D(r) => r.clear_voxel_manager(),
             #[cfg(feature = "wgpu3dbsp")]
             Self::Wgpu3DBsp(r) => r.clear_voxel_manager(),
+            #[allow(unreachable_patterns)]
+            _ => {}
+        }
+    }
+
+    /// The tracked hands to draw next frame. Only the GPU renderer draws them.
+    #[cfg(feature = "wgpu3d")]
+    pub(crate) fn set_hands(&mut self, hands: Option<HandPose>) {
+        match self {
+            Self::Wgpu3D(r) => r.set_hands(hands),
             #[allow(unreachable_patterns)]
             _ => {}
         }

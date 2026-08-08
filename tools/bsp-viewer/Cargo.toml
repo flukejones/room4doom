@@ -25,3 +25,6 @@ software3d.workspace = true
 pic-data.workspace = true
 render-common.workspace = true
 math.workspace = true
+
+[dev-dependencies]
+test-utils.workspace = true

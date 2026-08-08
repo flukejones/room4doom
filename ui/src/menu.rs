@@ -4,6 +4,9 @@
 //! `SubsystemTrait`, so it is fairly generic — it could be made fully generic
 //! with a little work, or used as the basis for a different menu.
 
+#[cfg(feature = "vr")]
+mod vr_page;
+
 use game_config::{GameMode, Skill};
 use gameplay::english as lang;
 use gamestate_traits::{ConfigKey, ConfigTraits, GameState, GameTraits, KeyCode, SubsystemTrait};
@@ -61,6 +64,8 @@ enum MenuAction {
     OpenOptGraphics,
     OpenOptHud,
     OpenOptInput,
+    #[cfg(feature = "vr")]
+    OpenOptVr,
     StartGame,
     LoadSlot,
     SaveSlot,
@@ -234,6 +239,8 @@ enum MenuIndex {
     OptGraphics,
     OptHud,
     OptInput,
+    #[cfg(feature = "vr")]
+    OptVr,
 }
 
 pub struct MenuState {
@@ -301,8 +308,7 @@ pub struct GameMenu {
     skull_anim_counter: i32,
     restart_needed: bool,
     dim_background: bool,
-    /// Snapshot of video config values taken on entry to OptVideo.
-    /// Used to revert on backspace (without Apply).
+    /// Video config on entry to OptVideo; reverted to on backspace.
     video_snapshot: Option<Vec<(ConfigKey, i32)>>,
 }
 
@@ -476,6 +482,8 @@ impl GameMenu {
                     MenuItem::label(lang::OPT_VIDEO, MenuAction::OpenOptVideo, 'V'),
                     MenuItem::label(lang::OPT_HUD, MenuAction::OpenOptHud, 'H'),
                     MenuItem::label(lang::OPT_INPUT, MenuAction::OpenOptInput, 'I'),
+                    #[cfg(feature = "vr")]
+                    MenuItem::label(lang::OPT_VR, MenuAction::OpenOptVr, 'R'),
                 ],
             ),
             MenuSet::new(
@@ -552,8 +560,11 @@ impl GameMenu {
                 vec![
                     MenuItem::slider(lang::OPT_MOUSE_SENS, ConfigKey::MouseSensitivity, 0, 15, 1),
                     MenuItem::toggle(lang::OPT_INVERT_Y, ConfigKey::InvertY),
+                    MenuItem::toggle(lang::OPT_FREE_LOOK_SHOOT, ConfigKey::FreeLookShoot),
                 ],
             ),
+            #[cfg(feature = "vr")]
+            vr_page::menu_set(),
         ];
 
         let mut patches = HashMap::new();
@@ -736,7 +747,10 @@ impl GameMenu {
         }
         game.set_config_value(key, new_val);
         self.menus[menu_idx].items[item_idx].cached_value = new_val;
-        if matches!(key, ConfigKey::VSync) {
+        // Switching headset output rebuilds the wgpu device from the runtime's,
+        // which no in-place resize can do. Unreachable without the page that
+        // sets it, which is why it needs no gate.
+        if matches!(key, ConfigKey::VSync | ConfigKey::VrDisplay) {
             self.restart_needed = true;
         }
         // Save immediately for all submenus except Video (which uses Apply)
@@ -801,6 +815,11 @@ impl GameMenu {
             MenuAction::OpenOptInput => {
                 self.refresh_options_cache(MenuIndex::OptInput, game);
                 self.current_menu = MenuIndex::OptInput;
+            }
+            #[cfg(feature = "vr")]
+            MenuAction::OpenOptVr => {
+                self.refresh_options_cache(MenuIndex::OptVr, game);
+                self.current_menu = MenuIndex::OptVr;
             }
             MenuAction::StartGame => {
                 self.exit_menu(game);
@@ -887,27 +906,19 @@ impl GameMenu {
         }
     }
 
+    /// A page whose rows are labelled settings rather than patches. Derived
+    /// from the items, not a list of pages: a list has to be revisited every
+    /// time a page is added, and a page missed from it still takes the cursor
+    /// while drawing nothing.
     fn is_options_menu(&self) -> bool {
-        matches!(
-            self.current_menu,
-            MenuIndex::Options
-                | MenuIndex::OptSound
-                | MenuIndex::OptVideo
-                | MenuIndex::OptGraphics
-                | MenuIndex::OptHud
-                | MenuIndex::OptInput
-        )
+        self.menus[self.current_menu as usize]
+            .items
+            .iter()
+            .any(|item| !item.label.is_empty())
     }
 
     fn in_options_submenu(&self) -> bool {
-        matches!(
-            self.current_menu,
-            MenuIndex::OptSound
-                | MenuIndex::OptVideo
-                | MenuIndex::OptGraphics
-                | MenuIndex::OptHud
-                | MenuIndex::OptInput
-        )
+        self.is_options_menu() && self.current_menu != MenuIndex::Options
     }
 
     /// Read save slot descriptions from disk via GameTraits.

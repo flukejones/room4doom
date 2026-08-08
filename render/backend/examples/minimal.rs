@@ -59,7 +59,7 @@ impl ApplicationHandler for App {
                 let Some(stack) = self.stack.as_mut() else {
                     return;
                 };
-                let buf = stack.ui_frame();
+                let buf = stack.hud_frame();
                 let size = *buf.size();
                 let (w, h) = (size.width_usize(), size.height_usize());
                 let t = self.frame;

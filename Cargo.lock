@@ -855,6 +855,7 @@ dependencies = [
  "serde_json",
  "simplelog",
  "software3d",
+ "test-utils",
  "wad",
 ]
 
@@ -4630,7 +4631,9 @@ checksum = "a0125f776a10d00af4152d74616409f0d4a2053a6f57fa5b7d6aa2854ac04794"
 dependencies = [
  "bitflags 2.13.0",
  "block2 0.6.2",
+ "dispatch2",
  "objc2 0.6.4",
+ "objc2-core-foundation",
  "objc2-foundation 0.3.2",
 ]
 
@@ -4754,6 +4757,15 @@ dependencies = [
  "serde",
  "thiserror 2.0.18",
  "toml 0.8.23",
+]
+
+[[package]]
+name = "openxr-sys"
+version = "0.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4b8d66081de28c2fa40216182a37292fe38aeea20bc184612504d5e64daf5359"
+dependencies = [
+ "libc",
 ]
 
 [[package]]
@@ -5623,6 +5635,7 @@ name = "render-backend"
 version = "1.0.0"
 dependencies = [
  "coarse-prof",
+ "glam",
  "hud-util",
  "level",
  "log",
@@ -5634,6 +5647,7 @@ dependencies = [
  "softbuffer 0.4.8 (git+https://github.com/flukejones/softbuffer?branch=madsmtm%2Fiosurface)",
  "software25d",
  "software3d",
+ "vr",
  "wgpu 29.0.3",
  "wgpu3d",
  "wgpu3dbsp",
@@ -5739,6 +5753,7 @@ dependencies = [
  "gameplay",
  "gamestate",
  "gamestate-traits",
+ "glam",
  "hud-util",
  "input 1.0.0",
  "level",
@@ -5754,6 +5769,7 @@ dependencies = [
  "software3d",
  "sound-common",
  "sound-rodio",
+ "vr",
  "wad",
  "winit",
 ]
@@ -7183,6 +7199,20 @@ dependencies = [
  "softbuffer 0.4.8 (git+https://github.com/flukejones/softbuffer?branch=madsmtm%2Fiosurface)",
  "software3d",
  "winit",
+]
+
+[[package]]
+name = "vr"
+version = "1.0.0"
+dependencies = [
+ "libc",
+ "log",
+ "objc2 0.6.4",
+ "objc2-metal 0.3.2",
+ "openxr-sys",
+ "pollster",
+ "wgpu 29.0.3",
+ "wgpu-hal 29.0.3",
 ]
 
 [[package]]

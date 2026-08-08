@@ -11,6 +11,8 @@ software25d = []
 software3d = []
 wgpu3d = []
 wgpu3dbsp = []
+# Shows the headset options page. The keys themselves are always present.
+vr = []
 
 [dependencies]
 wad.workspace = true

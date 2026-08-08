@@ -217,6 +217,9 @@ pub fn d_doom_loop_sdl2<P>(
             &mut game,
             frac,
             fps,
+            // No headset on the sdl2 path, so the HUD always draws.
+            false,
+            render_common::HeadFrame::default(),
         );
 
         if game.is_config_dirty() {
@@ -258,9 +261,12 @@ pub fn d_doom_loop_sdl2<P>(
             if old.music_type != user_config.music_type {
                 let type_val = game.config_values[gamestate_traits::ConfigKey::MusicType as usize];
                 if let Ok(music_type) = sound_common::MusicType::try_from(type_val) {
-                    let _ = game
+                    if let Err(e) = game
                         .sound_cmd
-                        .send(sound_common::SoundAction::SetMusicType(music_type));
+                        .send(sound_common::SoundAction::SetMusicType(music_type))
+                    {
+                        log::warn!("Could not set music type, sound thread gone: {e}");
+                    }
                     game.replay_current_music();
                 } else {
                     log::warn!("Invalid MusicType config value: {type_val}");

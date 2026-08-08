@@ -16,6 +16,9 @@ wgpu3dbsp = ["wgpu3d", "dep:wgpu3dbsp"]
 display-sdl2 = ["dep:sdl2"]
 display-softbuffer = ["dep:softbuffer", "dep:winit"]
 display-wgpu = ["dep:wgpu", "dep:pollster", "dep:winit"]
+# Stereo presentation to an OpenXR runtime. Reuses the whole wgpu present
+# path; only the device source and the final target differ.
+vr = ["wgpu3d", "dep:vr"]
 safety_check = []
 hprof = ["software25d?/hprof", "software3d?/hprof"]
 render_stats = ["software3d?/render_stats"]
@@ -29,8 +32,10 @@ software25d = { workspace = true, optional = true }
 software3d = { workspace = true, optional = true }
 wgpu3d = { workspace = true, optional = true }
 wgpu3dbsp = { workspace = true, optional = true }
+vr = { workspace = true, optional = true }
 hud-util.workspace = true
 coarse-prof.workspace = true
+glam.workspace = true
 log.workspace = true
 sdl2 = { workspace = true, optional = true }
 softbuffer = { workspace = true, optional = true }

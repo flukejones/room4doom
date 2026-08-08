@@ -20,24 +20,35 @@
 //!
 //! # The shared middle layer
 //!
-//! The CPU framebuffer, double-buffering, melt-wipe, and the `DrawBuffer` impl
-//! UI/overlays draw through live in [`Frame`], owned by [`RenderStack`]. Both
-//! kinds draw their UI into the *same* `Frame`: software streams its `front`
-//! pixels; hardware uploads `front` as the UI texture and composites it over the
-//! recorded scene. Backend files carry zero presentation policy.
+//! The CPU framebuffer, double-buffering, melt-wipe and the scene draw target
+//! live in [`Frame`], owned by [`RenderStack`]; the plane UI draws into is a
+//! [`UiSurface`]. Software streams the `Frame`'s `front` pixels; hardware
+//! uploads the UI surfaces as panels and draws them over the recorded scene.
+//! Backend files carry zero presentation policy.
+//!
+//! # UI planes
+//!
+//! A flat display has one plane, so [`hud_frame`](RenderStack::hud_frame) and
+//! [`screen_frame`](RenderStack::screen_frame) hand back the same surface and
+//! call order decides what covers what. A headset gives each its own virtual
+//! panel: the hud rides the head, the screen holds the player's facing.
 //!
 //! # Per-frame flow (driven by `game-exe`'s `d_display`)
 //!
-//! [`RenderStack`] exposes ONE uniform per-step API; the render kind is hidden:
+//! [`RenderStack`] exposes ONE uniform per-step API; the render kind is hidden.
+//! UI is view-independent, so it is drawn and uploaded once; the scene and the
+//! present run once per eye:
 //!
 //! 1. [`start_wipe`](RenderStack::start_wipe) — seed the melt on a gamestate change.
-//! 2. [`set_screen_effects`](RenderStack::set_screen_effects) — tint/bleed (GPU only).
-//! 3. [`render_player_view`](RenderStack::render_player_view) — CPU draws the
+//! 2. [`hud_frame`](RenderStack::hud_frame) /
+//!    [`screen_frame`](RenderStack::screen_frame) — UI subsystems draw.
+//! 3. [`upload_ui`](RenderStack::upload_ui) — hand the planes to the display.
+//! 4. [`set_screen_effects`](RenderStack::set_screen_effects) — tint/bleed (GPU only).
+//! 5. [`render_player_view`](RenderStack::render_player_view) — CPU draws the
 //!    scene into `Frame`; GPU records it into the encoder.
-//! 4. [`ui_frame`](RenderStack::ui_frame) — UI subsystems draw into the shared `Frame`.
-//! 5. [`do_wipe`](RenderStack::do_wipe) — CPU melts pixels; GPU steps the offsets.
-//! 6. [`present`](RenderStack::present) — CPU streams `Frame`; GPU composites +
-//!    melts + presents.
+//! 6. [`present`](RenderStack::present) — CPU streams `Frame`; GPU applies the
+//!    effects, draws the panels, melts and presents.
+//! 7. [`do_wipe`](RenderStack::do_wipe) — CPU melts pixels; GPU steps the offsets.
 //!
 //! See `examples/minimal.rs` for the presentation lifecycle.
 
@@ -47,13 +58,16 @@ use level::LevelData;
 #[cfg(feature = "cpu-render")]
 use pic_data::{ByteOrder, PalLitCache};
 use pic_data::{PicData, PixelFmt, VoxelManager};
-use render_common::{BufferSize, RenderView};
+#[cfg(feature = "wgpu3d")]
+use render_common::HandPose;
+use render_common::{BufferSize, EYE_COUNT, EyeView, RenderView};
 
 mod frame;
-pub use frame::Frame;
+pub use frame::{Frame, UiSurface};
 
 mod backend;
 use backend::Backend as _;
+pub use backend::PanelPlacement;
 #[cfg(all(feature = "display-sdl2", feature = "wgpu3d"))]
 pub use backend::new_sdl2_hardware;
 #[cfg(feature = "display-sdl2")]
@@ -64,6 +78,8 @@ pub use backend::new_sdl2_software;
     not(feature = "display-sdl2")
 ))]
 pub use backend::new_softbuffer;
+#[cfg(all(feature = "vr", not(feature = "display-sdl2")))]
+pub use backend::new_vr;
 #[cfg(all(feature = "display-wgpu", not(feature = "display-sdl2")))]
 pub use backend::new_wgpu;
 pub use backend::{ActiveBackend, RenderKind};
@@ -74,6 +90,10 @@ use backend::HardwarePresent;
 pub use backend::ScreenEffects;
 #[cfg(feature = "cpu-render")]
 use backend::SoftwarePresent;
+#[cfg(feature = "wgpu3d")]
+use backend::{UiPixels, UiPlanes};
+#[cfg(feature = "wgpu3d")]
+use wgpu_backend::as_u32_slice;
 
 mod renderer;
 pub use renderer::WorldRenderer;
@@ -87,9 +107,10 @@ mod wgpu_backend;
 #[cfg(feature = "display-wgpu")]
 pub use wgpu_backend::PostEffect;
 
-/// The 1.2× pixel aspect OG Doom presents at; the buffer width is chosen so the
-/// compositor's buffer→window scale reproduces it.
-const CRT_STRETCH: f32 = 240.0 / 200.0;
+/// The 1.2× pixel aspect OG Doom presents at; on a monitor the buffer width is
+/// chosen so the compositor's buffer→window scale reproduces it.
+#[cfg(feature = "software25d")]
+use render_common::CRT_STRETCH;
 
 /// The active renderer kind. A bare selector — the live renderer lives in
 /// [`WorldRenderer`]; this is the user/config-facing choice.
@@ -151,6 +172,16 @@ fn byte_order() -> ByteOrder {
     ByteOrder::Argb
 }
 
+/// Index of each UI plane in [`RenderStack::panes`].
+const HUD_PLANE: usize = 0;
+const SCREEN_PLANE: usize = 1;
+
+/// Doom's virtual UI screen. Every subsystem lays out in 320×200 and centres
+/// itself with `(plane_width - 320 * plane_height / 200) / 2`, so a plane
+/// narrower than this aspect gives a negative offset and clips both edges.
+const UI_VIRTUAL_WIDTH: u32 = 320;
+const UI_VIRTUAL_HEIGHT: u32 = 200;
+
 /// The consumer-facing render target: a backend + an active renderer + the shared
 /// CPU [`Frame`] + the engine UI-layout state ([`Self::set_statusbar_height`]).
 ///
@@ -158,9 +189,13 @@ fn byte_order() -> ByteOrder {
 pub struct RenderStack<P: PixelFmt> {
     backend: ActiveBackend<P>,
     world_renderer: WorldRenderer,
-    /// The shared CPU framebuffer + melt-wipe (the software present path draws
-    /// here; the hardware path leaves it idle).
+    /// The shared CPU framebuffer + melt-wipe. The software present path draws
+    /// scene and UI here; on the hardware path its surface is the hud plane.
     frame: Frame<P>,
+    /// Dedicated UI planes, on a display that wants more than one. `None` on a
+    /// flat display, where the UI is the frame's own surface and the menu simply
+    /// draws over the statusbar. Indexed by [`HUD_PLANE`]/[`SCREEN_PLANE`].
+    panes: Option<[UiSurface<P>; 2]>,
     /// Buffer dimensions the renderer + frame were built for.
     size: BufferSize,
     render_type: RenderType,
@@ -181,19 +216,43 @@ pub struct RenderStack<P: PixelFmt> {
 
 impl<P: PixelFmt> RenderStack<P> {
     /// Build a screen for `render_type` over `backend`. `double` selects the
-    /// 400px hi-res buffer; the width is chosen for the 1.2× CRT pixel aspect.
+    /// 400px hi-res buffer.
+    ///
+    /// software25d draws OG tall pixels, so its buffer is 1.2× wider than
+    /// the display and the fill blit stretches it back — the CRT look.
+    /// The full-3D renderers draw square pixels at the display's aspect.
     pub fn new(double: bool, backend: ActiveBackend<P>, render_type: RenderType) -> Self {
         let (win_w, win_h) = backend.window_size();
         let buf_height = if double { 400u32 } else { 200u32 };
-        let buf_width = ((win_w as f32 * buf_height as f32 * CRT_STRETCH / win_h as f32).round()
+        #[cfg(feature = "software25d")]
+        let pixel_aspect = if render_type == RenderType::Software {
+            CRT_STRETCH
+        } else {
+            1.0
+        };
+        #[cfg(not(feature = "software25d"))]
+        let pixel_aspect = 1.0;
+        let buf_width = ((win_w as f32 * buf_height as f32 * pixel_aspect / win_h as f32).round()
             as u32)
             .max(buf_height);
         let (w, h) = (buf_width as usize, buf_height as usize);
         let world_renderer = WorldRenderer::new(render_type, buf_width as f32, buf_height as f32);
+        // More than one viewpoint means the UI planes are placed independently
+        // in space, so each needs its own surface.
+        let mut panes = None;
+        #[cfg(feature = "wgpu3d")]
+        if world_renderer.is_wgpu3d() && HardwarePresent::eye_count(&backend) > 1 {
+            let plane_w = buf_height * UI_VIRTUAL_WIDTH / UI_VIRTUAL_HEIGHT;
+            panes = Some([
+                UiSurface::new(plane_w, buf_height, byte_order()),
+                UiSurface::new(plane_w, buf_height, byte_order()),
+            ]);
+        }
         Self {
             backend,
             world_renderer,
             frame: Frame::new(buf_width, buf_height, byte_order()),
+            panes,
             size: BufferSize::new(w, h),
             render_type,
             #[cfg(feature = "cpu-render")]
@@ -250,10 +309,22 @@ impl<P: PixelFmt> RenderStack<P> {
 
     /// Update the statusbar height (OG 200px-space pixels); recompute the view
     /// height and push it to the renderer.
+    ///
+    /// Ignored where the UI has planes of its own: the statusbar is then a
+    /// panel floating in front of the player rather than a strip cut out of the
+    /// screen, so the world fills the whole view.
     pub fn set_statusbar_height(&mut self, og_height: i32) {
+        let og_height = if self.panes.is_some() { 0 } else { og_height };
         let scale = self.size.height() / 200;
         self.size.set_statusbar_height(og_height * scale);
         self.world_renderer.set_view_height(self.size.view_height());
+    }
+
+    /// Render the next view through a headset's asymmetric per-eye
+    /// frustum (left, right, up, down radians); `None` restores the flat
+    /// projection a monitor wants.
+    pub fn set_eye_fov(&mut self, fov: Option<[f32; 4]>) {
+        self.world_renderer.set_eye_fov(fov);
     }
 
     /// Set the voxel manager on the active renderer (software3d / wgpu3d only).
@@ -268,6 +339,12 @@ impl<P: PixelFmt> RenderStack<P> {
     #[cfg(feature = "wgpu3d")]
     pub fn set_dynamic_sky(&mut self, dynamic: bool) {
         self.world_renderer.set_dynamic_sky(dynamic);
+    }
+
+    /// The tracked hands to draw next frame; `None` draws none.
+    #[cfg(feature = "wgpu3d")]
+    pub fn set_hands(&mut self, hands: Option<HandPose>) {
+        self.world_renderer.set_hands(hands);
     }
 
     /// Whether a melt-wipe is in progress (CPU frame wipe, or the GPU melt). One
@@ -327,7 +404,6 @@ impl<P: PixelFmt> RenderStack<P> {
     ) {
         #[cfg(feature = "wgpu3d")]
         if self.is_hardware_renderer() {
-            self.gpu_open_frame();
             let (w, h) = (self.size.width() as u32, self.size.height() as u32);
             let light_gamma = self.light_gamma;
             let mut handle = HardwarePresent::begin_scene(&mut self.backend, w, h);
@@ -350,15 +426,88 @@ impl<P: PixelFmt> RenderStack<P> {
         }
     }
 
-    /// The shared [`Frame`] as a `DrawBuffer` for ONE UI subsystem draw — the
-    /// same target for both render kinds (the GPU path uploads it as the UI
-    /// texture). Reborrow per subsystem: `statusbar.draw(&mut screen.ui_frame())`.
-    pub fn ui_frame(&mut self) -> &mut Frame<P> {
+    /// The plane the statusbar and messages draw into; rides the head in a
+    /// headset. Reborrow per subsystem: `statusbar.draw(&mut s.hud_frame())`.
+    pub fn hud_frame(&mut self) -> &mut UiSurface<P> {
+        self.ui_plane(HUD_PLANE)
+    }
+
+    /// The plane menus, intermission, finale and the title page draw into; held
+    /// at the player's facing in a headset.
+    pub fn screen_frame(&mut self) -> &mut UiSurface<P> {
+        self.ui_plane(SCREEN_PLANE)
+    }
+
+    fn ui_plane(&mut self, plane: usize) -> &mut UiSurface<P> {
         #[cfg(feature = "wgpu3d")]
         if self.is_hardware_renderer() {
             self.gpu_open_frame();
         }
-        &mut self.frame
+        match &mut self.panes {
+            Some(panes) => &mut panes[plane],
+            None => self.frame.surface_mut(),
+        }
+    }
+
+    /// Hand this frame's UI planes to the display. UI is view-independent, so
+    /// this runs once per frame however many eyes follow. A plane nothing drew
+    /// to is neither uploaded nor drawn. No-op on the software path, which
+    /// presents the `Frame` directly.
+    pub fn upload_ui(&mut self) {
+        #[cfg(feature = "wgpu3d")]
+        if self.is_hardware_renderer() {
+            // Clears here too, or a frame nothing drew keeps the last one's UI.
+            self.gpu_open_frame();
+            fn pixels_of<P: PixelFmt>(s: &UiSurface<P>) -> UiPixels<'_> {
+                UiPixels {
+                    pixels: as_u32_slice(s.pixels()),
+                    w: s.width(),
+                    h: s.height(),
+                }
+            }
+            let hud = match &self.panes {
+                Some(panes) => &panes[HUD_PLANE],
+                None => self.frame.surface(),
+            };
+            let screen = self.panes.as_ref().map(|panes| &panes[SCREEN_PLANE]);
+            let planes = UiPlanes {
+                hud: hud.is_dirty().then(|| pixels_of(hud)),
+                screen: screen.and_then(|s| s.is_dirty().then(|| pixels_of(s))),
+            };
+            HardwarePresent::upload_ui(&mut self.backend, planes);
+            self.gpu_frame_open = false;
+        }
+    }
+
+    /// Where the display's virtual screens sit. No-op on a flat display, where
+    /// the UI covers the window.
+    pub fn set_panels(&mut self, hud: PanelPlacement, screen: PanelPlacement) {
+        #[cfg(feature = "vr")]
+        if self.is_hardware_renderer() {
+            HardwarePresent::set_panels(&mut self.backend, hud, screen);
+        }
+        // Only a headset places panels.
+        #[cfg(not(feature = "vr"))]
+        let _ = (hud, screen);
+    }
+
+    /// Pin the facing-locked panel to where the player is looking now, for the
+    /// moment a menu appears.
+    pub fn anchor_panels(&mut self) {
+        #[cfg(feature = "vr")]
+        if self.is_hardware_renderer() {
+            HardwarePresent::anchor_panels(&mut self.backend);
+        }
+    }
+
+    /// The live headset session, for gaze, controllers and play space. `None`
+    /// on a window.
+    #[cfg(all(feature = "vr", not(feature = "display-sdl2")))]
+    pub fn session(&mut self) -> Option<&mut vr::Session> {
+        if !self.is_hardware_renderer() {
+            return None;
+        }
+        self.backend.session()
     }
 
     /// Advance the melt-wipe one step. CPU melts the previous frame over the
@@ -377,6 +526,38 @@ impl<P: PixelFmt> RenderStack<P> {
         false
     }
 
+    /// Views the display needs per frame: 1 for a window, 2 for a headset.
+    pub fn eye_count(&self) -> usize {
+        #[cfg(feature = "wgpu3d")]
+        if self.is_hardware_renderer() {
+            return HardwarePresent::eye_count(&self.backend);
+        }
+        1
+    }
+
+    /// Open the display's frame and locate every eye. The headset runtime paces
+    /// the display, so this is where a frame begins; `None` means either there
+    /// is no headset or it refused this tic, and no eye should then be drawn.
+    pub fn begin_frame(&mut self) -> Option<[Option<EyeView>; EYE_COUNT]> {
+        #[cfg(feature = "vr")]
+        if self.is_hardware_renderer() {
+            return HardwarePresent::begin_frame(&mut self.backend);
+        }
+        None
+    }
+
+    /// Aim the next scene and present at `eye` of the frame already begun.
+    /// A display with one viewpoint has nothing to aim.
+    pub fn set_eye(&mut self, eye: usize) {
+        #[cfg(feature = "vr")]
+        if self.is_hardware_renderer() {
+            HardwarePresent::set_eye(&mut self.backend, eye);
+        }
+        // Only a headset has an eye to aim.
+        #[cfg(not(feature = "vr"))]
+        let _ = eye;
+    }
+
     /// Present the frame in flight. CPU streams the `Frame` (swapping front/back
     /// when not wiping so the just-presented frame seeds the next wipe); GPU
     /// composites the UI (the `Frame`) over the recorded scene, melts at the
@@ -384,10 +565,8 @@ impl<P: PixelFmt> RenderStack<P> {
     pub fn present(&mut self, wiping: bool) {
         #[cfg(feature = "wgpu3d")]
         if self.is_hardware_renderer() {
-            self.gpu_open_frame();
-            let (w, h) = (self.frame.width(), self.frame.height());
-            HardwarePresent::finish_frame(&mut self.backend, self.frame.front(), w, h, wiping);
-            self.gpu_frame_open = false;
+            let (w, h) = (self.size.width() as u32, self.size.height() as u32);
+            HardwarePresent::finish_frame(&mut self.backend, w, h, wiping);
             return;
         }
         #[cfg(feature = "cpu-render")]
@@ -400,14 +579,17 @@ impl<P: PixelFmt> RenderStack<P> {
         }
     }
 
-    /// Clear the shared [`Frame`]'s UI plane to transparent on the first scene/UI
-    /// access of a GPU frame, so the composite shows the recorded scene through
-    /// the unwritten UI texels. Idempotent within a frame.
+    /// Clear every UI plane to transparent on the frame's first UI access, so
+    /// the panels show the scene through unwritten texels. Idempotent.
     #[cfg(feature = "wgpu3d")]
     fn gpu_open_frame(&mut self) {
-        if !self.gpu_frame_open {
-            self.frame.clear_transparent();
-            self.gpu_frame_open = true;
+        if self.gpu_frame_open {
+            return;
         }
+        match &mut self.panes {
+            Some(panes) => panes.iter_mut().for_each(UiSurface::clear_transparent),
+            None => self.frame.clear_transparent(),
+        }
+        self.gpu_frame_open = true;
     }
 }

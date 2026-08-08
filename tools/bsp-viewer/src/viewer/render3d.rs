@@ -177,25 +177,25 @@ fn render_view(cam: &Camera3D) -> RenderView {
         frac: 1.0,
         frac_fp: fp(1.0),
         game_tic: 0,
+        head_rotation: None,
+        weapon_anchor: None,
+        teleport: None,
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use test_utils::doom_wad_path;
+
     use super::*;
 
     /// Building a renderer and drawing one frame must not panic (exercises
     /// PicData init + the full BSP traverse + rasteriser) in every mode.
     #[test]
+    #[ignore = "needs the commercial doom.wad under ~/DOOM, which CI does not have"]
     fn render_one_frame_each_mode() {
-        let Ok(home) = std::env::var("HOME") else {
-            return;
-        };
-        let path = std::path::PathBuf::from(home).join("DOOM/doom.wad");
-        if !path.exists() {
-            eprintln!("skipping: {} not found", path.display());
-            return;
-        }
+        let path = doom_wad_path();
+        assert!(path.exists(), "{} is required by this test", path.display());
         let wad = WadData::new(&path);
         let mut level = Box::pin(LevelData::default());
         let pics = PicData::init(&wad, &["TROO"]);

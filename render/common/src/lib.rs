@@ -14,6 +14,10 @@ pub use voxel_transform::{VoxelTransform, VoxelTransformIn, voxel_transform};
 const OG_WIDTH: f32 = 320.0;
 const OG_HEIGHT: f32 = 200.0;
 
+/// The 1.2× pixel aspect OG Doom presents at — its pixels are taller than
+/// they are wide, which is why the classic look is vertically stretched.
+pub const CRT_STRETCH: f32 = 240.0 / 200.0;
+
 /// OG STBAR height in native 200px space.
 pub const STBAR_HEIGHT: i32 = 32;
 
@@ -409,6 +413,258 @@ pub struct RenderView {
     pub frac_fp: FixedT,
     /// Monotonic game tic counter (for time-based effects like voxel spin).
     pub game_tic: u32,
+    /// Head rotation from a headset: an xyzw quaternion in runtime axes
+    /// (+X right, +Y up, -Z forward), applied on top of [`Self::angle`].
+    ///
+    /// `None` on a monitor, where `angle` and `lookdir` are the whole
+    /// camera orientation. A headset turns about all three axes at once:
+    /// yaw and pitch cannot express roll, and forcing the camera's up
+    /// vector to world-up pins the horizon to the viewer's head.
+    pub head_rotation: Option<[f32; 4]>,
+    /// Where a tracked hand puts the held weapon. `None` on a monitor, where
+    /// the weapon is a screen overlay with no position of its own.
+    pub weapon_anchor: Option<WeaponAnchor>,
+    /// The teleport aim arc to draw. `None` unless the player is aiming one.
+    pub teleport: Option<TeleportView>,
+}
+
+/// A teleport aim arc, in world map units. The renderer regenerates the curve
+/// from [`math::ballistic_point`] at draw resolution, so no point list is
+/// carried here.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TeleportView {
+    pub origin: [f32; 3],
+    /// Unit direction the arc launches along.
+    pub dir: [f32; 3],
+    /// Seconds of flight to draw before the arc stops.
+    pub flight_time: f32,
+    /// Where the player would stand, feet on the floor.
+    pub landing: [f32; 3],
+    /// False when nothing along the arc was a legal destination.
+    pub valid: bool,
+}
+
+/// Where a tracked hand puts the weapon, in map units.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct WeaponAnchor {
+    pub position: [f32; 3],
+    /// Map units one sprite pixel covers.
+    pub units_per_pixel: f32,
+}
+
+/// Eyes a stereo display has.
+pub const EYE_COUNT: usize = 2;
+
+/// Joints per hand, in `XR_EXT_hand_tracking` order.
+pub const HAND_JOINT_COUNT: usize = 26;
+
+/// One tracked hand joint, in world map units.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct HandJoint {
+    pub position: [f32; 3],
+    /// Joint radius in map units; 0 where the runtime reported none.
+    pub radius: f32,
+}
+
+/// Both hands for a frame, left then right. `None` per hand while untracked.
+pub type HandPose = [Option<[HandJoint; HAND_JOINT_COUNT]>; 2];
+
+/// One eye of a headset, as plain numbers.
+///
+/// Right-handed metres with -Z forward and +Y up, which is what OpenXR reports;
+/// the caller converts from whatever its runtime hands back.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct EyeView {
+    /// How the play space these poses live in is oriented in the world,
+    /// radians, positive left.
+    pub playspace_yaw: f32,
+    /// Eye position in play space.
+    pub position: [f32; 3],
+    /// Eye orientation as an xyzw quaternion.
+    pub orientation: [f32; 4],
+    /// Tangent-space field of view: left, right, up, down in radians.
+    pub fov: [f32; 4],
+}
+
+/// Where a tracked hand holds the weapon, in play space.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct WeaponHand {
+    pub position: [f32; 3],
+    /// Map units one sprite pixel covers.
+    pub units_per_pixel: f32,
+}
+
+/// What a headset contributes to one frame. All-`None` on a monitor, which is
+/// what keeps the display path free of any question about which is attached.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct HeadFrame {
+    pub eyes: [Option<EyeView>; EYE_COUNT],
+    pub hand: Option<WeaponHand>,
+    /// The teleport arc being aimed, already in world map units.
+    pub teleport: Option<TeleportView>,
+}
+
+impl HeadFrame {
+    /// Where `eye` looks from, or `None` on a display with one fixed viewpoint.
+    pub fn eye(&self, eye: usize) -> Option<&EyeView> {
+        self.eyes.get(eye)?.as_ref()
+    }
+}
+
+/// Map units per real-world metre: Doom's player is 56 units tall.
+pub const UNITS_PER_METRE: f32 = 32.0;
+
+/// Where the player's play space sits in the world, so headset poses can be
+/// read in map units.
+///
+/// The runtime's X/Z becomes Doom's X/Y ground plane and its Y becomes Doom's Z.
+/// Every play-to-world conversion goes through here — a second copy of this
+/// mapping would put the weapon and the aim in different places.
+#[derive(Debug, Clone, Copy)]
+pub struct PlaySpace {
+    /// Player position in map units; `z` is the floor beneath them.
+    pub origin: [f32; 3],
+    /// Eye height in map units, from the same floor as [`Self::origin`].
+    pub eye_z: f32,
+    /// How the play space is turned in the world. Built on the play space, not
+    /// the player's angle — that already contains the head's yaw.
+    pub yaw: Angle<Bam>,
+}
+
+impl PlaySpace {
+    /// A play-space position in the map units gameplay measures in.
+    pub fn map_point(&self, [px, py, pz]: [f32; 3]) -> [f32; 3] {
+        let (sin, cos) = self.yaw.sin_cos();
+        let (right, forward) = (px * UNITS_PER_METRE, -pz * UNITS_PER_METRE);
+        let [x, y, _] = self.origin;
+        [
+            x + right * sin + forward * cos,
+            y - right * cos + forward * sin,
+            self.eye_z + py * UNITS_PER_METRE,
+        ]
+    }
+
+    /// A play-space position for the renderer, whose 1.2× world scale
+    /// re-multiplies height — pre-divided here so the wearer's height above
+    /// their own feet comes out real. Anything gameplay measures wants
+    /// [`Self::map_point`] instead, or it sits a fifth too low.
+    pub fn render_point(&self, play: [f32; 3]) -> [f32; 3] {
+        let [x, y, raised] = self.map_point(play);
+        let feet = self.origin[2];
+        [x, y, feet + (raised - feet) / CRT_STRETCH]
+    }
+
+    /// A play-space direction in world axes.
+    pub fn dir(&self, [dx, dy, dz]: [f32; 3]) -> [f32; 3] {
+        let (sin, cos) = self.yaw.sin_cos();
+        [dx * sin - dz * cos, -dx * cos - dz * sin, dy]
+    }
+
+    /// Where a play-space pose points, for drawing: render-folded origin and
+    /// unit forward.
+    pub fn render_ray(&self, position: [f32; 3], orientation: [f32; 4]) -> ([f32; 3], [f32; 3]) {
+        (
+            self.render_point(position),
+            self.dir(rotate_vec(orientation, [0.0, 0.0, -1.0])),
+        )
+    }
+
+    /// Where a play-space pose points, for gameplay: map-unit origin and unit
+    /// forward.
+    pub fn map_ray(&self, position: [f32; 3], orientation: [f32; 4]) -> ([f32; 3], [f32; 3]) {
+        (
+            self.map_point(position),
+            self.dir(rotate_vec(orientation, [0.0, 0.0, -1.0])),
+        )
+    }
+}
+
+/// Shift a view to `eye`'s viewpoint.
+///
+/// Also puts the weapon on the tracked hand and carries the teleport aim
+/// through. Returns `view` untouched when there is no headset, which is what
+/// keeps the display path free of the question.
+pub fn offset_view(view: RenderView, head: &HeadFrame, eye: usize) -> RenderView {
+    let Some(eye) = head.eye(eye) else {
+        return view;
+    };
+    let space = PlaySpace {
+        origin: [view.x.to_f32(), view.y.to_f32(), view.z.to_f32()],
+        eye_z: view.viewz.to_f32(),
+        yaw: Angle::<Bam>::new(eye.playspace_yaw),
+    };
+    let [x, y, viewz] = space.render_point(eye.position);
+    RenderView {
+        x: FixedT::from_f32(x),
+        y: FixedT::from_f32(y),
+        viewz: FixedT::from_f32(viewz),
+        angle: space.yaw,
+        head_rotation: Some(eye.orientation),
+        weapon_anchor: head.hand.map(|hand| WeaponAnchor {
+            position: space.render_point(hand.position),
+            units_per_pixel: hand.units_per_pixel,
+        }),
+        teleport: head.teleport,
+        ..view
+    }
+}
+
+/// The camera basis for one view: where it looks and which way is up.
+///
+/// Built from [`RenderView`] so the world, sprite and sky passes all
+/// share one orientation — including a headset's roll, which a
+/// yaw/pitch pair cannot carry.
+#[derive(Clone, Copy, Debug)]
+pub struct EyeBasis {
+    pub forward: [f32; 3],
+    pub up: [f32; 3],
+    pub right: [f32; 3],
+}
+
+impl EyeBasis {
+    /// The basis for `view`, honouring a headset's full rotation when the
+    /// view carries one.
+    pub fn new(view: &RenderView) -> Self {
+        let angle = view.angle.rad();
+        let (sin_a, cos_a) = angle.sin_cos();
+        let Some(q) = view.head_rotation else {
+            let pitch = view.lookdir.clamp(-MAX_VIEW_PITCH, MAX_VIEW_PITCH);
+            return Self {
+                forward: [cos_a * pitch.cos(), sin_a * pitch.cos(), pitch.sin()],
+                up: [0.0, 0.0, 1.0],
+                right: [sin_a, -cos_a, 0.0],
+            };
+        };
+        // Runtime axes into Doom's: +X is the player's right, +Y is up,
+        // -Z is the way they face.
+        let to_world = |v: [f32; 3]| {
+            let [vx, vy, vz] = v;
+            [vx * sin_a - vz * cos_a, -vx * cos_a - vz * sin_a, vy]
+        };
+        Self {
+            forward: to_world(rotate_vec(q, [0.0, 0.0, -1.0])),
+            up: to_world(rotate_vec(q, [0.0, 1.0, 0.0])),
+            right: to_world(rotate_vec(q, [1.0, 0.0, 0.0])),
+        }
+    }
+}
+
+/// Max view pitch (radians); prevents a degenerate camera basis.
+pub const MAX_VIEW_PITCH: f32 = 89.0 * std::f32::consts::PI / 180.0;
+
+/// Rotates `v` by the unit quaternion `q` (xyzw).
+fn rotate_vec(q: [f32; 4], v: [f32; 3]) -> [f32; 3] {
+    let [qx, qy, qz, qw] = q;
+    let t = [
+        2.0 * (qy * v[2] - qz * v[1]),
+        2.0 * (qz * v[0] - qx * v[2]),
+        2.0 * (qx * v[1] - qy * v[0]),
+    ];
+    [
+        v[0] + qw * t[0] + qy * t[2] - qz * t[1],
+        v[1] + qw * t[1] + qz * t[0] - qx * t[2],
+        v[2] + qw * t[2] + qx * t[1] - qy * t[0],
+    ]
 }
 
 /// Pre-computed buffer dimensions for fast 2.5D rendering.

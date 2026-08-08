@@ -5,10 +5,12 @@
 //! - [`movers`]: parse-side sector mover classification (AABB expansion).
 //! - `parse`: [`BSP3D::from_lump`] — materializes the runtime structure.
 //! - [`runtime`]: runtime [`BSP3D`] — render SoA + mover/texture event API.
+//! - `sweep`: swept-sphere collision queries over the same geometry.
 
 pub mod movers;
 mod parse;
 pub mod runtime;
+mod sweep;
 
 pub use rbsp::bsp3d::{
     Bsp3dBuilder, Bsp3dInput, Bsp3dLump, LeafRecord, NO_INDEX, PolyFlags, PolyRecord,
