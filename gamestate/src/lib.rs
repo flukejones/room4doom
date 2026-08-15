@@ -39,7 +39,7 @@ use pic_data::PicData;
 use sound_common::{MusTrack, SndServerTx, SoundAction};
 use std::iter::Peekable;
 use std::ptr;
-use std::thread::JoinHandle;
+use std::thread::{JoinHandle, sleep};
 use std::time::Duration;
 use std::vec::IntoIter;
 use wad::WadData;
@@ -159,8 +159,8 @@ pub struct Game {
     usergame: bool,
     game_skill: Skill,
     pub paused: bool,
-    /// True when game ticker was blocked (menu active, wipe, or pause).
-    /// Used to disable interpolation so the view doesn't drift.
+    /// True when the game ticker is blocked (menu active, wipe, or pause).
+    /// Render interpolation must be pinned to 1.0 while set, or the view drifts.
     pub frozen: bool,
     pub config_values: [i32; ConfigKey::KeyCount as usize],
     pub config_dirty: bool,
@@ -193,7 +193,7 @@ impl Drop for Game {
             }
             None => warn!("Sound thread already gone at shutdown"),
         }
-        std::thread::sleep(SHUTDOWN_DRAIN_DELAY);
+        sleep(SHUTDOWN_DRAIN_DELAY);
     }
 }
 
@@ -428,7 +428,7 @@ impl Game {
 
         if self.paused {
             self.paused = false;
-            // TODO: S_ResumeSound();
+            // TODO: unpausing here leaves the sound thread paused; add a SoundAction resume.
         }
 
         debug!("Game: init_new: mode = {:?}", self.game_type.mode);
@@ -677,7 +677,7 @@ impl Game {
                 sector.sound_target = None;
             }
             // Clear active platforms
-            level.clear_active_platforms();
+            level.clear_active_movers();
 
             // Apply saved state
             match save::load_game_from_bytes(

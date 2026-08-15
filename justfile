@@ -131,6 +131,12 @@ demo-check-debug:
 	cargo build -p room4doom
 	BIN="{{justfile_directory()}}/target/debug/room4doom" bash tools/demo-regression.sh
 
+# Rewrite the goldens from the current build. Only correct when the trace
+# format changed, never to silence a real desync — see demo-regression.sh.
+demo-golden:
+	cargo build -p room4doom
+	BIN="{{justfile_directory()}}/target/debug/room4doom" bash tools/demo-regression.sh --update
+
 # --- xcode / packaging ---
 
 # Build the macOS .app bundle (Release). Pass CONFIG=Debug to override.

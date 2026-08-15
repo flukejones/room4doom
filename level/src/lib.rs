@@ -4,14 +4,12 @@
 //! extracted from the gameplay crate for reuse by tools and renderers.
 //! BSP construction is handled by the `rbsp` crate.
 
-#![allow(clippy::new_without_default)]
-
+use std::f32::consts::TAU;
 use std::fmt::{self, Debug};
 use std::ops::{Deref, DerefMut};
 use std::ptr::null_mut;
 
 pub mod bsp3d;
-pub mod env_kinds;
 pub mod env_query;
 pub mod env_target;
 pub mod flags;
@@ -29,7 +27,7 @@ pub use level_data::LevelData;
 pub use map_defs::{
     BBox, Blockmap, LineDef, Sector, SectorHeight, Segment, SideDef, SlopeType, SubSector, Vertex,
 };
-pub use rbsp::{SlopePlane, special_encode};
+pub use rbsp::{SlopePlane, byte_enum, special_encode};
 /// This exists to allow breaking the rules of borrows and in some cases
 /// lifetimes.
 ///
@@ -146,7 +144,7 @@ impl<T: Debug> AsMut<T> for MapPtr<T> {
 impl<T: Debug> Drop for MapPtr<T> {
     fn drop(&mut self) {
         if self.inner.is_null() {
-            panic!("Can not drop DPtr with an inner null");
+            log::error!("dropped a MapPtr with a null inner");
         }
     }
 }
@@ -161,6 +159,5 @@ impl<T: Debug> Debug for MapPtr<T> {
 
 /// Normalise an angle in radians into `[0, TAU)`, handling any magnitude.
 pub fn radian_range(rad: f32) -> f32 {
-    use std::f32::consts::TAU;
     rad.rem_euclid(TAU)
 }

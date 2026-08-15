@@ -4,31 +4,35 @@
 //! map objects (target/tracer) are dropped on load, matching original Doom
 //! behaviour.
 
+use std::error::Error as StdError;
 use std::fmt;
+use std::io::Error as IoError;
 use std::ptr::{self, null_mut};
 
 use level::map_defs::{Sector, SectorHeight};
 use level::{LevelData, LineDefFlags, MapPtr};
 use log::{debug, warn};
 use math::{Angle, FixedT, get_prndindex, get_rndindex, set_prndindex, set_rndindex};
+use sound_common::SfxName;
 use wad::types::WadThing;
 
 use crate::doom_def::MAXPLAYERS;
-use crate::env::ceiling::{CeilKind, CeilingMove};
-use crate::env::doors::{DoorKind, VerticalDoor};
-use crate::env::floor::{FloorKind, FloorMove};
-use crate::env::lights::{FireFlicker, Glow, LightFlash, StrobeFlash};
-use crate::env::platforms::{PlatKind, PlatStatus, Platform};
-use crate::info::{MOBJINFO, MapObjKind, STATES, SpriteNum, StateNum};
+use crate::env::effects::{
+    ArrivalAction, CrushResponse, LightEffect, LightPattern, MoveEffect, MoveTarget, MoverChange,
+    MoverPhase, MoverPlane, MoverSounds,
+};
+use crate::info::{MOBJINFO, MapObjKind, STATES, SpriteNum, StateData, StateNum};
 use crate::level::LevelState;
-use crate::pic::Button;
-use crate::player::{Player, PlayerState};
-use crate::thing::MapObject;
+use crate::pic::{Button, ButtonWhere};
+use crate::player::{Player, PlayerCheat, PlayerState};
+use crate::thing::{MapObjFlag, MapObject, MoveDir};
 use crate::thinker::{Think as _, ThinkerData};
 use game_config::{Skill, WeaponType};
 
 const SAVE_MAGIC: &[u8; 4] = b"R4DS";
-const SAVE_VERSION: u32 = 1;
+// v3: the generalized-special encoding changed (EXT_BASE, lock/monster bits),
+// so stored line specials from v2 no longer decode.
+const SAVE_VERSION: u32 = 3;
 const HEADER_SIZE: usize = 64;
 const SAVE_DESCRIPTION_SIZE: usize = 24;
 // Wire record sizes for load_world skip-ahead (must match field read sequences)
@@ -38,18 +42,12 @@ const SIDEDEF_SAVE_BYTES: usize = 4 + 4 + 4 + 4 + 4; // texoffset, rowoffset, to
 
 // Thinker tags
 const TAG_MOBJ: u8 = 1;
-const TAG_VDOOR: u8 = 2;
-const TAG_FLOOR: u8 = 3;
-const TAG_CEILING: u8 = 4;
-const TAG_PLATFORM: u8 = 5;
-const TAG_LIGHT_FLASH: u8 = 6;
-const TAG_STROBE: u8 = 7;
-const TAG_FIRE_FLICKER: u8 = 8;
-const TAG_GLOW: u8 = 9;
+const TAG_MOVE: u8 = 2;
+const TAG_LIGHT: u8 = 3;
 
 #[derive(Debug)]
 pub enum SaveError {
-    Io(std::io::Error),
+    Io(IoError),
     BadMagic,
     VersionMismatch(u32),
     Truncated,
@@ -74,24 +72,40 @@ impl fmt::Display for SaveError {
     }
 }
 
-impl std::error::Error for SaveError {}
+impl StdError for SaveError {}
 
-impl From<std::io::Error> for SaveError {
-    fn from(e: std::io::Error) -> Self {
+impl From<IoError> for SaveError {
+    fn from(e: IoError) -> Self {
         Self::Io(e)
     }
 }
 
 /// Convert a state reference to its index in the global STATES array.
-fn state_to_index(state: &'static crate::info::StateData) -> u16 {
-    let base = std::ptr::addr_of!(STATES).cast::<crate::info::StateData>() as usize;
+fn state_to_index(state: &'static StateData) -> u16 {
+    let base = ptr::addr_of!(STATES).cast::<StateData>() as usize;
     let ptr = ptr::from_ref(state) as usize;
-    let idx = (ptr - base) / size_of::<crate::info::StateData>();
+    let idx = (ptr - base) / size_of::<StateData>();
     idx as u16
 }
 
+/// Write an optional sound as a byte, 0 meaning "no sound".
+fn write_sfx(w: &mut SaveWriter, sfx: Option<SfxName>) {
+    w.write_u8(sfx.map_or(0, |s| s as u8 + 1));
+}
+
+/// Read a byte written by [`write_sfx`].
+fn read_sfx(r: &mut SaveReader) -> Result<Option<SfxName>, SaveError> {
+    let v = r.read_u8()?;
+    if v == 0 {
+        return Ok(None);
+    }
+    SfxName::try_from(v - 1)
+        .map(Some)
+        .map_err(|e| SaveError::InvalidEnum("SfxName", e as u32))
+}
+
 /// Convert a state index back to a reference.
-fn index_to_state(idx: u16) -> Result<&'static crate::info::StateData, SaveError> {
+fn index_to_state(idx: u16) -> Result<&'static StateData, SaveError> {
     let max = StateNum::Count as u16;
     if idx >= max {
         return Err(SaveError::InvalidStateNum(idx));
@@ -491,29 +505,11 @@ fn load_thinkers(
             TAG_MOBJ => {
                 load_mobj(r, level, players, players_in_game)?;
             }
-            TAG_VDOOR => {
-                load_vdoor(r, level)?;
+            TAG_MOVE => {
+                load_mover(r, level)?;
             }
-            TAG_FLOOR => {
-                load_floor(r, level)?;
-            }
-            TAG_CEILING => {
-                load_ceiling(r, level)?;
-            }
-            TAG_PLATFORM => {
-                load_platform(r, level)?;
-            }
-            TAG_LIGHT_FLASH => {
-                load_light_flash(r, level)?;
-            }
-            TAG_STROBE => {
-                load_strobe(r, level)?;
-            }
-            TAG_FIRE_FLICKER => {
-                load_fire_flicker(r, level)?;
-            }
-            TAG_GLOW => {
-                load_glow(r, level)?;
+            TAG_LIGHT => {
+                load_light(r, level)?;
             }
             other => return Err(SaveError::InvalidThinkerTag(other)),
         }
@@ -583,9 +579,9 @@ fn load_mobj(
         info,
         tics,
         state,
-        crate::thing::MapObjFlag::from_bits_truncate(flags_raw),
+        MapObjFlag::from_bits_truncate(flags_raw),
         health,
-        crate::thing::MoveDir::from(movedir as usize),
+        MoveDir::from(movedir as usize),
         movecount,
         reactiontime,
         threshold,
@@ -621,256 +617,116 @@ fn load_mobj(
     Ok(())
 }
 
-/// Deserialize a vertical door thinker and attach it to its sector.
-fn load_vdoor(r: &mut SaveReader, level: &mut LevelState) -> Result<(), SaveError> {
+/// Deserialize a sector mover, attach it to its sector, and re-register it as
+/// stoppable if a tagged stop/start special can reach it.
+fn load_mover(r: &mut SaveReader, level: &mut LevelState) -> Result<(), SaveError> {
     let sector_num = r.read_u32()?;
-    let kind = r.read_u8()?;
-    let topheight = SectorHeight::from_fixed(r.read_i32()?);
+    let tag = r.read_i16()?;
+    let plane = r.read_u8()?;
     let speed = SectorHeight::from_fixed(r.read_i32()?);
-    let direction = r.read_i32()?;
-    let topwait = r.read_i32()?;
-    let topcountdown = r.read_i32()?;
-
-    let sector = resolve_sector(sector_num, &mut level.level_data)?;
-
-    let door = VerticalDoor {
-        thinker: null_mut(),
-        sector: sector.clone(),
-        kind: DoorKind::try_from(kind).map_err(|v| SaveError::InvalidEnum("DoorKind", v as u32))?,
-        topheight,
-        speed,
-        direction,
-        topwait,
-        topcountdown,
-    };
-
-    let thinker =
-        VerticalDoor::create_thinker(ThinkerData::VerticalDoor(door), VerticalDoor::think);
-    if let Some(t) = level.thinkers.push_raw(thinker) {
-        let ptr = ptr::from_mut(t).cast::<()>();
-        let sec = resolve_sector(sector_num, &mut level.level_data)?;
-        sec.as_ptr().cast::<Sector>();
-        unsafe { (*sec.as_ptr()).specialdata = Some(ptr) };
-    }
-
-    Ok(())
-}
-
-/// Deserialize a floor-move thinker and attach it to its sector.
-fn load_floor(r: &mut SaveReader, level: &mut LevelState) -> Result<(), SaveError> {
-    let sector_num = r.read_u32()?;
-    let kind = r.read_u8()?;
-    let speed = SectorHeight::from_fixed(r.read_i32()?);
+    let base_speed = SectorHeight::from_fixed(r.read_i32()?);
+    let low_is_fixed = r.read_bool()?;
+    let low_height = SectorHeight::from_fixed(r.read_i32()?);
+    let high = SectorHeight::from_fixed(r.read_i32()?);
+    let phase = r.read_u8()?;
+    let stasis_phase = r.read_u8()?;
+    let stoppable = r.read_bool()?;
+    let wait = r.read_i32()?;
+    let countdown = r.read_i32()?;
     let crush = r.read_bool()?;
-    let direction = r.read_i32()?;
+    let crush_response = r.read_u8()?;
+    let at_top = r.read_u8()?;
+    let at_bottom = r.read_u8()?;
+    let has_change = r.read_bool()?;
     let newspecial = r.read_u32()?;
     let texture = r.read_u32()? as usize;
-    let destheight = SectorHeight::from_fixed(r.read_i32()?);
-
-    let sector = resolve_sector(sector_num, &mut level.level_data)?;
-
-    let floor = FloorMove {
-        thinker: null_mut(),
-        sector: sector.clone(),
-        kind: FloorKind::try_from(kind)
-            .map_err(|v| SaveError::InvalidEnum("FloorKind", v as u32))?,
-        speed,
-        crush,
-        direction,
-        newspecial,
-        texture,
-        destheight,
+    let sounds = MoverSounds {
+        start_up: read_sfx(r)?,
+        start_down: read_sfx(r)?,
+        start_wait: read_sfx(r)?,
+        finish: read_sfx(r)?,
+        moving: read_sfx(r)?,
     };
 
-    let thinker = FloorMove::create_thinker(ThinkerData::FloorMove(floor), FloorMove::think);
-    if let Some(t) = level.thinkers.push_raw(thinker) {
-        let ptr = ptr::from_mut(t).cast::<()>();
-        unsafe {
-            (*resolve_sector(sector_num, &mut level.level_data)?.as_ptr()).specialdata = Some(ptr);
-        };
-    }
-
-    Ok(())
-}
-
-/// Deserialize a ceiling-move thinker and attach it to its sector.
-fn load_ceiling(r: &mut SaveReader, level: &mut LevelState) -> Result<(), SaveError> {
-    let sector_num = r.read_u32()?;
-    let kind = r.read_u8()?;
-    let bottomheight = SectorHeight::from_fixed(r.read_i32()?);
-    let topheight = SectorHeight::from_fixed(r.read_i32()?);
-    let speed = SectorHeight::from_fixed(r.read_i32()?);
-    let crush = r.read_bool()?;
-    let direction = r.read_i32()?;
-    let tag = r.read_i16()?;
-    let olddirection = r.read_i32()?;
-
     let sector = resolve_sector(sector_num, &mut level.level_data)?;
 
-    let ceil = CeilingMove {
-        thinker: null_mut(),
-        sector: sector.clone(),
-        kind: CeilKind::try_from(kind).map_err(|v| SaveError::InvalidEnum("CeilKind", v as u32))?,
-        bottomheight,
-        topheight,
-        speed,
-        crush,
-        direction,
-        tag,
-        olddirection,
-    };
-
-    let thinker = CeilingMove::create_thinker(ThinkerData::CeilingMove(ceil), CeilingMove::think);
-    if let Some(t) = level.thinkers.push_raw(thinker) {
-        let ptr = ptr::from_mut(t).cast::<()>();
-        unsafe {
-            (*resolve_sector(sector_num, &mut level.level_data)?.as_ptr()).specialdata = Some(ptr);
-        };
-    }
-
-    Ok(())
-}
-
-/// Deserialize a platform thinker, attach to sector, and register as active.
-fn load_platform(r: &mut SaveReader, level: &mut LevelState) -> Result<(), SaveError> {
-    let sector_num = r.read_u32()?;
-    let speed = SectorHeight::from_fixed(r.read_i32()?);
-    let low = SectorHeight::from_fixed(r.read_i32()?);
-    let high = SectorHeight::from_fixed(r.read_i32()?);
-    let wait = r.read_i32()?;
-    let count = r.read_i32()?;
-    let status = r.read_u8()?;
-    let old_status = r.read_u8()?;
-    let crush = r.read_bool()?;
-    let tag = r.read_i16()?;
-    let kind = r.read_u8()?;
-
-    let sector = resolve_sector(sector_num, &mut level.level_data)?;
-
-    let plat = Platform {
-        thinker: null_mut(),
-        sector: sector.clone(),
-        speed,
-        low,
-        high,
-        wait,
-        count,
-        status: PlatStatus::try_from(status)
-            .map_err(|v| SaveError::InvalidEnum("PlatStatus", v as u32))?,
-        old_status: PlatStatus::try_from(old_status)
-            .map_err(|v| SaveError::InvalidEnum("PlatStatus", v as u32))?,
-        crush,
-        tag,
-        kind: PlatKind::try_from(kind).map_err(|v| SaveError::InvalidEnum("PlatKind", v as u32))?,
-    };
-
-    let thinker = Platform::create_thinker(ThinkerData::Platform(plat), Platform::think);
-    if let Some(t) = level.thinkers.push_raw(thinker) {
-        let ptr = ptr::from_mut(t).cast::<()>();
-        unsafe {
-            (*resolve_sector(sector_num, &mut level.level_data)?.as_ptr()).specialdata = Some(ptr);
-        };
-        // Add to active platforms
-        let plat_ptr = ptr::from_mut(t.platform_mut());
-        level.add_active_platform(plat_ptr);
-    }
-
-    Ok(())
-}
-
-/// Deserialize a light flash thinker.
-fn load_light_flash(r: &mut SaveReader, level: &mut LevelState) -> Result<(), SaveError> {
-    let sector_num = r.read_u32()?;
-    let count = r.read_i32()?;
-    let max_light = r.read_u32()? as usize;
-    let min_light = r.read_u32()? as usize;
-    let max_time = r.read_i32()?;
-    let min_time = r.read_i32()?;
-
-    let sector = resolve_sector(sector_num, &mut level.level_data)?;
-
-    let lf = LightFlash {
+    let mover = MoveEffect {
         thinker: null_mut(),
         sector,
-        count,
-        max_light,
-        min_light,
-        max_time,
-        min_time,
+        tag,
+        plane: MoverPlane::try_from(plane)
+            .map_err(|v| SaveError::InvalidEnum("MoverPlane", v as u32))?,
+        speed,
+        base_speed,
+        low: if low_is_fixed {
+            MoveTarget::Fixed(low_height)
+        } else {
+            MoveTarget::LiveFloor
+        },
+        high,
+        phase: MoverPhase::try_from(phase)
+            .map_err(|v| SaveError::InvalidEnum("MoverPhase", v as u32))?,
+        stasis_phase: MoverPhase::try_from(stasis_phase)
+            .map_err(|v| SaveError::InvalidEnum("MoverPhase", v as u32))?,
+        stoppable,
+        wait,
+        countdown,
+        crush,
+        crush_response: CrushResponse::try_from(crush_response)
+            .map_err(|v| SaveError::InvalidEnum("CrushResponse", v as u32))?,
+        at_top: ArrivalAction::try_from(at_top)
+            .map_err(|v| SaveError::InvalidEnum("ArrivalAction", v as u32))?,
+        at_bottom: ArrivalAction::try_from(at_bottom)
+            .map_err(|v| SaveError::InvalidEnum("ArrivalAction", v as u32))?,
+        change: has_change.then_some(MoverChange {
+            newspecial,
+            texture,
+        }),
+        sounds,
     };
 
-    let thinker = LightFlash::create_thinker(ThinkerData::LightFlash(lf), LightFlash::think);
-    level.thinkers.push_raw(thinker);
+    let thinker = MoveEffect::create_thinker(ThinkerData::Move(mover), MoveEffect::think);
+    if let Some(t) = level.thinkers.push_raw(thinker) {
+        let ptr = ptr::from_mut(t).cast::<()>();
+        unsafe {
+            (*resolve_sector(sector_num, &mut level.level_data)?.as_ptr()).specialdata = Some(ptr);
+        };
+        if stoppable {
+            let mover_ptr = ptr::from_mut(t.mover_mut());
+            level.add_active_mover(mover_ptr);
+        }
+    }
 
     Ok(())
 }
 
-/// Deserialize a strobe flash thinker.
-fn load_strobe(r: &mut SaveReader, level: &mut LevelState) -> Result<(), SaveError> {
+/// Deserialize a light effect.
+fn load_light(r: &mut SaveReader, level: &mut LevelState) -> Result<(), SaveError> {
     let sector_num = r.read_u32()?;
-    let count = r.read_i32()?;
+    let pattern = r.read_u8()?;
     let min_light = r.read_u32()? as usize;
     let max_light = r.read_u32()? as usize;
+    let countdown = r.read_i32()?;
     let dark_time = r.read_i32()?;
     let bright_time = r.read_i32()?;
-
-    let sector = resolve_sector(sector_num, &mut level.level_data)?;
-
-    let sf = StrobeFlash {
-        thinker: null_mut(),
-        sector,
-        count,
-        min_light,
-        max_light,
-        dark_time,
-        bright_time,
-    };
-
-    let thinker = StrobeFlash::create_thinker(ThinkerData::StrobeFlash(sf), StrobeFlash::think);
-    level.thinkers.push_raw(thinker);
-
-    Ok(())
-}
-
-fn load_fire_flicker(r: &mut SaveReader, level: &mut LevelState) -> Result<(), SaveError> {
-    let sector_num = r.read_u32()?;
-    let count = r.read_i32()?;
-    let max_light = r.read_u32()? as usize;
-    let min_light = r.read_u32()? as usize;
-
-    let sector = resolve_sector(sector_num, &mut level.level_data)?;
-
-    let ff = FireFlicker {
-        thinker: null_mut(),
-        sector,
-        count,
-        max_light,
-        min_light,
-    };
-
-    let thinker = FireFlicker::create_thinker(ThinkerData::FireFlicker(ff), FireFlicker::think);
-    level.thinkers.push_raw(thinker);
-
-    Ok(())
-}
-
-fn load_glow(r: &mut SaveReader, level: &mut LevelState) -> Result<(), SaveError> {
-    let sector_num = r.read_u32()?;
-    let min_light = r.read_u32()? as usize;
-    let max_light = r.read_u32()? as usize;
     let direction = r.read_i32()?;
 
     let sector = resolve_sector(sector_num, &mut level.level_data)?;
 
-    let g = Glow {
+    let light = LightEffect {
         thinker: null_mut(),
         sector,
+        pattern: LightPattern::try_from(pattern)
+            .map_err(|v| SaveError::InvalidEnum("LightPattern", v as u32))?,
         min_light,
         max_light,
+        countdown,
+        dark_time,
+        bright_time,
         direction,
     };
 
-    let thinker = Glow::create_thinker(ThinkerData::Glow(g), Glow::think);
+    let thinker = LightEffect::create_thinker(ThinkerData::Light(light), LightEffect::think);
     level.thinkers.push_raw(thinker);
 
     Ok(())
@@ -1006,7 +862,7 @@ fn load_players(
         }
         s.damagecount = r.read_i32()?;
         s.bonuscount = r.read_i32()?;
-        s.cheats = crate::player::PlayerCheat::from_bits_truncate(r.read_u32()?);
+        s.cheats = PlayerCheat::from_bits_truncate(r.read_u32()?);
 
         for f in &mut p.frags {
             *f = r.read_i32()?;
@@ -1045,9 +901,9 @@ fn save_buttons(w: &mut SaveWriter, level: &LevelState) {
     for b in &level.button_list {
         w.write_u32(b.line.num as u32);
         w.write_u8(match b.bwhere {
-            crate::pic::ButtonWhere::Top => 0,
-            crate::pic::ButtonWhere::Middle => 1,
-            crate::pic::ButtonWhere::Bottom => 2,
+            ButtonWhere::Top => 0,
+            ButtonWhere::Middle => 1,
+            ButtonWhere::Bottom => 2,
         });
         w.write_u32(b.texture as u32);
         w.write_u32(b.timer);
@@ -1069,9 +925,9 @@ fn load_buttons(r: &mut SaveReader, level: &mut LevelState) -> Result<(), SaveEr
             level.button_list.push(Button {
                 line,
                 bwhere: match bwhere {
-                    0 => crate::pic::ButtonWhere::Top,
-                    1 => crate::pic::ButtonWhere::Middle,
-                    _ => crate::pic::ButtonWhere::Bottom,
+                    0 => ButtonWhere::Top,
+                    1 => ButtonWhere::Middle,
+                    _ => ButtonWhere::Bottom,
                 },
                 texture,
                 timer,
@@ -1203,84 +1059,61 @@ pub fn save_game_to_bytes(
             };
             save_mobj_with_player_index(&mut w, mobj, player_idx);
         }
-        ThinkerData::VerticalDoor(d) => {
-            w.write_u8(TAG_VDOOR);
-            w.write_u32(sector_index(&d.sector));
-            w.write_u8(d.kind as u8);
-            w.write_i32(d.topheight.to_fixed_raw());
-            w.write_i32(d.speed.to_fixed_raw());
-            w.write_i32(d.direction);
-            w.write_i32(d.topwait);
-            w.write_i32(d.topcountdown);
+        ThinkerData::Move(m) => {
+            w.write_u8(TAG_MOVE);
+            w.write_u32(sector_index(&m.sector));
+            w.write_i16(m.tag);
+            w.write_u8(m.plane as u8);
+            w.write_i32(m.speed.to_fixed_raw());
+            w.write_i32(m.base_speed.to_fixed_raw());
+            match m.low {
+                MoveTarget::Fixed(h) => {
+                    w.write_bool(true);
+                    w.write_i32(h.to_fixed_raw());
+                }
+                MoveTarget::LiveFloor => {
+                    w.write_bool(false);
+                    w.write_i32(0);
+                }
+            }
+            w.write_i32(m.high.to_fixed_raw());
+            w.write_u8(m.phase as u8);
+            w.write_u8(m.stasis_phase as u8);
+            w.write_bool(m.stoppable);
+            w.write_i32(m.wait);
+            w.write_i32(m.countdown);
+            w.write_bool(m.crush);
+            w.write_u8(m.crush_response as u8);
+            w.write_u8(m.at_top as u8);
+            w.write_u8(m.at_bottom as u8);
+            match m.change {
+                Some(change) => {
+                    w.write_bool(true);
+                    w.write_u32(change.newspecial);
+                    w.write_u32(change.texture as u32);
+                }
+                None => {
+                    w.write_bool(false);
+                    w.write_u32(0);
+                    w.write_u32(0);
+                }
+            }
+            write_sfx(&mut w, m.sounds.start_up);
+            write_sfx(&mut w, m.sounds.start_down);
+            write_sfx(&mut w, m.sounds.start_wait);
+            write_sfx(&mut w, m.sounds.finish);
+            write_sfx(&mut w, m.sounds.moving);
         }
-        ThinkerData::FloorMove(f) => {
-            w.write_u8(TAG_FLOOR);
-            w.write_u32(sector_index(&f.sector));
-            w.write_u8(f.kind as u8);
-            w.write_i32(f.speed.to_fixed_raw());
-            w.write_bool(f.crush);
-            w.write_i32(f.direction);
-            w.write_u32(f.newspecial);
-            w.write_u32(f.texture as u32);
-            w.write_i32(f.destheight.to_fixed_raw());
-        }
-        ThinkerData::CeilingMove(c) => {
-            w.write_u8(TAG_CEILING);
-            w.write_u32(sector_index(&c.sector));
-            w.write_u8(c.kind as u8);
-            w.write_i32(c.bottomheight.to_fixed_raw());
-            w.write_i32(c.topheight.to_fixed_raw());
-            w.write_i32(c.speed.to_fixed_raw());
-            w.write_bool(c.crush);
-            w.write_i32(c.direction);
-            w.write_i16(c.tag);
-            w.write_i32(c.olddirection);
-        }
-        ThinkerData::Platform(p) => {
-            w.write_u8(TAG_PLATFORM);
-            w.write_u32(sector_index(&p.sector));
-            w.write_i32(p.speed.to_fixed_raw());
-            w.write_i32(p.low.to_fixed_raw());
-            w.write_i32(p.high.to_fixed_raw());
-            w.write_i32(p.wait);
-            w.write_i32(p.count);
-            w.write_u8(p.status as u8);
-            w.write_u8(p.old_status as u8);
-            w.write_bool(p.crush);
-            w.write_i16(p.tag);
-            w.write_u8(p.kind as u8);
-        }
-        ThinkerData::LightFlash(l) => {
-            w.write_u8(TAG_LIGHT_FLASH);
+        ThinkerData::Light(l) => {
+            w.write_u8(TAG_LIGHT);
             w.write_u32(sector_index(&l.sector));
-            w.write_i32(l.count);
-            w.write_u32(l.max_light as u32);
+            w.write_u8(l.pattern as u8);
             w.write_u32(l.min_light as u32);
-            w.write_i32(l.max_time);
-            w.write_i32(l.min_time);
-        }
-        ThinkerData::StrobeFlash(s) => {
-            w.write_u8(TAG_STROBE);
-            w.write_u32(sector_index(&s.sector));
-            w.write_i32(s.count);
-            w.write_u32(s.min_light as u32);
-            w.write_u32(s.max_light as u32);
-            w.write_i32(s.dark_time);
-            w.write_i32(s.bright_time);
-        }
-        ThinkerData::FireFlicker(ff) => {
-            w.write_u8(TAG_FIRE_FLICKER);
-            w.write_u32(sector_index(&ff.sector));
-            w.write_i32(ff.count);
-            w.write_u32(ff.max_light as u32);
-            w.write_u32(ff.min_light as u32);
-        }
-        ThinkerData::Glow(g) => {
-            w.write_u8(TAG_GLOW);
-            w.write_u32(sector_index(&g.sector));
-            w.write_u32(g.min_light as u32);
-            w.write_u32(g.max_light as u32);
-            w.write_i32(g.direction);
+            w.write_u32(l.max_light as u32);
+            w.write_i32(l.countdown);
+            w.write_i32(l.dark_time);
+            w.write_i32(l.bright_time);
+            w.write_i32(l.direction);
         }
         _ => {}
     });
@@ -1371,4 +1204,62 @@ pub fn load_game_from_bytes(
     set_rndindex(h.rndindex as usize);
 
     Ok(header_to_public(&h))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{load_game_from_bytes, save_game_to_bytes};
+    use crate::MapObjKind;
+    use crate::env::specials::cross_special_line;
+    use crate::test_support::{TestLevel, rng_guard};
+    use level::MapPtr;
+
+    /// A mover mid-travel must resume identically after a save/load. The writer
+    /// and reader are hand-written field sequences, so a mismatched order or a
+    /// dropped policy field lands the lift somewhere else.
+    #[test]
+    fn mover_resumes_after_save_reload() {
+        let _g = rng_guard();
+        // E1M1 ld195: walk-triggered lift on tag 2.
+        let start_lift = |level: &mut TestLevel| {
+            let player = level.spawn_ptr(1056, -3616, MapObjKind::MT_PLAYER);
+            let ld = MapPtr::new(&mut level.level_data_mut().linedefs[195]);
+            cross_special_line(0, ld, unsafe { &mut *player });
+        };
+        let sector = |level: &TestLevel| {
+            level
+                .level_data()
+                .sectors
+                .iter()
+                .position(|s| s.tag == 2)
+                .expect("sector with tag 2")
+        };
+
+        let mut saved = TestLevel::load("E1M1");
+        start_lift(&mut saved);
+        // Mid-descent: the mover is travelling, not parked at either end.
+        saved.run_level_tics(16);
+        let bytes = save_game_to_bytes(
+            saved.level(),
+            saved.players(),
+            saved.players_in_game(),
+            0,
+            "test",
+        );
+
+        let sec = sector(&saved);
+        saved.run_level_tics(229);
+        let want = saved.level_data().sectors[sec].floorheight;
+
+        let mut reloaded = TestLevel::load("E1M1");
+        let (level, players, in_game) = reloaded.parts_mut();
+        load_game_from_bytes(&bytes, level, players, in_game).expect("save round-trips");
+        reloaded.run_level_tics(229);
+
+        assert_eq!(
+            reloaded.level_data().sectors[sec].floorheight,
+            want,
+            "reloaded lift must reach the same height as the uninterrupted one"
+        );
+    }
 }

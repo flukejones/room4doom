@@ -13,8 +13,7 @@ use sound_common::SfxName;
 use std::ptr;
 
 use crate::doom_def::MISSILERANGE;
-use crate::env::doors::{DoorKind, ev_do_door};
-use crate::env::floor::{FloorKind, ev_do_floor};
+use crate::env::effects::mover_presets::{ev_do_door, ev_do_floor};
 use crate::info::{MOBJINFO, StateNum};
 use crate::level::LevelState;
 use crate::maputl::PortalZ;
@@ -23,11 +22,13 @@ use crate::thinker::ThinkerData;
 use crate::{MAXPLAYERS, MapObjKind, SectorExt as _, teleport_move};
 use game_config::{GameMode, Skill};
 use level::map_defs::{LineDef, SlopeType};
+use level::special_encode::{DoorKind, FloorKind};
 use level::{LineDefFlags, MapPtr, Sector};
 use math::{
     ANG45, ANG90, ANG180, ANG270, Angle, Bam, FixedT, float_to_fixed, p_aprox_distance, p_random,
     r_point_to_angle,
 };
+use wad::umapinfo::BossActions;
 
 use super::movement::SubSectorMinMax;
 
@@ -226,7 +227,7 @@ pub(crate) fn a_look(actor: &mut MapObject) {
     #[cfg(feature = "hprof")]
     profile!("a_look");
     actor.threshold = 0;
-    // TODO: any shot will wake up
+    // TODO: a shot from out of sight should wake the actor; port the OG target-health check below.
     // if let Some(target) = actor.target {
     //     let target = &*target;
     //     if target.health <= 0 {
@@ -1035,8 +1036,8 @@ pub(crate) fn a_bossdeath(actor: &mut MapObject) {
     // UMAPINFO boss actions override defaults
     if let Some(actions) = level.boss_actions.clone() {
         match actions {
-            wad::umapinfo::BossActions::Clear => return,
-            wad::umapinfo::BossActions::Actions(list) => {
+            BossActions::Clear => return,
+            BossActions::Actions(list) => {
                 let matched: Vec<_> = list
                     .iter()
                     .filter(|a| MapObjKind::from_zdoom_name(&a.thing_type) == Some(mt))

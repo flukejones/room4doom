@@ -6,27 +6,166 @@
 //!
 //! - **Standard BOOM** (`0x2F80..=0x7FFF`): when a vanilla special's behaviour
 //!   is exactly expressible in BOOM's generalized bitfields (speed/model/
-//!   target/direction/change/crush/delay), it is rewritten to the real BOOM
+//!   target/direction/change/crush/delay/key), it is rewritten to the real BOOM
 //!   special. Hand-authored BOOM maps already use this range and decode
 //!   identically. Each value is built from the field constants below, never
 //!   hand-typed, so the bit packing is correct by construction.
 //! - **Extended** (`>= EXT_BASE`, the otherwise-unused high `u32` range): for
 //!   kinds BOOM cannot name exactly — donut, the composite vanilla-40, manual
-//!   doors (ev_vertical_door), the key switch-doors, RaiseFloor512, the
-//!   platform texture-change kinds, and `lowerAndCrush` (OG leaves crush off,
-//!   which BOOM's crusher cannot express). The extended form carries the exact
-//!   mover identity in explicit fields.
+//!   doors (ev_vertical_door), RaiseFloor512, the platform texture-change
+//!   kinds, and `lowerAndCrush` (OG leaves crush off, which BOOM's crusher
+//!   cannot express). The extended form carries the exact mover identity in
+//!   explicit fields.
+//!
+//! This module is also the home of the mover kind vocabulary itself: the
+//! [`FloorKind`]/[`CeilKind`]/[`DoorKind`]/[`PlatKind`]/[`StairKind`] enums
+//! whose discriminants are the encoding's `kind` field, wrapped per category
+//! into [`MoverKind`] by [`decode`].
 //!
 //! Behaviour is verified against OG Doom C (the demo-safety oracle) cross-
 //! checked with BOOM 2.02 P_GENLIN.C / P_SPEC.H. `encode_vanilla` is idempotent
 //! and only rewrites vanilla numbers in `1..=141`.
 
+use self::Trigger::{
+    GunMany, GunOnce, PushMany, PushOnce, SwitchMany, SwitchOnce, WalkMany, WalkOnce,
+};
+
+/// Declare a `#[repr(u8)]` enum and its `TryFrom<u8>` from one variant list,
+/// so the two cannot drift.
+#[macro_export]
+macro_rules! byte_enum {
+    (
+        $(#[$meta:meta])*
+        pub enum $name:ident { $($(#[$vmeta:meta])* $variant:ident = $value:literal),+ $(,)? }
+    ) => {
+        $(#[$meta])*
+        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+        #[repr(u8)]
+        pub enum $name { $($(#[$vmeta])* $variant = $value),+ }
+
+        impl TryFrom<u8> for $name {
+            /// The raw byte that failed to map to a variant.
+            type Error = u8;
+
+            fn try_from(v: u8) -> Result<Self, u8> {
+                match v {
+                    $($value => Ok(Self::$variant),)+
+                    _ => Err(v),
+                }
+            }
+        }
+    };
+}
+
+byte_enum! {
+    /// Floor mover kinds (`p_floor`).
+    pub enum FloorKind {
+        /// lower floor to highest surrounding floor
+        LowerFloor = 0,
+        /// lower floor to lowest surrounding floor
+        LowerFloorToLowest = 1,
+        /// lower floor to highest surrounding floor VERY FAST
+        TurboLower = 2,
+        /// raise floor to lowest surrounding CEILING
+        RaiseFloor = 3,
+        /// raise floor to next highest surrounding floor
+        RaiseFloorToNearest = 4,
+        /// raise floor to shortest height with same texture around it
+        RaiseToTexture = 5,
+        /// lower floor to lowest surrounding floor and change floorpic
+        LowerAndChange = 6,
+        /// Raise floor 24 units from start
+        RaiseFloor24 = 7,
+        /// Raise floor 24 units from start and change texture
+        RaiseFloor24andChange = 8,
+        /// Raise floor and crush all entities on it
+        RaiseFloorCrush = 9,
+        /// raise to next highest floor, turbo-speed
+        RaiseFloorTurbo = 10,
+        /// Do donuts
+        DonutRaise = 11,
+        /// Raise floor 512 units from start
+        RaiseFloor512 = 12,
+    }
+}
+
+byte_enum! {
+    /// Stair build kinds (`p_floor` EV_BuildStairs).
+    pub enum StairKind {
+        /// slowly build by 8
+        Build8 = 0,
+        /// quickly build by 16
+        Turbo16 = 1,
+    }
+}
+
+byte_enum! {
+    /// Ceiling mover kinds (`p_ceilng`).
+    pub enum CeilKind {
+        LowerToFloor = 0,
+        RaiseToHighest = 1,
+        LowerAndCrush = 2,
+        CrushAndRaise = 3,
+        FastCrushAndRaise = 4,
+        SilentCrushAndRaise = 5,
+    }
+}
+
+byte_enum! {
+    /// Door mover kinds (`p_doors`).
+    pub enum DoorKind {
+        Normal = 0,
+        Close30ThenOpen = 1,
+        Close = 2,
+        Open = 3,
+        RaiseIn5Mins = 4,
+        BlazeRaise = 5,
+        BlazeOpen = 6,
+        BlazeClose = 7,
+    }
+}
+
+byte_enum! {
+    /// Platform / lift mover kinds (`p_plats`).
+    pub enum PlatKind {
+        PerpetualRaise = 0,
+        DownWaitUpStay = 1,
+        RaiseAndChange = 2,
+        RaiseToNearestAndChange = 3,
+        BlazeDWUS = 4,
+    }
+}
+
+byte_enum! {
+    /// BOOM generalized lock kinds (P_SPEC.H locked-door key field order).
+    pub enum LockKind {
+        AnyKey = 0,
+        RedCard = 1,
+        BlueCard = 2,
+        YellowCard = 3,
+        RedSkull = 4,
+        BlueSkull = 5,
+        YellowSkull = 6,
+        AllKeys = 7,
+    }
+}
+
+/// Key requirement carried by a locked door special.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DoorLock {
+    pub kind: LockKind,
+    /// BOOM "skulls are keys": a skull satisfies its card colour and vice
+    /// versa. All vanilla locked doors behave this way.
+    pub skulls_are_cards: bool,
+}
+
 /// Lowest standard BOOM generalized special.
 pub const GEN_MIN: u32 = 0x2F80;
 /// Highest standard BOOM generalized special (16-bit positive max).
 pub const GEN_MAX: u32 = 0x7FFF;
-/// Base of the engine-extended namespace (above all 16-bit specials).
-pub const EXT_BASE: u32 = 0x0001_0000;
+/// Base of the engine-extended namespace: above all 16-bit specials AND above
+/// every extended payload bit (payload occupies bits 0-19).
+pub const EXT_BASE: u32 = 0x0100_0000;
 
 // --- Standard BOOM category bases (Boom 2.02 P_SPEC.H) ------------------
 pub const GEN_CRUSHER_BASE: u32 = 0x2F80;
@@ -50,6 +189,8 @@ const DOOR_KIND_SHIFT: u32 = 5;
 const DOOR_DELAY_SHIFT: u32 = 8;
 const LOCKED_SPEED_SHIFT: u32 = 3;
 const LOCKED_KIND_SHIFT: u32 = 5;
+const LOCKED_KEY_SHIFT: u32 = 6;
+const LOCKED_SK_SHIFT: u32 = 9;
 const LIFT_SPEED_SHIFT: u32 = 3;
 const LIFT_DELAY_SHIFT: u32 = 6;
 const LIFT_TARGET_SHIFT: u32 = 8;
@@ -58,6 +199,10 @@ const STAIR_STEP_SHIFT: u32 = 6;
 const STAIR_DIR_SHIFT: u32 = 8;
 const CRUSHER_SPEED_SHIFT: u32 = 3;
 const CRUSHER_SILENT_SHIFT: u32 = 6;
+
+// BOOM monster-activation bits.
+const DOOR_MONSTER_BIT: u32 = 1 << 7; // P_SPEC.H DoorMonster = 0x80
+const FC_MONSTER_BIT: u32 = 1 << 5; // floor/ceiling/lift/stairs/crusher = 0x20
 
 // BOOM speed tiers.
 const SPEED_SLOW: u32 = 0;
@@ -118,7 +263,7 @@ impl Trigger {
     }
 }
 
-/// Mover category: which `ev_do_*` entry the special drives.
+/// Mover category: which mover family the special drives.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Category {
     Floor,
@@ -128,12 +273,48 @@ pub enum Category {
     Stairs,
 }
 
+/// The exact mover a special drives: category and kind in one value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MoverKind {
+    Floor(FloorKind),
+    Ceiling(CeilKind),
+    Door(DoorKind),
+    Lift(PlatKind),
+    Stairs(StairKind),
+}
+
+impl MoverKind {
+    pub const fn category(self) -> Category {
+        match self {
+            Self::Floor(_) => Category::Floor,
+            Self::Ceiling(_) => Category::Ceiling,
+            Self::Door(_) => Category::Door,
+            Self::Lift(_) => Category::Lift,
+            Self::Stairs(_) => Category::Stairs,
+        }
+    }
+
+    const fn kind_byte(self) -> u8 {
+        match self {
+            Self::Floor(k) => k as u8,
+            Self::Ceiling(k) => k as u8,
+            Self::Door(k) => k as u8,
+            Self::Lift(k) => k as u8,
+            Self::Stairs(k) => k as u8,
+        }
+    }
+}
+
 // --- Extended namespace layout (bits above EXT_BASE) --------------------
 // bits 0-2 category, 3-5 trigger, 6-9 kind, 10-11 amount (0/24/32),
-// 12 manual, 13 composite.
+// 12 manual, 13 composite, 14-17 lock (0 none, else LockKind + 1),
+// 18 skulls-are-cards, 19 monster-activatable.
 const EXT_AMOUNT_SHIFT: u32 = 10;
 const EXT_MANUAL_BIT: u32 = 1 << 12;
 const EXT_COMPOSITE_BIT: u32 = 1 << 13;
+const EXT_LOCK_SHIFT: u32 = 14;
+const EXT_SAC_BIT: u32 = 1 << 18;
+const EXT_MONSTER_BIT: u32 = 1 << 19;
 
 impl Category {
     const fn ext_bits(self) -> u32 {
@@ -153,30 +334,32 @@ impl Category {
 
 fn trigger_from_bits(v: u32) -> Trigger {
     match v & 0x7 {
-        0 => Trigger::WalkOnce,
-        1 => Trigger::WalkMany,
-        2 => Trigger::SwitchOnce,
-        3 => Trigger::SwitchMany,
-        4 => Trigger::GunOnce,
-        5 => Trigger::GunMany,
-        6 => Trigger::PushOnce,
-        _ => Trigger::PushMany,
+        0 => WalkOnce,
+        1 => WalkMany,
+        2 => SwitchOnce,
+        3 => SwitchMany,
+        4 => GunOnce,
+        5 => GunMany,
+        6 => PushOnce,
+        _ => PushMany,
     }
 }
 
-/// Decoded identity of an extended mover special.
+/// Decoded identity of a generalized mover special.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ExtSpec {
-    pub category: Category,
+pub struct DecodedSpecial {
     pub trigger: Trigger,
-    /// Kind enum discriminant; interpret per `category`.
-    pub kind: u8,
+    pub kind: MoverKind,
     /// Platform RaiseAndChange height (0, 24 or 32).
     pub amount: i32,
     /// Door routes through `ev_vertical_door`.
     pub manual: bool,
     /// Floor also fires ceiling RaiseToHighest + floor LowerFloorToLowest.
     pub composite: bool,
+    /// Key requirement; activation fails without the key.
+    pub lock: Option<DoorLock>,
+    /// Monsters may activate this special.
+    pub monster: bool,
 }
 
 /// True if `special` is an engine-extended mover special.
@@ -189,8 +372,8 @@ pub fn is_generalized(special: u32) -> bool {
     (GEN_MIN..=GEN_MAX).contains(&special) || special >= EXT_BASE
 }
 
-const fn ext(cat: Category, trig: Trigger, kind: u8) -> u32 {
-    EXT_BASE | cat.ext_bits() | (trig.bits() << 3) | ((kind as u32) << 6)
+const fn ext(trig: Trigger, kind: MoverKind) -> u32 {
+    EXT_BASE | kind.category().ext_bits() | (trig.bits() << 3) | ((kind.kind_byte() as u32) << 6)
 }
 const fn with_amount(s: u32, amount: i32) -> u32 {
     let a = match amount {
@@ -206,58 +389,54 @@ const fn with_manual(s: u32) -> u32 {
 const fn with_composite(s: u32) -> u32 {
     s | EXT_COMPOSITE_BIT
 }
+const fn with_lock(s: u32, kind: LockKind) -> u32 {
+    // Vanilla locked doors all accept card or skull.
+    s | ((kind as u32 + 1) << EXT_LOCK_SHIFT) | EXT_SAC_BIT
+}
+const fn with_monster(s: u32) -> u32 {
+    s | EXT_MONSTER_BIT
+}
 
 /// Decode an extended special. `None` for standard BOOM and vanilla specials.
-pub fn decode_ext(special: u32) -> Option<ExtSpec> {
+fn decode_ext(special: u32) -> Option<DecodedSpecial> {
     if !is_extended(special) {
         return None;
     }
     let v = special - EXT_BASE;
     let category = Category::from_ext_bits(v)?;
     let trigger = trigger_from_bits(v >> 3);
-    let kind = ((v >> 6) & 0xF) as u8;
+    let kind_byte = ((v >> 6) & 0xF) as u8;
+    let kind = match category {
+        Category::Floor => MoverKind::Floor(FloorKind::try_from(kind_byte).ok()?),
+        Category::Ceiling => MoverKind::Ceiling(CeilKind::try_from(kind_byte).ok()?),
+        Category::Door => MoverKind::Door(DoorKind::try_from(kind_byte).ok()?),
+        Category::Lift => MoverKind::Lift(PlatKind::try_from(kind_byte).ok()?),
+        Category::Stairs => MoverKind::Stairs(StairKind::try_from(kind_byte).ok()?),
+    };
     let amount = match (v >> EXT_AMOUNT_SHIFT) & 0x3 {
         1 => 24,
         2 => 32,
         _ => 0,
     };
-    Some(ExtSpec {
-        category,
+    let lock_bits = (v >> EXT_LOCK_SHIFT) & 0xF;
+    let lock = if lock_bits == 0 {
+        None
+    } else {
+        Some(DoorLock {
+            kind: LockKind::try_from(u8::try_from(lock_bits - 1).ok()?).ok()?,
+            skulls_are_cards: v & EXT_SAC_BIT != 0,
+        })
+    };
+    Some(DecodedSpecial {
         trigger,
         kind,
         amount,
         manual: (v & EXT_MANUAL_BIT) != 0,
         composite: (v & EXT_COMPOSITE_BIT) != 0,
+        lock,
+        monster: (v & EXT_MONSTER_BIT) != 0,
     })
 }
-
-// room4doom kind discriminants (enum #[repr(u8)] order), used by the decoder.
-const FK_LOWER: u8 = 0;
-const FK_LOWEST: u8 = 1;
-const FK_TURBO_LOWER: u8 = 2;
-const FK_RAISE: u8 = 3;
-const FK_RAISE_NEAREST: u8 = 4;
-const FK_TO_TEXTURE: u8 = 5;
-const FK_LOWER_CHANGE: u8 = 6;
-const FK_RAISE24: u8 = 7;
-const FK_RAISE24_CHANGE: u8 = 8;
-const FK_RAISE_CRUSH: u8 = 9;
-const FK_RAISE_TURBO: u8 = 10;
-const CK_LOWER_TO_FLOOR: u8 = 0;
-const CK_CRUSH: u8 = 3;
-const CK_FAST_CRUSH: u8 = 4;
-const CK_SILENT_CRUSH: u8 = 5;
-const DK_NORMAL: u8 = 0;
-const DK_CLOSE: u8 = 2;
-const DK_OPEN: u8 = 3;
-const DK_BLAZE_RAISE: u8 = 5;
-const DK_BLAZE_OPEN: u8 = 6;
-const DK_BLAZE_CLOSE: u8 = 7;
-const PK_PERPETUAL: u8 = 0;
-const PK_DWUS: u8 = 1;
-const PK_BLAZE_DWUS: u8 = 4;
-const SK_BUILD8: u8 = 0;
-const SK_TURBO16: u8 = 1;
 
 /// Resolve a standard BOOM special to its category by base address.
 fn boom_category(special: u32) -> Option<Category> {
@@ -288,7 +467,7 @@ fn boom_category(special: u32) -> Option<Category> {
 /// (the inverse of `encode_vanilla`), so decoding an engine-rewritten vanilla
 /// special reproduces OG behaviour. Hand-authored BOOM specials decode the same
 /// way.
-pub fn decode(special: u32) -> Option<ExtSpec> {
+pub fn decode(special: u32) -> Option<DecodedSpecial> {
     if is_extended(special) {
         return decode_ext(special);
     }
@@ -297,23 +476,76 @@ pub fn decode(special: u32) -> Option<ExtSpec> {
     }
     let category = boom_category(special)?;
     let trigger = trigger_from_bits(special >> TRIGGER_SHIFT);
-    let kind = match category {
-        Category::Floor => decode_floor_kind(special - GEN_FLOOR_BASE),
-        Category::Ceiling => decode_ceiling_kind(special),
+    let (kind, lock, monster) = match category {
+        Category::Floor => {
+            let v = special - GEN_FLOOR_BASE;
+            (
+                MoverKind::Floor(decode_floor_kind(v)),
+                None,
+                v & FC_MONSTER_BIT != 0,
+            )
+        }
+        Category::Ceiling => {
+            // Crusher (0x2F80) and ceiling (0x4000) share the monster bit.
+            let base = if special >= GEN_CEILING_BASE {
+                GEN_CEILING_BASE
+            } else {
+                GEN_CRUSHER_BASE
+            };
+            (
+                MoverKind::Ceiling(decode_ceiling_kind(special)),
+                None,
+                (special - base) & FC_MONSTER_BIT != 0,
+            )
+        }
         // Locked doors (`[GEN_LOCKED_BASE, GEN_DOOR_BASE)`) share the Door
         // category but use a distinct bitfield layout and base.
-        Category::Door if special >= GEN_DOOR_BASE => decode_door_kind(special - GEN_DOOR_BASE),
-        Category::Door => decode_locked_door_kind(special - GEN_LOCKED_BASE),
-        Category::Lift => decode_lift_kind(special - GEN_LIFT_BASE),
-        Category::Stairs => decode_stair_kind(special - GEN_STAIRS_BASE),
+        Category::Door if special >= GEN_DOOR_BASE => {
+            let v = special - GEN_DOOR_BASE;
+            (
+                MoverKind::Door(decode_door_kind(v)),
+                None,
+                v & DOOR_MONSTER_BIT != 0,
+            )
+        }
+        Category::Door => {
+            let v = special - GEN_LOCKED_BASE;
+            let key = ((v >> LOCKED_KEY_SHIFT) & 0x7) as u8;
+            let lock = DoorLock {
+                kind: LockKind::try_from(key).expect("3-bit key field"),
+                skulls_are_cards: (v >> LOCKED_SK_SHIFT) & 0x1 != 0,
+            };
+            (
+                MoverKind::Door(decode_locked_door_kind(v)),
+                Some(lock),
+                false,
+            )
+        }
+        Category::Lift => {
+            let v = special - GEN_LIFT_BASE;
+            (
+                MoverKind::Lift(decode_lift_kind(v)),
+                None,
+                v & FC_MONSTER_BIT != 0,
+            )
+        }
+        Category::Stairs => {
+            let v = special - GEN_STAIRS_BASE;
+            (
+                MoverKind::Stairs(decode_stair_kind(v)),
+                None,
+                v & FC_MONSTER_BIT != 0,
+            )
+        }
     };
-    Some(ExtSpec {
-        category,
+    Some(DecodedSpecial {
         trigger,
         kind,
         amount: 0,
         manual: false,
         composite: false,
+        lock,
+        monster,
     })
 }
 
@@ -321,7 +553,7 @@ fn field(v: u32, shift: u32, mask: u32) -> u32 {
     (v >> shift) & mask
 }
 
-fn decode_floor_kind(v: u32) -> u8 {
+fn decode_floor_kind(v: u32) -> FloorKind {
     let speed = field(v, FC_SPEED_SHIFT, 0x3);
     let dir = field(v, FC_DIR_SHIFT, 0x1);
     let target = field(v, FC_TARGET_SHIFT, 0x7);
@@ -335,53 +567,53 @@ fn decode_floor_kind(v: u32) -> u8 {
             reason = "explicit bit-field decode table; named arms document the mapping"
         )]
         match (target, change) {
-            (FTO_LNF, CHG_TXT) => FK_LOWER_CHANGE,
-            (FTO_LNF, _) => FK_LOWEST,
-            (FTO_HNF, _) if fast => FK_TURBO_LOWER,
-            (FTO_HNF, _) => FK_LOWER,
-            _ => FK_LOWER,
+            (FTO_LNF, CHG_TXT) => FloorKind::LowerAndChange,
+            (FTO_LNF, _) => FloorKind::LowerFloorToLowest,
+            (FTO_HNF, _) if fast => FloorKind::TurboLower,
+            (FTO_HNF, _) => FloorKind::LowerFloor,
+            _ => FloorKind::LowerFloor,
         }
     } else {
         // up
         if crush == 1 {
-            return FK_RAISE_CRUSH;
+            return FloorKind::RaiseFloorCrush;
         }
         #[allow(
             clippy::match_same_arms,
             reason = "explicit bit-field decode table; named arms document the mapping"
         )]
         match (target, change, fast) {
-            (FTO_LNC, ..) => FK_RAISE,
-            (FBY_ST, ..) => FK_TO_TEXTURE,
-            (FBY_24, CHG_TXT, _) => FK_RAISE24_CHANGE,
-            (FBY_24, ..) => FK_RAISE24,
-            (FTO_NNF, _, true) => FK_RAISE_TURBO,
-            (FTO_NNF, _, false) => FK_RAISE_NEAREST,
-            _ => FK_RAISE,
+            (FTO_LNC, ..) => FloorKind::RaiseFloor,
+            (FBY_ST, ..) => FloorKind::RaiseToTexture,
+            (FBY_24, CHG_TXT, _) => FloorKind::RaiseFloor24andChange,
+            (FBY_24, ..) => FloorKind::RaiseFloor24,
+            (FTO_NNF, _, true) => FloorKind::RaiseFloorTurbo,
+            (FTO_NNF, _, false) => FloorKind::RaiseFloorToNearest,
+            _ => FloorKind::RaiseFloor,
         }
     }
 }
 
-fn decode_ceiling_kind(special: u32) -> u8 {
+fn decode_ceiling_kind(special: u32) -> CeilKind {
     if special >= GEN_CEILING_BASE {
         // GenCeiling: only LowerToFloor used (CtoF, down).
-        CK_LOWER_TO_FLOOR
+        CeilKind::LowerToFloor
     } else {
         // GenCrusher.
         let v = special - GEN_CRUSHER_BASE;
         let speed = field(v, CRUSHER_SPEED_SHIFT, 0x3);
         let silent = field(v, CRUSHER_SILENT_SHIFT, 0x1);
         if silent == 1 {
-            CK_SILENT_CRUSH
+            CeilKind::SilentCrushAndRaise
         } else if speed >= SPEED_NORMAL {
-            CK_FAST_CRUSH
+            CeilKind::FastCrushAndRaise
         } else {
-            CK_CRUSH
+            CeilKind::CrushAndRaise
         }
     }
 }
 
-fn decode_door_kind(v: u32) -> u8 {
+fn decode_door_kind(v: u32) -> DoorKind {
     let speed = field(v, DOOR_SPEED_SHIFT, 0x3);
     let kind = field(v, DOOR_KIND_SHIFT, 0x3);
     let fast = speed >= SPEED_FAST;
@@ -390,50 +622,50 @@ fn decode_door_kind(v: u32) -> u8 {
         reason = "explicit bit-field decode table; named arms document the mapping"
     )]
     match (kind, fast) {
-        (DK_ODC, false) => DK_NORMAL,
-        (DK_ODC, true) => DK_BLAZE_RAISE,
-        (DK_O, false) => DK_OPEN,
-        (DK_O, true) => DK_BLAZE_OPEN,
-        (DK_C, false) => DK_CLOSE,
-        (DK_C, true) => DK_BLAZE_CLOSE,
+        (DK_ODC, false) => DoorKind::Normal,
+        (DK_ODC, true) => DoorKind::BlazeRaise,
+        (DK_O, false) => DoorKind::Open,
+        (DK_O, true) => DoorKind::BlazeOpen,
+        (DK_C, false) => DoorKind::Close,
+        (DK_C, true) => DoorKind::BlazeClose,
         // DK_CDO (close30ThenOpen) is encoded extended, never reaches here.
-        _ => DK_NORMAL,
+        _ => DoorKind::Normal,
     }
 }
 
 /// Generalized locked door (`GEN_LOCKED_BASE`). Same speed field as a regular
 /// door but `kind` is a single bit (0 = open-delay-close/raise, 1 = open-stay);
-/// locked doors never close-only. Key/nkeys bits do not affect mover identity.
-fn decode_locked_door_kind(v: u32) -> u8 {
+/// locked doors never close-only.
+fn decode_locked_door_kind(v: u32) -> DoorKind {
     let speed = field(v, LOCKED_SPEED_SHIFT, 0x3);
     let open = field(v, LOCKED_KIND_SHIFT, 0x1) == 1;
     let fast = speed >= SPEED_FAST;
     match (open, fast) {
-        (false, false) => DK_NORMAL,
-        (false, true) => DK_BLAZE_RAISE,
-        (true, false) => DK_OPEN,
-        (true, true) => DK_BLAZE_OPEN,
+        (false, false) => DoorKind::Normal,
+        (false, true) => DoorKind::BlazeRaise,
+        (true, false) => DoorKind::Open,
+        (true, true) => DoorKind::BlazeOpen,
     }
 }
 
-fn decode_lift_kind(v: u32) -> u8 {
+fn decode_lift_kind(v: u32) -> PlatKind {
     let speed = field(v, LIFT_SPEED_SHIFT, 0x3);
     let target = field(v, LIFT_TARGET_SHIFT, 0x3);
     if target == LNF_2_HNF {
-        PK_PERPETUAL
+        PlatKind::PerpetualRaise
     } else if speed >= SPEED_TURBO {
-        PK_BLAZE_DWUS
+        PlatKind::BlazeDWUS
     } else {
-        PK_DWUS
+        PlatKind::DownWaitUpStay
     }
 }
 
-fn decode_stair_kind(v: u32) -> u8 {
+fn decode_stair_kind(v: u32) -> StairKind {
     let speed = field(v, STAIR_SPEED_SHIFT, 0x3);
     if speed >= SPEED_FAST {
-        SK_TURBO16
+        StairKind::Turbo16
     } else {
-        SK_BUILD8
+        StairKind::Build8
     }
 }
 
@@ -456,14 +688,21 @@ const fn boom_fc(
         | (change << FC_CHANGE_SHIFT)
         | (crush << FC_CRUSH_SHIFT)
 }
-const DOOR_MONSTER_BIT: u32 = 1 << 7; // P_SPEC.H DoorMonster = 0x80
-const LIFT_MONSTER_BIT: u32 = 1 << 5; // P_SPEC.H LiftMonster = 0x20
 
 const fn boom_door(base: u32, trig: Trigger, speed: u32, kind: u32, delay: u32) -> u32 {
     base | trig.bits()
         | (speed << DOOR_SPEED_SHIFT)
         | (kind << DOOR_KIND_SHIFT)
         | (delay << DOOR_DELAY_SHIFT)
+}
+const fn boom_locked(trig: Trigger, speed: u32, open_stay: bool, key: LockKind) -> u32 {
+    // Vanilla key switch-doors accept card or skull -> skulls-are-keys set.
+    GEN_LOCKED_BASE
+        | trig.bits()
+        | (speed << LOCKED_SPEED_SHIFT)
+        | ((open_stay as u32) << LOCKED_KIND_SHIFT)
+        | ((key as u32) << LOCKED_KEY_SHIFT)
+        | (1 << LOCKED_SK_SHIFT)
 }
 const fn boom_lift(base: u32, trig: Trigger, speed: u32, delay: u32, target: u32) -> u32 {
     base | trig.bits()
@@ -492,19 +731,6 @@ pub fn encode_vanilla(special: u32) -> Option<u32> {
 
 #[rustfmt::skip]
 fn encode_table(special: u32) -> Option<u32> {
-    use Category::{Ceiling, Door, Floor, Lift};
-    use Trigger::{GunMany, GunOnce, PushMany, SwitchMany, SwitchOnce, WalkMany, WalkOnce};
-    // Extended kind discriminants (room4doom enum #[repr(u8)] order).
-    const FK_DONUT: u8 = 11;
-    const FK_RAISE512: u8 = 12;
-    const FK_LOWEST: u8 = 1;
-    const CK_LOWER_CRUSH: u8 = 2;
-    const DK_NORMAL: u8 = 0;
-    const DK_OPEN: u8 = 3;
-    const DK_BLAZE_RAISE: u8 = 5;
-    const DK_BLAZE_OPEN: u8 = 6;
-    const PK_RAISE_CHANGE: u8 = 2;
-    const PK_RAISE_NEAREST: u8 = 3;
     let f = GEN_FLOOR_BASE;
     let c = GEN_CEILING_BASE;
     let d = GEN_DOOR_BASE;
@@ -566,9 +792,9 @@ fn encode_table(special: u32) -> Option<u32> {
         131 => boom_fc(f,SwitchOnce, SPEED_FAST, 1, FTO_NNF, 0, 0),
         132 => boom_fc(f,SwitchMany, SPEED_FAST, 1, FTO_NNF, 0, 0),
         // ---- Floors (extended) ----
-        140 => ext(Floor, SwitchOnce, FK_RAISE512),
-        9   => ext(Floor, SwitchOnce, FK_DONUT),
-        40  => with_composite(ext(Floor, WalkOnce, FK_LOWEST)),
+        140 => ext(SwitchOnce, MoverKind::Floor(FloorKind::RaiseFloor512)),
+        9   => ext(SwitchOnce, MoverKind::Floor(FloorKind::DonutRaise)),
+        40  => with_composite(ext(WalkOnce, MoverKind::Floor(FloorKind::LowerFloorToLowest))),
 
         // ============ CEILINGS ============
         // LowerToFloor.
@@ -582,8 +808,8 @@ fn encode_table(special: u32) -> Option<u32> {
         77  => boom_crusher(cr,WalkMany,   SPEED_NORMAL, 0),
         141 => boom_crusher(cr,WalkOnce,   SPEED_SLOW,   1), // SilentCrushAndRaise
         // lowerAndCrush: OG leaves crush=false; BOOM crusher forces crush -> extended.
-        44  => ext(Ceiling, WalkOnce, CK_LOWER_CRUSH),
-        72  => ext(Ceiling, WalkMany, CK_LOWER_CRUSH),
+        44  => ext(WalkOnce, MoverKind::Ceiling(CeilKind::LowerAndCrush)),
+        72  => ext(WalkMany, MoverKind::Ceiling(CeilKind::LowerAndCrush)),
 
         // ============ DOORS (tagged, BOOM-exact) ============
         // Normal raise (open-delay-close, wait tier1). 4 is monster-openable.
@@ -596,7 +822,8 @@ fn encode_table(special: u32) -> Option<u32> {
         86  => boom_door(d,WalkMany,   SPEED_NORMAL, DK_O, 0),
         103 => boom_door(d,SwitchOnce, SPEED_NORMAL, DK_O, 0),
         61  => boom_door(d,SwitchMany, SPEED_NORMAL, DK_O, 0),
-        46  => boom_door(d,GunMany,    SPEED_NORMAL, DK_O, 0),
+        // 46 is monster-shootable in OG P_ShootSpecialLine.
+        46  => boom_door(d,GunMany,    SPEED_NORMAL, DK_O, 0) | DOOR_MONSTER_BIT,
         // Close and stay (no wait -> delay 0).
         3   => boom_door(d,WalkOnce,   SPEED_NORMAL, DK_C, 0),
         75  => boom_door(d,WalkMany,   SPEED_NORMAL, DK_C, 0),
@@ -620,25 +847,36 @@ fn encode_table(special: u32) -> Option<u32> {
         107 => boom_door(d,WalkMany,   SPEED_FAST, DK_C, 0),
         113 => boom_door(d,SwitchOnce, SPEED_FAST, DK_C, 0),
         116 => boom_door(d,SwitchMany, SPEED_FAST, DK_C, 0),
-        // ---- Manual doors (use/push, ev_vertical_door reads default_special) ----
-        1   => with_manual(ext(Door, PushMany, DK_NORMAL)),
-        31  => with_manual(ext(Door, PushMany, DK_OPEN)),
-        117 => with_manual(ext(Door, PushMany, DK_BLAZE_RAISE)),
-        118 => with_manual(ext(Door, PushMany, DK_BLAZE_OPEN)),
-        26  => with_manual(ext(Door, PushMany, DK_NORMAL)),
-        27  => with_manual(ext(Door, PushMany, DK_NORMAL)),
-        28  => with_manual(ext(Door, PushMany, DK_NORMAL)),
-        32  => with_manual(ext(Door, PushMany, DK_OPEN)),
-        33  => with_manual(ext(Door, PushMany, DK_OPEN)),
-        34  => with_manual(ext(Door, PushMany, DK_OPEN)),
-        // Key switch-doors 99,133-137 are NOT normalized: they keep their
-        // switch.rs arms (per-colour key check + PD_*O message). encode returns
-        // None for them so the load pass leaves the vanilla number intact.
+        // ---- Key switch-doors (BOOM locked range, key check at dispatch) ----
+        99  => boom_locked(SwitchMany, SPEED_FAST, true, LockKind::BlueCard),
+        133 => boom_locked(SwitchOnce, SPEED_FAST, true, LockKind::BlueCard),
+        134 => boom_locked(SwitchMany, SPEED_FAST, true, LockKind::RedCard),
+        135 => boom_locked(SwitchOnce, SPEED_FAST, true, LockKind::RedCard),
+        136 => boom_locked(SwitchMany, SPEED_FAST, true, LockKind::YellowCard),
+        137 => boom_locked(SwitchOnce, SPEED_FAST, true, LockKind::YellowCard),
+        // ---- Manual doors (push, ev_vertical_door) ----
+        // 1/32/33/34 are the OG monster-usable set; 26-28/32-34 carry locks.
+        1   => with_monster(with_manual(ext(PushMany, MoverKind::Door(DoorKind::Normal)))),
+        31  => with_manual(ext(PushOnce, MoverKind::Door(DoorKind::Open))),
+        117 => with_manual(ext(PushMany, MoverKind::Door(DoorKind::BlazeRaise))),
+        118 => with_manual(ext(PushOnce, MoverKind::Door(DoorKind::BlazeOpen))),
+        26  => with_lock(with_manual(ext(PushMany, MoverKind::Door(DoorKind::Normal))),
+                         LockKind::BlueCard),
+        27  => with_lock(with_manual(ext(PushMany, MoverKind::Door(DoorKind::Normal))),
+                         LockKind::YellowCard),
+        28  => with_lock(with_manual(ext(PushMany, MoverKind::Door(DoorKind::Normal))),
+                         LockKind::RedCard),
+        32  => with_monster(with_lock(with_manual(ext(PushOnce, MoverKind::Door(DoorKind::Open))),
+                                      LockKind::BlueCard)),
+        33  => with_monster(with_lock(with_manual(ext(PushOnce, MoverKind::Door(DoorKind::Open))),
+                                      LockKind::RedCard)),
+        34  => with_monster(with_lock(with_manual(ext(PushOnce, MoverKind::Door(DoorKind::Open))),
+                                      LockKind::YellowCard)),
 
         // ============ LIFTS ============
         // DownWaitUpStay. 10/88 are monster-usable.
-        10  => boom_lift(l,WalkOnce,   SPEED_NORMAL, LIFT_DELAY_T1, F2_LNF) | LIFT_MONSTER_BIT,
-        88  => boom_lift(l,WalkMany,   SPEED_NORMAL, LIFT_DELAY_T1, F2_LNF) | LIFT_MONSTER_BIT,
+        10  => boom_lift(l,WalkOnce,   SPEED_NORMAL, LIFT_DELAY_T1, F2_LNF) | FC_MONSTER_BIT,
+        88  => boom_lift(l,WalkMany,   SPEED_NORMAL, LIFT_DELAY_T1, F2_LNF) | FC_MONSTER_BIT,
         21  => boom_lift(l,SwitchOnce, SPEED_NORMAL, LIFT_DELAY_T1, F2_LNF),
         62  => boom_lift(l,SwitchMany, SPEED_NORMAL, LIFT_DELAY_T1, F2_LNF),
         // PerpetualRaise.
@@ -650,15 +888,15 @@ fn encode_table(special: u32) -> Option<u32> {
         122 => boom_lift(l,SwitchOnce, SPEED_TURBO, LIFT_DELAY_T1, F2_LNF),
         123 => boom_lift(l,SwitchMany, SPEED_TURBO, LIFT_DELAY_T1, F2_LNF),
         // ---- Lifts (extended: texture-change kinds, no BOOM lift change) ----
-        22  => ext(Lift, WalkOnce,   PK_RAISE_NEAREST),
-        95  => ext(Lift, WalkMany,   PK_RAISE_NEAREST),
-        20  => ext(Lift, SwitchOnce, PK_RAISE_NEAREST),
-        68  => ext(Lift, SwitchMany, PK_RAISE_NEAREST),
-        47  => ext(Lift, GunOnce,    PK_RAISE_NEAREST),
-        14  => with_amount(ext(Lift, SwitchOnce, PK_RAISE_CHANGE), 32),
-        15  => with_amount(ext(Lift, SwitchOnce, PK_RAISE_CHANGE), 24),
-        66  => with_amount(ext(Lift, SwitchMany, PK_RAISE_CHANGE), 24),
-        67  => with_amount(ext(Lift, SwitchMany, PK_RAISE_CHANGE), 32),
+        22  => ext(WalkOnce,   MoverKind::Lift(PlatKind::RaiseToNearestAndChange)),
+        95  => ext(WalkMany,   MoverKind::Lift(PlatKind::RaiseToNearestAndChange)),
+        20  => ext(SwitchOnce, MoverKind::Lift(PlatKind::RaiseToNearestAndChange)),
+        68  => ext(SwitchMany, MoverKind::Lift(PlatKind::RaiseToNearestAndChange)),
+        47  => ext(GunOnce,    MoverKind::Lift(PlatKind::RaiseToNearestAndChange)),
+        14  => with_amount(ext(SwitchOnce, MoverKind::Lift(PlatKind::RaiseAndChange)), 32),
+        15  => with_amount(ext(SwitchOnce, MoverKind::Lift(PlatKind::RaiseAndChange)), 24),
+        66  => with_amount(ext(SwitchMany, MoverKind::Lift(PlatKind::RaiseAndChange)), 24),
+        67  => with_amount(ext(SwitchMany, MoverKind::Lift(PlatKind::RaiseAndChange)), 32),
 
         // ============ STAIRS ============
         8   => boom_stairs(s,WalkOnce,   SPEED_SLOW, STEP_8,  STAIR_UP),
@@ -673,6 +911,14 @@ fn encode_table(special: u32) -> Option<u32> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
+    use super::CeilKind::*;
+    use super::DoorKind::*;
+    use super::FloorKind::*;
+    use super::MoverKind::{Ceiling as C, Door as D, Floor as F, Lift as L, Stairs as S};
+    use super::PlatKind::*;
+    use super::StairKind::*;
     use super::*;
 
     /// The complete vanilla mover set (every special the three OG dispatch
@@ -681,10 +927,10 @@ mod tests {
         // floors
         5, 18, 19, 23, 24, 30, 36, 37, 38, 45, 55, 56, 59, 60, 64, 65, 69, 70, 71, 82, 83, 84, 91,
         92, 93, 94, 96, 98, 101, 102, 119, 128, 129, 130, 131, 132, 140, 9, 40, // ceilings
-        6, 25, 41, 43, 44, 49, 72, 73, 77, 141,
-        // doors (key switch-doors 99,133-137 keep their vanilla switch.rs arms)
-        1, 2, 3, 4, 16, 26, 27, 28, 29, 31, 32, 33, 34, 42, 46, 50, 61, 63, 75, 76, 86, 90, 103,
-        105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, // lifts
+        6, 25, 41, 43, 44, 49, 72, 73, 77, 141, // doors
+        1, 2, 3, 4, 16, 26, 27, 28, 29, 31, 32, 33, 34, 42, 46, 50, 61, 63, 75, 76, 86, 90, 99,
+        103, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 133, 134, 135,
+        136, 137, // lifts
         10, 14, 15, 20, 21, 22, 47, 53, 62, 66, 67, 68, 87, 88, 95, 120, 121, 122, 123,
         // stairs
         7, 8, 100, 127,
@@ -716,12 +962,12 @@ mod tests {
 
     #[test]
     fn boom_specials_in_range_and_distinct() {
-        let mut seen = std::collections::HashMap::new();
+        let mut seen = HashMap::new();
         for &n in ALL_MOVERS {
             let e = encode_vanilla(n).unwrap();
             if (GEN_MIN..=GEN_MAX).contains(&e) {
-                // Distinct BOOM specials per distinct behaviour. Manual/key
-                // doors are extended; remaining BOOM specials must be unique.
+                // Distinct BOOM specials per distinct behaviour. Manual doors
+                // are extended; remaining BOOM specials must be unique.
                 if let Some(&prev) = seen.get(&e) {
                     panic!("specials {prev} and {n} both encode to BOOM {e:#x}");
                 }
@@ -737,136 +983,185 @@ mod tests {
 
     #[test]
     fn extended_flags_decode() {
-        assert!(decode_ext(encode_vanilla(40).unwrap()).unwrap().composite);
-        assert!(!decode_ext(encode_vanilla(9).unwrap()).unwrap().composite);
-        assert!(decode_ext(encode_vanilla(1).unwrap()).unwrap().manual);
-        assert_eq!(decode_ext(encode_vanilla(14).unwrap()).unwrap().amount, 32);
-        assert_eq!(decode_ext(encode_vanilla(15).unwrap()).unwrap().amount, 24);
+        let d = |n: u32| decode(encode_vanilla(n).unwrap()).unwrap();
+        assert!(d(40).composite);
+        assert!(!d(9).composite);
+        assert!(d(1).manual);
+        assert_eq!(d(14).amount, 32);
+        assert_eq!(d(15).amount, 24);
     }
 
-    /// Every vanilla mover must decode (via encode -> decode) back to the
-    /// exact room4doom (category, kind) its OG dispatch produces. This is the
-    /// demo-safety round-trip: the engine, after load-rewrite, calls
-    /// ev_do_*(kind) with this kind.
+    /// Lock and monster flags survive the encode -> decode round trip with the
+    /// OG semantics: 1/32/33/34 monster-usable, 4/10/46/88 monster-triggered,
+    /// vanilla locks accept card or skull.
     #[test]
-    fn decode_round_trip_kinds() {
-        use Category::*;
-        // (special, category, room4doom kind discriminant)
-        let cases: &[(u32, Category, u8)] = &[
-            // floors
-            (19, Floor, 0),
-            (83, Floor, 0),
-            (102, Floor, 0),
-            (45, Floor, 0),
-            (38, Floor, 1),
-            (82, Floor, 1),
-            (23, Floor, 1),
-            (60, Floor, 1),
-            (5, Floor, 3),
-            (91, Floor, 3),
-            (101, Floor, 3),
-            (64, Floor, 3),
-            (24, Floor, 3),
-            (30, Floor, 5),
-            (96, Floor, 5),
-            (92, Floor, 7),
-            (59, Floor, 8),
-            (93, Floor, 8),
-            (37, Floor, 6),
-            (84, Floor, 6),
-            (36, Floor, 2),
-            (98, Floor, 2),
-            (71, Floor, 2),
-            (70, Floor, 2),
-            (56, Floor, 9),
-            (94, Floor, 9),
-            (55, Floor, 9),
-            (65, Floor, 9),
-            (119, Floor, 4),
-            (128, Floor, 4),
-            (18, Floor, 4),
-            (69, Floor, 4),
-            (130, Floor, 10),
-            (129, Floor, 10),
-            (131, Floor, 10),
-            (132, Floor, 10),
-            // ceilings
-            (41, Ceiling, 0),
-            (43, Ceiling, 0),
-            (25, Ceiling, 3),
-            (49, Ceiling, 3),
-            (73, Ceiling, 3),
-            (6, Ceiling, 4),
-            (77, Ceiling, 4),
-            (141, Ceiling, 5),
-            // doors (BOOM-exact only; manual/key are extended)
-            (4, Door, 0),
-            (90, Door, 0),
-            (29, Door, 0),
-            (63, Door, 0),
-            (2, Door, 3),
-            (86, Door, 3),
-            (103, Door, 3),
-            (61, Door, 3),
-            (46, Door, 3),
-            (3, Door, 2),
-            (75, Door, 2),
-            (50, Door, 2),
-            (42, Door, 2),
-            (108, Door, 5),
-            (105, Door, 5),
-            (111, Door, 5),
-            (114, Door, 5),
-            (109, Door, 6),
-            (106, Door, 6),
-            (112, Door, 6),
-            (115, Door, 6),
-            (110, Door, 7),
-            (107, Door, 7),
-            (113, Door, 7),
-            (116, Door, 7),
-            // lifts
-            (10, Lift, 1),
-            (88, Lift, 1),
-            (21, Lift, 1),
-            (62, Lift, 1),
-            (53, Lift, 0),
-            (87, Lift, 0),
-            (121, Lift, 4),
-            (120, Lift, 4),
-            (122, Lift, 4),
-            (123, Lift, 4),
-            // stairs
-            (8, Stairs, 0),
-            (7, Stairs, 0),
-            (100, Stairs, 1),
-            (127, Stairs, 1),
-        ];
-        for &(n, cat, kind) in cases {
-            let e = encode_vanilla(n).unwrap();
-            let spec = decode(e).unwrap_or_else(|| panic!("special {n} -> {e:#x} did not decode"));
-            assert_eq!(spec.category, cat, "special {n} category");
-            assert_eq!(spec.kind, kind, "special {n} kind (got {})", spec.kind);
+    fn lock_and_monster_decode() {
+        let d = |n: u32| decode(encode_vanilla(n).unwrap()).unwrap();
+        let lock = |k| {
+            Some(DoorLock {
+                kind: k,
+                skulls_are_cards: true,
+            })
+        };
+        assert_eq!(d(26).lock, lock(LockKind::BlueCard));
+        assert_eq!(d(27).lock, lock(LockKind::YellowCard));
+        assert_eq!(d(28).lock, lock(LockKind::RedCard));
+        assert_eq!(d(33).lock, lock(LockKind::RedCard));
+        assert_eq!(d(99).lock, lock(LockKind::BlueCard));
+        assert_eq!(d(137).lock, lock(LockKind::YellowCard));
+        assert_eq!(d(1).lock, None);
+        assert_eq!(d(2).lock, None);
+
+        for n in [1, 4, 10, 32, 33, 34, 46, 88] {
+            assert!(d(n).monster, "special {n} must allow monsters");
+        }
+        for n in [2, 26, 29, 31, 62, 99, 117, 118] {
+            assert!(!d(n).monster, "special {n} must not allow monsters");
         }
     }
 
-    /// Extended movers decode to the right category + kind + flags too.
+    /// Once/many trigger classes for manual and key doors match OG dispatch:
+    /// zeroed-after-use doors are PushOnce/SwitchOnce.
     #[test]
-    fn decode_round_trip_extended() {
-        use Category::*;
-        let cases: &[(u32, Category, u8)] = &[
-            (140, Floor, 12), // RaiseFloor512
-            (9, Floor, 11),   // DonutRaise
-            (44, Ceiling, 2), // LowerAndCrush
-            (72, Ceiling, 2),
-            (1, Door, 0),  // manual Normal
-            (31, Door, 3), // manual Open
-            (22, Lift, 3), // RaiseToNearestAndChange
-            (14, Lift, 2), // RaiseAndChange
+    fn door_triggers_match_og() {
+        let t = |n: u32| decode(encode_vanilla(n).unwrap()).unwrap().trigger;
+        for n in [1, 26, 27, 28, 117] {
+            assert_eq!(t(n), PushMany, "special {n}");
+        }
+        for n in [31, 32, 33, 34, 118] {
+            assert_eq!(t(n), PushOnce, "special {n}");
+        }
+        for n in [99, 134, 136] {
+            assert_eq!(t(n), SwitchMany, "special {n}");
+        }
+        for n in [133, 135, 137] {
+            assert_eq!(t(n), SwitchOnce, "special {n}");
+        }
+    }
+
+    /// Every vanilla mover must decode (via encode -> decode) back to the
+    /// exact room4doom mover kind its OG dispatch produces. This is the
+    /// demo-safety round-trip: the engine, after load-rewrite, dispatches on
+    /// this kind.
+    #[test]
+    fn decode_round_trip_kinds() {
+        let cases: &[(u32, MoverKind)] = &[
+            // floors
+            (19, F(LowerFloor)),
+            (83, F(LowerFloor)),
+            (102, F(LowerFloor)),
+            (45, F(LowerFloor)),
+            (38, F(LowerFloorToLowest)),
+            (82, F(LowerFloorToLowest)),
+            (23, F(LowerFloorToLowest)),
+            (60, F(LowerFloorToLowest)),
+            (5, F(RaiseFloor)),
+            (91, F(RaiseFloor)),
+            (101, F(RaiseFloor)),
+            (64, F(RaiseFloor)),
+            (24, F(RaiseFloor)),
+            (30, F(RaiseToTexture)),
+            (96, F(RaiseToTexture)),
+            (92, F(RaiseFloor24)),
+            (59, F(RaiseFloor24andChange)),
+            (93, F(RaiseFloor24andChange)),
+            (37, F(LowerAndChange)),
+            (84, F(LowerAndChange)),
+            (36, F(TurboLower)),
+            (98, F(TurboLower)),
+            (71, F(TurboLower)),
+            (70, F(TurboLower)),
+            (56, F(RaiseFloorCrush)),
+            (94, F(RaiseFloorCrush)),
+            (55, F(RaiseFloorCrush)),
+            (65, F(RaiseFloorCrush)),
+            (119, F(RaiseFloorToNearest)),
+            (128, F(RaiseFloorToNearest)),
+            (18, F(RaiseFloorToNearest)),
+            (69, F(RaiseFloorToNearest)),
+            (130, F(RaiseFloorTurbo)),
+            (129, F(RaiseFloorTurbo)),
+            (131, F(RaiseFloorTurbo)),
+            (132, F(RaiseFloorTurbo)),
+            (140, F(RaiseFloor512)),
+            (9, F(DonutRaise)),
+            // ceilings
+            (41, C(LowerToFloor)),
+            (43, C(LowerToFloor)),
+            (25, C(CrushAndRaise)),
+            (49, C(CrushAndRaise)),
+            (73, C(CrushAndRaise)),
+            (6, C(FastCrushAndRaise)),
+            (77, C(FastCrushAndRaise)),
+            (141, C(SilentCrushAndRaise)),
+            (44, C(LowerAndCrush)),
+            (72, C(LowerAndCrush)),
+            // doors
+            (4, D(Normal)),
+            (90, D(Normal)),
+            (29, D(Normal)),
+            (63, D(Normal)),
+            (2, D(Open)),
+            (86, D(Open)),
+            (103, D(Open)),
+            (61, D(Open)),
+            (46, D(Open)),
+            (3, D(Close)),
+            (75, D(Close)),
+            (50, D(Close)),
+            (42, D(Close)),
+            (108, D(BlazeRaise)),
+            (105, D(BlazeRaise)),
+            (111, D(BlazeRaise)),
+            (114, D(BlazeRaise)),
+            (109, D(BlazeOpen)),
+            (106, D(BlazeOpen)),
+            (112, D(BlazeOpen)),
+            (115, D(BlazeOpen)),
+            (110, D(BlazeClose)),
+            (107, D(BlazeClose)),
+            (113, D(BlazeClose)),
+            (116, D(BlazeClose)),
+            // manual doors
+            (1, D(Normal)),
+            (26, D(Normal)),
+            (27, D(Normal)),
+            (28, D(Normal)),
+            (117, D(BlazeRaise)),
+            (31, D(Open)),
+            (32, D(Open)),
+            (33, D(Open)),
+            (34, D(Open)),
+            (118, D(BlazeOpen)),
+            // key switch-doors (BOOM locked range)
+            (99, D(BlazeOpen)),
+            (133, D(BlazeOpen)),
+            (134, D(BlazeOpen)),
+            (135, D(BlazeOpen)),
+            (136, D(BlazeOpen)),
+            (137, D(BlazeOpen)),
+            // lifts
+            (10, L(DownWaitUpStay)),
+            (88, L(DownWaitUpStay)),
+            (21, L(DownWaitUpStay)),
+            (62, L(DownWaitUpStay)),
+            (53, L(PerpetualRaise)),
+            (87, L(PerpetualRaise)),
+            (121, L(BlazeDWUS)),
+            (120, L(BlazeDWUS)),
+            (122, L(BlazeDWUS)),
+            (123, L(BlazeDWUS)),
+            (22, L(RaiseToNearestAndChange)),
+            (14, L(RaiseAndChange)),
+            // stairs
+            (8, S(Build8)),
+            (7, S(Build8)),
+            (100, S(Turbo16)),
+            (127, S(Turbo16)),
         ];
-        for &(n, cat, kind) in cases {
-            let spec = decode(encode_vanilla(n).unwrap()).unwrap();
-            assert_eq!(spec.category, cat, "special {n} category");
+        for &(n, kind) in cases {
+            let e = encode_vanilla(n).unwrap();
+            let spec = decode(e).unwrap_or_else(|| panic!("special {n} -> {e:#x} did not decode"));
             assert_eq!(spec.kind, kind, "special {n} kind");
         }
     }
@@ -907,10 +1202,10 @@ mod tests {
             (4, 0x3D88),
             (16, 0x3F48),
             (29, 0x3D0A),
-            // 46 is gun-REPEATABLE per OG (P_ChangeSwitchTexture arg 1); the
-            // audit's recomputed 0x3C2C used GunOnce in error. GunMany = 0x3C2D.
+            // 46 is gun-REPEATABLE and monster-shootable per OG -> GunMany
+            // (0x3C2D) with the door monster bit (0x80).
             (42, 0x3C6B),
-            (46, 0x3C2D),
+            (46, 0x3CAD),
             (50, 0x3C6A),
             (61, 0x3C2B),
             (63, 0x3D0B),
@@ -955,13 +1250,25 @@ mod tests {
     #[test]
     fn locked_door_decode() {
         let a = decode(0x39AA).expect("locked door 0x39AA decodes");
-        assert_eq!(a.category, Category::Door);
-        assert_eq!(a.trigger, Trigger::SwitchOnce);
-        assert_eq!(a.kind, DK_OPEN); // speed normal, open-stay
+        assert_eq!(a.kind, D(Open)); // speed normal, open-stay
+        assert_eq!(a.trigger, SwitchOnce);
+        assert_eq!(
+            a.lock,
+            Some(DoorLock {
+                kind: LockKind::YellowSkull,
+                skulls_are_cards: false,
+            })
+        );
 
         let b = decode(0x3B32).expect("locked door 0x3B32 decodes");
-        assert_eq!(b.category, Category::Door);
-        assert_eq!(b.trigger, Trigger::SwitchOnce);
-        assert_eq!(b.kind, DK_BLAZE_OPEN); // speed fast, open-stay
+        assert_eq!(b.kind, D(BlazeOpen)); // speed fast, open-stay
+        assert_eq!(b.trigger, SwitchOnce);
+        assert_eq!(
+            b.lock,
+            Some(DoorLock {
+                kind: LockKind::RedSkull,
+                skulls_are_cards: true,
+            })
+        );
     }
 }

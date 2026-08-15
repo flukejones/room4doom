@@ -7,6 +7,11 @@
 #
 # Requires doom1.wad. Set IWAD to its path (default: ~/DOOM/doom1.wad).
 # Skips (exit 0) if the WAD is absent so CI without the WAD is not a hard fail.
+#
+# `--update` overwrites the goldens instead of comparing. Only correct when the
+# trace *format* changed; prove gameplay is unchanged first by diffing the
+# format-independent columns (tic, p_random index, thing count, sector hash)
+# against a trace from the previous build.
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -26,6 +31,11 @@ GOLDEN_DIR="$ROOT/data/test_files/demo_golden"
 DEADLINE="${DEMO_DEADLINE:-180}"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
+
+update=0
+if [[ "${1:-}" == "--update" ]]; then
+    update=1
+fi
 
 # demo -> golden tic count.
 DEMOS=("demo1:5026" "demo2:3836" "demo3:2134")
@@ -74,7 +84,10 @@ for entry in "${DEMOS[@]}"; do
         fail=1
         continue
     fi
-    if diff -q "$golden" "$TMP/$name.fp" >/dev/null; then
+    if [[ "$update" == 1 ]]; then
+        cp "$TMP/$name.fp" "$golden"
+        echo "UPDATED: $golden ($tics tics)"
+    elif diff -q "$golden" "$TMP/$name.fp" >/dev/null; then
         echo "PASS: $name ($tics tics)"
     else
         echo "FAIL: $name diverges from golden:"

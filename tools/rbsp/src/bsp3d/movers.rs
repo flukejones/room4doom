@@ -24,13 +24,13 @@ const EDGE_INSERT_EPSILON: f32 = 1.0;
 type VertexMap = HashMap<QuantizedVec2, HashMap<usize, usize>>;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum MoverKind {
+pub enum MoverSurface {
     Floor,
     Ceiling,
     Both,
 }
 
-impl MoverKind {
+impl MoverSurface {
     pub fn combine(self, other: Self) -> Self {
         match (self, other) {
             (Self::Floor, Self::Ceiling)
@@ -50,16 +50,16 @@ impl MoverKind {
 /// maps its category to which surface(s) move: floors/lifts/stairs raise the
 /// floor, ceilings/doors/crushers move the ceiling, and the composite
 /// vanilla-40 moves both.
-pub fn classify_special(special: u32) -> Option<MoverKind> {
+pub fn classify_special(special: u32) -> Option<MoverSurface> {
     let spec = special_encode::decode(special)?;
     if spec.composite {
-        return Some(MoverKind::Both);
+        return Some(MoverSurface::Both);
     }
-    Some(match spec.category {
+    Some(match spec.kind.category() {
         SpecialCategory::Floor | SpecialCategory::Lift | SpecialCategory::Stairs => {
-            MoverKind::Floor
+            MoverSurface::Floor
         }
-        SpecialCategory::Ceiling | SpecialCategory::Door => MoverKind::Ceiling,
+        SpecialCategory::Ceiling | SpecialCategory::Door => MoverSurface::Ceiling,
     })
 }
 
@@ -79,9 +79,9 @@ fn classify_sector_mover(
     input: &Bsp3dInput,
     sector_id: usize,
     tag_linedefs: &HashMap<i16, Vec<usize>>,
-) -> Option<MoverKind> {
+) -> Option<MoverSurface> {
     let sector = &input.sectors[sector_id];
-    let mut result: Option<MoverKind> = None;
+    let mut result: Option<MoverSurface> = None;
 
     if sector.tag != 0
         && let Some(indices) = tag_linedefs.get(&sector.tag)
@@ -167,7 +167,7 @@ impl Bsp3dBuilder {
     /// 7. Set `moves` flag on affected polygons
     pub(super) fn mover_vertex_pass(&mut self, input: &Bsp3dInput) {
         // Step 1: identify mover sectors and zh boundaries.
-        let mut mover_sectors: HashMap<usize, MoverKind> = HashMap::new();
+        let mut mover_sectors: HashMap<usize, MoverSurface> = HashMap::new();
         // BTreeSet: deterministic iteration in the vertex-separation steps below.
         let mut zh_sectors: BTreeSet<usize> = BTreeSet::new();
         let mut zh_lower_bounds: Vec<(Vec2, usize, usize)> = Vec::new();
@@ -218,8 +218,8 @@ impl Bsp3dBuilder {
             if sidedef.has_bottom && (front.floor_h - back.floor_h).abs() <= HEIGHT_EPSILON {
                 zh_lower_sectors.insert(front_id);
                 zh_lower_sectors.insert(back_id);
-                mover_sectors.entry(front_id).or_insert(MoverKind::Floor);
-                mover_sectors.entry(back_id).or_insert(MoverKind::Floor);
+                mover_sectors.entry(front_id).or_insert(MoverSurface::Floor);
+                mover_sectors.entry(back_id).or_insert(MoverSurface::Floor);
                 for sv in [input.verts[seg.v1 as usize], input.verts[seg.v2 as usize]] {
                     push_dedup_bound(
                         &mut zh_lower_bounds,
@@ -234,8 +234,12 @@ impl Bsp3dBuilder {
             if sidedef.has_top && (front.ceil_h - back.ceil_h).abs() <= HEIGHT_EPSILON {
                 zh_upper_sectors.insert(front_id);
                 zh_upper_sectors.insert(back_id);
-                mover_sectors.entry(front_id).or_insert(MoverKind::Ceiling);
-                mover_sectors.entry(back_id).or_insert(MoverKind::Ceiling);
+                mover_sectors
+                    .entry(front_id)
+                    .or_insert(MoverSurface::Ceiling);
+                mover_sectors
+                    .entry(back_id)
+                    .or_insert(MoverSurface::Ceiling);
                 for sv in [input.verts[seg.v1 as usize], input.verts[seg.v2 as usize]] {
                     push_dedup_bound(
                         &mut zh_upper_bounds,
@@ -362,11 +366,11 @@ impl Bsp3dBuilder {
             let do_floor = in_zh
                 || in_fc
                 || in_lower
-                || matches!(mover_kind, Some(MoverKind::Floor | MoverKind::Both));
+                || matches!(mover_kind, Some(MoverSurface::Floor | MoverSurface::Both));
             let do_ceil = in_zh
                 || in_fc
                 || in_upper
-                || matches!(mover_kind, Some(MoverKind::Ceiling | MoverKind::Both));
+                || matches!(mover_kind, Some(MoverSurface::Ceiling | MoverSurface::Both));
             for pt in &boundary_pts {
                 for i in 0..self.sector_subsectors[sector_id].len() {
                     let ss_id = self.sector_subsectors[sector_id][i];
@@ -386,9 +390,9 @@ impl Bsp3dBuilder {
         for &sector_id in &zh_sectors {
             let clone_floor = matches!(
                 mover_sectors.get(&sector_id),
-                Some(MoverKind::Floor | MoverKind::Both)
+                Some(MoverSurface::Floor | MoverSurface::Both)
             );
-            let clone_ceiling = !matches!(mover_sectors.get(&sector_id), Some(MoverKind::Floor));
+            let clone_ceiling = !matches!(mover_sectors.get(&sector_id), Some(MoverSurface::Floor));
             if clone_ceiling {
                 self.separate_zh_surface(sector_id, false);
             }
@@ -594,7 +598,7 @@ impl Bsp3dBuilder {
         &mut self,
         input: &Bsp3dInput,
         bounds: &[(Vec2, usize, usize)],
-        mover_sectors: &HashMap<usize, MoverKind>,
+        mover_sectors: &HashMap<usize, MoverSurface>,
         vertex_map: &mut VertexMap,
         is_floor: bool,
     ) {
@@ -741,7 +745,7 @@ impl Bsp3dBuilder {
     fn residual_mover_separation(
         &mut self,
         bounds: &[(Vec2, usize, usize)],
-        mover_sectors: &HashMap<usize, MoverKind>,
+        mover_sectors: &HashMap<usize, MoverSurface>,
         vertex_map: &mut VertexMap,
         is_floor: bool,
     ) {
@@ -994,7 +998,7 @@ impl Bsp3dBuilder {
     fn set_mover_flags(
         &mut self,
         input: &Bsp3dInput,
-        mover_sectors: &HashMap<usize, MoverKind>,
+        mover_sectors: &HashMap<usize, MoverSurface>,
         zh_lower_sectors: &HashSet<usize>,
         zh_upper_sectors: &HashSet<usize>,
         zh_sectors: &BTreeSet<usize>,

@@ -7,16 +7,14 @@
 use std::ptr;
 
 use crate::doom_def::{ONCEILINGZ, ONFLOORZ};
-use crate::env::ceiling::{CeilKind, ev_do_ceiling};
-use crate::env::doors::{DoorKind, ev_do_door};
-use crate::env::floor::{FloorKind, StairKind, ev_build_stairs, ev_do_floor};
-use crate::env::generalized;
-use crate::env::lights::{
-    FASTDARK, FireFlicker, Glow, LightFlash, SLOWDARK, StrobeFlash, ev_start_light_strobing,
-    ev_turn_light_on, ev_turn_tag_lights_off,
+use crate::env::effects::light_presets::{
+    LightPreset, ev_start_light_strobing, ev_turn_light_on, ev_turn_tag_lights_off, spawn_light,
 };
-use crate::env::platforms::{PlatKind, ev_do_platform, ev_stop_platform};
-use crate::env::switch::{change_switch_texture, start_sector_sound};
+use crate::env::effects::mover_presets::{
+    ev_stop_platform, spawn_door_close_in_30, spawn_door_raise_in_5_mins,
+};
+use crate::env::generalized;
+use crate::env::switch::start_sector_sound;
 use crate::env::teleport::teleport;
 use crate::info::{MOBJINFO, MapObjKind};
 use crate::level::LevelState;
@@ -37,13 +35,43 @@ const BOOM_DAMAGE_MASK: u32 = 0x60;
 const BOOM_DAMAGE_SHIFT: u32 = 5;
 const BOOM_SECRET_MASK: u32 = 0x80;
 
-// The neighbour-sector geometry queries moved to `level::env_query` (pure
-// geometry, shared with tooling); re-exported here for existing call sites.
-pub use level::env_query::{
-    find_highest_ceiling_surrounding, find_highest_floor_surrounding,
-    find_lowest_ceiling_surrounding, find_lowest_floor_surrounding, find_max_light_surrounding,
-    find_min_light_surrounding, find_next_highest_floor, get_next_sector,
-};
+level::byte_enum! {
+    /// Vanilla sector-special types (bits 0-4 of `Sector::special`). Damage
+    /// types act during play (player think); the rest spawn something at load.
+    pub enum SectorSpecial {
+        Flicker = 1,
+        StrobeFast = 2,
+        StrobeSlow = 3,
+        StrobeFastDamage = 4,
+        Damage10 = 5,
+        Damage5 = 7,
+        Glow = 8,
+        Secret = 9,
+        DoorCloseIn30 = 10,
+        DamageEnd = 11,
+        StrobeSlowSync = 12,
+        StrobeFastSync = 13,
+        DoorRaiseIn5Mins = 14,
+        Damage20 = 16,
+        FireFlicker = 17,
+    }
+}
+
+impl SectorSpecial {
+    /// The light this sector type spawns at level load, if any.
+    fn light_preset(self) -> Option<LightPreset> {
+        match self {
+            Self::Flicker => Some(LightPreset::Flash),
+            Self::StrobeFast | Self::StrobeFastDamage => Some(LightPreset::StrobeFast),
+            Self::StrobeSlow => Some(LightPreset::StrobeSlow),
+            Self::Glow => Some(LightPreset::Glow),
+            Self::StrobeSlowSync => Some(LightPreset::StrobeSlowSync),
+            Self::StrobeFastSync => Some(LightPreset::StrobeFastSync),
+            Self::FireFlicker => Some(LightPreset::Fire),
+            _ => None,
+        }
+    }
+}
 
 /// OG `P_ChangeSector` -- iterate blockmap cells in sector's bounding box.
 fn change_sector(sector: &Sector, crunch: bool, level: &LevelState) -> bool {
@@ -279,8 +307,8 @@ pub fn cross_special_line(side: usize, mut line: MapPtr<LineDef>, thing: &mut Ma
         }
 
         // Teleports stay vanilla; the monster-openable door/lift movers
-        // (vanilla 4/10/88) are now generalized and carry the BOOM monster bit,
-        // so defer to handle_generalized_cross -> gen_allows_monster for those.
+        // (vanilla 4/10/88) are generalized and carry the encoded monster bit,
+        // checked in handle_generalized_cross.
         if matches!(
             line.special,
             39    // TELEPORT TRIGGER
@@ -308,256 +336,6 @@ pub fn cross_special_line(side: usize, mut line: MapPtr<LineDef>, thing: &mut Ma
     }
 
     match line.special {
-        2 => {
-            debug!("line-special #{}: vld_open door!", line.special);
-            ev_do_door(line.clone(), DoorKind::Open, level);
-            line.special = 0;
-        }
-        3 => {
-            debug!("line-special #{}: vld_close door!", line.special);
-            ev_do_door(line.clone(), DoorKind::Close, level);
-            line.special = 0;
-        }
-        4 => {
-            debug!("line-special #{}: vld_normal door!", line.special);
-            ev_do_door(line.clone(), DoorKind::Normal, level);
-            line.special = 0;
-        }
-        16 => {
-            debug!("line-special #{}: vld_close30ThenOpen door!", line.special);
-            ev_do_door(line.clone(), DoorKind::Close30ThenOpen, level);
-            line.special = 0;
-        }
-        108 => {
-            debug!("line-special #{}: vld_blazeRaise door!", line.special);
-            ev_do_door(line.clone(), DoorKind::BlazeRaise, level);
-            line.special = 0;
-        }
-        109 => {
-            debug!("line-special #{}: vld_blazeOpen door!", line.special);
-            ev_do_door(line.clone(), DoorKind::BlazeOpen, level);
-            line.special = 0;
-        }
-        110 => {
-            debug!("line-special #{}: vld_blazeClose door!", line.special);
-            ev_do_door(line.clone(), DoorKind::BlazeClose, level);
-            line.special = 0;
-        }
-        75 => {
-            debug!("line-special #{}: vld_close door!", line.special);
-            ev_do_door(line.clone(), DoorKind::Close, level);
-        }
-        76 => {
-            debug!("line-special #{}: vld_close30ThenOpen door!", line.special);
-            ev_do_door(line.clone(), DoorKind::Close30ThenOpen, level);
-        }
-        86 => {
-            debug!("line-special #{}: vld_open door!", line.special);
-            ev_do_door(line.clone(), DoorKind::Open, level);
-        }
-        90 => {
-            debug!("line-special #{}: vld_normal door!", line.special);
-            ev_do_door(line.clone(), DoorKind::Normal, level);
-        }
-        105 => {
-            debug!("line-special #{}: vld_blazeRaise door!", line.special);
-            ev_do_door(line.clone(), DoorKind::BlazeRaise, level);
-        }
-        106 => {
-            debug!("line-special #{}: vld_blazeOpen door!", line.special);
-            ev_do_door(line.clone(), DoorKind::BlazeOpen, level);
-        }
-        107 => {
-            debug!("line-special #{}: vld_blazeClose door!", line.special);
-            ev_do_door(line.clone(), DoorKind::BlazeClose, level);
-        }
-
-        10 => {
-            debug!("line-special #{}: downWaitUpStay platform!", line.special);
-            ev_do_platform(line.clone(), PlatKind::DownWaitUpStay, 0, level);
-            line.special = 0;
-        }
-        22 => {
-            debug!(
-                "line-special #{}: raiseToNearestAndChange platform!",
-                line.special
-            );
-            ev_do_platform(line.clone(), PlatKind::RaiseToNearestAndChange, 0, level);
-            line.special = 0;
-        }
-        53 => {
-            debug!("line-special #{}: perpetualRaise platform!", line.special);
-            ev_do_platform(line.clone(), PlatKind::PerpetualRaise, 0, level);
-            line.special = 0;
-        }
-        121 => {
-            debug!("line-special #{}: blazeDWUS platform!", line.special);
-            ev_do_platform(line.clone(), PlatKind::BlazeDWUS, 0, level);
-            line.special = 0;
-        }
-        87 => {
-            debug!("line-special #{}: perpetualRaise platform!", line.special);
-            ev_do_platform(line.clone(), PlatKind::PerpetualRaise, 0, level);
-        }
-        88 => {
-            debug!("line-special #{}: downWaitUpStay platform!", line.special);
-            ev_do_platform(line.clone(), PlatKind::DownWaitUpStay, 0, level);
-        }
-        95 => {
-            debug!(
-                "line-special #{}: raiseToNearestAndChange platform!",
-                line.special
-            );
-            ev_do_platform(line.clone(), PlatKind::RaiseToNearestAndChange, 0, level);
-        }
-        120 => {
-            debug!("line-special #{}: blazeDWUS platform!", line.special);
-            ev_do_platform(line.clone(), PlatKind::BlazeDWUS, 0, level);
-        }
-        5 => {
-            debug!("line-special #{}: raiseFloor floor!", line.special);
-            ev_do_floor(line.clone(), FloorKind::RaiseFloor, level);
-            line.special = 0;
-        }
-        19 => {
-            debug!("line-special #{}: lowerFloor floor!", line.special);
-            ev_do_floor(line.clone(), FloorKind::LowerFloor, level);
-            line.special = 0;
-        }
-        30 => {
-            debug!("line-special #{}: raiseToTexture floor!", line.special);
-            ev_do_floor(line.clone(), FloorKind::RaiseToTexture, level);
-            line.special = 0;
-        }
-        36 => {
-            debug!("line-special #{}: TurboLower floor!", line.special);
-            ev_do_floor(line.clone(), FloorKind::TurboLower, level);
-            line.special = 0;
-        }
-        37 => {
-            debug!("line-special #{}: lowerAndChange floor!", line.special);
-            ev_do_floor(line.clone(), FloorKind::LowerAndChange, level);
-            line.special = 0;
-        }
-        38 => {
-            debug!("line-special #{}: lowerFloorToLowest floor!", line.special);
-            ev_do_floor(line.clone(), FloorKind::LowerFloorToLowest, level);
-            line.special = 0;
-        }
-        56 => {
-            debug!("line-special #{}: raiseFloorCrush floor!", line.special);
-            ev_do_floor(line.clone(), FloorKind::RaiseFloorCrush, level);
-            line.special = 0;
-        }
-        59 => {
-            debug!(
-                "line-special #{}: raiseFloor24AndChange floor!",
-                line.special
-            );
-            ev_do_floor(line.clone(), FloorKind::RaiseFloor24andChange, level);
-            line.special = 0;
-        }
-        119 => {
-            debug!("line-special #{}: raiseFloorToNearest floor!", line.special);
-            ev_do_floor(line.clone(), FloorKind::RaiseFloorToNearest, level);
-            line.special = 0;
-        }
-        130 => {
-            debug!("line-special #{}: raiseFloorTurbo floor!", line.special);
-            ev_do_floor(line.clone(), FloorKind::RaiseFloorTurbo, level);
-            line.special = 0;
-        }
-        82 => {
-            debug!("line-special #{}: raiseFloorTurbo floor!", line.special);
-            ev_do_floor(line, FloorKind::LowerFloorToLowest, level);
-        }
-        83 => {
-            debug!("line-special #{}: lowerFloor floor!", line.special);
-            ev_do_floor(line, FloorKind::LowerFloor, level);
-        }
-        84 => {
-            debug!("line-special #{}: lowerAndChange floor!", line.special);
-            ev_do_floor(line, FloorKind::LowerAndChange, level);
-        }
-        91 => {
-            debug!("line-special #{}: raiseFloor floor!", line.special);
-            ev_do_floor(line, FloorKind::RaiseFloor, level);
-        }
-        92 => {
-            debug!("line-special #{}: raiseFloor24 floor!", line.special);
-            ev_do_floor(line, FloorKind::RaiseFloor24, level);
-        }
-        93 => {
-            debug!(
-                "line-special #{}: raiseFloor24AndChange floor!",
-                line.special
-            );
-            ev_do_floor(line, FloorKind::RaiseFloor24andChange, level);
-        }
-        94 => {
-            debug!("line-special #{}: raiseFloorCrush floor!", line.special);
-            ev_do_floor(line, FloorKind::RaiseFloorCrush, level);
-        }
-        96 => {
-            debug!("line-special #{}: raiseToTexture floor!", line.special);
-            ev_do_floor(line, FloorKind::RaiseToTexture, level);
-        }
-        98 => {
-            debug!("line-special #{}: turboLower floor!", line.special);
-            ev_do_floor(line, FloorKind::TurboLower, level);
-        }
-        128 => {
-            debug!("line-special #{}: raiseFloorToNearest floor!", line.special);
-            ev_do_floor(line, FloorKind::RaiseFloorToNearest, level);
-        }
-        129 => {
-            debug!("line-special #{}: raiseFloorTurbo floor!", line.special);
-            ev_do_floor(line, FloorKind::RaiseFloorTurbo, level);
-        }
-        6 => {
-            debug!("line-special #{}: fastCrushAndRaise ceiling!", line.special);
-            ev_do_ceiling(line.clone(), CeilKind::FastCrushAndRaise, level);
-            line.special = 0;
-        }
-        25 => {
-            debug!("line-special #{}: crushAndRaise ceiling!", line.special);
-            ev_do_ceiling(line.clone(), CeilKind::CrushAndRaise, level);
-            line.special = 0;
-        }
-        40 => {
-            debug!(
-                "line-special #{}: raiseToHighest ceiling, floor!",
-                line.special
-            );
-            ev_do_ceiling(line.clone(), CeilKind::RaiseToHighest, level);
-            ev_do_floor(line.clone(), FloorKind::LowerFloorToLowest, level);
-            line.special = 0;
-        }
-        44 => {
-            debug!("line-special #{}: lowerAndCrush ceiling!", line.special);
-            ev_do_ceiling(line.clone(), CeilKind::LowerAndCrush, level);
-            line.special = 0;
-        }
-        141 => {
-            debug!(
-                "line-special #{}: silentCrushAndRaise ceiling!",
-                line.special
-            );
-            ev_do_ceiling(line.clone(), CeilKind::SilentCrushAndRaise, level);
-            line.special = 0;
-        }
-        72 => {
-            debug!("line-special #{}: LowerAndCrush ceiling!", line.special);
-            ev_do_ceiling(line.clone(), CeilKind::LowerAndCrush, level);
-        }
-        73 => {
-            debug!("line-special #{}: crushAndRaise ceiling!", line.special);
-            ev_do_ceiling(line.clone(), CeilKind::CrushAndRaise, level);
-        }
-        77 => {
-            debug!("line-special #{}: fastCrushAndRaise ceiling!", line.special);
-            ev_do_ceiling(line.clone(), CeilKind::FastCrushAndRaise, level);
-        }
         52 => {
             level.do_exit_level();
         }
@@ -610,16 +388,6 @@ pub fn cross_special_line(side: usize, mut line: MapPtr<LineDef>, thing: &mut Ma
             ev_turn_tag_lights_off(line.clone(), level);
             line.special = 0;
         }
-        8 => {
-            debug!("line-special #{}: build 8 stair steps", line.special);
-            ev_build_stairs(line.clone(), StairKind::Build8, level);
-            line.special = 0;
-        }
-        100 => {
-            debug!("line-special #{}: build 16 stair steps turbo", line.special);
-            ev_build_stairs(line.clone(), StairKind::Turbo16, level);
-            line.special = 0;
-        }
         125
             // TELEPORT MonsterONLY
             if thing.player().is_none() => {
@@ -645,10 +413,7 @@ pub fn cross_special_line(side: usize, mut line: MapPtr<LineDef>, thing: &mut Ma
             if thing.player().is_none() => {
                 teleport(line.clone(), side, thing, level);
             }
-        _ => {
-            // Ignore 114 | 103 . It's a switch
-            //warn!("Invalid or unimplemented line special: {}", line.special);
-        }
+        _ => {}
     }
 }
 
@@ -656,74 +421,18 @@ pub fn cross_special_line(side: usize, mut line: MapPtr<LineDef>, thing: &mut Ma
 ///
 /// Doom function name `P_ShootSpecialLine`
 pub fn shoot_special_line(line: MapPtr<LineDef>, thing: &mut MapObject) {
-    let mut ok = false;
-
     assert!(!thing.level.is_null(), "Thing had a bad level pointer");
     let level: &mut LevelState = unsafe { &mut *thing.level };
 
-    if thing.player().is_none() {
-        // Only the gun-open door (vanilla 46) is monster-shootable; the
-        // original number is preserved in default_special after normalisation.
-        if line.default_special == 46 {
-            ok = true;
-        }
-        if !ok {
-            return;
-        }
-    }
-
-    // BOOM generalized linedef types
+    // Every shootable vanilla special is a mover, so all arrive in generalized
+    // form; monster permission is the encoded monster bit (vanilla 46 only).
     if generalized::is_generalized(line.special) {
         generalized::handle_generalized_shoot(line, thing, level);
-        return;
-    }
-
-    match line.special {
-        24 => {
-            debug!("shoot line-special #{}: raise floor!", line.special);
-            ev_do_floor(line.clone(), FloorKind::RaiseFloor, level);
-            change_switch_texture(
-                line,
-                false,
-                &level.switch_list,
-                &mut level.button_list,
-                &level.snd_command,
-                &mut level.level_data.bsp_3d,
-            );
-        }
-        46 => {
-            debug!("shoot line-special #{}: open door!", line.special);
-            ev_do_door(line.clone(), DoorKind::Open, level);
-            change_switch_texture(
-                line,
-                true,
-                &level.switch_list,
-                &mut level.button_list,
-                &level.snd_command,
-                &mut level.level_data.bsp_3d,
-            );
-        }
-        47 => {
-            debug!(
-                "shoot line-special #{}: raise platform and change!",
-                line.special
-            );
-            ev_do_platform(line.clone(), PlatKind::RaiseToNearestAndChange, 0, level);
-            change_switch_texture(
-                line,
-                false,
-                &level.switch_list,
-                &mut level.button_list,
-                &level.snd_command,
-                &mut level.level_data.bsp_3d,
-            );
-        }
-        _ => {}
     }
 }
 
 pub fn spawn_specials(level: &mut LevelState) {
-    // TODO: level timer
+    // TODO: deathmatch -timer never seeds level_timer, so timed matches never end; seed from GameOptions here.
 
     let level_iter = unsafe { &mut *ptr::from_mut(level) };
     for sector in level_iter
@@ -734,64 +443,35 @@ pub fn spawn_specials(level: &mut LevelState) {
     {
         // BOOM: bits 5-11 encode generalized sector properties.
         // Vanilla type is in bits 0-4.
-        let vanilla_type = sector.special & 0x1F;
+        let vanilla_type = (sector.special & 0x1F) as u8;
 
         // BOOM secret (bit 7)
         if sector.special & BOOM_SECRET_MASK != 0 {
             level.total_level_secrets += 1;
         }
 
-        match vanilla_type {
-            1 => {
-                debug!("sector-special #{}: light flicker!", sector.special);
-                LightFlash::spawn(sector, level);
+        let Ok(special) = SectorSpecial::try_from(vanilla_type) else {
+            continue;
+        };
+        if let Some(preset) = special.light_preset() {
+            debug!("sector-special #{}: {special:?}", sector.special);
+            spawn_light(sector, preset, level);
+            // The light spawn cleared the special; type 4 keeps its damage.
+            if matches!(special, SectorSpecial::StrobeFastDamage) {
+                sector.special = SectorSpecial::StrobeFastDamage as u32;
             }
-            2 => {
-                debug!("sector-special #{}: strobe fast!", sector.special);
-                StrobeFlash::spawn(sector, FASTDARK, false, level);
-            }
-            3 => {
-                debug!("sector-special #{}: strobe slow!", sector.special);
-                StrobeFlash::spawn(sector, SLOWDARK, false, level);
-            }
-            4 => {
-                debug!(
-                    "sector-special #{}: strobe fast death/slime!",
-                    sector.special
-                );
-                StrobeFlash::spawn(sector, FASTDARK, false, level);
-                sector.special = 4;
-            }
-            8 => {
-                debug!("sector-special #{}: glowing light!", sector.special);
-                Glow::spawn(sector, level);
-            }
-            9 => {
-                debug!("sector-special #{}: secret", sector.special);
+            continue;
+        }
+        match special {
+            SectorSpecial::Secret => {
                 // Only count vanilla secret if BOOM secret bit is not set
                 // (BOOM secret already counted above)
                 if sector.special & BOOM_SECRET_MASK == 0 {
                     level.total_level_secrets += 1;
                 }
             }
-            12 => {
-                debug!("sector-special #{}: strobe slow!", sector.special);
-                StrobeFlash::spawn(sector, SLOWDARK, true, level);
-            }
-            13 => {
-                debug!("sector-special #{}: strobe fast!", sector.special);
-                StrobeFlash::spawn(sector, FASTDARK, true, level);
-            }
-            14 => {
-                error!(
-                    "sector-special #{}: P_SpawnDoorRaiseIn5Mins not implemented",
-                    sector.special
-                );
-            }
-            17 => {
-                debug!("sector-special #{}: fire flicker!", sector.special);
-                FireFlicker::spawn(sector, level);
-            }
+            SectorSpecial::DoorCloseIn30 => spawn_door_close_in_30(sector, level),
+            SectorSpecial::DoorRaiseIn5Mins => spawn_door_raise_in_5_mins(sector, level),
             _ => {}
         }
     }

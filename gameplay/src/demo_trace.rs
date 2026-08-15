@@ -14,12 +14,12 @@ use std::cell::RefCell;
 use std::fmt::Write as _;
 use std::fs::{File, OpenOptions};
 use std::io::Write as _;
-use std::ptr::addr_of;
+use std::ptr::{addr_of, from_ref};
 
 use math::{get_prndindex, get_rndindex};
 
 use crate::LevelState;
-use crate::info::STATES;
+use crate::info::{STATES, StateData};
 use crate::thinker::{Thinker, ThinkerData};
 
 const FNV_OFFSET: u64 = 0xCBF2_9CE4_8422_2325;
@@ -61,10 +61,10 @@ fn open_append(path: &str) -> Option<File> {
     OpenOptions::new().create(true).append(true).open(path).ok()
 }
 
-fn state_index(state: &'static crate::info::StateData) -> u64 {
-    let base = addr_of!(STATES).cast::<crate::info::StateData>() as usize;
-    let ptr = std::ptr::from_ref(state) as usize;
-    ((ptr - base) / size_of::<crate::info::StateData>()) as u64
+fn state_index(state: &'static StateData) -> u64 {
+    let base = addr_of!(STATES).cast::<StateData>() as usize;
+    let ptr = from_ref(state) as usize;
+    ((ptr - base) / size_of::<StateData>()) as u64
 }
 
 /// Feed a thing's determinism-relevant state into both the running hash and
@@ -204,80 +204,26 @@ pub fn trace_tic(level: &LevelState) {
 fn hash_thinker(h: &mut Fnv, idx: usize, th: &Thinker, mut dump: Option<&mut String>) {
     match th.data() {
         ThinkerData::MapObject(m) => hash_thing(h, idx, m, dump.as_deref_mut()),
-        ThinkerData::VerticalDoor(d) => {
+        ThinkerData::Move(m) => {
             h.w_u64(1);
-            h.w_i64(d.topheight.raw() as i64);
-            h.w_i64(d.speed.raw() as i64);
-            h.w_i64(d.direction as i64);
-            h.w_i64(d.topwait as i64);
-            h.w_i64(d.topcountdown as i64);
+            h.w_i64(m.speed.raw() as i64);
+            h.w_i64(m.low_height().raw() as i64);
+            h.w_i64(m.high.raw() as i64);
+            h.w_u64(m.phase as u64);
+            h.w_i64(m.countdown as i64);
             if let Some(s) = dump {
                 let _ = writeln!(
                     s,
-                    "  D{idx} door top={} speed={} dir={} wait={} cd={}",
-                    d.topheight.raw(),
-                    d.speed.raw(),
-                    d.direction,
-                    d.topwait,
-                    d.topcountdown
+                    "  M{idx} move speed={} low={} high={} phase={:?} cd={}",
+                    m.speed.raw(),
+                    m.low_height().raw(),
+                    m.high.raw(),
+                    m.phase,
+                    m.countdown
                 );
             }
         }
-        ThinkerData::FloorMove(f) => {
-            h.w_u64(2);
-            h.w_i64(f.speed.raw() as i64);
-            h.w_i64(f.direction as i64);
-            h.w_i64(f.destheight.raw() as i64);
-            if let Some(s) = dump {
-                let _ = writeln!(
-                    s,
-                    "  F{idx} floor speed={} dir={} dest={}",
-                    f.speed.raw(),
-                    f.direction,
-                    f.destheight.raw()
-                );
-            }
-        }
-        ThinkerData::CeilingMove(c) => {
-            h.w_u64(3);
-            h.w_i64(c.speed.raw() as i64);
-            h.w_i64(c.direction as i64);
-            h.w_i64(c.bottomheight.raw() as i64);
-            h.w_i64(c.topheight.raw() as i64);
-            if let Some(s) = dump {
-                let _ = writeln!(
-                    s,
-                    "  C{idx} ceil speed={} dir={} bot={} top={}",
-                    c.speed.raw(),
-                    c.direction,
-                    c.bottomheight.raw(),
-                    c.topheight.raw()
-                );
-            }
-        }
-        ThinkerData::Platform(p) => {
-            h.w_u64(4);
-            h.w_i64(p.speed.raw() as i64);
-            h.w_i64(p.low.raw() as i64);
-            h.w_i64(p.high.raw() as i64);
-            h.w_i64(p.count as i64);
-            h.w_u64(p.status as u64);
-            if let Some(s) = dump {
-                let _ = writeln!(
-                    s,
-                    "  P{idx} plat speed={} low={} high={} count={} status={:?}",
-                    p.speed.raw(),
-                    p.low.raw(),
-                    p.high.raw(),
-                    p.count,
-                    p.status
-                );
-            }
-        }
-        ThinkerData::LightFlash(_)
-        | ThinkerData::StrobeFlash(_)
-        | ThinkerData::FireFlicker(_)
-        | ThinkerData::Glow(_)
+        ThinkerData::Light(_)
         | ThinkerData::TestObject(_)
         | ThinkerData::Remove
         | ThinkerData::Free => {}

@@ -15,6 +15,7 @@ use sound_common::{SndServerTx, SoundAction};
 
 use crate::MapObjKind;
 use crate::doom_def::{MAXPLAYERS, ONFLOORZ};
+use crate::env::specials::spawn_specials;
 use crate::level::LevelState;
 use crate::player::Player;
 use crate::thing::MapObject;
@@ -27,10 +28,8 @@ use wad::WadData;
 /// with [`TestLevel::load`]; spawn things with [`TestLevel::spawn`].
 pub struct TestLevel {
     // Ownership anchors: LevelState holds raw pointers into these, so they must
-    // outlive it. Read only through those pointers, never directly.
-    #[allow(dead_code, reason = "kept alive for the raw pointers in LevelState")]
+    // outlive it. Reach them through the accessors, never move them.
     players: Box<[Player; MAXPLAYERS]>,
-    #[allow(dead_code, reason = "kept alive for the raw pointers in LevelState")]
     players_in_game: Box<[bool; MAXPLAYERS]>,
     level: Box<LevelState>,
     // Holding the receiver keeps the sound channel open (sends fail-soft
@@ -151,6 +150,35 @@ impl TestLevel {
         &self.level.level_data
     }
 
+    /// The level itself, for engine entry points that take a whole `LevelState`
+    /// (save/load, specials).
+    pub fn level(&self) -> &LevelState {
+        &self.level
+    }
+
+    pub fn players(&self) -> &[Player; MAXPLAYERS] {
+        &self.players
+    }
+
+    pub fn players_in_game(&self) -> &[bool; MAXPLAYERS] {
+        &self.players_in_game
+    }
+
+    /// The three pieces `load_game_from_bytes` mutates, borrowed together.
+    pub fn parts_mut(
+        &mut self,
+    ) -> (
+        &mut LevelState,
+        &mut [Player; MAXPLAYERS],
+        &mut [bool; MAXPLAYERS],
+    ) {
+        (
+            &mut self.level,
+            &mut self.players,
+            &mut self.players_in_game,
+        )
+    }
+
     /// Mutable access to the map data, e.g. to build a `MapPtr` to a linedef
     /// for `cross_special_line`.
     pub fn level_data_mut(&mut self) -> &mut level::LevelData {
@@ -161,7 +189,7 @@ impl TestLevel {
     /// way `P_SpawnSpecials` does at level load. Opt-in so the physics fixtures
     /// keep a clean (empty-of-light-thinkers) baseline.
     pub fn spawn_level_specials(&mut self) {
-        crate::env::specials::spawn_specials(&mut self.level);
+        spawn_specials(&mut self.level);
     }
 
     /// Advance the whole level by `n` tics: runs every thinker (movers, lights,

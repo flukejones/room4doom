@@ -3,14 +3,10 @@ use coarse_prof::profile;
 use log::{debug, error, trace};
 use std::alloc::{Layout, alloc, dealloc};
 use std::fmt::{self, Debug};
-use std::mem::{align_of, size_of};
+use std::mem::{align_of, needs_drop, size_of};
 use std::ptr::{self, null_mut};
 
-use crate::env::ceiling::CeilingMove;
-use crate::env::doors::VerticalDoor;
-use crate::env::floor::FloorMove;
-use crate::env::lights::{FireFlicker, Glow, LightFlash, StrobeFlash};
-use crate::env::platforms::Platform;
+use crate::env::effects::{LightEffect, MoveEffect};
 use crate::level::LevelState;
 use crate::thing::MapObject;
 
@@ -205,7 +201,7 @@ impl ThinkerAlloc {
     unsafe fn drop_item(&mut self, idx: usize) {
         debug_assert!(idx < self.capacity, "idx out of bounds");
         let ptr = self.ptr_for_idx(idx);
-        if std::mem::needs_drop::<Thinker>() {
+        if needs_drop::<Thinker>() {
             unsafe {
                 ptr::drop_in_place(ptr);
             }
@@ -422,19 +418,15 @@ impl ThinkerAlloc {
 pub enum ThinkerData {
     TestObject(TestObject),
     MapObject(MapObject),
-    VerticalDoor(VerticalDoor),
-    FloorMove(FloorMove),
-    CeilingMove(CeilingMove),
-    Platform(Platform),
-    LightFlash(LightFlash),
-    StrobeFlash(StrobeFlash),
-    FireFlicker(FireFlicker),
-    Glow(Glow),
+    /// A sector surface in motion: door, floor, ceiling, crusher or lift.
+    Move(MoveEffect),
+    /// An animated sector light level.
+    Light(LightEffect),
     /// The thinker function should set to this when the linked-list node
     /// and memory is no-longer required. On thinker run it will be set to
     /// `Free` and unlinked.
     Remove,
-    /// Used to mark a `ThinkerAlloc` slot as free to be re-used.
+    /// An empty `ThinkerAlloc` slot, available for the next insert.
     Free,
 }
 
@@ -443,14 +435,8 @@ impl Debug for ThinkerData {
         match self {
             Self::TestObject(_) => f.debug_tuple("Test").finish(),
             Self::MapObject(_) => f.debug_tuple("Mobj").finish(),
-            Self::VerticalDoor(_) => f.debug_tuple("VDoor").finish(),
-            Self::FloorMove(_) => f.debug_tuple("FloorMove").finish(),
-            Self::CeilingMove(_) => f.debug_tuple("CeilingMove").finish(),
-            Self::Platform(_) => f.debug_tuple("Platform").finish(),
-            Self::LightFlash(_) => f.debug_tuple("LightFlash").finish(),
-            Self::StrobeFlash(_) => f.debug_tuple("StrobeFlash").finish(),
-            Self::FireFlicker(_) => f.debug_tuple("FireFlicker").finish(),
-            Self::Glow(_) => f.debug_tuple("Glow").finish(),
+            Self::Move(_) => f.debug_tuple("Move").finish(),
+            Self::Light(_) => f.debug_tuple("Light").finish(),
             Self::Remove => f.debug_tuple("Remove").finish(),
             Self::Free => f.debug_tuple("Free - this shouldn't ever be seen").finish(),
         }
@@ -514,14 +500,8 @@ impl Thinker {
         match &mut self.data {
             ThinkerData::TestObject(obj) => obj.set_thinker_ptr(ptr),
             ThinkerData::MapObject(obj) => obj.set_thinker_ptr(ptr),
-            ThinkerData::VerticalDoor(obj) => obj.set_thinker_ptr(ptr),
-            ThinkerData::FloorMove(obj) => obj.set_thinker_ptr(ptr),
-            ThinkerData::CeilingMove(obj) => obj.set_thinker_ptr(ptr),
-            ThinkerData::Platform(obj) => obj.set_thinker_ptr(ptr),
-            ThinkerData::LightFlash(obj) => obj.set_thinker_ptr(ptr),
-            ThinkerData::StrobeFlash(obj) => obj.set_thinker_ptr(ptr),
-            ThinkerData::FireFlicker(obj) => obj.set_thinker_ptr(ptr),
-            ThinkerData::Glow(obj) => obj.set_thinker_ptr(ptr),
+            ThinkerData::Move(obj) => obj.set_thinker_ptr(ptr),
+            ThinkerData::Light(obj) => obj.set_thinker_ptr(ptr),
             ThinkerData::Remove => {
                 error!("Tried to set the Thinker pointer for an Object that was 'Remove'");
             }
@@ -581,82 +561,23 @@ impl Thinker {
         }
     }
 
-    /// Get inner `VerticalDoor` data as mut. Panics if the inner is not
-    /// actually `VerticalDoor`
-    pub fn vdoor_mut(&mut self) -> &mut VerticalDoor {
-        if let ThinkerData::VerticalDoor(obj) = &mut self.data {
+    /// Get inner `MoveEffect` data as mut. Panics if the inner is not actually
+    /// `MoveEffect`
+    pub fn mover_mut(&mut self) -> &mut MoveEffect {
+        if let ThinkerData::Move(obj) = &mut self.data {
             obj
         } else {
-            panic!("ObjectType is not VerticalDoor");
+            panic!("ObjectType is not MoveEffect");
         }
     }
 
-    /// Get inner `CeilingMove` data as mut. Panics if the inner is not actually
-    /// `CeilingMove`
-    pub fn ceiling_mut(&mut self) -> &mut CeilingMove {
-        if let ThinkerData::CeilingMove(obj) = &mut self.data {
+    /// Get inner `LightEffect` data as mut. Panics if the inner is not actually
+    /// `LightEffect`
+    pub fn light_mut(&mut self) -> &mut LightEffect {
+        if let ThinkerData::Light(obj) = &mut self.data {
             obj
         } else {
-            panic!("ObjectType is not CeilingMove");
-        }
-    }
-
-    /// Get inner `FloorMove` data as mut. Panics if the inner is not actually
-    /// `FloorMove`
-    pub fn floor_mut(&mut self) -> &mut FloorMove {
-        if let ThinkerData::FloorMove(obj) = &mut self.data {
-            obj
-        } else {
-            panic!("ObjectType is not FloorMove");
-        }
-    }
-
-    /// Get inner `Platform` data as mut. Panics if the inner is not actually
-    /// `Platform`
-    pub fn platform_mut(&mut self) -> &mut Platform {
-        if let ThinkerData::Platform(obj) = &mut self.data {
-            obj
-        } else {
-            panic!("ObjectType is not Platform");
-        }
-    }
-
-    /// Get inner `LightFlash` data as mut. Panics if the inner is not actually
-    /// `LightFlash`
-    pub fn light_flash_mut(&mut self) -> &mut LightFlash {
-        if let ThinkerData::LightFlash(obj) = &mut self.data {
-            obj
-        } else {
-            panic!("ObjectType is not LightFlash");
-        }
-    }
-
-    /// Get inner `StrobeFlash` data as mut. Panics if the inner is not actually
-    /// `StrobeFlash`
-    pub fn strobe_flash_mut(&mut self) -> &mut StrobeFlash {
-        if let ThinkerData::StrobeFlash(obj) = &mut self.data {
-            obj
-        } else {
-            panic!("ObjectType is not StrobeFlash");
-        }
-    }
-
-    /// Get inner `FireFlicker` data as mut. Panics if the inner is not actually
-    /// `FireFlicker`
-    pub fn fire_flick_mut(&mut self) -> &mut FireFlicker {
-        if let ThinkerData::FireFlicker(obj) = &mut self.data {
-            obj
-        } else {
-            panic!("ObjectType is not FireFlicker");
-        }
-    }
-
-    /// Get inner `Glow` data as mut. Panics if the inner is not actually `Glow`
-    pub fn glow_mut(&mut self) -> &mut Glow {
-        if let ThinkerData::Glow(obj) = &mut self.data {
-            obj
-        } else {
-            panic!("ObjectType is not Glow");
+            panic!("ObjectType is not LightEffect");
         }
     }
 }

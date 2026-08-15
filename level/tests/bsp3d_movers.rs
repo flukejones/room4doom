@@ -4,7 +4,7 @@
 
 use glam::Vec2;
 use level::env_target::mover_targets_for_sector;
-use level::special_encode::{Category, decode, encode_vanilla, is_generalized};
+use level::special_encode::{MoverKind, decode, encode_vanilla, is_generalized};
 use level::{BSP3D, LevelData, LineDefFlags, MovementType, NO_INDEX, PolyFlags, WallSlot};
 use test_utils::{
     Surface, collect_border_linedefs, collect_sector_vertices, doom_wad_path, doom1_wad_path,
@@ -948,7 +948,7 @@ fn e1m5_manual_door_decodes_manual() {
         if manual_specials.contains(&line.default_special) {
             found = true;
             let spec = decode(line.special).expect("manual door decodes");
-            assert_eq!(spec.category, Category::Door);
+            assert!(matches!(spec.kind, MoverKind::Door(_)));
             assert!(
                 spec.manual,
                 "door {} not flagged manual",

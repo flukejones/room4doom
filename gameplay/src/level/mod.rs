@@ -20,8 +20,9 @@ use pic_data::{PicAnimation, PicData, Switches};
 
 use crate::Player;
 use crate::doom_def::{GameAction, MAX_DEATHMATCH_STARTS, MAX_RESPAWNS, MAXPLAYERS};
-use crate::env::platforms::{PlatStatus, Platform};
+use crate::env::effects::{MoveEffect, MoverPhase};
 use crate::pic::Button;
+use crate::thing::MapObject;
 use crate::thinker::ThinkerAlloc;
 
 /// The world the player is in; exists only while the player is in it.
@@ -90,10 +91,11 @@ pub struct LevelState {
     /// Provides ability for things to start a sound
     pub(super) snd_command: SndServerTx,
 
-    pub(crate) active_platforms: Vec<*mut Platform>,
+    /// Movers that a tagged stop/start special can put in or out of stasis.
+    pub(crate) active_movers: Vec<*mut MoveEffect>,
     pub(crate) sky_num: usize,
     /// OG Doom blocklinks: per-block linked list heads for thing iteration
-    pub(crate) blocklinks: Vec<Option<*mut crate::thing::MapObject>>,
+    pub(crate) blocklinks: Vec<Option<*mut MapObject>>,
     /// UMAPINFO boss death actions for this map (None = use defaults)
     pub boss_actions: Option<wad::umapinfo::BossActions>,
 }
@@ -147,56 +149,52 @@ impl LevelState {
             snd_command,
             players_in_game,
             players,
-            active_platforms: Vec::new(),
+            active_movers: Vec::new(),
             sky_num: 0,
             blocklinks: Vec::new(),
             boss_actions: None,
         }
     }
 
-    pub(super) fn stop_platform(&mut self, tag: i16) {
-        for plat in &mut self.active_platforms {
-            let plat = unsafe { &mut **plat };
-            if plat.tag == tag && plat.status != PlatStatus::InStasis {
-                plat.old_status = plat.status;
-                plat.status = PlatStatus::InStasis;
+    pub(crate) fn stop_movers(&mut self, tag: i16) {
+        for mover in &mut self.active_movers {
+            let mover = unsafe { &mut **mover };
+            if mover.tag == tag && mover.phase != MoverPhase::InStasis {
+                mover.stasis_phase = mover.phase;
+                mover.phase = MoverPhase::InStasis;
             }
         }
     }
 
-    pub(super) fn activate_platform_in_stasis(&mut self, tag: i16) {
-        for plat in &mut self.active_platforms {
-            let plat = unsafe { &mut **plat };
-            if plat.tag == tag && plat.status == PlatStatus::InStasis {
-                plat.status = plat.old_status;
+    pub(crate) fn activate_movers_in_stasis(&mut self, tag: i16) {
+        for mover in &mut self.active_movers {
+            let mover = unsafe { &mut **mover };
+            if mover.tag == tag && mover.phase == MoverPhase::InStasis {
+                mover.phase = mover.stasis_phase;
             }
         }
     }
 
-    pub(crate) fn add_active_platform(&mut self, platform: *mut Platform) {
-        self.active_platforms.push(platform);
+    pub(crate) fn add_active_mover(&mut self, mover: *mut MoveEffect) {
+        self.active_movers.push(mover);
     }
 
-    /// Clear active platforms list. Used by save/load.
-    pub fn clear_active_platforms(&mut self) {
-        self.active_platforms.clear();
+    /// Clear active movers list. Used by save/load.
+    pub fn clear_active_movers(&mut self) {
+        self.active_movers.clear();
     }
 
+    /// Drop a finished mover from the stasis list and mark its thinker for
+    /// removal.
+    ///
     /// # Safety
-    /// The platform *must* be live. For example do not call `.mark_remove()`
-    /// before `remove_active_platform()`.
-    pub(super) unsafe fn remove_active_platform(&mut self, plat: &mut Platform) {
-        let mut index = self.active_platforms.len() + 1;
-        for (i, p) in self.active_platforms.iter().enumerate() {
-            if ptr::eq(*p, plat) {
-                index = i;
-                break;
-            }
+    /// The mover *must* be live. For example do not call `.mark_remove()`
+    /// before `remove_active_mover()`.
+    pub(crate) unsafe fn remove_active_mover(&mut self, mover: &mut MoveEffect) {
+        if let Some(index) = self.active_movers.iter().position(|p| ptr::eq(*p, mover)) {
+            self.active_movers.remove(index);
         }
-        if index < self.active_platforms.len() {
-            unsafe { &mut *plat.thinker }.mark_remove();
-            self.active_platforms.remove(index);
-        }
+        unsafe { &mut *mover.thinker }.mark_remove();
     }
 
     pub(super) fn players_in_game(&self) -> &[bool; MAXPLAYERS] {
