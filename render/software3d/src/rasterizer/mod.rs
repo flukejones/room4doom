@@ -91,6 +91,10 @@ impl Rasterizer {
     /// Frustum clip + project to screen space. Call once per triangle.
     /// `clip_verts`: 3 clip-space vertices. `tex_coords`: 3 (u, v, w) coords.
     /// Returns the number of screen vertices produced (0 if fully clipped).
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub fn clip_and_project(&mut self, clip_verts: &[Vec4; 3], tex_coords: &[Vec3; 3]) -> usize {
         self.screen_vertices_len = 0;
         self.tex_coords_len = 0;

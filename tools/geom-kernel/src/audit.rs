@@ -40,6 +40,10 @@ pub fn audit_geometry(map: &EditorMap, tol: f32) -> Vec<GeomIssue> {
 
 /// Distinct vertex pairs within `tol`, each unordered pair reported once.
 fn near_coincident(map: &EditorMap, tol: f32, out: &mut Vec<GeomIssue>) {
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "floored grid coordinates intentionally use saturating float-to-integer casts"
+    )]
     let cell = |x: f32, y: f32| [(x / tol).floor() as i64, (y / tol).floor() as i64];
     let mut buckets: HashMap<[i64; 2], Vec<VertKey>> = HashMap::new();
     for (k, v) in map.vertices.iter() {
@@ -206,6 +210,10 @@ fn heal_pass(map: &mut EditorMap, tol: f32) -> usize {
         if pts.len() < 2 {
             continue;
         }
+        #[expect(
+            clippy::cast_precision_loss,
+            reason = "centroid division uses the same f32 precision as the point sum"
+        )]
         let n = pts.len() as f32;
         let target = pts
             .iter()

@@ -48,8 +48,12 @@ fn apply_vibrancy(ui: &EditorWindow) -> bool {
             return;
         };
         let content_view: Retained<NSView> =
+            // SAFETY: The AppKit handle belongs to the live winit window; this callback runs on
+            // the main thread and retains the NSView while accessing its hierarchy.
             unsafe { Retained::retain(appkit.ns_view.as_ptr().cast()) }.expect("ns_view");
         let (Some(ns_window), Some(frame_view)) =
+            // SAFETY: The AppKit handle belongs to the live winit window; this callback runs on
+            // the main thread and retains the NSView while accessing its hierarchy.
             (content_view.window(), unsafe { content_view.superview() })
         else {
             return;

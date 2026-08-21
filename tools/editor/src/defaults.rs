@@ -248,6 +248,6 @@ mod tests {
     fn thing_radius_from_generated_table() {
         assert_eq!(thing_radius(3002), 30.0);
         assert_eq!(thing_radius(3004), 20.0);
-        assert_eq!(thing_radius(-999), DEFAULT_THING_RADIUS);
+        assert_eq!(thing_radius(-999).to_bits(), DEFAULT_THING_RADIUS.to_bits());
     }
 }

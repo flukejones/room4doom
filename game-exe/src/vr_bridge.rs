@@ -120,6 +120,10 @@ fn stick_signal([x, y]: [f32; 2], directional: bool) -> WarpSignal {
 }
 
 impl From<PanelConfig> for PanelPlacement {
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "centimetre and degree settings intentionally enter the f32 VR projection"
+    )]
     fn from(panel: PanelConfig) -> Self {
         Self {
             distance_m: panel.distance_cm as f32 / CM_PER_METRE,
@@ -145,6 +149,10 @@ pub(crate) struct VrBridge {
 impl VrBridge {
     /// Fold one frame of headset input into the game, and report what the
     /// display path needs. Call once per frame, before the tic runs.
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "the integer weapon-scale setting intentionally enters the f32 VR transform"
+    )]
     pub(crate) fn run<I, S, H, F>(
         &mut self,
         screen: &mut RenderStack<u32>,
@@ -199,10 +207,10 @@ impl VrBridge {
             units_per_pixel: weapon_scale,
         });
 
-        let hands = self.hands_in_world(game, eyes[0].as_ref(), &joints, [None, controls.aim]);
+        let hands = Self::hands_in_world(game, eyes[0].as_ref(), &joints, [None, controls.aim]);
         screen.set_hands(hands);
         // Must be latched before the tic that reads it.
-        game.players[game.consoleplayer].aim = self.shot_ray(game, eyes[0].as_ref(), controls.aim);
+        game.players[game.consoleplayer].aim = Self::shot_ray(game, eyes[0].as_ref(), controls.aim);
         let teleport = self.drive_teleport(
             &controls,
             game,
@@ -211,7 +219,7 @@ impl VrBridge {
             config,
             ui_active,
         );
-        self.drive_ui(&controls, game, input, menu, machines, cheats, config);
+        Self::drive_ui(&controls, game, input, menu, machines, cheats, config);
         HeadFrame {
             eyes,
             hand,
@@ -221,9 +229,9 @@ impl VrBridge {
 
     /// Where the shooting hand puts a shot, in the map units gameplay traces
     /// in. `None` leaves shots on the body with vanilla auto-aim.
-    fn shot_ray(&self, game: &Game, eye: Option<&EyeView>, pose: Option<Pose>) -> Option<AimRay> {
+    fn shot_ray(game: &Game, eye: Option<&EyeView>, pose: Option<Pose>) -> Option<AimRay> {
         let pose = pose?;
-        let space = self.play_space(game, eye?)?;
+        let space = Self::play_space(game, eye?)?;
         let ([x, y, z], [dx, dy, dz]) = space.map_ray(pose.position, pose.orientation);
 
         // Rise over run, so a hand aimed at the zenith has no run to divide by.
@@ -246,7 +254,6 @@ impl VrBridge {
 
     /// Hand skeletons and controller/hand aim pointers in world map units.
     fn hands_in_world(
-        &self,
         game: &Game,
         eye: Option<&EyeView>,
         joints: &[Option<HandJoints>; 2],
@@ -255,7 +262,7 @@ impl VrBridge {
         if joints.iter().all(Option::is_none) && aims.iter().all(Option::is_none) {
             return None;
         }
-        let space = self.play_space(game, eye?)?;
+        let space = Self::play_space(game, eye?)?;
         // A radius is a distance, not a position: it scales, it does not fold.
         Some(HandPose {
             joints: joints.map(|hand| {
@@ -279,7 +286,7 @@ impl VrBridge {
     }
 
     /// Where the player's play space sits in the world this frame.
-    fn play_space(&self, game: &Game, eye: &EyeView) -> Option<PlaySpace> {
+    fn play_space(game: &Game, eye: &EyeView) -> Option<PlaySpace> {
         let player = &game.players[game.consoleplayer];
         let mobj = player.mobj()?;
         Some(PlaySpace {
@@ -369,7 +376,7 @@ impl VrBridge {
             }
             return None;
         }
-        let space = self.play_space(game, eye?)?;
+        let space = Self::play_space(game, eye?)?;
         let aim = aim?;
         let (origin, dir) = space.render_ray(aim.position, aim.orientation);
         let resolved = aim_teleport(
@@ -413,7 +420,6 @@ impl VrBridge {
     /// Menu navigation goes through the responder the keyboard already uses,
     /// so the menu itself knows nothing about controllers.
     fn drive_ui<I, S, H, F>(
-        &self,
         controls: &ControllerState,
         game: &mut Game,
         input: &mut InputState,

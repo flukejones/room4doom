@@ -79,6 +79,10 @@ fn load_pwad(iwad: &Path, pwad: &Path, map: &str) -> Option<(LevelData, PicData)
     Some(load_from(wad, map))
 }
 
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "release the WAD lump storage before the render benchmark starts timing"
+)]
 fn load_from(wad: WadData, map: &str) -> (LevelData, PicData) {
     let pics = PicData::init(&wad, &["TROO"]);
     let mut level = LevelData::default();
@@ -92,6 +96,10 @@ fn any_drawn(surface: &[u32]) -> bool {
 }
 
 /// Render `map` repeatedly at `(w, h)` into a u32 `PixelTarget` under `name`.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "fixture and benchmark dimensions intentionally use the same numeric conversions as the engine"
+)]
 fn bench_scene(
     c: &mut Criterion,
     name: &str,
@@ -123,6 +131,10 @@ fn bench_scene(
 
 /// Compare the full scene-draw cost of the two surface formats at one size: the
 /// scene writes final pixels straight into the output surface (no resolve).
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "fixture and benchmark dimensions intentionally use the same numeric conversions as the engine"
+)]
 fn bench_pixel_modes(
     c: &mut Criterion,
     prefix: &str,

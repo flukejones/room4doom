@@ -67,6 +67,10 @@ pub fn decode_patch(lump: &[u8]) -> Option<PatchImage> {
 }
 
 /// Encode row-major palette indices as a Doom picture lump; heights over [`MAX_PATCH_HEIGHT`] are capped, tall-patch not implemented.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 pub fn encode_patch(width: usize, height: usize, data: &[u16]) -> Vec<u8> {
     let height = if height > MAX_PATCH_HEIGHT {
         log::warn!("patch height {height} exceeds {MAX_PATCH_HEIGHT}; capping");
@@ -146,6 +150,10 @@ pub fn patch_dims(imported: &[ImportedPatch], wad: &WadData, name: &str) -> Opti
 }
 
 /// Compose a texture to palette indices, column-major (`data[x*h+y]`); cached by [`super::EditorAssets::ensure_composed`]. If any patch lump is missing (dims unknowable), all uncovered texels become [`MISSING_PATCH_INDEX`] (magenta) instead of [`TRANSPARENT_INDEX`] — present patches draw normally, genuine transparency only survives if no patch is missing.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 pub fn compose_texture_indices(
     def: &TextureDef,
     imported: &[ImportedPatch],

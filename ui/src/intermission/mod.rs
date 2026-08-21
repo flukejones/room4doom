@@ -94,6 +94,10 @@ pub struct Intermission {
 }
 
 impl Intermission {
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep related UI setup and event dispatch together in their execution order"
+    )]
     pub fn new(mode: GameMode, wad: &WadData, umapinfo: &Option<UMapInfo>) -> Self {
         let palette = wad.lump_iter::<WadPalette>("PLAYPAL").next().unwrap();
 
@@ -345,6 +349,10 @@ impl Intermission {
         }
     }
 
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "screen, input and game-state values deliberately retain their established numeric widths and rounding"
+    )]
     fn draw_animated_bg_pixels(
         &self,
         x_offset: f32,

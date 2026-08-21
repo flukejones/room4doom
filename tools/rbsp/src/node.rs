@@ -5,7 +5,11 @@ use std::time::Instant;
 use crate::picknode::{is_convex, ranked_partitions, select_best_partition};
 use crate::split::split_segs_and_poly;
 use crate::superblock::build_superblock;
-use crate::types::*;
+use crate::types::{
+    BBox, BspOptions, BuildEvent, ClipPoly, ConvexPoly, EPSILON, Edge, EdgeKind, Float,
+    IS_SSECTOR_MASK, LineDefAccess, Node, Seg, Side, SideDefAccess, SubSector, VERTEX_EPSILON,
+    Vertex, WallTip,
+};
 use crate::vertex_pool::VertexPool;
 
 /// Mutable builder state passed through the recursion.
@@ -27,6 +31,18 @@ pub struct BuildState<'a, L: LineDefAccess, S: SideDefAccess> {
 }
 
 /// Build the BSP tree recursively.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "BSP geometry deliberately quantizes coordinates and stores indices in the established on-disk widths"
+)]
+#[expect(
+    clippy::too_many_lines,
+    reason = "keep the complete dispatch or geometry pass together without changing its established ordering"
+)]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "consume each recursive partition so its segment buffer is released when that subtree completes"
+)]
 pub fn build_node<L: LineDefAccess, S: SideDefAccess>(
     seg_indices: Vec<usize>,
     clip_poly: ClipPoly,
@@ -402,6 +418,10 @@ fn collect_boundary_inner(
     }
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "BSP geometry deliberately quantizes coordinates and stores indices in the established on-disk widths"
+)]
 fn insert_boundary_verts(
     verts_to_insert: &[u32],
     target_leaves: &[usize],
@@ -510,6 +530,10 @@ fn insert_boundary_verts(
 ///
 /// The clip polygon already has seg vertices inserted (done during the
 /// combined split_segs_and_poly pass). Seg vertices ARE polygon vertices.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "BSP geometry deliberately quantizes coordinates and stores indices in the established on-disk widths"
+)]
 fn create_subsector<L: LineDefAccess, S: SideDefAccess>(
     seg_indices: &[usize],
     clip_poly: ClipPoly,

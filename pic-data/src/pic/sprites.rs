@@ -28,6 +28,10 @@ pub struct SpriteDef {
 }
 
 /// Initialise the sprite definitions based on the names and appended bits
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "asset coordinates and packed channels deliberately use their established format widths and rounding"
+)]
 pub fn init_spritedefs(names: &[&str], patches: &[SpritePic]) -> Vec<SpriteDef> {
     assert!(
         !names.is_empty(),
@@ -126,6 +130,10 @@ pub fn init_spritedefs(names: &[&str], patches: &[SpritePic]) -> Vec<SpriteDef> 
     sprites
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "asset coordinates and packed channels deliberately use their established format widths and rounding"
+)]
 fn install_sprite(
     patch: usize,
     frame: u8,

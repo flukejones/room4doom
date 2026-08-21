@@ -21,6 +21,10 @@ use crate::undo::EditAction;
 const MERGE_MAX_DEVIATION: f32 = FRAC_PI_4;
 
 impl LevelEditorState {
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+    )]
     pub(super) fn place_thing(&mut self, world: [f32; 2]) -> Damage {
         let p = self.snap_point(world);
         let Some(map) = &mut self.map else {

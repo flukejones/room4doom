@@ -1,6 +1,6 @@
 //! Seg creation from linedefs.
 
-use crate::types::*;
+use crate::types::{BBox, EPSILON, LineDefAccess, Seg, Side, SideDefAccess, Vertex};
 
 /// Make the initial segs list from linedefs. Each linedef becomes one or two
 /// full-length segs (one per valid sidedef). Returns (global seg array, seg

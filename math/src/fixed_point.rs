@@ -113,6 +113,10 @@ impl FixedT {
 
     /// Convert to f32.
     #[inline]
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "Doom fixed-point conversion deliberately preserves its rounding and low-bit arithmetic semantics"
+    )]
     pub fn to_f32(self) -> f32 {
         #[cfg(any(feature = "fixed64", feature = "fixed64hd"))]
         {
@@ -132,6 +136,10 @@ impl FixedT {
 
     /// Construct from an f32 value.
     #[inline]
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "Doom fixed-point conversion deliberately preserves its rounding and low-bit arithmetic semantics"
+    )]
     pub fn from_f32(v: f32) -> Self {
         #[cfg(any(feature = "fixed64", feature = "fixed64hd"))]
         {

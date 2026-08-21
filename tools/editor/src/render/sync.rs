@@ -212,7 +212,17 @@ fn side_tex(s: &SideDef) -> (Name8, Name8, Name8) {
     (s.top_tex, s.middle_tex, s.bottom_tex)
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "keep the complete dispatch or geometry pass together without changing its established ordering"
+)]
 pub(crate) fn plan_reconcile(old: &EditorMap, new: &EditorMap) -> ReconcilePlan {
+    fn sorted<K: Ord>(set: HashSet<K>) -> Vec<K> {
+        let mut v: Vec<K> = set.into_iter().collect();
+        v.sort_unstable();
+        v
+    }
+
     let (verts_changed, verts_removed) = diff_arena(&old.vertices, &new.vertices);
     let (lines_changed, lines_removed) = diff_arena(&old.lines, &new.lines);
     let (sectors_changed, sectors_removed) = diff_arena(&old.sectors, &new.sectors);
@@ -309,11 +319,6 @@ pub(crate) fn plan_reconcile(old: &EditorMap, new: &EditorMap) -> ReconcilePlan 
             old.things.get(k).is_none_or(|o| o.kind != n.kind)
         });
 
-    fn sorted<K: Ord>(set: HashSet<K>) -> Vec<K> {
-        let mut v: Vec<K> = set.into_iter().collect();
-        v.sort_unstable();
-        v
-    }
     ReconcilePlan {
         retri: sorted(retri),
         respan_sectors: sorted(respan),
@@ -334,7 +339,17 @@ pub(crate) fn plan_reconcile(old: &EditorMap, new: &EditorMap) -> ReconcilePlan 
 }
 
 /// Re-triangulate dirty sectors, rewrite spans + slots, patch storage, wire, BVH, then snapshot.
+#[expect(
+    clippy::too_many_lines,
+    reason = "keep the complete dispatch or geometry pass together without changing its established ordering"
+)]
 fn apply_reconcile(state: &mut SharedState, pixel_ratio: f32, plan: &ReconcilePlan) {
+    fn live_sorted<K: ArenaKey + Ord>(set: HashSet<K>, live: impl Fn(K) -> bool) -> Vec<K> {
+        let mut v: Vec<K> = set.into_iter().filter(|&k| live(k)).collect();
+        v.sort_unstable();
+        v
+    }
+
     {
         let SharedState {
             app,
@@ -499,11 +514,6 @@ fn apply_reconcile(state: &mut SharedState, pixel_ratio: f32, plan: &ReconcilePl
     let old_tint: HashSet<SectorKey> = last_highlighted.iter().copied().collect();
     let new_tint: HashSet<SectorKey> = highlighted.iter().copied().collect();
     sectors_to_patch.extend(old_tint.symmetric_difference(&new_tint));
-    fn live_sorted<K: ArenaKey + Ord>(set: HashSet<K>, live: impl Fn(K) -> bool) -> Vec<K> {
-        let mut v: Vec<K> = set.into_iter().filter(|&k| live(k)).collect();
-        v.sort_unstable();
-        v
-    }
     let lines_to_patch = live_sorted(lines_to_patch, |k| map.lines.contains(k));
     let verts_to_patch = live_sorted(verts_to_patch, |k| map.vertices.contains(k));
     let things_to_patch = live_sorted(things_to_patch, |k| map.things.contains(k));
@@ -678,6 +688,10 @@ fn wire_z_verts(plan: &ReconcilePlan, map: &EditorMap, old: &EditorMap) -> HashS
     verts
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn physical_size(ui: &EditorWindow, shared: &Rc<RefCell<SharedState>>) -> (u32, u32) {
     let scale = ui.window().scale_factor().max(1.0);
     let [w, h] = shared.borrow().app.camera.viewport();
@@ -688,6 +702,10 @@ fn physical_size(ui: &EditorWindow, shared: &Rc<RefCell<SharedState>>) -> (u32, 
 }
 
 /// Physical/logical pixel ratio for sizing screen-space primitives. 1.0 when no viewport yet.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn pixel_ratio(state: &SharedState, pw: u32) -> f32 {
     if state.app.camera.viewport()[0] > 0.0 {
         pw as f32 / state.app.camera.viewport()[0]
@@ -868,6 +886,10 @@ fn refresh_atlases(state: &mut SharedState, dirty_sectors: Option<&[SectorKey]>)
 }
 
 /// Per-sector-slot brightness scalar (0..1), applying active light effects.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn compute_brightness(
     map: &EditorMap,
     fill: SectorFill,
@@ -888,6 +910,10 @@ fn compute_brightness(
 }
 
 /// One sector slot's brightness scalar; a removed sector reads 0. Active effects win in Texture fill.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn sector_brightness(
     map: &EditorMap,
     key: SectorKey,
@@ -905,6 +931,10 @@ fn sector_brightness(
 }
 
 /// Light tic: patch only the animated slots; the rest of the buffer is already current.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn upload_brightness(state: &SharedState) {
     if state.app.map.is_none() {
         return;

@@ -59,6 +59,11 @@ impl Software3D {
     /// - Scales from Doom's 320x200 coordinate space to current screen size
     /// - Handles horizontal flip, fullbright frames, and fuzz (shadow)
     ///   rendering
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     fn draw_player_weapon_sprite<P: PixelFmt>(
         &mut self,
         psp: &RenderPspDef,

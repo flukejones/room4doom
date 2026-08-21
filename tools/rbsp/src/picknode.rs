@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 
 use crate::superblock::{SuperBlock, box_on_line_side};
-use crate::types::*;
+use crate::types::{BspOptions, EPSILON, Float, PointSide, Seg, SegSide, VERTEX_EPSILON, Vertex};
 
 /// Convexity tolerance. Generous (~2 map units) because map geometry is
 /// authored at integer coordinates and adjacent walls from different linedefs
@@ -56,6 +56,10 @@ pub fn classify_seg(partition: &Seg, seg: &Seg, vertices: &[Vertex]) -> SegSide 
 
 /// Quantize a seg's infinite line into a hash key for fast collinear grouping.
 /// Opposite directions (same line) produce the same key.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "BSP geometry deliberately quantizes coordinates and stores indices in the established on-disk widths"
+)]
 fn plane_key(seg: &Seg, vertices: &[Vertex]) -> (i64, i64) {
     if seg.len < EPSILON {
         return (i64::MAX, i64::MAX);

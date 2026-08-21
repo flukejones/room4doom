@@ -339,12 +339,18 @@ impl GpuPresenter {
             surface.configure(&device, &config);
         }
 
-        let mut this = Self::new(surface, device, queue, config, post.clone(), win_w, win_h);
+        let additional_post = post.clone();
+        let mut this = Self::new(surface, device, queue, config, post, win_w, win_h);
         this.headset = Some(Headset::new(session));
         // One frame + chain per eye, so each eye keeps its own last frame.
         while this.frames.len() < vr::EYE_COUNT {
             let frame = FrameTexture::new(&this.device, win_w, win_h);
-            let chain = PostChain::new(&this.device, post.clone(), &frame.view, (win_w, win_h));
+            let chain = PostChain::new(
+                &this.device,
+                additional_post.clone(),
+                &frame.view,
+                (win_w, win_h),
+            );
             this.frames.push(frame);
             this.chains.push(chain);
         }
@@ -637,6 +643,10 @@ impl GpuPresenter {
     /// Where `panel` lands in the eye being drawn. Falls back to full-screen
     /// with no pose, so the UI is never lost.
     #[cfg(feature = "vr")]
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "panel pixel dimensions intentionally enter the f32 projection aspect ratio"
+    )]
     fn placement(
         &self,
         panel: &panel::Panel,
@@ -705,7 +715,9 @@ impl GpuPresenter {
         // Wiping: draw into the melt scratch, then slide the snapshot over it
         // into the view's frame. Otherwise draw straight into the frame.
         let melt = if wiping {
-            self.melt_cols.as_ref().and(self.gpu.melts.get(cur))
+            self.melt_cols
+                .as_ref()
+                .and_then(|_| self.gpu.melts.get(cur))
         } else {
             None
         };
@@ -913,6 +925,11 @@ impl GpuPresenter {
 
     /// The headset's field of view expressed as pixel proportions, so the
     /// caller's aspect maths needs no VR special case. `None` on a window.
+    #[expect(
+        clippy::cast_precision_loss,
+        clippy::cast_possible_truncation,
+        reason = "the headset aspect ratio intentionally rounds to integer display pixels"
+    )]
     pub(crate) fn vr_display_size(&self) -> Option<(u32, u32)> {
         let session = &self.headset.as_ref()?.session;
         let (_, eye_h) = session.view_size();

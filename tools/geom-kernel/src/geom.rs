@@ -154,6 +154,10 @@ pub fn thing_floor_z(map: &EditorMap, p: [f32; 2]) -> i32 {
 
 /// Re-derive every thing's stored `z` from its containing sector floor; called after load/import (WAD carries no thing Z) and after edits that move things or change floor heights.
 pub fn derive_thing_heights(map: &mut EditorMap) {
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "thing coordinates are projected into the map's f32 geometry"
+    )]
     let targets: Vec<(crate::model::ThingKey, [f32; 2])> = map
         .things
         .iter()
@@ -274,6 +278,10 @@ pub(crate) fn weld_moved_vertices(map: &mut EditorMap, moved: &[VertKey], tol: f
         }
     } else {
         // Stationary vertices bucketed into tol-sized cells; a target within tol always lies in the moved vertex's 3x3 cell neighbourhood.
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "floored grid coordinates intentionally use saturating float-to-integer casts"
+        )]
         let cell = |x: f32, y: f32| [(x / tol).floor() as i64, (y / tol).floor() as i64];
         let mut buckets: HashMap<[i64; 2], Vec<VertKey>> = HashMap::new();
         for (j, v) in map.vertices.iter() {

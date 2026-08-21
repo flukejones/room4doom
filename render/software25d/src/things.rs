@@ -130,6 +130,10 @@ impl Software25D {
     /// - Projects X linearly (OG `R_ProjectSprite`) so edges clip off-screen
     /// - Populates a `VisSprite` with screen bounds, texture stepping, and
     ///   scale
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     fn project_sprite(
         &mut self,
         view: &RenderView,
@@ -276,6 +280,10 @@ impl Software25D {
     ///   arrays
     /// - Dispatches to `draw_fuzz_column` for spectre/shadow things, otherwise
     ///   `draw_masked_column`
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     fn draw_vissprite<P: PixelFmt>(
         &mut self,
         vis: &VisSprite,
@@ -361,6 +369,10 @@ impl Software25D {
     ///   arrays
     /// - Unclipped columns default to full screen height
     /// - Finally delegates to `draw_vissprite` with the computed clip arrays
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     fn draw_sprite<P: PixelFmt>(
         &mut self,
         view: &RenderView,
@@ -373,6 +385,8 @@ impl Software25D {
         let mut clip_top = vec![FixedT::from(-2); size.width_usize()];
 
         // Breaking liftime to enable this loop
+        // SAFETY: The drawseg storage is fixed during masked drawing; this pass updates
+        // openings and other renderer fields without replacing the drawseg vector.
         let segs = unsafe { &*ptr::from_ref(&self.r_data.drawsegs) };
         for seg in segs.iter().rev() {
             if seg.x1 > vis.x2
@@ -391,6 +405,8 @@ impl Software25D {
                 (seg.scale1, seg.scale2)
             };
 
+            // SAFETY: The drawseg storage is fixed during masked drawing; this pass updates
+            // openings and other renderer fields without replacing the drawseg vector.
             unsafe {
                 if scale <= vis.scale
                     || (lowscale < vis.scale
@@ -481,6 +497,10 @@ impl Software25D {
     /// - Builds a `VisSprite` with no `wide_ratio` correction (weapon fills
     ///   screen width)
     /// - Uses unclipped full-screen clip bounds (weapon always draws on top)
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     fn draw_player_sprite<P: PixelFmt>(
         &mut self,
         sprite: &RenderPspDef,
@@ -575,6 +595,8 @@ impl Software25D {
         // Sort only the vissprites used
         self.vissprites[..self.next_vissprite].sort();
         // Need to break lifetime as a chain function call needs &mut on a separate item
+        // SAFETY: The visible-sprite vector is fixed for this drawing pass; nested drawing
+        // updates separate clipping/framebuffer state.
         let vis = unsafe { &*ptr::from_ref(&self.vissprites[..]) };
         for (i, vis) in vis.iter().enumerate() {
             self.draw_sprite(view, vis, pic_data, rend);
@@ -608,6 +630,10 @@ impl Software25D {
     /// - Clips each column against floor and ceiling clip values from the
     ///   drawseg
     /// - Marks rendered openings as `MAX` to prevent double-drawing
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     fn render_masked_seg_range<P: PixelFmt>(
         seg_renderer: &mut SegRender,
         view: &RenderView,
@@ -618,6 +644,8 @@ impl Software25D {
         rend: &mut PixelTarget<P>,
     ) {
         let size = *rend.size();
+        // SAFETY: The drawseg points to level-owned geometry, and masked drawsegs are created
+        // only for a present middle texture.
         let seg = unsafe { ds.curline.as_ref() };
         let frontsector = seg.frontsector.clone();
 
@@ -625,6 +653,8 @@ impl Software25D {
             if seg.sidedef.midtexture.is_none() {
                 return;
             }
+            // SAFETY: The drawseg points to level-owned geometry, and masked drawsegs are
+            // created only for a present middle texture.
             let texnum = unsafe { seg.sidedef.midtexture.unwrap_unchecked() };
 
             let wall_lights = ((seg.sidedef.sector.lightlevel >> 4) + view.extralight).min(15);
@@ -667,6 +697,8 @@ impl Software25D {
                     && seg.sidedef.midtexture.is_some()
                 {
                     let texture_column = pic_data.wall_pic_column(
+                        // SAFETY: The drawseg points to level-owned geometry, and masked
+                        // drawsegs are created only for a present middle texture.
                         unsafe { seg.sidedef.midtexture.unwrap_unchecked() },
                         seg_renderer.openings[index].doom_abs().to_i32() as usize,
                     );
@@ -728,6 +760,10 @@ impl Software25D {
 /// Iterates texels top-to-bottom, skipping transparent pixels (`u16::MAX`),
 /// mapping through the colourmap for lighting, and writing to the framebuffer.
 #[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+)]
 fn draw_masked_column<P: PixelFmt>(
     texture_column: &[u16],
     colourmap: &[usize],
@@ -765,6 +801,10 @@ fn draw_masked_column<P: PixelFmt>(
 /// using a pseudo-random offset table (`FUZZ_TABLE`) to produce the
 /// partial-invisibility shimmer.
 #[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+)]
 fn draw_fuzz_column<P: PixelFmt>(
     texture_column: &[u16],
     fracstep: FixedT,

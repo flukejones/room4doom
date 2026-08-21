@@ -11,6 +11,10 @@ use super::types::BuildKind;
 
 impl Bsp3dBuilder {
     /// Flatten into a leaf-contiguous [`Bsp3dLump`].
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "BSP geometry deliberately quantizes coordinates and stores indices in the established on-disk widths"
+    )]
     pub(super) fn condense(self) -> Bsp3dLump {
         let mut remap = vec![NO_INDEX; self.polygons.len()];
         let vert_total: usize = self.polygons.iter().map(|p| p.vertices.len()).sum();

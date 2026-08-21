@@ -74,6 +74,10 @@ pub struct SpriteCam {
 impl SpriteCam {
     /// Build from the player view + the shared projection matrix. `cam_right`
     /// matches software3d (`(sin angle, -cos angle)`); `cam_up` is world Z.
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub fn new(view: &RenderView, projection: Mat4) -> Self {
         let pos = Vec3::new(view.x.into(), view.y.into(), view.viewz.into());
         let angle = view.angle.rad();
@@ -194,6 +198,11 @@ impl SpriteScratch {
     /// (frame/rotation replicate software3d). Called from the world walk for
     /// each frustum-visible sector; GPU depth + a behind-camera reject handle
     /// occlusion (over-draw is acceptable).
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub fn collect_in_sector(&mut self, ctx: &SpriteCollectCtx, sector: &Sector) {
         let Self {
             meta,
@@ -306,6 +315,10 @@ impl SpriteScratch {
 
     /// Sort the collected instances back-to-front and partition opaque before
     /// fuzz, ready for upload.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub fn finish_collect(&mut self) {
         let Self {
             sort,
@@ -335,6 +348,10 @@ impl SpriteScratch {
     /// Doom's 320×200 placement to NDC (matches software3d weapon.rs).
     /// Screen-space, drawn last with no depth; `view.is_shadow` picks the fuzz
     /// variant at draw time. `screen_w`/`screen_h` are the engine buffer dims.
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub fn collect_psprites(
         &mut self,
         view: &RenderView,
@@ -453,6 +470,10 @@ pub struct SpritePipeline {
 }
 
 impl SpritePipeline {
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep related UI setup and event dispatch together in their execution order"
+    )]
     pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, sprites: &SpriteAtlas) -> Self {
         let cam_buf = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("sprite_camera"),
@@ -640,6 +661,10 @@ impl SpritePipeline {
     /// Upload and draw the frame's world billboards (over the scene, with depth).
     /// Split from the psprite draw so the voxel pass can run between them (voxels
     /// are world geometry; the psprite is screen-space and must stay on top).
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub fn render_world(
         &mut self,
         device: &wgpu::Device,
@@ -665,6 +690,10 @@ impl SpritePipeline {
 
     /// Draw the weapon psprite (screen-space, no depth, on top). Called last, after
     /// world billboards and the voxel pass. `fuzz_player` picks the spectre variant.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub fn render_psprites(
         &self,
         queue: &wgpu::Queue,
@@ -698,6 +727,10 @@ impl SpritePipeline {
 
     /// Upload the frame's instances, growing the GPU buffer + rebinding when the
     /// count exceeds capacity. Empty frames are a no-op (drawn count 0).
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     fn upload_instances(
         &mut self,
         device: &wgpu::Device,

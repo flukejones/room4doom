@@ -54,6 +54,8 @@ fn change_sector(sector: &Sector, crunch: bool, level: &LevelState) -> bool {
             let idx = (by * bmw + bx) as usize;
             let mut mobj_ptr = level.blocklinks[idx];
             while let Some(ptr) = mobj_ptr {
+                // SAFETY: These object links reference initialized thinker slots in the level-
+                // owned fixed pool; traversal and mutations are sequenced by the game loop.
                 let thing = unsafe { &mut *ptr };
                 mobj_ptr = thing.b_next;
                 thing.pit_change_sector(&mut no_fit, crunch);
@@ -73,6 +75,10 @@ pub enum PlaneResult {
     PastDest,
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "keep the complete dispatch or geometry pass together without changing its established ordering"
+)]
 pub fn move_plane(
     mut sector: MapPtr<Sector>,
     speed: SectorHeight,
@@ -83,6 +89,8 @@ pub fn move_plane(
     level: &mut LevelState,
 ) -> PlaneResult {
     // Split borrow: bsp3d from level_data, blocklinks from level
+    // SAFETY: The BSP storage remains fixed during the mover update; sector/blockmap updates do
+    // not replace that allocation.
     let bsp3d = unsafe { &mut *ptr::from_mut(&mut level.level_data.bsp_3d) };
     let sector_num = sector.num as usize;
     match floor_or_ceiling {
@@ -253,6 +261,8 @@ pub fn move_plane(
 pub fn spawn_specials(level: &mut LevelState) {
     // TODO: deathmatch -timer never seeds level_timer, so timed matches never end; seed from GameOptions here.
 
+    // SAFETY: Sector storage stays fixed while spawning adds thinkers/effects; the loop does
+    // not resize or replace the sectors.
     let level_iter = unsafe { &mut *ptr::from_mut(level) };
     for sector in level_iter
         .level_data
@@ -355,6 +365,10 @@ pub fn update_specials(level: &mut LevelState, pic_data: &mut PicData) {
 }
 
 /// P_RespawnSpecials
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "Doom state and fixed-point conversions deliberately retain their established packed widths and rounding"
+)]
 pub fn respawn_specials(level: &mut LevelState) {
     // only respawn items in deathmatch
     if level.options.deathmatch == 0 && !level.options.respawn_monsters {
@@ -378,6 +392,8 @@ pub fn respawn_specials(level: &mut LevelState) {
             FixedT::from(mthing.1.y as i32),
         );
         let floor = ss.sector.floorheight.to_i32();
+        // SAFETY: The spawn/list pointer references an initialized map object in the level's
+        // fixed thinker pool, which remains allocated for this callback.
         let fog = unsafe {
             &mut *MapObject::spawn_map_object(
                 FixedT::from(mthing.1.x as i32),
@@ -416,6 +432,8 @@ pub fn respawn_specials(level: &mut LevelState) {
         };
 
         // spawn it
+        // SAFETY: The spawn/list pointer references an initialized map object in the level's
+        // fixed thinker pool, which remains allocated for this callback.
         let thing = unsafe {
             &mut *MapObject::spawn_map_object(
                 FixedT::from(mthing.1.x as i32),
@@ -457,6 +475,8 @@ mod env_tests {
             let mut level = TestLevel::load("E1M1");
             let player = level.spawn_ptr(1056, -3616, MapObjKind::MT_PLAYER);
             let ld = MapPtr::new(&mut level.level_data_mut().linedefs[195]);
+            // SAFETY: This player link references the game-owned player array (or the live
+            // TestLevel pool); that storage outlives this access.
             activate_line(ld, unsafe { &mut *player }, 0, Activation::Cross);
             level
         };

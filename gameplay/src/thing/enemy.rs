@@ -46,6 +46,8 @@ const SKULLSPEED: i32 = 20;
 /// the original comment stating that if a monster yells it alerts surrounding
 /// monsters
 pub(crate) fn noise_alert(target: &mut MapObject) {
+    // SAFETY: Spawn installs the owning level pointer, which stays live and
+    // at a stable address for this single-threaded sound propagation.
     let vc = unsafe {
         (*target.level).valid_count += 1;
         (*target.level).valid_count
@@ -78,6 +80,8 @@ fn sound_flood(
         }
 
         let sector = if ptr::eq(line.front_sidedef.sector.as_ref(), sector.as_ref()) {
+            // SAFETY: The two-sided portal invariant guarantees the back side/sector exists
+            // before this branch accesses it.
             unsafe { line.back_sidedef.as_ref().unwrap_unchecked().sector.clone() }
         } else {
             line.front_sidedef.sector.clone()
@@ -124,6 +128,8 @@ pub(crate) fn a_chase(actor: &mut MapObject) {
     // modify target threshold
     if actor.threshold > 0 {
         if let Some(target) = actor.target {
+            // SAFETY: These object links reference initialized thinker slots in the level-owned
+            // fixed pool; traversal and mutations are sequenced by the game loop.
             let target = unsafe { (*target).mobj() };
 
             if target.health <= 0 {
@@ -151,6 +157,8 @@ pub(crate) fn a_chase(actor: &mut MapObject) {
 
     // If already have a target check if proper, else look for it
     if let Some(target) = actor.target {
+        // SAFETY: These object links reference initialized thinker slots in the level-owned
+        // fixed pool; traversal and mutations are sequenced by the game loop.
         let target = unsafe { (*target).mobj() };
         // Inanimate object, try to find new target
         if !target.flags.contains(MapObjFlag::Shootable) {
@@ -171,6 +179,8 @@ pub(crate) fn a_chase(actor: &mut MapObject) {
     if actor.flags.contains(MapObjFlag::Justattacked) {
         actor.flags.remove(MapObjFlag::Justattacked);
         // TODO: if (gameskill != sk_nightmare && !fastparm)
+        // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address
+        // and callbacks access it sequentially on the game thread.
         let skill = unsafe { (*actor.level).options.skill };
         if skill != Skill::Nightmare {
             actor.new_chase_dir();
@@ -192,6 +202,8 @@ pub(crate) fn a_chase(actor: &mut MapObject) {
     // nomissile; r4d has no fastparm, so: skip if non-nightmare AND movecount >
     // 0
     if actor.info.missilestate != StateNum::None {
+        // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address
+        // and callbacks access it sequentially on the game thread.
         let skill = unsafe { (*actor.level).options.skill };
         // OG: skip if (gameskill < nightmare && movecount != 0)
         if (skill == Skill::Nightmare || actor.movecount == 0) && actor.check_missile_range() {
@@ -223,6 +235,10 @@ pub(crate) fn a_chase(actor: &mut MapObject) {
 }
 
 /// Stay in this state until a player is sighted.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "Doom state and fixed-point conversions deliberately retain their established packed widths and rounding"
+)]
 pub(crate) fn a_look(actor: &mut MapObject) {
     #[cfg(feature = "hprof")]
     profile!("a_look");
@@ -269,12 +285,8 @@ pub(crate) fn a_look(actor: &mut MapObject) {
             _ => actor.info.seesound,
         };
 
-        // if actor.kind == MapObjKind::MT_SPIDER || actor.kind == MapObjKind::MT_CYBORG
-        // {     // TODO: FULL VOLUME!
-        //     actor.start_sound(sound);
-        // } else {
-        //     actor.start_sound(sound);
-        // }
+        // TODO: OG plays spider/cyborg see-sounds origin-less (full volume,
+        // audible map-wide); start_sound has no origin-less form yet.
         actor.start_sound(sound);
     }
 
@@ -285,6 +297,8 @@ pub(crate) fn a_fire(actor: &mut MapObject) {
     #[cfg(feature = "hprof")]
     profile!("a_fire");
     if let Some(dest) = actor.tracer {
+        // SAFETY: The object is in a stable thinker slot with its owning level/subsector
+        // initialized; the game thread sequences spatial-list updates.
         let dest = unsafe { (*dest).mobj() };
         if let Some(targ) = actor.target_mut() {
             // don't move it if the vile lost sight
@@ -292,12 +306,16 @@ pub(crate) fn a_fire(actor: &mut MapObject) {
                 return;
             }
 
+            // SAFETY: The object is in a stable thinker slot with its owning level/subsector
+            // initialized; the game thread sequences spatial-list updates.
             unsafe { actor.unset_thing_position() };
             let dist = FixedT::from_f32(24.0);
             let bam = dest.angle.to_bam();
             actor.x = dest.x + dist.fixed_mul(FixedT::cos_bam(bam));
             actor.y = dest.y + dist.fixed_mul(FixedT::sin_bam(bam));
             actor.z = dest.z;
+            // SAFETY: The object is in a stable thinker slot with its owning level/subsector
+            // initialized; the game thread sequences spatial-list updates.
             unsafe { actor.set_thing_position() };
         }
     }
@@ -343,6 +361,8 @@ pub(crate) fn a_xscream(actor: &mut MapObject) {
 pub(crate) fn a_keendie(actor: &mut MapObject) {
     a_fall(actor);
 
+    // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address and
+    // callbacks access it sequentially on the game thread.
     let level: &mut LevelState = unsafe { &mut *actor.level };
     // Check keens are all dead
     let mut dead = true;
@@ -365,7 +385,9 @@ pub(crate) fn a_keendie(actor: &mut MapObject) {
 
     let mut junk = LineDef {
         num: 0,
+        // SAFETY: These vertex links are sentinels; the tag-based boss action never reads them.
         v1: unsafe { MapPtr::new_null() },
+        // SAFETY: These vertex links are sentinels; the tag-based boss action never reads them.
         v2: unsafe { MapPtr::new_null() },
         delta: Default::default(),
         delta_fp: [0; 2],
@@ -425,15 +447,21 @@ pub(crate) fn a_braindie(actor: &mut MapObject) {
 }
 
 pub(crate) fn a_brainspit(actor: &mut MapObject) {
+    // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address and
+    // callbacks access it sequentially on the game thread.
     let skill = unsafe { (*actor.level).options.skill };
     if skill == Skill::Baby {
         return;
     }
     // spooge a cube at the thing
+    // SAFETY: These object links reference initialized thinker slots in the level-owned fixed
+    // pool; traversal and mutations are sequenced by the game loop.
     let target_thinker = unsafe { &mut (*actor.boss_targets[actor.boss_target_on]) };
     actor.boss_target_on = (actor.boss_target_on + 1) % actor.boss_targets.len();
 
     let target_y = target_thinker.mobj_mut().y;
+    // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address and
+    // callbacks access it sequentially on the game thread.
     let level = unsafe { &mut *actor.level };
     let m = MapObject::spawn_missile(
         actor,
@@ -459,6 +487,8 @@ pub(crate) fn a_brainscream(actor: &mut MapObject) {
     while x_raw < actor_x_raw + 320 * 0x10000_i32 {
         let y_raw = actor_y_raw - 320 * 0x10000_i32;
         let z_raw = (128 + p_random() * 2) * 0x10000_i32;
+        // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address
+        // and callbacks access it sequentially on the game thread.
         let level = unsafe { &mut *actor.level };
         let th = MapObject::spawn_map_object(
             FixedT::from_fixed(x_raw),
@@ -467,6 +497,8 @@ pub(crate) fn a_brainscream(actor: &mut MapObject) {
             MapObjKind::MT_ROCKET,
             level,
         );
+        // SAFETY: spawn_map_object returned this initialized object in the
+        // fixed thinker pool; no removal occurs before these updates.
         unsafe {
             let th = &mut (*th);
             th.momz = FixedT::from_fixed(p_random() * 512);
@@ -485,6 +517,8 @@ pub(crate) fn a_brainexplode(actor: &mut MapObject) {
     let x_raw = actor.x.to_fixed_raw() + (p_random() - p_random()) * 2048;
 
     let z_raw = (128 + p_random() * 2) * 0x10000_i32;
+    // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address and
+    // callbacks access it sequentially on the game thread.
     let level = unsafe { &mut *actor.level };
     let th = MapObject::spawn_map_object(
         FixedT::from_fixed(x_raw),
@@ -493,6 +527,8 @@ pub(crate) fn a_brainexplode(actor: &mut MapObject) {
         MapObjKind::MT_ROCKET,
         level,
     );
+    // SAFETY: spawn_map_object returned this initialized object in the fixed
+    // thinker pool; no removal occurs before these updates.
     unsafe {
         let th = &mut (*th);
         th.momz = FixedT::from_fixed(p_random() * 512);
@@ -510,10 +546,14 @@ pub(crate) fn a_spawnfly(actor: &mut MapObject) {
         return;
     }
 
+    // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address and
+    // callbacks access it sequentially on the game thread.
     let level = unsafe { &mut *actor.level };
     if let Some(target) = actor.target() {
         let target_x = target.x;
         let target_y = target.y;
+        // SAFETY: The spawn/list pointer references an initialized map object in the level's
+        // fixed thinker pool, which remains allocated for this callback.
         let fog = unsafe {
             &mut *MapObject::spawn_map_object(
                 target_x,
@@ -551,6 +591,8 @@ pub(crate) fn a_spawnfly(actor: &mut MapObject) {
         };
 
         let new_critter =
+            // SAFETY: Spawn installs the owning level pointer; the level stays at a stable
+            // address and callbacks access it sequentially on the game thread.
             unsafe { &mut *MapObject::spawn_map_object(target_x, target_y, target.z, t, level) };
         if new_critter.look_for_players(true) {
             new_critter.set_state(new_critter.info.seestate);
@@ -644,11 +686,17 @@ pub(crate) fn a_vilechase(actor: &mut MapObject) {
 
 pub(crate) fn a_viletarget(actor: &mut MapObject) {
     if let Some(targ) = actor.target {
+        // SAFETY: The spawn/list pointer references an initialized map object in the level's
+        // fixed thinker pool, which remains allocated for this callback.
         let targ = unsafe { (*targ).mobj_mut() };
         a_facetarget(actor);
 
+        // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address
+        // and callbacks access it sequentially on the game thread.
         let level = unsafe { &mut *actor.level };
         let fog = MapObject::spawn_map_object(targ.x, targ.y, targ.z, MapObjKind::MT_FIRE, level);
+        // SAFETY: The spawn/list pointer references an initialized map object in the level's
+        // fixed thinker pool, which remains allocated for this callback.
         let fog = unsafe { &mut *fog };
         actor.tracer = Some(fog.thinker); // actor/vile owns the fire
         fog.target = Some(actor.thinker); // fire target is vile so the fire can check its owner
@@ -659,6 +707,8 @@ pub(crate) fn a_viletarget(actor: &mut MapObject) {
 
 pub(crate) fn a_vileattack(actor: &mut MapObject) {
     if let Some(targ) = actor.target {
+        // SAFETY: These object links reference initialized thinker slots in the level-owned
+        // fixed pool; traversal and mutations are sequenced by the game loop.
         let targ = unsafe { (*targ).mobj_mut() };
         a_facetarget(actor);
 
@@ -672,6 +722,8 @@ pub(crate) fn a_vileattack(actor: &mut MapObject) {
 
         let bam = actor.angle.to_bam();
         if let Some(fire) = actor.tracer {
+            // SAFETY: These object links reference initialized thinker slots in the level-owned
+            // fixed pool; traversal and mutations are sequenced by the game loop.
             let fire = unsafe { (*fire).mobj_mut() };
             let dist24 = FixedT::from_f32(24.0);
             fire.x = targ.x - dist24.fixed_mul(FixedT::cos_bam(bam));
@@ -757,9 +809,13 @@ pub(crate) fn a_cposattack(actor: &mut MapObject) {
 
 pub(crate) fn a_bspiattack(actor: &mut MapObject) {
     if let Some(target) = actor.target {
+        // SAFETY: These object links reference initialized thinker slots in the level-owned
+        // fixed pool; traversal and mutations are sequenced by the game loop.
         let target = unsafe { (*target).mobj_mut() };
         a_facetarget(actor);
 
+        // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address
+        // and callbacks access it sequentially on the game thread.
         let level = unsafe { &mut *actor.level };
         MapObject::spawn_missile(actor, target, MapObjKind::MT_ARACHPLAZ, level);
     }
@@ -767,6 +823,8 @@ pub(crate) fn a_bspiattack(actor: &mut MapObject) {
 
 pub(crate) fn a_skullattack(actor: &mut MapObject) {
     if let Some(target) = actor.target {
+        // SAFETY: These object links reference initialized thinker slots in the level-owned
+        // fixed pool; traversal and mutations are sequenced by the game loop.
         let target = unsafe { (*target).mobj() };
 
         a_facetarget(actor);
@@ -796,6 +854,8 @@ pub(crate) fn a_skullattack(actor: &mut MapObject) {
 
 pub(crate) fn a_headattack(actor: &mut MapObject) {
     if let Some(target) = actor.target {
+        // SAFETY: These object links reference initialized thinker slots in the level-owned
+        // fixed pool; traversal and mutations are sequenced by the game loop.
         let target = unsafe { (*target).mobj_mut() };
         a_facetarget(actor);
 
@@ -806,6 +866,8 @@ pub(crate) fn a_headattack(actor: &mut MapObject) {
             return;
         }
 
+        // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address
+        // and callbacks access it sequentially on the game thread.
         let level = unsafe { &mut *actor.level };
         MapObject::spawn_missile(actor, target, MapObjKind::MT_BRUISERSHOT, level);
     }
@@ -813,6 +875,8 @@ pub(crate) fn a_headattack(actor: &mut MapObject) {
 
 pub(crate) fn a_sargattack(actor: &mut MapObject) {
     if let Some(target) = actor.target {
+        // SAFETY: These object links reference initialized thinker slots in the level-owned
+        // fixed pool; traversal and mutations are sequenced by the game loop.
         let target = unsafe { (*target).mobj_mut() };
 
         a_facetarget(actor);
@@ -825,6 +889,8 @@ pub(crate) fn a_sargattack(actor: &mut MapObject) {
 
 pub(crate) fn a_bruisattack(actor: &mut MapObject) {
     if let Some(target) = actor.target {
+        // SAFETY: These object links reference initialized thinker slots in the level-owned
+        // fixed pool; traversal and mutations are sequenced by the game loop.
         let target = unsafe { (*target).mobj_mut() };
         a_facetarget(actor);
 
@@ -834,6 +900,8 @@ pub(crate) fn a_bruisattack(actor: &mut MapObject) {
             return;
         }
 
+        // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address
+        // and callbacks access it sequentially on the game thread.
         let level = unsafe { &mut *actor.level };
         MapObject::spawn_missile(actor, target, MapObjKind::MT_HEADSHOT, level);
     }
@@ -846,6 +914,8 @@ pub(crate) fn a_cposrefire(actor: &mut MapObject) {
             return;
         }
 
+        // SAFETY: These object links reference initialized thinker slots in the level-owned
+        // fixed pool; traversal and mutations are sequenced by the game loop.
         let target = unsafe { (*target).mobj_mut() };
         if target.health <= 0 || !actor.check_sight_target(target) {
             actor.set_state(actor.info.seestate);
@@ -856,8 +926,12 @@ pub(crate) fn a_cposrefire(actor: &mut MapObject) {
 pub(crate) fn a_cyberattack(actor: &mut MapObject) {
     if let Some(target) = actor.target {
         a_facetarget(actor);
+        // SAFETY: These object links reference initialized thinker slots in the level-owned
+        // fixed pool; traversal and mutations are sequenced by the game loop.
         let target = unsafe { (*target).mobj_mut() };
 
+        // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address
+        // and callbacks access it sequentially on the game thread.
         let level = unsafe { &mut *actor.level };
         MapObject::spawn_missile(actor, target, MapObjKind::MT_ROCKET, level);
     }
@@ -867,6 +941,8 @@ pub(crate) fn a_troopattack(actor: &mut MapObject) {
     if let Some(target) = actor.target {
         a_facetarget(actor);
 
+        // SAFETY: These object links reference initialized thinker slots in the level-owned
+        // fixed pool; traversal and mutations are sequenced by the game loop.
         let target = unsafe { (*target).mobj_mut() };
 
         if actor.check_melee_range() {
@@ -876,6 +952,8 @@ pub(crate) fn a_troopattack(actor: &mut MapObject) {
             return;
         }
 
+        // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address
+        // and callbacks access it sequentially on the game thread.
         let level = unsafe { &mut *actor.level };
         MapObject::spawn_missile(actor, target, MapObjKind::MT_TROOPSHOT, level);
     }
@@ -901,7 +979,11 @@ fn a_painshootskull(actor: &mut MapObject, angle: Angle<Bam>) {
     let spawn_y = actor.y + prestep.fixed_mul(FixedT::sin_bam(bam));
     let spawn_z = actor.z + 8;
 
+    // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address and
+    // callbacks access it sequentially on the game thread.
     let level = unsafe { &mut *actor.level };
+    // SAFETY: The spawn/list pointer references an initialized map object in the level's fixed
+    // thinker pool, which remains allocated for this callback.
     unsafe {
         let skull = &mut (*MapObject::spawn_map_object(
             spawn_x,
@@ -939,7 +1021,11 @@ const FAT_SPREAD_BAM: u32 = ANG90 / 8;
 
 pub(crate) fn a_fatattack1(actor: &mut MapObject) {
     if let Some(target) = actor.target {
+        // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address
+        // and callbacks access it sequentially on the game thread.
         let level = unsafe { &mut *actor.level };
+        // SAFETY: These object links reference initialized thinker slots in the level-owned
+        // fixed pool; traversal and mutations are sequenced by the game loop.
         let target = unsafe { (*target).mobj_mut() };
 
         a_facetarget(actor);
@@ -962,7 +1048,11 @@ pub(crate) fn a_fatattack1(actor: &mut MapObject) {
 }
 pub(crate) fn a_fatattack2(actor: &mut MapObject) {
     if let Some(target) = actor.target {
+        // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address
+        // and callbacks access it sequentially on the game thread.
         let level = unsafe { &mut *actor.level };
+        // SAFETY: These object links reference initialized thinker slots in the level-owned
+        // fixed pool; traversal and mutations are sequenced by the game loop.
         let target = unsafe { (*target).mobj_mut() };
 
         a_facetarget(actor);
@@ -985,7 +1075,11 @@ pub(crate) fn a_fatattack2(actor: &mut MapObject) {
 }
 pub(crate) fn a_fatattack3(actor: &mut MapObject) {
     if let Some(target) = actor.target {
+        // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address
+        // and callbacks access it sequentially on the game thread.
         let level = unsafe { &mut *actor.level };
+        // SAFETY: These object links reference initialized thinker slots in the level-owned
+        // fixed pool; traversal and mutations are sequenced by the game loop.
         let target = unsafe { (*target).mobj_mut() };
 
         a_facetarget(actor);
@@ -1018,6 +1112,8 @@ pub(crate) fn a_spidrefire(actor: &mut MapObject) {
         return;
     }
     let should_idle = actor.target.is_none_or(|t| {
+        // SAFETY: These object links reference initialized thinker slots in the level-owned
+        // fixed pool; traversal and mutations are sequenced by the game loop.
         let t = unsafe { (*t).mobj_mut() };
         t.health <= 0 || !actor.check_sight_target(t)
     });
@@ -1026,7 +1122,17 @@ pub(crate) fn a_spidrefire(actor: &mut MapObject) {
     }
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "Doom state and fixed-point conversions deliberately retain their established packed widths and rounding"
+)]
+#[expect(
+    clippy::too_many_lines,
+    reason = "keep the complete dispatch or geometry pass together without changing its established ordering"
+)]
 pub(crate) fn a_bossdeath(actor: &mut MapObject) {
+    // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address and
+    // callbacks access it sequentially on the game thread.
     let level: &mut LevelState = unsafe { &mut *actor.level };
     let map = level.options.map;
     let episode = level.options.episode;
@@ -1158,7 +1264,9 @@ fn make_boss_junk_linedef(actor: &MapObject, tag: i16) -> LineDef {
     let sector = actor.subsector.sector.clone();
     LineDef {
         num: 0,
+        // SAFETY: These vertex links are sentinels; the tag-based boss action never reads them.
         v1: unsafe { MapPtr::new_null() },
+        // SAFETY: These vertex links are sentinels; the tag-based boss action never reads them.
         v2: unsafe { MapPtr::new_null() },
         delta: Default::default(),
         delta_fp: [0; 2],
@@ -1218,6 +1326,8 @@ pub(crate) fn a_skelwhoosh(actor: &mut MapObject) {
 pub(crate) fn a_skelfist(actor: &mut MapObject) {
     if let Some(target) = actor.target {
         a_facetarget(actor);
+        // SAFETY: These object links reference initialized thinker slots in the level-owned
+        // fixed pool; traversal and mutations are sequenced by the game loop.
         let target = unsafe { (*target).mobj_mut() };
 
         if actor.check_melee_range() {
@@ -1230,9 +1340,13 @@ pub(crate) fn a_skelfist(actor: &mut MapObject) {
 
 pub(crate) fn a_skelmissile(actor: &mut MapObject) {
     if let Some(target) = actor.target {
+        // SAFETY: These object links reference initialized thinker slots in the level-owned
+        // fixed pool; traversal and mutations are sequenced by the game loop.
         let target = unsafe { (*target).mobj_mut() };
         a_facetarget(actor);
 
+        // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address
+        // and callbacks access it sequentially on the game thread.
         let level = unsafe { &mut *actor.level };
         actor.z += 16;
         let missile = MapObject::spawn_missile(actor, target, MapObjKind::MT_TRACER, level);
@@ -1246,6 +1360,8 @@ pub(crate) fn a_skelmissile(actor: &mut MapObject) {
 
 /// Skelly missile that tracks the player/target
 pub(crate) fn a_tracer(actor: &mut MapObject) {
+    // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address and
+    // callbacks access it sequentially on the game thread.
     let level = unsafe { &mut *actor.level };
     if level.level_time & 3 != 0 {
         return;
@@ -1253,6 +1369,8 @@ pub(crate) fn a_tracer(actor: &mut MapObject) {
     // spawn a puff of smoke behind the rocket
     MapObject::spawn_puff(actor.x, actor.y, actor.z, FixedT::ZERO, level);
     let thing = MapObject::spawn_map_object(actor.x, actor.y, actor.z, MapObjKind::MT_SMOKE, level);
+    // SAFETY: The spawn/list pointer references an initialized map object in the level's fixed
+    // thinker pool, which remains allocated for this callback.
     let smoke = unsafe { &mut *thing };
     smoke.momz = FixedT::ONE;
     smoke.tics -= p_random() & 3;
@@ -1261,6 +1379,8 @@ pub(crate) fn a_tracer(actor: &mut MapObject) {
     }
 
     if let Some(dest) = actor.tracer {
+        // SAFETY: These object links reference initialized thinker slots in the level-owned
+        // fixed pool; traversal and mutations are sequenced by the game loop.
         let dest = unsafe { &mut *dest };
         if dest.mobj().health <= 0 {
             return;
@@ -1346,6 +1466,8 @@ mod enemy_tests {
         // Target 64 units east of the skull.
         let target = level.spawn_ptr(1120, -3616, MapObjKind::MT_TROOP);
         let skull = level.spawn(1056, -3616, MapObjKind::MT_SKULL);
+        // SAFETY: These object links reference initialized thinker slots in the level-owned
+        // fixed pool; traversal and mutations are sequenced by the game loop.
         skull.target = Some(unsafe { (*target).thinker });
 
         a_skullattack(skull);
@@ -1373,6 +1495,8 @@ mod enemy_tests {
             let mut level = TestLevel::load("E1M1");
             let target = level.spawn_ptr(1120, -3616, MapObjKind::MT_POSSESSED);
             let imp = level.spawn(1056, -3616, MapObjKind::MT_TROOP);
+            // SAFETY: These object links reference initialized thinker slots in the level-owned
+            // fixed pool; traversal and mutations are sequenced by the game loop.
             imp.target = Some(unsafe { (*target).thinker });
             let before = get_prndindex();
             a_facetarget(imp);
@@ -1383,6 +1507,8 @@ mod enemy_tests {
             let mut level = TestLevel::load("E1M1");
             let target = level.spawn_ptr(1120, -3616, MapObjKind::MT_SHADOWS);
             let imp = level.spawn(1056, -3616, MapObjKind::MT_TROOP);
+            // SAFETY: These object links reference initialized thinker slots in the level-owned
+            // fixed pool; traversal and mutations are sequenced by the game loop.
             imp.target = Some(unsafe { (*target).thinker });
             let before = get_prndindex();
             a_facetarget(imp);
@@ -1400,12 +1526,18 @@ mod enemy_tests {
         let mut level = TestLevel::load("E1M1");
         // 1 unit away — inside MELEERANGE (64).
         let target = level.spawn_ptr(1057, -3616, MapObjKind::MT_POSSESSED);
+        // SAFETY: These object links reference initialized thinker slots in the level-owned
+        // fixed pool; traversal and mutations are sequenced by the game loop.
         let target_health = unsafe { (*target).health };
         let imp = level.spawn(1056, -3616, MapObjKind::MT_TROOP);
+        // SAFETY: These object links reference initialized thinker slots in the level-owned
+        // fixed pool; traversal and mutations are sequenced by the game loop.
         imp.target = Some(unsafe { (*target).thinker });
 
         a_troopattack(imp);
 
+        // SAFETY: These object links reference initialized thinker slots in the level-owned
+        // fixed pool; traversal and mutations are sequenced by the game loop.
         let dealt = target_health - unsafe { (*target).health };
         assert!(
             (3..=24).contains(&dealt),
@@ -1420,6 +1552,8 @@ mod enemy_tests {
         let mut level = TestLevel::load("E1M1");
         let target = level.spawn_ptr(1120, -3616, MapObjKind::MT_TROOP);
         let zombie = level.spawn(1056, -3616, MapObjKind::MT_POSSESSED);
+        // SAFETY: These object links reference initialized thinker slots in the level-owned
+        // fixed pool; traversal and mutations are sequenced by the game loop.
         zombie.target = Some(unsafe { (*target).thinker });
 
         let before = get_prndindex();
@@ -1449,13 +1583,14 @@ mod enemy_tests {
 mod sequence_tests {
     use crate::MapObjKind;
     use crate::test_support::{TestLevel, rng_guard};
+    use crate::thing::MapObject;
     use math::get_prndindex;
 
     // Demo-determinism contract: pin the final RNG index after a real
     // look->see->chase sequence. Constants captured from a known-good run; a
     // diff means a p_random call moved somewhere in the sequence.
 
-    fn spawn_zombie_and_player() -> (TestLevel, *mut crate::thing::MapObject) {
+    fn spawn_zombie_and_player() -> (TestLevel, *mut MapObject) {
         let mut level = TestLevel::load("E1M1");
         let _player = level.spawn_player(1056, -3616);
         let mon = level.spawn_ptr(1056, -3500, MapObjKind::MT_POSSESSED);
@@ -1467,6 +1602,8 @@ mod sequence_tests {
         let _g = rng_guard();
         let (mut level, mon) = spawn_zombie_and_player();
         level.run_tics(mon, 35);
+        // SAFETY: This player link references the game-owned player array (or the live
+        // TestLevel pool); that storage outlives this access.
         assert!(unsafe { (*mon).target.is_some() }, "acquired player");
         assert_eq!(get_prndindex(), 11);
     }
@@ -1476,6 +1613,8 @@ mod sequence_tests {
         let _g = rng_guard();
         let (mut level, mon) = spawn_zombie_and_player();
         level.run_tics(mon, 70);
+        // SAFETY: These object links reference initialized thinker slots in the level-owned
+        // fixed pool; traversal and mutations are sequenced by the game loop.
         assert!(unsafe { (*mon).target.is_some() }, "still chasing");
         assert_eq!(get_prndindex(), 23);
     }

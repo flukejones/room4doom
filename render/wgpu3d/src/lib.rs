@@ -189,6 +189,15 @@ impl Wgpu3D {
     }
 
     /// Render the player view into `frame.scene_view`.
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep the complete dispatch or geometry pass together without changing its established ordering"
+    )]
     pub fn draw_view_gpu(
         &mut self,
         view: &RenderView,

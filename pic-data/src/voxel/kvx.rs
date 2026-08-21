@@ -21,6 +21,10 @@ impl VoxelModel {
     /// Remap grid colour indices from KVX palette to Doom palette.
     /// KVX palette is 6-bit per channel (0-63). Each index is matched
     /// to the closest Doom palette entry.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "asset coordinates and packed channels deliberately use their established format widths and rounding"
+    )]
     pub fn remap_to_doom_palette(&mut self, doom_palette: &[u8]) {
         let Some(kvx_pal) = &self.palette else { return };
         if doom_palette.len() < 768 || kvx_pal.len() < 768 {
@@ -66,6 +70,10 @@ impl VoxelModel {
         self.grid[(x * self.ysiz * self.zsiz + y * self.zsiz + z) as usize]
     }
 
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "asset coordinates and packed channels deliberately use their established format widths and rounding"
+    )]
     pub fn load(data: &[u8]) -> Result<Self, String> {
         if data.len() < 28 {
             return Err("KVX data too short for header".into());

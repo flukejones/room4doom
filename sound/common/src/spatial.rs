@@ -15,7 +15,7 @@ pub const MIXER_CHANNELS: i32 = 32;
 /// Doom MUS format magic bytes
 pub const MUS_ID: [u8; 4] = [b'M', b'U', b'S', 0x1A];
 /// Standard MIDI header magic bytes
-pub const MID_ID: [u8; 4] = [b'M', b'T', b'h', b'd'];
+pub const MID_ID: [u8; 4] = *b"MThd";
 
 /// Compute listener-relative angle to source in degrees (0-360, SDL2
 /// convention: 0=front, 90=right, 180=back, 270=left).

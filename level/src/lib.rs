@@ -106,6 +106,8 @@ impl<T: Debug> Deref for MapPtr<T> {
         if self.inner.is_null() {
             panic!("NULL");
         }
+        // SAFETY: MapPtr links refer to stable level-owned storage; users keep that storage
+        // alive and sequence mutable access through the game loop.
         unsafe { &*self.inner }
     }
 }
@@ -116,6 +118,8 @@ impl<T: Debug> DerefMut for MapPtr<T> {
         if self.inner.is_null() {
             panic!("NULL");
         }
+        // SAFETY: MapPtr links refer to stable level-owned storage; users keep that storage
+        // alive and sequence mutable access through the game loop.
         unsafe { &mut *self.inner }
     }
 }
@@ -126,6 +130,8 @@ impl<T: Debug> AsRef<T> for MapPtr<T> {
         if self.inner.is_null() {
             panic!("NULL");
         }
+        // SAFETY: MapPtr links refer to stable level-owned storage; users keep that storage
+        // alive and sequence mutable access through the game loop.
         unsafe { &*self.inner }
     }
 }
@@ -136,6 +142,8 @@ impl<T: Debug> AsMut<T> for MapPtr<T> {
         if self.inner.is_null() {
             panic!("NULL");
         }
+        // SAFETY: MapPtr links refer to stable level-owned storage; users keep that storage
+        // alive and sequence mutable access through the game loop.
         unsafe { &mut *self.inner }
     }
 }
@@ -151,6 +159,8 @@ impl<T: Debug> Drop for MapPtr<T> {
 
 impl<T: Debug> Debug for MapPtr<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // SAFETY: MapPtr links refer to stable level-owned storage; users keep that storage
+        // alive and sequence mutable access through the game loop.
         write!(f, "ptr->{:?}->{:#?}", self.inner, unsafe {
             self.inner.as_ref()
         })

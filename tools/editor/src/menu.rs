@@ -15,6 +15,10 @@ use crate::project::{
 };
 use crate::state::SharedState;
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "keep the complete dispatch or geometry pass together without changing its established ordering"
+)]
 pub(crate) fn set_callbacks_menu(ui: &EditorWindow, shared: &Rc<RefCell<SharedState>>) {
     let weak = ui.as_weak();
     let s = shared.clone();

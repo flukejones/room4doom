@@ -52,6 +52,7 @@ fn pretty_ron(compact: &str) -> String {
     out.push('\n');
     out
 }
+
 /// GUS memory size for Timidity configuration. Retained as a config knob
 /// for future MIDI backends; not currently consumed by any active sound
 /// backend (rodio uses an SF2 directly).
@@ -787,7 +788,7 @@ impl UserConfig {
 
         if !cli.iwad.is_empty() && cli.iwad != self.iwad {
             cli.iwad.clone_into(&mut self.iwad);
-            info!("IWAD changed to: {}", &cli.iwad);
+            info!("IWAD changed to: {}", cli.iwad);
         } else {
             if self.iwad.is_empty() {
                 self.iwad = find_iwad();

@@ -1,6 +1,10 @@
 use super::{BossActions, MapEntry, UMapInfo, parse_map_name};
 use std::collections::HashMap;
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "keep the complete dispatch or geometry pass together without changing its established ordering"
+)]
 pub fn parse_mapinfo(input: &str) -> Result<UMapInfo, String> {
     let mut entries = Vec::new();
     let mut index = HashMap::new();

@@ -100,6 +100,8 @@ impl MapObject {
         if let Some(player) = self.player
             && self.z < self.floorz
         {
+            // SAFETY: This player link references the game-owned player array (or the live
+            // TestLevel pool); that storage outlives this access.
             unsafe {
                 let player = &mut *player;
                 player.viewheight -= self.floorz - self.z;
@@ -113,6 +115,8 @@ impl MapObject {
         if self.flags.contains(MapObjFlag::Float)
             && let Some(target) = self.target
         {
+            // SAFETY: These object links reference initialized thinker slots in the level-owned
+            // fixed pool; traversal and mutations are sequenced by the game loop.
             let target = unsafe { (*target).mobj() };
 
             // float down towards target if too close
@@ -154,6 +158,8 @@ impl MapObject {
                     // Decrease viewheight for a moment
                     // after hitting the ground (hard),
                     // and utter appropriate sound.
+                    // SAFETY: This player link references the game-owned player array (or the
+                    // live TestLevel pool); that storage outlives this access.
                     unsafe {
                         let player = &mut *player;
                         player.deltaviewheight = self.momz.shr(3);
@@ -356,6 +362,8 @@ impl MapObject {
 
         // the move is ok,
         // so link the thing into its new position
+        // SAFETY: The object is in a stable thinker slot with its owning level/subsector
+        // initialized; the game thread sequences spatial-list updates.
         unsafe {
             self.unset_thing_position();
         }
@@ -368,6 +376,8 @@ impl MapObject {
         self.x = ptryx;
         self.y = ptryy;
 
+        // SAFETY: The object is in a stable thinker slot with its owning level/subsector
+        // initialized; the game thread sequences spatial-list updates.
         unsafe {
             self.set_thing_position();
         }
@@ -408,6 +418,8 @@ impl MapObject {
             ep_x_raw + rad_raw, // BOXRIGHT
         ];
 
+        // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address
+        // and callbacks access it sequentially on the game thread.
         let level = unsafe { &mut *self.level };
         let newsubsec = level.level_data.point_in_subsector(endpoint_x, endpoint_y);
 
@@ -443,6 +455,9 @@ impl MapObject {
                 let idx = (by * bmw + bx) as usize;
                 let mut mobj_ptr = level.blocklinks[idx];
                 while let Some(ptr) = mobj_ptr {
+                    // SAFETY: These object links reference initialized thinker slots in the
+                    // level-owned fixed pool; traversal and mutations are sequenced by the game
+                    // loop.
                     let thing = unsafe { &mut *ptr };
                     mobj_ptr = thing.b_next;
                     if !self.pit_check_thing(thing, endpoint_x, endpoint_y, ctrl) {
@@ -607,8 +622,7 @@ impl MapObject {
         if self.flags.contains(MapObjFlag::Skullfly) {
             let damage = ((p_random() % 8) + 1) * self.info.damage;
             // OG: P_DamageMobj(thing, tmthing, tmthing, damage)
-            let self_ptr = unsafe { &mut *ptr::from_mut(self) };
-            thing.p_take_damage(Some((self.x, self.y, self.z)), Some(self_ptr), damage);
+            thing.p_take_damage(Some((self.x, self.y, self.z)), Some(self), damage);
 
             self.momx = FixedT::ZERO;
             self.momy = FixedT::ZERO;
@@ -629,6 +643,8 @@ impl MapObject {
             }
 
             if let Some(target) = self.target {
+                // SAFETY: These object links reference initialized thinker slots in the level-
+                // owned fixed pool; traversal and mutations are sequenced by the game loop.
                 let target = unsafe { (*target).mobj_mut() };
 
                 // OG: same species OR knight↔bruiser cross-species
@@ -742,6 +758,8 @@ impl MapObject {
         let fudge = FixedT::from_fixed(SLIDE_FUDGE);
         let mut hitcount = 0;
 
+        // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address
+        // and callbacks access it sequentially on the game thread.
         let level = unsafe { &mut *self.level };
         loop {
             hitcount += 1;
@@ -751,28 +769,21 @@ impl MapObject {
             }
 
             // Recompute lead/trail from current position each retry
-            let leadx;
-            let leady;
-            let trailx;
-            let traily;
-            if self.momx > FixedT::ZERO {
-                leadx = self.x + self.radius;
-                trailx = self.x - self.radius;
+
+            let (leadx, trailx) = if self.momx > FixedT::ZERO {
+                (self.x + self.radius, self.x - self.radius)
             } else {
-                leadx = self.x - self.radius;
-                trailx = self.x + self.radius;
-            }
-            if self.momy > FixedT::ZERO {
-                leady = self.y + self.radius;
-                traily = self.y - self.radius;
+                (self.x - self.radius, self.x + self.radius)
+            };
+            let (leady, traily) = if self.momy > FixedT::ZERO {
+                (self.y + self.radius, self.y - self.radius)
             } else {
-                leady = self.y - self.radius;
-                traily = self.y + self.radius;
-            }
+                (self.y - self.radius, self.y + self.radius)
+            };
 
             // Reset best slide each retry
             self.best_slide = BestSlide::default();
-            self.best_slide.best_slide_frac = sentinel;
+            self.best_slide.best_frac = sentinel;
 
             path_traverse_blockmap(
                 leadx,
@@ -803,15 +814,15 @@ impl MapObject {
             );
 
             // No wall hit — stairstep
-            if self.best_slide.best_slide_frac == sentinel {
+            if self.best_slide.best_frac == sentinel {
                 self.stair_step();
                 return;
             }
 
             // Fudge to avoid re-hitting the wall
-            self.best_slide.best_slide_frac -= fudge;
-            if self.best_slide.best_slide_frac > FixedT::ZERO {
-                let frac = self.best_slide.best_slide_frac;
+            self.best_slide.best_frac -= fudge;
+            if self.best_slide.best_frac > FixedT::ZERO {
+                let frac = self.best_slide.best_frac;
                 let newx = self.momx.fixed_mul(frac);
                 let newy = self.momy.fixed_mul(frac);
                 if !self.p_try_move(
@@ -825,22 +836,21 @@ impl MapObject {
             }
 
             // Now continue along the wall — calculate remainder
-            self.best_slide.best_slide_frac =
-                FixedT::ONE - (self.best_slide.best_slide_frac + fudge);
-            if self.best_slide.best_slide_frac > FixedT::ONE {
-                self.best_slide.best_slide_frac = FixedT::ONE;
+            self.best_slide.best_frac = FixedT::ONE - (self.best_slide.best_frac + fudge);
+            if self.best_slide.best_frac > FixedT::ONE {
+                self.best_slide.best_frac = FixedT::ONE;
             }
-            if self.best_slide.best_slide_frac <= FixedT::ZERO {
+            if self.best_slide.best_frac <= FixedT::ZERO {
                 return;
             }
 
-            let frac = self.best_slide.best_slide_frac;
+            let frac = self.best_slide.best_frac;
             let mut tmxmove = self.momx.fixed_mul(frac);
             let mut tmymove = self.momy.fixed_mul(frac);
 
             // Clip the moves
-            if let Some(best_slide_line) = self.best_slide.best_slide_line.as_ref() {
-                self.hit_slide_line(&mut tmxmove, &mut tmymove, best_slide_line);
+            if let Some(best_line) = self.best_slide.best_line.as_ref() {
+                self.hit_slide_line(&mut tmxmove, &mut tmymove, best_line);
             }
 
             self.momx = tmxmove;
@@ -857,13 +867,13 @@ impl MapObject {
     }
 
     fn blocking_intercept(&mut self, intercept: &Intercept) {
-        if intercept.frac < self.best_slide.best_slide_frac {
-            self.best_slide.second_slide_frac = self.best_slide.best_slide_frac;
+        if intercept.frac < self.best_slide.best_frac {
+            self.best_slide.second_frac = self.best_slide.best_frac;
             self.best_slide
-                .second_slide_line
-                .clone_from(&self.best_slide.best_slide_line);
-            self.best_slide.best_slide_frac = intercept.frac;
-            self.best_slide.best_slide_line.clone_from(&intercept.line);
+                .second_line
+                .clone_from(&self.best_slide.best_line);
+            self.best_slide.best_frac = intercept.frac;
+            self.best_slide.best_line.clone_from(&intercept.line);
         }
     }
 
@@ -951,6 +961,8 @@ impl MapObject {
         let ep_x = self.x + cos * USERANGE;
         let ep_y = self.y + sin * USERANGE;
 
+        // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address
+        // and callbacks access it sequentially on the game thread.
         let level = unsafe { &mut *self.level };
         path_traverse_blockmap(
             self.x,
@@ -1017,6 +1029,8 @@ impl MapObject {
         let mut dirs = [MoveDir::None, MoveDir::None, MoveDir::None];
         let turnaround = DIR_OPPOSITE[old_dir as usize];
 
+        // SAFETY: These object links reference initialized thinker slots in the level-owned
+        // fixed pool; traversal and mutations are sequenced by the game loop.
         let target = unsafe { (**self.target.as_mut().unwrap()).mobj() };
 
         let dx = target.x - self.x;
@@ -1196,6 +1210,8 @@ impl From<usize> for MoveDir {
             w < Self::NumDirs as usize,
             "{w} is not a variant of DirType"
         );
+        // SAFETY: The preceding bounds check restricts the integer to the contiguous
+        // discriminants of this repr enum.
         unsafe { std::mem::transmute(w) }
     }
 }
@@ -1249,6 +1265,10 @@ mod slope_physics_tests {
     const SLOPED_FLOOR: &str = include_str!("../../../data/test_files/udmf/sloped_floor.textmap");
 
     /// Write a one-map UDMF PWAD (marker, TEXTMAP, ENDMAP) to a temp file.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "Doom state and fixed-point conversions deliberately retain their established packed widths and rounding"
+    )]
     fn sloped_wad() -> std::path::PathBuf {
         let path = std::env::temp_dir().join(format!("r4d-slopephys-{}.wad", std::process::id()));
         let lumps: [(&str, &[u8]); 3] = [

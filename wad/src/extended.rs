@@ -42,22 +42,22 @@ impl NodeLumpType {
     pub fn from_bytes(bytes: &[u8; 4]) -> Self {
         if bytes[0] == b'Z' {
             warn!("NODES is a compressed zdoom style");
-            return if bytes[1..] == [b'N', b'O', b'D'] {
+            return if bytes[1..] == *b"NOD" {
                 Self::Extended(ExtendedNodeType::ZNOD)
-            } else if bytes[1..] == [b'G', b'L', b'N'] {
+            } else if bytes[1..] == *b"GLN" {
                 Self::Extended(ExtendedNodeType::ZGLN)
-            } else if bytes[1..] == [b'G', b'L', b'2'] {
+            } else if bytes[1..] == *b"GL2" {
                 Self::Extended(ExtendedNodeType::ZGL2)
             } else {
                 panic!("Unknown Z<node> type")
             };
         } else if bytes[0] == b'X' {
             warn!("NODES is an uncompressed zdoom style");
-            return if bytes[1..] == [b'N', b'O', b'D'] {
+            return if bytes[1..] == *b"NOD" {
                 Self::Extended(ExtendedNodeType::XNOD)
-            } else if bytes[1..] == [b'G', b'L', b'N'] {
+            } else if bytes[1..] == *b"GLN" {
                 Self::Extended(ExtendedNodeType::XGLN)
-            } else if bytes[1..] == [b'G', b'L', b'2'] {
+            } else if bytes[1..] == *b"GL2" {
                 Self::Extended(ExtendedNodeType::XGL2)
             } else {
                 warn!("Unknown X node type, using default");

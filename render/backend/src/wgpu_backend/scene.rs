@@ -48,7 +48,7 @@ pub(crate) struct GpuTargets {
 }
 
 impl GpuTargets {
-    pub fn new(device: &wgpu::Device, w: u32, h: u32) -> Self {
+    pub(super) fn new(device: &wgpu::Device, w: u32, h: u32) -> Self {
         let make = |label, format, usage| {
             device
                 .create_texture(&wgpu::TextureDescriptor {
@@ -107,7 +107,7 @@ pub(crate) struct Composite {
 }
 
 impl Composite {
-    pub fn new(device: &wgpu::Device, width: u32) -> Self {
+    pub(super) fn new(device: &wgpu::Device, width: u32) -> Self {
         let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("composite_bgl"),
             entries: &[
@@ -177,14 +177,23 @@ impl Composite {
     }
 
     /// Upload the scene-effect parameters for the next pass.
-    pub fn set_effects(&self, queue: &wgpu::Queue, effects: &SceneEffects) {
+    pub(super) fn set_effects(&self, queue: &wgpu::Queue, effects: &SceneEffects) {
         queue.write_buffer(&self.effects, 0, effects.as_bytes());
     }
 
     /// Upload the per-column health-bleed geometry; grow the buffer if the
     /// scene width changed. `cols` is `[shown, bound0, bound1, _]` (px) per
     /// column, sized to the scene width.
-    pub fn set_bleed(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, cols: &[[f32; 4]]) {
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
+    pub(super) fn set_bleed(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        cols: &[[f32; 4]],
+    ) {
         let need = cols.len() as u32;
         if need > self.bleed_cols {
             self.bleed_cols = need;
@@ -203,12 +212,12 @@ impl Composite {
 
     /// Drop the cached bind group; the next [`Self::rebind`] rebuilds it. Call
     /// when the scene texture is recreated.
-    pub fn invalidate(&mut self) {
+    pub(super) fn invalidate(&mut self) {
         self.bind_group = None;
     }
 
     /// Rebuild the cached bind group over `scene` if it was invalidated.
-    pub fn rebind(&mut self, device: &wgpu::Device, scene: &wgpu::TextureView) {
+    pub(super) fn rebind(&mut self, device: &wgpu::Device, scene: &wgpu::TextureView) {
         if self.bind_group.is_some() {
             return;
         }
@@ -237,7 +246,7 @@ impl Composite {
     }
 
     /// Record the full-screen effects draw into the caller's pass.
-    pub fn record(&self, rpass: &mut wgpu::RenderPass<'_>) {
+    pub(super) fn record(&self, rpass: &mut wgpu::RenderPass<'_>) {
         let bind_group = self.bind_group.as_ref().expect("rebound before record");
         rpass.set_pipeline(&self.pipeline);
         rpass.set_bind_group(0, bind_group, &[]);
@@ -263,7 +272,11 @@ pub(crate) struct Melt {
 }
 
 impl Melt {
-    pub fn new(device: &wgpu::Device, w: u32, h: u32) -> Self {
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep related UI setup and event dispatch together in their execution order"
+    )]
+    pub(super) fn new(device: &wgpu::Device, w: u32, h: u32) -> Self {
         let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("melt_bgl"),
             entries: &[
@@ -370,7 +383,7 @@ impl Melt {
     }
 
     /// Copy the just-composited frame into the snapshot as the wipe's old frame.
-    pub fn capture(&self, encoder: &mut wgpu::CommandEncoder, frame: &wgpu::Texture) {
+    pub(super) fn capture(&self, encoder: &mut wgpu::CommandEncoder, frame: &wgpu::Texture) {
         encoder.copy_texture_to_texture(
             frame.as_image_copy(),
             self.snapshot.as_image_copy(),
@@ -384,7 +397,7 @@ impl Melt {
 
     /// Slide the snapshot columns down by `offsets` over the scratch into
     /// `out`. `out` must differ from the scratch (no read-while-write).
-    pub fn render(
+    pub(super) fn render(
         &self,
         queue: &wgpu::Queue,
         encoder: &mut wgpu::CommandEncoder,

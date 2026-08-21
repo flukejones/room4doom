@@ -146,6 +146,10 @@ mod tests {
     }
 
     #[test]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+    )]
     fn depth_cap_evicts_oldest() {
         let mut map = EditorMap::default();
         let mut stack = UndoStack::new();

@@ -11,6 +11,10 @@ use level::map_defs::LineDef;
 use crate::thing::MapObjFlag;
 
 /// Doom function name `EV_Teleport`
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "MapPtr is a non-owning handle passed by value consistently across Doom query and effect APIs"
+)]
 pub fn teleport(
     line: MapPtr<LineDef>,
     side: usize,
@@ -40,6 +44,8 @@ pub fn teleport(
                 }
                 false
             }) {
+                // SAFETY: Spawn installs the owning level pointer; the level stays at a stable
+                // address and callbacks access it sequentially on the game thread.
                 let level = unsafe { &mut *thing.level };
 
                 let old_x = thing.x;
@@ -57,6 +63,8 @@ pub fn teleport(
 
                 let fog =
                     MapObject::spawn_map_object(old_x, old_y, old_z, MapObjKind::MT_TFOG, level);
+                // SAFETY: The spawn/list pointer references an initialized map object in the
+                // level's fixed thinker pool, which remains allocated for this callback.
                 unsafe {
                     (*fog).start_sound(sound_common::SfxName::Telept);
                 }
@@ -71,6 +79,8 @@ pub fn teleport(
                     MapObjKind::MT_TFOG,
                     level,
                 );
+                // SAFETY: The fog was just initialized in the fixed thinker
+                // pool and stays live while its sound is started.
                 unsafe {
                     (*fog).start_sound(sound_common::SfxName::Telept);
                 }
@@ -135,6 +145,8 @@ pub fn teleport_move(x: FixedT, y: FixedT, thing: &mut MapObject, level: &mut Le
             let idx = (by * bmw + bx) as usize;
             let mut mobj_ptr = level.blocklinks[idx];
             while let Some(ptr) = mobj_ptr {
+                // SAFETY: The object is in a stable thinker slot with its owning
+                // level/subsector initialized; the game thread sequences spatial-list updates.
                 let other = unsafe { &mut *ptr };
                 mobj_ptr = other.b_next;
                 if !pit_stomp_thing(thing, other, x, y, game_map) {
@@ -144,6 +156,8 @@ pub fn teleport_move(x: FixedT, y: FixedT, thing: &mut MapObject, level: &mut Le
         }
     }
 
+    // SAFETY: The object is in a stable thinker slot with its owning level/subsector
+    // initialized; the game thread sequences spatial-list updates.
     unsafe {
         thing.unset_thing_position();
         thing.x = x;

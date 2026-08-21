@@ -93,6 +93,10 @@ impl GfxCache {
         self.ensure_patch(assets, wad, name).map(|(_, w, h)| (w, h))
     }
 
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+    )]
     fn ensure_patch(
         &mut self,
         assets: &EditorAssets,

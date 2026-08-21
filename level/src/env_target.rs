@@ -57,6 +57,10 @@ pub fn floor_target(sec: MapPtr<Sector>, kind: FloorKind, tex_min: SectorHeight)
 
 /// Ceiling mover (top, bottom) heights and travel direction (`1` up, `-1`
 /// down).
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "MapPtr is a non-owning handle passed by value consistently across Doom query and effect APIs"
+)]
 pub fn ceiling_target(sec: MapPtr<Sector>, kind: CeilKind) -> (SectorHeight, SectorHeight, i32) {
     match kind {
         CeilKind::LowerToFloor => (sec.ceilingheight, sec.floorheight, -1),
@@ -88,6 +92,10 @@ pub fn door_target(sec: MapPtr<Sector>, kind: DoorKind) -> SectorHeight {
 
 /// Platform/lift `(low, high)` travel bounds. `amount` is the RaiseAndChange
 /// height delta (24 or 32).
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "MapPtr is a non-owning handle passed by value consistently across Doom query and effect APIs"
+)]
 pub fn plat_target(
     sec: MapPtr<Sector>,
     kind: PlatKind,

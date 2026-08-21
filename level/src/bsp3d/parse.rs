@@ -22,6 +22,14 @@ impl BSP3D {
     /// `linedefs` is mutable only to take [`MapPtr`]s into it; `wall_tex_height`
     /// is indexed by wall texture id (peg anchors need texture heights).
     #[allow(clippy::too_many_arguments)]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "map geometry deliberately converts between fixed-point coordinates, float meshes and packed indices"
+    )]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep format fields and initialization steps visible in their required order"
+    )]
     pub fn from_lump(
         lump: Bsp3dLump,
         subsectors: &[SubSector],

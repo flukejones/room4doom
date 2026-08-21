@@ -68,7 +68,7 @@ impl MapViewerApp {
         }
 
         if self.state.show_map_polygon_edges {
-            let stroke = Stroke::new(1.0, Color32::from_rgba_unmultiplied(220, 60, 60, 200));
+            let stroke = Stroke::new(1.0_f32, Color32::from_rgba_unmultiplied(220, 60, 60, 200));
             let draw_verts = self.state.show_vertices;
             let vert_color = Color32::from_rgba_unmultiplied(220, 60, 60, 255);
             for ss in &self.data.subsectors {
@@ -92,7 +92,7 @@ impl MapViewerApp {
             if edge_idx < n {
                 let p1 = self.map_to_screen(ss.vertices[edge_idx], vc);
                 let p2 = self.map_to_screen(ss.vertices[(edge_idx + 1) % n], vc);
-                painter.line_segment([p1, p2], Stroke::new(3.0, Color32::YELLOW));
+                painter.line_segment([p1, p2], Stroke::new(3.0_f32, Color32::YELLOW));
                 painter.circle_filled(p1, 4.0, Color32::from_rgb(255, 220, 50));
                 painter.circle_filled(p2, 4.0, Color32::from_rgb(255, 220, 50));
             }
@@ -101,9 +101,9 @@ impl MapViewerApp {
         if self.state.show_aabb {
             let sel = self.state.selected_subsector;
             let default_stroke =
-                Stroke::new(0.5, Color32::from_rgba_unmultiplied(255, 100, 255, 60));
+                Stroke::new(0.5_f32, Color32::from_rgba_unmultiplied(255, 100, 255, 60));
             let selected_stroke =
-                Stroke::new(2.5, Color32::from_rgba_unmultiplied(255, 255, 0, 255));
+                Stroke::new(2.5_f32, Color32::from_rgba_unmultiplied(255, 255, 0, 255));
 
             for ss in &self.data.subsectors {
                 if ss.vertices.len() < 3 {
@@ -136,7 +136,7 @@ impl MapViewerApp {
                 } else if !ld.is_two_sided {
                     (1.5, Color32::WHITE)
                 } else {
-                    (1.2, Color32::from_rgb(230, 160, 60))
+                    (1.2_f32, Color32::from_rgb(230, 160, 60))
                 };
                 painter.line_segment([p1, p2], Stroke::new(width, color));
             }
@@ -156,12 +156,12 @@ impl MapViewerApp {
                 } else {
                     Color32::from_rgb(120, 255, 120)
                 };
-                painter.line_segment([p1, p2], Stroke::new(1.5, color));
+                painter.line_segment([p1, p2], Stroke::new(1.5_f32, color));
                 // Arrowhead at v2 showing seg direction.
                 let back = (p1 - p2).normalized();
                 let perp = egui::Vec2::new(-back.y, back.x);
-                painter.line_segment([p2, p2 + (back + perp) * 6.0], Stroke::new(1.5, color));
-                painter.line_segment([p2, p2 + (back - perp) * 6.0], Stroke::new(1.5, color));
+                painter.line_segment([p2, p2 + (back + perp) * 6.0], Stroke::new(1.5_f32, color));
+                painter.line_segment([p2, p2 + (back - perp) * 6.0], Stroke::new(1.5_f32, color));
             }
         }
 
@@ -179,7 +179,7 @@ impl MapViewerApp {
                     painter.circle_stroke(
                         sp,
                         radius + 2.0,
-                        Stroke::new(1.5, Color32::from_rgba_unmultiplied(255, 220, 50, 120)),
+                        Stroke::new(1.5_f32, Color32::from_rgba_unmultiplied(255, 220, 50, 120)),
                     );
                 }
             }
@@ -204,7 +204,7 @@ impl MapViewerApp {
                 let alpha = (200 - (depth as u32 * 8).min(160)) as u8;
                 painter.line_segment(
                     [sp1, sp2],
-                    Stroke::new(1.0, Color32::from_rgba_unmultiplied(0, 200, 255, alpha)),
+                    Stroke::new(1.0_f32, Color32::from_rgba_unmultiplied(0, 200, 255, alpha)),
                 );
             }
         }
@@ -224,7 +224,7 @@ impl MapViewerApp {
                 let sp1 = self.map_to_screen(start, vc);
                 painter.line_segment(
                     [sp1, cursor],
-                    Stroke::new(2.0, Color32::from_rgba_unmultiplied(255, 100, 0, 200)),
+                    Stroke::new(2.0_f32, Color32::from_rgba_unmultiplied(255, 100, 0, 200)),
                 );
             }
             DragTool::RectSelect {
@@ -235,7 +235,8 @@ impl MapViewerApp {
                 let tl = self.map_to_screen(Vec2::new(lo.x, hi.y), vc);
                 let br = self.map_to_screen(Vec2::new(hi.x, lo.y), vc);
                 let rect = egui::Rect::from_two_pos(tl, br);
-                let stroke = Stroke::new(2.0, Color32::from_rgba_unmultiplied(255, 200, 0, 200));
+                let stroke =
+                    Stroke::new(2.0_f32, Color32::from_rgba_unmultiplied(255, 200, 0, 200));
                 let fill = Color32::from_rgba_unmultiplied(255, 200, 0, 20);
                 painter.add(filled_polygon(
                     &[

@@ -145,6 +145,8 @@ impl<P: PixelFmt> DrawBuffer for UiSurface<P> {
     fn set_pixel(&mut self, x: usize, y: usize, colour: u32) {
         self.dirty = true;
         let pos = y * self.w as usize + x;
+        // SAFETY: The drawing caller clips positions to the target dimensions; the backing
+        // slice covers every pixel, including its row pitch.
         unsafe {
             *self.buf.get_unchecked_mut(pos) = P::from_argb(colour, self.order);
         }

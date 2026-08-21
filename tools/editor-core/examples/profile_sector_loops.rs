@@ -7,6 +7,10 @@ use std::time::Instant;
 use editor_core::{import_wad_map, sector_loops, sector_loops_all};
 use wad::WadData;
 
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn main() {
     let mut args = std::env::args().skip(1);
     let iwad = PathBuf::from(args.next().expect("usage: <iwad> <map> [pwad] [iters]"));

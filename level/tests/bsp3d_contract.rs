@@ -226,6 +226,10 @@ fn sigil_all_maps_leaf_integrity() {
 // from sidedef/linedef data through the polygon's MapPtrs.
 // ---------------------------------------------------------------------------
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "fixture and benchmark dimensions intentionally use the same numeric conversions as the engine"
+)]
 fn assert_surface_cache(map: &LevelData, name: &str) {
     let bsp3d = &map.bsp_3d;
     for gi in 0..bsp3d.polygons.len() {
@@ -388,6 +392,10 @@ fn assert_uv_anchors(map: &LevelData, name: &str, tex_height: &dyn Fn(u32) -> f3
 
 /// Texture heights straight from the WAD's TEXTURE1/2 order — the same source
 /// `LevelData::load` feeds the parse step, derived independently here.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "fixture and benchmark dimensions intentionally use the same numeric conversions as the engine"
+)]
 fn wad_tex_heights(wad_path: &std::path::Path) -> Vec<f32> {
     let wad = wad::WadData::new(wad_path);
     let mut tex_order: Vec<wad::types::WadTexture> = wad.texture_iter("TEXTURE1").collect();

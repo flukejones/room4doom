@@ -1,9 +1,9 @@
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
 use log::{debug, error, trace};
-use std::alloc::{Layout, alloc, dealloc};
+use std::alloc::{Layout, alloc, dealloc, handle_alloc_error};
 use std::fmt::{self, Debug};
-use std::mem::{align_of, needs_drop, size_of};
+use std::mem::needs_drop;
 use std::ptr::{self, null_mut};
 
 use crate::env::effects::{LightEffect, MoveEffect};
@@ -30,6 +30,8 @@ impl Think for TestObject {
     }
 
     fn thinker_mut(&mut self) -> &mut Thinker {
+        // SAFETY: set_thinker_ptr installs this object's enclosing initialized pool slot before
+        // it is used.
         unsafe { &mut *self.thinker }
     }
 }
@@ -50,12 +52,14 @@ pub struct ThinkerAlloc {
 
 impl Drop for ThinkerAlloc {
     fn drop(&mut self) {
+        // SAFETY: Every pool slot is initialized, and this uses the same checked nonzero layout
+        // as allocation.
         unsafe {
             for idx in 0..self.capacity {
                 self.drop_item(idx);
             }
-            let size = self.capacity * size_of::<Thinker>();
-            let layout = Layout::from_size_align_unchecked(size, align_of::<Thinker>());
+            let layout =
+                Layout::array::<Thinker>(self.capacity.max(1)).expect("valid thinker allocation");
             dealloc(self.buf_ptr.cast(), layout);
         }
     }
@@ -69,12 +73,17 @@ impl ThinkerAlloc {
     /// inner data.
     ///
     /// # Safety
-    /// Once allocated the owner of this `ThinkerAlloc` must not move.
+    /// Keep the pool alive while any thinker or spatial link refers to its slots.
     pub(crate) unsafe fn new(capacity: usize) -> Self {
+        // SAFETY: The checked nonzero layout has Thinker alignment; allocation failure is
+        // handled, and writes stay within capacity.
         unsafe {
-            let size = capacity * size_of::<Thinker>();
-            let layout = Layout::from_size_align_unchecked(size, align_of::<Thinker>());
+            let layout = Layout::array::<Thinker>(capacity.max(1))
+                .expect("thinker capacity fits allocation layout");
             let buf_ptr = alloc(layout).cast::<Thinker>();
+            if buf_ptr.is_null() {
+                handle_alloc_error(layout);
+            }
 
             // Need to initialise everything to a blank slate
             for n in 0..capacity {
@@ -98,6 +107,8 @@ impl ThinkerAlloc {
     }
 
     pub unsafe fn run_thinkers(&mut self, level: &mut LevelState) {
+        // SAFETY: The circular links reference initialized slots in the fixed pool; traversal
+        // and removal run sequentially on the game thread.
         unsafe {
             #[cfg(feature = "hprof")]
             profile!("run_thinkers");
@@ -123,6 +134,8 @@ impl ThinkerAlloc {
 
     /// Returns false if `func` returns false
     pub fn run_fn_on_things(&mut self, mut func: impl FnMut(&mut Thinker) -> bool) -> bool {
+        // SAFETY: The circular links reference initialized slots in the fixed pool; traversal
+        // and removal run sequentially on the game thread.
         unsafe {
             let mut current = &mut *self.head;
             let mut next;
@@ -153,10 +166,14 @@ impl ThinkerAlloc {
     where
         F: Fn(&Thinker) -> bool,
     {
+        // SAFETY: The circular links reference initialized slots in the fixed pool; traversal
+        // and removal run sequentially on the game thread.
         let mut current = unsafe { &mut *self.head };
         let mut next;
 
         loop {
+            // SAFETY: The circular links reference initialized slots in the fixed pool;
+            // traversal and removal run sequentially on the game thread.
             unsafe {
                 if finder(current) {
                     return Some(current);
@@ -180,10 +197,14 @@ impl ThinkerAlloc {
     where
         F: FnMut(&mut Thinker) -> bool,
     {
+        // SAFETY: The circular links reference initialized slots in the fixed pool; traversal
+        // and removal run sequentially on the game thread.
         let mut current = unsafe { &mut *self.head };
         let mut next;
 
         loop {
+            // SAFETY: The circular links reference initialized slots in the fixed pool;
+            // traversal and removal run sequentially on the game thread.
             unsafe {
                 if finder(current) {
                     return Some(current);
@@ -202,6 +223,8 @@ impl ThinkerAlloc {
         debug_assert!(idx < self.capacity, "idx out of bounds");
         let ptr = self.ptr_for_idx(idx);
         if needs_drop::<Thinker>() {
+            // SAFETY: The index/free-slot scan stays inside the fixed allocation; the one-past
+            // pointer is used only for traversal bounds.
             unsafe {
                 ptr::drop_in_place(ptr);
             }
@@ -209,6 +232,8 @@ impl ThinkerAlloc {
     }
 
     fn ptr_for_idx(&self, idx: usize) -> *mut Thinker {
+        // SAFETY: The index/free-slot scan stays inside the fixed allocation; the one-past
+        // pointer is used only for traversal bounds.
         unsafe { self.buf_ptr.add(idx) }
     }
 
@@ -218,6 +243,8 @@ impl ThinkerAlloc {
             return None;
         }
 
+        // SAFETY: The index/free-slot scan stays inside the fixed allocation; the one-past
+        // pointer is used only for traversal bounds.
         unsafe {
             let max = self.buf_ptr.add(self.capacity - 1);
             loop {
@@ -259,16 +286,26 @@ impl ThinkerAlloc {
             }
             _ => trace!("Adding Thinker of type {:?}", thinker.data),
         }
+        // SAFETY: find_first_free returns a slot in this fixed pool; it is initialized before
+        // linking, and the list links remain in the pool.
         unsafe { ptr::write(root_ptr, thinker) };
+        // SAFETY: find_first_free returns a slot in this fixed pool; it is initialized before
+        // linking, and the list links remain in the pool.
         let current = unsafe { &mut *root_ptr };
 
         if self.head.is_null() {
             self.head = root_ptr;
+            // SAFETY: find_first_free returns a slot in this fixed pool; it is initialized
+            // before linking, and the list links remain in the pool.
             let head = unsafe { &mut *self.head };
             head.prev = head;
             head.next = head;
         } else {
+            // SAFETY: find_first_free returns a slot in this fixed pool; it is initialized
+            // before linking, and the list links remain in the pool.
             let head = unsafe { &mut *self.head };
+            // SAFETY: find_first_free returns a slot in this fixed pool; it is initialized
+            // before linking, and the list links remain in the pool.
             unsafe {
                 (*head.prev).next = current;
             }
@@ -279,7 +316,11 @@ impl ThinkerAlloc {
 
         current.set_obj_thinker_ptr();
         self.len += 1;
+        // SAFETY: find_first_free returns a slot in this fixed pool; it is initialized before
+        // linking, and the list links remain in the pool.
         self.next_free = unsafe { self.next_free.add(1) };
+        // SAFETY: find_first_free returns a slot in this fixed pool; it is initialized before
+        // linking, and the list links remain in the pool.
         unsafe { Some(&mut *root_ptr) }
     }
 
@@ -296,6 +337,8 @@ impl ThinkerAlloc {
         if self.head.is_null() {
             return;
         }
+        // SAFETY: The circular links reference initialized slots in the fixed pool; traversal
+        // and removal run sequentially on the game thread.
         unsafe {
             let mut current = &*self.head;
             loop {
@@ -315,6 +358,8 @@ impl ThinkerAlloc {
         if self.head.is_null() {
             return;
         }
+        // SAFETY: The circular links reference initialized slots in the fixed pool; traversal
+        // and removal run sequentially on the game thread.
         unsafe {
             let mut current = self.head;
             loop {
@@ -333,6 +378,8 @@ impl ThinkerAlloc {
     /// Reset the allocator to empty state. All thinker slots become `Free`,
     /// the linked list is cleared, and the free pointer is reset.
     pub fn clear(&mut self) {
+        // SAFETY: The circular links reference initialized slots in the fixed pool; traversal
+        // and removal run sequentially on the game thread.
         unsafe {
             for idx in 0..self.capacity {
                 let ptr = self.ptr_for_idx(idx);
@@ -361,16 +408,26 @@ impl ThinkerAlloc {
         }
 
         let root_ptr = self.find_first_free(false)?;
+        // SAFETY: find_first_free returns a slot in this fixed pool; it is initialized before
+        // linking, and the list links remain in the pool.
         unsafe { ptr::write(root_ptr, thinker) };
+        // SAFETY: find_first_free returns a slot in this fixed pool; it is initialized before
+        // linking, and the list links remain in the pool.
         let current = unsafe { &mut *root_ptr };
 
         if self.head.is_null() {
             self.head = root_ptr;
+            // SAFETY: find_first_free returns a slot in this fixed pool; it is initialized
+            // before linking, and the list links remain in the pool.
             let head = unsafe { &mut *self.head };
             head.prev = head;
             head.next = head;
         } else {
+            // SAFETY: find_first_free returns a slot in this fixed pool; it is initialized
+            // before linking, and the list links remain in the pool.
             let head = unsafe { &mut *self.head };
+            // SAFETY: find_first_free returns a slot in this fixed pool; it is initialized
+            // before linking, and the list links remain in the pool.
             unsafe {
                 (*head.prev).next = current;
             }
@@ -381,7 +438,11 @@ impl ThinkerAlloc {
 
         current.set_obj_thinker_ptr();
         self.len += 1;
+        // SAFETY: find_first_free returns a slot in this fixed pool; it is initialized before
+        // linking, and the list links remain in the pool.
         self.next_free = unsafe { self.next_free.add(1) };
+        // SAFETY: find_first_free returns a slot in this fixed pool; it is initialized before
+        // linking, and the list links remain in the pool.
         unsafe { Some(&mut *root_ptr) }
     }
 
@@ -389,6 +450,8 @@ impl ThinkerAlloc {
     /// indicate the slot is "empty".
     pub(crate) fn remove(&mut self, thinker: &mut Thinker) {
         debug!("Removing Thinker: {thinker:?}");
+        // SAFETY: The circular links reference initialized slots in the fixed pool; traversal
+        // and removal run sequentially on the game thread.
         unsafe {
             if ptr::eq(thinker, self.head) {
                 self.head = thinker.next;
@@ -483,11 +546,15 @@ impl Thinker {
 
     /// Cast an erased `*mut Thinker` back to `&mut Thinker`.
     pub unsafe fn from_erased<'a>(ptr: *mut Self) -> &'a mut Self {
+        // SAFETY: The caller supplies a live aligned Thinker pointer and guarantees the
+        // returned reference lifetime and access exclusivity.
         unsafe { &mut *ptr }
     }
 
     /// Immutable variant of [`from_erased`].
     pub unsafe fn from_erased_ref<'a>(ptr: *mut Self) -> &'a Self {
+        // SAFETY: The caller supplies a live aligned Thinker pointer and guarantees the
+        // returned reference lifetime and access exclusivity.
         unsafe { &*ptr }
     }
 
@@ -638,12 +705,16 @@ impl ThinkerData {
     fn bad_ref<T>(&self) -> &T {
         let mut ptr = ptr::from_ref(self) as usize;
         ptr += size_of::<u64>();
+        // SAFETY: This test helper is called only for the selected repr(u64) payload type; the
+        // tag occupies the first eight bytes.
         unsafe { &*(ptr as *const T) }
     }
 
     fn bad_mut<T>(&mut self) -> &mut T {
         let mut ptr = ptr::from_mut(self) as usize;
         ptr += size_of::<u64>();
+        // SAFETY: This test helper is called only for the selected repr(u64) payload type; the
+        // tag occupies the first eight bytes.
         unsafe { &mut *(ptr as *mut T) }
     }
 }
@@ -690,6 +761,8 @@ mod tests {
         map.load("E1M1", |_| None, &wad, None, None);
         let (tx, _rx) = channel();
 
+        // SAFETY: The test keeps its local level/pool alive and inspects only slots initialized
+        // by that pool.
         let mut l = unsafe {
             LevelState::new_empty(
                 game_config::GameOptions::default(),
@@ -723,13 +796,27 @@ mod tests {
 
     #[test]
     fn allocate() {
+        // SAFETY: The test keeps its local level/pool alive and inspects only slots initialized
+        // by that pool.
         let links = unsafe { ThinkerAlloc::new(64) };
         assert_eq!(links.len, 0);
         assert_eq!(links.capacity, 64);
     }
 
     #[test]
+    fn empty_pool_has_valid_allocation_and_no_live_entries() {
+        // SAFETY: No raw entry links escape this local pool.
+        let mut pool = unsafe { ThinkerAlloc::new(0) };
+        assert!(!pool.buf_ptr.is_null());
+        assert_eq!(pool.len, 0);
+        pool.for_each(|_| panic!("empty pool has no entries"));
+        pool.for_each_mut(|_| panic!("empty pool has no entries"));
+    }
+
+    #[test]
     fn push_1() {
+        // SAFETY: The test keeps its local level/pool alive and inspects only slots initialized
+        // by that pool.
         let mut links = unsafe { ThinkerAlloc::new(64) };
         assert_eq!(links.len, 0);
         assert_eq!(links.capacity, 64);
@@ -744,10 +831,14 @@ mod tests {
         );
         assert!(!links.head.is_null());
         assert_eq!(links.len, 1);
+        // SAFETY: The test keeps its local level/pool alive and inspects only slots initialized
+        // by that pool.
         unsafe {
             assert!((*links.head).should_remove());
         }
 
+        // SAFETY: The test keeps its local level/pool alive and inspects only slots initialized
+        // by that pool.
         unsafe {
             assert!(matches!((*links.buf_ptr.add(0)).data, ThinkerData::Remove));
             assert!(matches!((*links.buf_ptr.add(1)).data, ThinkerData::Free));
@@ -760,6 +851,8 @@ mod tests {
 
     #[test]
     fn check_next_prev_links() {
+        // SAFETY: The test keeps its local level/pool alive and inspects only slots initialized
+        // by that pool.
         let mut links = unsafe { ThinkerAlloc::new(64) };
 
         links
@@ -803,6 +896,8 @@ mod tests {
                 .unwrap(),
         );
 
+        // SAFETY: The test keeps its local level/pool alive and inspects only slots initialized
+        // by that pool.
         unsafe {
             // forward
             assert!((*links.buf_ptr).should_remove());
@@ -837,6 +932,8 @@ mod tests {
                 666
             );
         }
+        // SAFETY: The test keeps its local level/pool alive and inspects only slots initialized
+        // by that pool.
         unsafe {
             links.remove(&mut *one);
             assert!((*links.head).should_remove());
@@ -847,6 +944,8 @@ mod tests {
             );
         }
 
+        // SAFETY: The test keeps its local level/pool alive and inspects only slots initialized
+        // by that pool.
         unsafe {
             links.remove(&mut *three);
             assert!((*links.head).should_remove());

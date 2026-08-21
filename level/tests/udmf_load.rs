@@ -12,6 +12,10 @@ const SLOPED_FLOOR: &str = include_str!("../../data/test_files/udmf/sloped_floor
 const FLAT_ROOM: &str = include_str!("../../data/test_files/udmf/flat_room.textmap");
 
 /// Write a minimal PWAD with one UDMF map: marker, TEXTMAP, ENDMAP.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "fixture and benchmark dimensions intentionally use the same numeric conversions as the engine"
+)]
 fn write_udmf_wad(path: &std::path::Path, map: &str, textmap: &[u8]) {
     let lumps: [(&str, &[u8]); 3] = [(map, &[]), ("TEXTMAP", textmap), ("ENDMAP", &[])];
 

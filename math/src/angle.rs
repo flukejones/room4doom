@@ -187,11 +187,19 @@ impl AngleInner for Bam {
     }
 
     #[inline]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "Doom fixed-point conversion deliberately preserves its rounding and low-bit arithmetic semantics"
+    )]
     fn scale(self, factor: f32) -> Self {
         Self((self.0 as f64 * factor as f64) as u32)
     }
 
     #[inline]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "Doom fixed-point conversion deliberately preserves its rounding and low-bit arithmetic semantics"
+    )]
     fn inv_scale(self, factor: f32) -> Self {
         Self((self.0 as f64 / factor as f64) as u32)
     }
@@ -420,6 +428,10 @@ pub fn point_to_angle_2<A: AngleInner>(point1: (f32, f32), point2: (f32, f32)) -
 
 #[cfg(feature = "trig_lut")]
 #[inline]
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "Doom fixed-point conversion deliberately preserves its rounding and low-bit arithmetic semantics"
+)]
 fn rad_to_table(rad: f32) -> usize {
     let mut idx = (rad.to_degrees() * 22.755_556) as i32;
     idx &= 8191;

@@ -93,11 +93,12 @@ impl<K: ArenaKey, T> Arena<K, T> {
             s.value = Some(value);
             K::new(slot, s.generation)
         } else {
+            let slot = u32::try_from(self.slots.len()).expect("arena exceeds u32 slot capacity");
             self.slots.push(Slot {
                 generation: 0,
                 value: Some(value),
             });
-            K::new(self.slots.len() as u32 - 1, 0)
+            K::new(slot, 0)
         }
     }
 
@@ -149,6 +150,10 @@ impl<K: ArenaKey, T> Arena<K, T> {
         self.slots.iter_mut().filter_map(|s| s.value.as_mut())
     }
 
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "insert bounds every slot index to u32"
+    )]
     pub fn iter(&self) -> impl Iterator<Item = (K, &T)> {
         self.slots.iter().enumerate().filter_map(|(i, s)| {
             s.value
@@ -157,6 +162,10 @@ impl<K: ArenaKey, T> Arena<K, T> {
         })
     }
 
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "insert bounds every slot index to u32"
+    )]
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (K, &mut T)> {
         self.slots.iter_mut().enumerate().filter_map(|(i, s)| {
             let generation = s.generation;

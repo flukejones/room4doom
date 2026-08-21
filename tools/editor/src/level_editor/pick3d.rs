@@ -202,6 +202,10 @@ mod tests {
 
     /// Ray down from above: hits floor top face; ceiling is back-facing (culled).
     #[test]
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+    )]
     fn ray_down_from_above_hits_floor_through_culled_ceiling() {
         let wad = wad::WadData::new(&test_utils::doom1_wad_path());
         let map = editor_core::import_wad_map(&wad, "E1M1").expect("E1M1 imports");
@@ -230,6 +234,10 @@ mod tests {
 
     /// Ray up from below: floor back-face culled; ceiling front-face is the hit.
     #[test]
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+    )]
     fn ray_up_from_below_culls_floor_backface() {
         let wad = wad::WadData::new(&test_utils::doom1_wad_path());
         let map = editor_core::import_wad_map(&wad, "E1M1").expect("E1M1 imports");

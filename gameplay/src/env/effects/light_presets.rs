@@ -82,6 +82,10 @@ fn strobe(sector: &mut Sector, dark_time: i32, in_sync: bool) -> LightEffect {
 }
 
 /// Doom function name `EV_LightTurnOn`
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "MapPtr is a non-owning handle passed by value consistently across Doom query and effect APIs"
+)]
 pub fn ev_turn_light_on(line: MapPtr<LineDef>, mut bright: usize, level: &mut LevelState) {
     for sector in level
         .level_data
@@ -100,6 +104,10 @@ pub fn ev_turn_light_on(line: MapPtr<LineDef>, mut bright: usize, level: &mut Le
 }
 
 /// Doom function name `EV_TurnTagLightsOff`
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "MapPtr is a non-owning handle passed by value consistently across Doom query and effect APIs"
+)]
 pub fn ev_turn_tag_lights_off(line: MapPtr<LineDef>, level: &mut LevelState) {
     let mut min;
     for sector in level
@@ -125,6 +133,10 @@ pub fn ev_turn_tag_lights_off(line: MapPtr<LineDef>, level: &mut LevelState) {
 }
 
 /// Doom function name `EV_StartLightStrobing`
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "MapPtr is a non-owning handle passed by value consistently across Doom query and effect APIs"
+)]
 pub fn ev_start_light_strobing(line: MapPtr<LineDef>, level: &mut LevelState) {
     // SAFETY: the level outlives every thinker spawned into it.
     let level_ptr = unsafe { &mut *from_mut::<LevelState>(level) };

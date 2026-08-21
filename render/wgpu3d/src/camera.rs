@@ -65,6 +65,10 @@ impl CameraUniform {
     }
 
     /// Build from the player view + a prebuilt projection matrix.
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub fn new(view: &RenderView, projection: Mat4) -> Self {
         let pos = Vec3::new(view.x.into(), view.y.into(), view.viewz.into());
         let basis = EyeBasis::new(view);

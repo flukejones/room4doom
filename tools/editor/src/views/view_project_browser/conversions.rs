@@ -213,6 +213,10 @@ pub(super) fn tree_rows(nodes: &[TreeNode]) -> ModelRc<TreeRow> {
     model(rows)
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 pub(super) fn lump_rows(wads: &[LoadedWad], wad_idx: usize, name_filter: &str) -> ModelRc<LumpRow> {
     let Some(loaded) = wads.get(wad_idx) else {
         return model(Vec::new());

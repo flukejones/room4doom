@@ -90,6 +90,10 @@ impl LevelEditorState {
         Damage::Edited
     }
 
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+    )]
     fn rederive_thing_z_in_sector(&mut self, s: SectorKey) {
         let Some(map) = self.map.as_ref() else {
             return;

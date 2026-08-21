@@ -46,6 +46,8 @@ impl SectorExt for Sector {
             let thing = thing_ptr.cast::<Thinker>();
             #[cfg(feature = "null_check")]
             assert!(!thing.is_null(), "thinglist is null when it shouldn't be");
+            // SAFETY: Sector links point to initialized map-object slots in the level pool;
+            // link updates are sequenced and the slots are not reallocated.
             unsafe {
                 if (*thing).should_remove() {
                     return true;
@@ -82,6 +84,8 @@ impl SectorExt for Sector {
             let thing = thing_ptr.cast::<Thinker>();
             #[cfg(feature = "null_check")]
             assert!(!thing.is_null(), "thinglist is null when it shouldn't be");
+            // SAFETY: Sector links point to initialized map-object slots in the level pool;
+            // link updates are sequenced and the slots are not reallocated.
             unsafe {
                 if (*thing).should_remove() {
                     return true;
@@ -115,17 +119,25 @@ impl SectorExt for Sector {
 
     unsafe fn add_to_thinglist(&mut self, thing: *mut Thinker) {
         if matches!(
+            // SAFETY: Sector links point to initialized map-object slots in the level pool;
+            // link updates are sequenced and the slots are not reallocated.
             (unsafe { &*thing }).data(),
             ThinkerData::Free | ThinkerData::Remove
         ) {
             error!("add_to_thinglist() tried to add a Thinker that was Free or Remove");
             return;
         }
+        // SAFETY: Sector links point to initialized map-object slots in the level pool; link
+        // updates are sequenced and the slots are not reallocated.
         unsafe { &mut *thing }.mobj_mut().s_prev = None;
+        // SAFETY: Sector links point to initialized map-object slots in the level pool; link
+        // updates are sequenced and the slots are not reallocated.
         unsafe { &mut *thing }.mobj_mut().s_next = self.thinglist.map(|p| p.cast::<Thinker>());
 
         if let Some(other_ptr) = self.thinglist {
             let other = other_ptr.cast::<Thinker>();
+            // SAFETY: Sector links point to initialized map-object slots in the level pool;
+            // link updates are sequenced and the slots are not reallocated.
             unsafe { &mut *other }.mobj_mut().s_prev = Some(thing);
         }
 
@@ -138,10 +150,14 @@ impl SectorExt for Sector {
         }
 
         if let Some(next) = thing.mobj().s_next {
+            // SAFETY: Sector links point to initialized map-object slots in the level pool;
+            // link updates are sequenced and the slots are not reallocated.
             unsafe { &mut *next }.mobj_mut().s_prev = (*thing).mobj_mut().s_prev;
         }
 
         if let Some(prev) = thing.mobj().s_prev {
+            // SAFETY: Sector links point to initialized map-object slots in the level pool;
+            // link updates are sequenced and the slots are not reallocated.
             unsafe { &mut *prev }.mobj_mut().s_next = thing.mobj_mut().s_next;
         } else {
             let mut ss = thing.mobj().subsector.clone();
@@ -151,6 +167,8 @@ impl SectorExt for Sector {
 
     fn sound_target(&self) -> Option<&mut MapObject> {
         self.sound_target
+            // SAFETY: Sector links point to initialized map-object slots in the level pool;
+            // link updates are sequenced and the slots are not reallocated.
             .map(|p| unsafe { &mut *p.cast::<Thinker>() }.mobj_mut())
     }
 

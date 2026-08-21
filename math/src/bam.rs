@@ -12,6 +12,10 @@ pub struct Bam(pub u32);
 
 /// Converts a BAM (Binary Angle Measure) to radians.
 #[inline]
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "Doom fixed-point conversion deliberately preserves its rounding and low-bit arithmetic semantics"
+)]
 pub fn bam_to_radian(bam: u32) -> f32 {
     (bam as f64 / u32::MAX as f64 * TAU) as f32
 }
@@ -29,6 +33,10 @@ pub fn lookdir_to_radian(lookdir: f32) -> f32 {
 
 /// Converts radians to a BAM value. Handles negative radians via wrapping.
 #[inline]
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "Doom fixed-point conversion deliberately preserves its rounding and low-bit arithmetic semantics"
+)]
 pub fn radian_to_bam(rad: f32) -> u32 {
     (rad as f64 / TAU * u32::MAX as f64) as i64 as u32
 }

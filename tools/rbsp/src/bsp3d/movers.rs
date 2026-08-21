@@ -120,6 +120,10 @@ struct QuantizedVec2 {
 }
 
 impl QuantizedVec2 {
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "BSP geometry deliberately quantizes coordinates and stores indices in the established on-disk widths"
+    )]
     fn from_vec2(v: Vec2, precision: f32) -> Self {
         Self {
             x: (v.x / precision).ceil() as i32,
@@ -166,6 +170,10 @@ impl Bsp3dBuilder {
     /// 5. Zh wall vertex connection via ZhWallRecords
     /// 6. Non-zh wall vertex connection via linedef lookup
     /// 7. Set `moves` flag on affected polygons
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep the complete dispatch or geometry pass together without changing its established ordering"
+    )]
     pub(super) fn mover_vertex_pass(&mut self, input: &Bsp3dInput) {
         // Step 1: identify mover sectors and zh boundaries.
         let mut mover_sectors: HashMap<usize, MoverSurface> = HashMap::new();

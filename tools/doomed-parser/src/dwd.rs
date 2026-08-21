@@ -187,6 +187,10 @@ impl Interner {
         }
     }
 
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "asset coordinates and packed channels deliberately use their established format widths and rounding"
+    )]
     fn vertex(&mut self, x: f32, y: f32) -> u32 {
         let key = (x.to_bits(), y.to_bits());
         if let Some(&id) = self.vertex_ids.get(&key) {
@@ -201,6 +205,10 @@ impl Interner {
         id
     }
 
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "asset coordinates and packed channels deliberately use their established format widths and rounding"
+    )]
     fn sector(&mut self, sector: Sector) -> u32 {
         if let Some(&id) = self.sector_ids.get(&sector) {
             return id;

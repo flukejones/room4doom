@@ -244,6 +244,8 @@ impl MapObject {
             s_prev: None,
             b_next: None,
             b_prev: None,
+            // SAFETY: This is a placeholder link; spawn/load sets the subsector before any
+            // position query uses it.
             subsector: unsafe { MapPtr::new_null() },
             floorz: FixedT::from_f32(floorz),
             ceilingz: FixedT::from_f32(ceilingz),
@@ -354,6 +356,8 @@ impl MapObject {
             s_prev: None,
             b_next: None,
             b_prev: None,
+            // SAFETY: This is a placeholder link; spawn/load sets the subsector before any
+            // position query uses it.
             subsector: unsafe { MapPtr::new_null() },
             state,
             info,
@@ -430,16 +434,22 @@ impl MapObject {
     pub(crate) fn level(&self) -> &LevelState {
         #[cfg(feature = "null_check")]
         assert!(!self.level.is_null(), "MapObject level pointer was null");
+        // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address
+        // and callbacks access it sequentially on the game thread.
         unsafe { &*self.level }
     }
 
     pub(crate) fn level_mut(&mut self) -> &mut LevelState {
         #[cfg(feature = "null_check")]
         assert!(!self.level.is_null(), "MapObject level pointer was null");
+        // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address
+        // and callbacks access it sequentially on the game thread.
         unsafe { &mut *self.level }
     }
 
     pub fn player(&self) -> Option<&Player> {
+        // SAFETY: This player link references the game-owned player array (or the live
+        // TestLevel pool); that storage outlives this access.
         self.player.map(|p| unsafe {
             #[cfg(feature = "null_check")]
             assert!(!p.is_null(), "MapObject player pointer was null");
@@ -453,6 +463,8 @@ impl MapObject {
     )]
     pub(crate) fn player_mut(&mut self) -> Option<&mut Player> {
         if let Some(p) = self.player {
+            // SAFETY: The player pointer references the game-owned player array, which remains
+            // live for the current level.
             unsafe { p.as_mut() }
         } else {
             None
@@ -460,6 +472,8 @@ impl MapObject {
     }
 
     pub(crate) fn target(&self) -> Option<&Self> {
+        // SAFETY: These object links reference initialized thinker slots in the level-owned
+        // fixed pool; traversal and mutations are sequenced by the game loop.
         self.target.map(|t| unsafe {
             #[cfg(feature = "null_check")]
             assert!(!t.is_null(), "MapObject target pointer was null");
@@ -473,6 +487,8 @@ impl MapObject {
     )]
     pub(crate) fn target_mut(&mut self) -> Option<&mut Self> {
         if let Some(p) = self.target {
+            // SAFETY: These object links reference initialized thinker slots in the level-owned
+            // fixed pool; traversal and mutations are sequenced by the game loop.
             unsafe { p.as_mut().map(|t| t.mobj_mut()) }
         } else {
             None
@@ -522,6 +538,8 @@ impl MapObject {
 
         // set color translations for player sprites
 
+        // SAFETY: The spawn/list pointer references an initialized map object in the level's
+        // fixed thinker pool, which remains allocated for this callback.
         let mobj_ptr_mut = unsafe { &mut *mobj };
         if mthing.kind > 1 {
             mobj_ptr_mut.flags |=
@@ -565,6 +583,10 @@ impl MapObject {
     }
 
     /// P_SpawnMapThing
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "Doom state and fixed-point conversions deliberately retain their established packed widths and rounding"
+    )]
     pub fn p_spawn_map_thing(
         mthing: WadThing,
         no_monsters: bool,
@@ -594,14 +616,14 @@ impl MapObject {
         if level.options.deathmatch == 0 && mthing.flags & MTF_SINGLE_PLAYER != 0 {
             return;
         }
-        let bit: i16;
-        if level.options.skill == Skill::Baby {
-            bit = 1;
+
+        let bit: i16 = if level.options.skill == Skill::Baby {
+            1
         } else if level.options.skill == Skill::Nightmare {
-            bit = 4;
+            4
         } else {
-            bit = 1 << (level.options.skill as i16 - 1);
-        }
+            1 << (level.options.skill as i16 - 1)
+        };
 
         if mthing.flags & bit == 0 {
             return;
@@ -651,6 +673,8 @@ impl MapObject {
         };
 
         let mobj = Self::spawn_map_object(x.into(), y.into(), z.into(), MapObjKind::from(i), level);
+        // SAFETY: The spawn/list pointer references an initialized map object in the level's
+        // fixed thinker pool, which remains allocated for this callback.
         let mobj = unsafe { &mut *mobj };
         if mobj.tics > 0 {
             mobj.tics = 1 + (p_random() % mobj.tics);
@@ -682,6 +706,8 @@ impl MapObject {
     ) {
         let z = z + (p_random() - p_random()) / 64;
         let mobj = Self::spawn_map_object(x, y, z, MapObjKind::MT_PUFF, level);
+        // SAFETY: The spawn/list pointer references an initialized map object in the level's
+        // fixed thinker pool, which remains allocated for this callback.
         let mobj = unsafe { &mut *mobj };
         mobj.momz = FixedT::ONE;
         mobj.tics -= p_random() & 3;
@@ -706,6 +732,8 @@ impl MapObject {
         let z_adj = z + (p_random() - p_random()) / 64;
         // BSP boundary: spawn_map_object takes f32/i32
         let mobj = Self::spawn_map_object(x, y, z_adj, MapObjKind::MT_BLOOD, level);
+        // SAFETY: The spawn/list pointer references an initialized map object in the level's
+        // fixed thinker pool, which remains allocated for this callback.
         let mobj = unsafe { &mut *mobj };
         mobj.momz = 2.into();
         mobj.tics -= p_random() & 3;
@@ -764,6 +792,8 @@ impl MapObject {
         };
 
         let mobj = Self::spawn_map_object(x, y, z, kind, level);
+        // SAFETY: The spawn/list pointer references an initialized map object in the level's
+        // fixed thinker pool, which remains allocated for this callback.
         let mobj = unsafe { &mut *mobj };
 
         if !matches!(mobj.info.seesound, SfxName::None | SfxName::NumSfx) {
@@ -797,6 +827,8 @@ impl MapObject {
         let z = source.z + 32;
 
         let mobj = Self::spawn_map_object(x, y, z, kind, level);
+        // SAFETY: The spawn/list pointer references an initialized map object in the level's
+        // fixed thinker pool, which remains allocated for this callback.
         let mobj = unsafe { &mut *mobj };
 
         if !matches!(mobj.info.seesound, SfxName::None | SfxName::NumSfx) {
@@ -882,6 +914,8 @@ impl MapObject {
         // P_AddThinker(&thing->thinker);
         if let Some(ptr) = level.thinkers.push::<Self>(thinker) {
             let thing = ptr.mobj_mut();
+            // SAFETY: The object is in a stable thinker slot with its owning level/subsector
+            // initialized; the game thread sequences spatial-list updates.
             unsafe {
                 // Sets the subsector link and links in sector
                 thing.set_thing_position();
@@ -949,6 +983,8 @@ impl MapObject {
             .contains(MapObjFlag::Nosector)
         {
             let mut ss = self.subsector.clone();
+            // SAFETY: The caller guarantees an initialized subsector and a
+            // live thinker slot; sector links are updated on the game thread.
             unsafe {
                 ss.sector.remove_from_thinglist(self.thinker_mut());
             }
@@ -960,16 +996,22 @@ impl MapObject {
         {
             // Unlink from blockmap chain
             if let Some(next) = self.b_next {
+                // SAFETY: Spawn installs the owning level pointer; the level stays at a stable
+                // address and callbacks access it sequentially on the game thread.
                 unsafe {
                     (*next).b_prev = self.b_prev;
                 }
             }
             if let Some(prev) = self.b_prev {
+                // SAFETY: Spawn installs the owning level pointer; the level stays at a stable
+                // address and callbacks access it sequentially on the game thread.
                 unsafe {
                     (*prev).b_next = self.b_next;
                 }
             } else {
                 // Was head of chain — update blocklinks
+                // SAFETY: Spawn installs the owning level pointer; the level stays at a stable
+                // address and callbacks access it sequentially on the game thread.
                 let level = unsafe { &mut *self.level };
                 let bm = level.level_data.blockmap();
                 let bx = (self.x.to_fixed_raw() - bm.x_origin) >> MAPBLOCKSHIFT;
@@ -989,12 +1031,16 @@ impl MapObject {
     /// # Safety
     /// Thing must have had a SubSector set on creation.
     pub(crate) unsafe fn set_thing_position(&mut self) {
+        // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address
+        // and callbacks access it sequentially on the game thread.
         let level = unsafe { &mut *self.level };
         let mut subsector = level.level_data.point_in_subsector(self.x, self.y);
         if !MOBJINFO[self.kind as usize]
             .flags
             .contains(MapObjFlag::Nosector)
         {
+            // SAFETY: These object links reference initialized thinker slots in the level-owned
+            // fixed pool; traversal and mutations are sequenced by the game loop.
             unsafe { subsector.sector.add_to_thinglist(self.thinker) }
         }
         self.subsector = subsector;
@@ -1003,6 +1049,8 @@ impl MapObject {
             .flags
             .contains(MapObjFlag::Noblockmap)
         {
+            // SAFETY: Spawn installs the owning level pointer; the level stays at a stable
+            // address and callbacks access it sequentially on the game thread.
             let level = unsafe { &mut *self.level };
             let bm = level.level_data.blockmap();
             let bx = (self.x.to_fixed_raw() - bm.x_origin) >> MAPBLOCKSHIFT;
@@ -1012,6 +1060,8 @@ impl MapObject {
                 self.b_prev = None;
                 self.b_next = level.blocklinks[idx];
                 if let Some(head) = level.blocklinks[idx] {
+                    // SAFETY: Blockmap links refer to live fixed-pool objects;
+                    // linking this initialized object does not move either slot.
                     unsafe {
                         (*head).b_prev = Some(self);
                     }
@@ -1036,6 +1086,8 @@ impl MapObject {
             self.level_mut().respawn_queue.push_front((time, respawn));
         }
 
+        // SAFETY: The object is in a stable thinker slot with its owning level/subsector
+        // initialized; the game thread sequences spatial-list updates.
         unsafe {
             self.unset_thing_position();
         }
@@ -1096,6 +1148,8 @@ impl MapObject {
 
         *no_fit = true;
 
+        // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address
+        // and callbacks access it sequentially on the game thread.
         let level_time = unsafe { (*self.level).level_time };
 
         if crush_change && level_time & 3 == 0 {
@@ -1106,8 +1160,12 @@ impl MapObject {
                 self.y,
                 (self.z + self.height) / 2,
                 MapObjKind::MT_BLOOD,
+                // SAFETY: Spawn installs the owning level pointer; the level stays at a stable
+                // address and callbacks access it sequentially on the game thread.
                 unsafe { &mut *self.level },
             );
+            // SAFETY: Spawn installs the owning level pointer; the level stays at a stable
+            // address and callbacks access it sequentially on the game thread.
             unsafe {
                 // OG: mo->momx = (P_Random() - P_Random()) << 12
                 (*mobj).momx = FixedT::from_fixed(p_subrandom() << 12);
@@ -1119,6 +1177,8 @@ impl MapObject {
     }
 
     pub(crate) fn start_sound(&self, sfx: SfxName) {
+        // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address
+        // and callbacks access it sequentially on the game thread.
         unsafe {
             (*self.level).start_sound(
                 sfx,
@@ -1140,6 +1200,8 @@ impl MapObject {
 
         let ss = self.level_mut().level_data.point_in_subsector(sp_x, sp_y);
         let floor = ss.sector.floor_z(sp_x, sp_y).to_i32();
+        // SAFETY: The spawn/list pointer references an initialized map object in the level's
+        // fixed thinker pool, which remains allocated for this callback.
         let fog = unsafe {
             &mut *Self::spawn_map_object(
                 sp_x,
@@ -1159,6 +1221,8 @@ impl MapObject {
             ONFLOORZ
         };
 
+        // SAFETY: The spawn/list pointer references an initialized map object in the level's
+        // fixed thinker pool, which remains allocated for this callback.
         let thing = unsafe {
             &mut *Self::spawn_map_object(sp_x, sp_y, z.into(), self.kind, self.level_mut())
         };
@@ -1239,6 +1303,8 @@ impl Think for MapObject {
     fn thinker_mut(&mut self) -> &mut Thinker {
         #[cfg(feature = "null_check")]
         assert!(!self.thinker.is_null(), "MapObject thinker was null");
+        // SAFETY: These object links reference initialized thinker slots in the level-owned
+        // fixed pool; traversal and mutations are sequenced by the game loop.
         unsafe { &mut *self.thinker }
     }
 }

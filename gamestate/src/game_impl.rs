@@ -77,6 +77,10 @@ impl GameTraits for Game {
         }
     }
 
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "screen, input and game-state values deliberately retain their established numeric widths and rounding"
+    )]
     fn change_music(&self, mus: MusTrack) {
         let track = if mus == MusTrack::None {
             if self.game_type.mode == GameMode::Commercial {

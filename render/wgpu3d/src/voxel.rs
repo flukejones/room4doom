@@ -122,6 +122,10 @@ impl VoxelScratch {
     /// Walk every sector's thinglist, select voxel-eligible things, resolve each
     /// to a [`VoxelInstance`], and group them by model (opaque before fuzz within
     /// each model). No PVS — GPU depth handles occlusion.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub fn collect(&mut self, view: &RenderView, level_data: &LevelData, mgr: &VoxelManager) {
         let player_x: f32 = view.x.into();
         let player_y: f32 = view.y.into();
@@ -366,6 +370,10 @@ impl VoxelPipeline {
     /// Bake (or re-bake) the per-model face buffers from the manager. Called on
     /// first build and on a palette-generation change (face colours are resolved
     /// through the base palette). `palette` is `pic_data.palettes()[0]`.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub fn build_models(&mut self, device: &wgpu::Device, mgr: &VoxelManager, pic_data: &PicData) {
         let palette = &pic_data.palettes()[0];
         self.models.clear();
@@ -463,6 +471,10 @@ impl VoxelPipeline {
 
     /// Grow + rebind the instance buffer when the count exceeds capacity, then
     /// upload. Empty frames are a no-op.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     fn upload_instances(
         &mut self,
         device: &wgpu::Device,

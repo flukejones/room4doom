@@ -126,6 +126,10 @@ pub(crate) fn init(ui: &EditorWindow, shared: &Rc<RefCell<SharedState>>) {
         });
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 pub(crate) fn update_status(ui: &EditorWindow, shared: &Rc<RefCell<SharedState>>) {
     let state = shared.borrow();
     let status = ui.global::<StatusController>();

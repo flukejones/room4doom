@@ -93,26 +93,44 @@ pub enum Skill {
     Nightmare = 4,
 }
 
+#[expect(
+    clippy::fallible_impl_from,
+    reason = "preserve the existing From API's panic contract for invalid Doom skill indices"
+)]
 impl From<i32> for Skill {
     fn from(w: i32) -> Self {
-        assert!(w <= Self::Nightmare as i32, "{w} is not a variant of Skill");
-        unsafe { std::mem::transmute(w) }
+        match w {
+            -1 => Self::NoItems,
+            0 => Self::Baby,
+            1 => Self::Easy,
+            2 => Self::Medium,
+            3 => Self::Hard,
+            4 => Self::Nightmare,
+            _ => panic!("{w} is not a variant of Skill"),
+        }
     }
 }
 
 impl From<u8> for Skill {
     fn from(w: u8) -> Self {
-        Self::from(w as i32)
+        Self::from(i32::from(w))
     }
 }
 
+#[expect(
+    clippy::fallible_impl_from,
+    reason = "preserve the existing From API's panic contract for invalid Doom skill indices"
+)]
 impl From<usize> for Skill {
     fn from(w: usize) -> Self {
-        assert!(
-            w <= Self::Nightmare as usize,
-            "{w} is not a variant of Skill"
-        );
-        unsafe { std::mem::transmute(w as i32) }
+        match w {
+            0 => Self::Baby,
+            1 => Self::Easy,
+            2 => Self::Medium,
+            3 => Self::Hard,
+            4 => Self::Nightmare,
+            _ => panic!("{w} is not a variant of Skill"),
+        }
     }
 }
 
@@ -128,5 +146,27 @@ impl FromStr for Skill {
             "5" => Ok(Self::Nightmare),
             _ => Err(DoomArgError::InvalidSkill("Invalid arg".to_owned())),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Skill;
+
+    #[test]
+    fn skill_no_items_sentinel_is_preserved() {
+        assert_eq!(Skill::from(-1), Skill::NoItems);
+    }
+
+    #[test]
+    #[should_panic(expected = "not a variant of Skill")]
+    fn skill_below_no_items_is_rejected() {
+        let _ = Skill::from(-2);
+    }
+
+    #[test]
+    #[should_panic(expected = "not a variant of Skill")]
+    fn oversized_skill_index_is_rejected() {
+        let _ = Skill::from(usize::MAX);
     }
 }

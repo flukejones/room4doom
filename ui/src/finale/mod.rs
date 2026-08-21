@@ -6,7 +6,7 @@ use gamestate_traits::{ConfigTraits, GameTraits, KeyCode, SubsystemTrait};
 use hud_util::{HUD_STRING, HUDString, draw_flat, hud_scale, load_char_patches};
 use render_common::DrawBuffer;
 use sound_common::MusTrack;
-use text::*;
+use text::{C1TEXT, C2TEXT, C3TEXT, C4TEXT, C5TEXT, C6TEXT, E1TEXT, E2TEXT, E3TEXT, E4TEXT};
 use wad::WadData;
 use wad::types::{WadFlat, WadPalette};
 

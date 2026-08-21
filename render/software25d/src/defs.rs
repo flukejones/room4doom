@@ -90,6 +90,10 @@ impl PortalClip {
         self.view_height = vh;
     }
 
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub(super) fn clear(&mut self) {
         self.floorclip
             .fill(FixedT::from(self.view_height as i32 + 1));

@@ -41,6 +41,10 @@ const FLAT_TILE_NONE: [f32; 2] = [-1.0, -1.0];
 pub(crate) const FLAT_TILE_MISSING: [f32; 2] = [-2.0, -2.0];
 
 /// World [half-width, half-height] a thing draws at (sprite-pixel scaled, aspect kept); pick and render share it. Sprite-less kinds use a `radius` square.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 pub(crate) fn thing_world_half_extent(
     sprites: Option<&ThingSpriteCache>,
     kind: i32,
@@ -197,6 +201,10 @@ fn sector_colour(gradient: Gradient, map: &EditorMap, sector: SectorKey) -> Colo
 }
 
 /// FNV hash of the full sector record → gradient position. Stable across renumbering.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn record_colour(gradient: Gradient, s: &Sector) -> Color {
     let mut seed = FNV_OFFSET;
     let mut mix = |v: u64| seed = fnv_fold(seed, v);
@@ -238,6 +246,10 @@ pub fn build_sector_3d(input: &FrameInput<'_>) -> Vec<Sector3D> {
 }
 
 /// One sector's 3D attrs: resolved flat → atlas tile, empty name → `[-1,-1]` (discarded), missing → `[-2,-2]` (magenta); selected → surface shader tints the floor.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 pub fn sector_3d(input: &FrameInput<'_>, sector: SectorKey) -> Sector3D {
     let Some(s) = input.map.sectors.get(sector) else {
         return Sector3D::zeroed();
@@ -280,6 +292,10 @@ pub(crate) fn sector_attr(input: &FrameInput<'_>, sector: SectorKey) -> SectorAt
 }
 
 /// Grid appearance for the procedural GPU grid: spacings, colours (alpha reduced over fills in 3D), zoom cutoff, and line half-width.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 pub fn grid_style(input: &FrameInput<'_>) -> GridStyle {
     let tilted = input.mode != CameraMode::TopDown;
     let blend = tilted || input.fill != SectorFill::None;
@@ -319,6 +335,10 @@ pub fn build_line_instances(input: &FrameInput<'_>) -> (Vec<LineInst>, Vec<LineI
 }
 
 /// Segment + front-normal instances for a line; rides the front floor in wireframe, else the grid plane.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 pub(crate) fn line_instances(input: &FrameInput<'_>, key: LineKey) -> (LineInst, LineInst) {
     let Some(line) = input.map.lines.get(key) else {
         return (LineInst::default(), LineInst::default());
@@ -367,7 +387,7 @@ pub(crate) fn line_instances(input: &FrameInput<'_>, key: LineKey) -> (LineInst,
     let normal = if len > 1.0 {
         let (nx, ny) = (dy / len, -dx / len);
         let tick = NORMAL_TICK_PX / input.zoom;
-        let mid = [(a[0] + b[0]) * 0.5, (a[1] + b[1]) * 0.5];
+        let mid = [f32::midpoint(a[0], b[0]), f32::midpoint(a[1], b[1])];
         line_at(
             mid,
             [mid[0] + nx * tick, mid[1] + ny * tick],
@@ -395,6 +415,10 @@ pub fn build_vert_instances(input: &FrameInput<'_>) -> Vec<MarkerInst> {
 }
 
 /// Per-vertex-slot floor Z for wireframe mode: lowest front-sector floor among touching lines; vertices on no sectored line → 0. Stale/empty in Colour/Texture mode.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 pub fn build_vertex_floor_z(map: &EditorMap) -> Vec<f32> {
     let mut z = vec![f32::INFINITY; map.vertices.slot_count()];
     for line in map.lines.values() {
@@ -465,6 +489,10 @@ pub fn build_thing_instances(input: &FrameInput<'_>) -> Vec<ThingInst> {
 }
 
 /// The instance for a thing; removed or skill-filtered-out things emit a zero-size slot.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 pub(crate) fn thing_instance(input: &FrameInput<'_>, key: ThingKey) -> ThingInst {
     let Some(thing) = input.map.things.get(key) else {
         return ThingInst::default();
@@ -664,7 +692,11 @@ mod tests {
         }
         let viewport = [hi[0] - lo[0] + 256.0, hi[1] - lo[1] + 256.0];
         let mut cam = Camera::default();
-        cam.look_down_at([(lo[0] + hi[0]) * 0.5, (lo[1] + hi[1]) * 0.5, 0.0]);
+        cam.look_down_at([
+            f32::midpoint(lo[0], hi[0]),
+            f32::midpoint(lo[1], hi[1]),
+            0.0,
+        ]);
         cam.set_ortho_height(viewport[1]);
         (cam, 1.0, viewport)
     }
@@ -747,6 +779,10 @@ mod tests {
     }
 
     #[test]
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+    )]
     fn vertex_floor_z_is_lowest_bordering_floor() {
         let wad = wad::WadData::new(&test_utils::doom1_wad_path());
         let map = editor_core::import_wad_map(&wad, "E1M1").expect("E1M1 imports");

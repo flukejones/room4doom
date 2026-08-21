@@ -9,7 +9,7 @@ use std::collections::hash_set::HashSet;
 
 use config::InputConfigResolved;
 use game_config::WeaponType;
-use game_config::tic_cmd::*;
+use game_config::tic_cmd::{ANGLETURN, FORWARDMOVE, MAXPLMOVE, SIDEMOVE, TIC_CMD_BUTTONS, TicCmd};
 use gamestate_traits::{KeyCode, MouseBtn};
 
 /// Backend-agnostic non-input events forwarded to the game loop.
@@ -118,6 +118,15 @@ impl InputEvents {
         }
     }
 
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "screen, input and game-state values deliberately retain their established numeric widths and rounding"
+    )]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep the complete dispatch or geometry pass together without changing its established ordering"
+    )]
     pub fn build_tic_cmd(&mut self, cfg: &InputConfigResolved) -> TicCmd {
         let mut cmd = TicCmd::default();
 

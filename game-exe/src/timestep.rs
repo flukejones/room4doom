@@ -46,6 +46,10 @@ impl TimeStep {
         }
     }
 
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "screen, input and game-state values deliberately retain their established numeric widths and rounding"
+    )]
     fn delta(&mut self) -> f32 {
         let current_time = Instant::now();
         let delta = current_time.duration_since(self.last_time).as_nanos() as f32 * 0.000001;

@@ -27,6 +27,10 @@ pub struct VoxelFace {
 
 /// Walk the model and emit a face for every exposed voxel side. Geometry +
 /// palette index only; colour resolution happens at GPU upload.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "asset coordinates and packed channels deliberately use their established format widths and rounding"
+)]
 pub fn generate_faces(model: &VoxelModel) -> Vec<VoxelFace> {
     let mut faces = Vec::new();
     for axis_i in 0..3u8 {

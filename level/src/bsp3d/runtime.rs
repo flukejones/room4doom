@@ -59,6 +59,10 @@ pub fn contrast_adjust(normal: Vec3) -> i32 {
 
 /// Final light band (0..15): `(sector_light>>4 + extralight)` capped at 15, then
 /// the contrast delta re-clamped. Matches the software3d order exactly.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map geometry deliberately converts between fixed-point coordinates, float meshes and packed indices"
+)]
 pub fn light_band(sector_light: usize, extralight: usize, normal: Vec3) -> i32 {
     let base = ((sector_light >> 4) + extralight).min(LIGHT_LEVELS as usize) as i32;
     (base + contrast_adjust(normal)).clamp(0, LIGHT_LEVELS)
@@ -350,6 +354,8 @@ impl BSP3D {
 
     #[inline(always)]
     pub fn vertex_get(&self, idx: usize) -> Vec3 {
+        // SAFETY: BSP polygon vertex indices and ranges are validated when the geometry is
+        // built/loaded and remain within these buffers.
         unsafe { *self.vertices.get_unchecked(idx) }
     }
 
@@ -399,6 +405,8 @@ impl BSP3D {
             normal
         };
         let (s, _) = self.poly_vertex_range[gi];
+        // SAFETY: BSP polygon vertex indices and ranges are validated when the geometry is
+        // built/loaded and remain within these buffers.
         let first_vertex = self.vertices[unsafe { *self.poly_verts.get_unchecked(s) }];
         let dot = normal.dot(point - first_vertex);
         dot.is_sign_positive() || dot.is_nan()
@@ -456,6 +464,14 @@ impl BSP3D {
     /// Re-derive a wall polygon's surface cache: slot, textures, flag bits and
     /// UV from its sidedef/linedef/sector through the MapPtrs. Marks texture
     /// dirty only when a resolved value actually changed.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "map geometry deliberately converts between fixed-point coordinates, float meshes and packed indices"
+    )]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep the complete dispatch or geometry pass together without changing its established ordering"
+    )]
     pub(super) fn resolve_wall(&mut self, gi: usize) {
         debug_assert!(
             !self.poly_flags[gi].contains(PolyFlags::IS_FLAT),
@@ -587,6 +603,10 @@ impl BSP3D {
     }
 
     /// Re-derive a flat polygon's texture and sky bit from its sector's pic.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "map geometry deliberately converts between fixed-point coordinates, float meshes and packed indices"
+    )]
     pub(super) fn resolve_flat(&mut self, gi: usize) {
         debug_assert!(
             self.poly_flags[gi].contains(PolyFlags::IS_FLAT),
@@ -690,6 +710,11 @@ impl BSP3D {
     /// Heights quantize through [`FixedT`] before being applied so vertex z
     /// and `sector.*height` stay bit-equal — wall slot derivation depends on
     /// that equality.
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "map geometry deliberately converts between fixed-point coordinates, float meshes and packed indices"
+    )]
     pub fn apply_interpolated_heights(&mut self, sectors: &mut [Sector], frac: f32) {
         for (sector_id, sector) in sectors.iter_mut().enumerate() {
             if sector_id >= self.sector_leaves.len() {

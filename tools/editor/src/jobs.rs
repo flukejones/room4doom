@@ -61,7 +61,7 @@ fn drain(ui: &EditorWindow, shared: &Rc<RefCell<SharedState>>) {
             JobOutcome::Export {
                 path,
                 result,
-            } => finish_export(ui, shared, path, result),
+            } => finish_export(ui, shared, &path, result),
             JobOutcome::Build {
                 result,
             } => finish_build(ui, shared, result),
@@ -71,7 +71,7 @@ fn drain(ui: &EditorWindow, shared: &Rc<RefCell<SharedState>>) {
             JobOutcome::PngExport {
                 path,
                 result,
-            } => finish_png_export(ui, shared, path, result),
+            } => finish_png_export(ui, shared, &path, result),
         }
     }
 }
@@ -157,7 +157,7 @@ fn run_export(
 fn finish_export(
     ui: &EditorWindow,
     shared: &Rc<RefCell<SharedState>>,
-    path: PathBuf,
+    path: &Path,
     result: Result<Vec<rbsp::BuildEvent>, String>,
 ) {
     let events = {
@@ -232,7 +232,7 @@ pub fn start_png_export(
 fn finish_png_export(
     ui: &EditorWindow,
     shared: &Rc<RefCell<SharedState>>,
-    path: PathBuf,
+    path: &Path,
     result: Result<(), String>,
 ) {
     shared.borrow_mut().job_busy = false;
@@ -333,6 +333,10 @@ fn finish_build(
 
 // ── Launch (play-test) ──────────────────────────────────────────────────────
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 pub fn start_launch(ui: &EditorWindow, shared: &Rc<RefCell<SharedState>>) {
     let weak = ui.as_weak();
     let (snapshot, plan, prefs, iwad, tx) = {

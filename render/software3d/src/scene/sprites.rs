@@ -204,6 +204,11 @@ impl Software3D {
     }
 
     /// Build a billboard quad in world space for a sprite
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     fn build_sprite_quad(
         thing: &MapObject,
         player_xy: Vec2,
@@ -344,6 +349,10 @@ impl Software3D {
     /// - Clips each triangle against the view frustum
     /// - Projects clipped vertices to screen space with perspective divide
     /// - Dispatches to `draw_sprite_polygon` or `draw_sprite_fuzz`
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     fn render_sprite_quad<P: PixelFmt>(
         &mut self,
         quad: &SpriteQuad,
@@ -429,6 +438,11 @@ impl Software3D {
     ///
     /// - Caches colourmaps per brightness band to avoid repeated lookups
     /// - Dispatches to `rasterize_voxel_texels` or `rasterize_voxel_fuzz`
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     fn render_voxel_slices<P: PixelFmt>(
         &mut self,
         slices: &[VoxelSliceRef],

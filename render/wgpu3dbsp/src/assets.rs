@@ -39,6 +39,10 @@ pub struct Atlas {
 impl Atlas {
     /// Pack every wall texture. `max_dim` is the device 2D-texture limit (the
     /// per-layer height cap).
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub fn walls(pic_data: &PicData, max_dim: u32) -> Self {
         let sizes: Vec<(u32, u32)> = (0..pic_data.num_textures())
             .map(|i| {
@@ -53,6 +57,10 @@ impl Atlas {
     }
 
     /// Pack every flat (all 64×64). `max_dim` is the per-layer height cap.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub fn flats(pic_data: &PicData, max_dim: u32) -> Self {
         let sizes: Vec<(u32, u32)> = (0..pic_data.num_flats())
             .map(|i| {
@@ -70,6 +78,10 @@ impl Atlas {
     /// per-patch metadata table (pivot offsets) indexed by patch id. Sprite
     /// pixels are `Vec<Vec<u16>>` (column-major posts), not the flat `&[u16]`
     /// walls/flats use, so this blits via [`blit_sprite`].
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub fn sprites(pic_data: &PicData, max_dim: u32) -> SpriteAtlas {
         let count = pic_data.num_sprite_patches();
         let sizes: Vec<(u32, u32)> = (0..count)
@@ -188,6 +200,10 @@ pub struct SpriteAtlas {
 
 /// Resolve column-major palette-indexed `src` (w×h) to RGBA and write it into the
 /// atlas `dst` (row-major, `stride` px wide) at pixel `(ox, oy)`.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+)]
 fn blit(
     src: &[u16],
     w: usize,
@@ -221,6 +237,10 @@ fn blit(
 /// Resolve a sprite patch's column-major `Vec<Vec<u16>>` posts to RGBA into the
 /// atlas `dst` at `(ox, oy)`. Inner columns may be short/empty (Doom posts);
 /// only present rows are written, the rest stay transparent (zeroed buffer).
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+)]
 fn blit_sprite(
     data: &[Vec<u16>],
     pic_data: &PicData,

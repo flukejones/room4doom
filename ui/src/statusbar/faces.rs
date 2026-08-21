@@ -103,6 +103,10 @@ impl DoomguyFace {
         self.old_weapons_owned = status.weaponowned;
     }
 
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "screen, input and game-state values deliberately retain their established numeric widths and rounding"
+    )]
     fn calc_pain_offset(&mut self, status: &PlayerStatus) -> usize {
         let health = if status.health > 100 {
             100
@@ -159,17 +163,17 @@ impl DoomguyFace {
             } else {
                 // TODO: else show angle
                 // if status.attacked_angle_count != 0 {}
-                let i;
+
                 let diffang;
-                if status.attacked_from.rad() > status.own_angle.rad() {
+                let i = if status.attacked_from.rad() > status.own_angle.rad() {
                     // whether right or left
                     diffang = status.attacked_from.rad() - status.own_angle.rad();
-                    i = diffang > PI;
+                    diffang > PI
                 } else {
                     // whether left or right
                     diffang = status.own_angle.rad() - status.attacked_from.rad();
-                    i = diffang <= PI;
-                }
+                    diffang <= PI
+                };
 
                 self.count = TURN_TICS;
                 self.index = self.calc_pain_offset(status);

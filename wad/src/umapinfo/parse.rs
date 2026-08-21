@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
-use super::*;
+use super::{
+    BossAction, BossActions, EpisodeDef, LabelKind, MapEntry, TextOrClear, UMapInfo, parse_map_name,
+};
 
 #[derive(Debug)]
 pub struct ParseError {
@@ -523,7 +525,7 @@ struct ClusterDef {
     enter_text: Option<String>,
 }
 
-pub fn parse(input: &str) -> Result<UMapInfo, ParseError> {
+pub(super) fn parse(input: &str) -> Result<UMapInfo, ParseError> {
     let mut parser = Parser::new(input);
     let mut entries = Vec::new();
     let mut index = HashMap::new();

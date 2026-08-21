@@ -76,6 +76,10 @@ pub struct SpriteCam {
 
 impl SpriteCam {
     /// Build from the player view + the shared projection matrix.
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub fn new(view: &RenderView, projection: Mat4) -> Self {
         let pos = Vec3::new(view.x.into(), view.y.into(), view.viewz.into());
         let basis = EyeBasis::new(view);
@@ -163,6 +167,15 @@ impl SpriteScratch {
     /// (replicating software3d), and build a back-to-front-sorted billboard
     /// instance list. No PVS — GPU depth + a behind-camera reject handle
     /// occlusion (over-draw is acceptable). Opaque instances precede fuzz.
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep the complete dispatch or geometry pass together without changing its established ordering"
+    )]
     pub fn collect(
         &mut self,
         view: &RenderView,
@@ -313,6 +326,11 @@ impl SpriteScratch {
     /// last with no depth; with one they become world billboards at the anchor.
     /// `view.is_shadow` picks the fuzz variant at draw time. `screen_w`/
     /// `screen_h` are the engine buffer dims.
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub fn collect_psprites(
         &mut self,
         view: &RenderView,
@@ -386,7 +404,7 @@ impl SpriteScratch {
                 // Every layer shares the anchor and basis, so the muzzle flash
                 // stays on the barrel.
                 let to_units = anchor.units_per_pixel / base_scale;
-                let centre_x = (x1 + x2) * 0.5 - screen_w * 0.5;
+                let centre_x = f32::midpoint(x1, x2) - screen_w * 0.5;
                 let (left, right) = ((x1 - x2) * 0.5, (x2 - x1) * 0.5);
                 let basis = EyeBasis::new(view);
                 let (right_axis, up) = (Vec3::from(basis.right), Vec3::from(basis.up));
@@ -467,6 +485,10 @@ pub struct SpritePipeline {
 }
 
 impl SpritePipeline {
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep related UI setup and event dispatch together in their execution order"
+    )]
     pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, sprites: &SpriteAtlas) -> Self {
         let cam_buf = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("sprite_camera"),
@@ -668,6 +690,10 @@ impl SpritePipeline {
 
     /// Draw the weapon psprite (screen-space, no depth, on top). Called last, after
     /// world billboards and the voxel pass. `fuzz_player` picks the spectre variant.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub fn render_psprites(
         &self,
         queue: &wgpu::Queue,
@@ -701,6 +727,10 @@ impl SpritePipeline {
 
     /// Upload the frame's instances, growing the GPU buffer + rebinding when the
     /// count exceeds capacity. Empty frames are a no-op (drawn count 0).
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     fn upload_instances(
         &mut self,
         device: &wgpu::Device,
@@ -722,6 +752,10 @@ impl SpritePipeline {
     /// Record the world billboards into an open world pass. The instance buffer
     /// is partitioned `[0, opaque_count)` opaque (cutout) and
     /// `[opaque_count, count)` fuzz (spectre); each is drawn with its pipeline.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub fn record_world(&self, rpass: &mut wgpu::RenderPass<'_>, scratch: &SpriteScratch) {
         let (opaque_count, count) = (scratch.opaque_count, scratch.instances.len() as u32);
         if count == 0 {

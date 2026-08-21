@@ -36,6 +36,11 @@ impl WorldRect {
 }
 
 /// Round half-away-from-zero to a multiple of `grid` (DoomEd snap); distinct from the kernel's plainer `snap_coord`.
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 pub fn snap(v: f32, grid: i32) -> f32 {
     let g = grid as f32;
     let cells = if v < 0.0 {

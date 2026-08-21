@@ -2,7 +2,7 @@ use std::f64::consts::{PI, TAU};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-const FINEANGLES: usize = 8192;
+const FINEANGLES: u32 = 8192;
 
 fn main() {
     let out = PathBuf::from(std::env::var("OUT_DIR").unwrap());
@@ -17,31 +17,27 @@ fn main() {
 }
 
 /// Generate 32.32 fixed-point trig tables (i64) for fixed64hd.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "rounded trig samples intentionally saturate to the fixed-point i64 range"
+)]
 fn gen_hd_tables(out: &Path) {
-    let fracunit: i64 = 1 << 32;
+    let fracunit = 4_294_967_296.0;
     let path = out.join("hd_trig_tables.rs");
 
     let mut finesine = Vec::with_capacity(10240);
     for i in 0..FINEANGLES {
-        let angle = (i as f64 + 0.5) * TAU / FINEANGLES as f64;
-        finesine.push((fracunit as f64 * angle.sin()).round() as i64);
+        let angle = (f64::from(i) + 0.5) * TAU / f64::from(FINEANGLES);
+        finesine.push((fracunit * angle.sin()).round() as i64);
     }
     for i in 0..2048 {
         finesine.push(finesine[i]);
     }
 
     let mut finetangent = Vec::with_capacity(4096);
-    for i in 0..4096usize {
-        let angle = (i as f64 - 2048.0 + 0.5) * PI / 4096.0;
-        let v = (fracunit as f64 * angle.tan()).round();
-        let clamped = if v > i64::MAX as f64 {
-            i64::MAX
-        } else if v < i64::MIN as f64 {
-            i64::MIN
-        } else {
-            v as i64
-        };
-        finetangent.push(clamped);
+    for i in 0..4096u32 {
+        let angle = (f64::from(i) - 2048.0 + 0.5) * PI / 4096.0;
+        finetangent.push((fracunit * angle.tan()).round() as i64);
     }
 
     let sine_entries: Vec<String> = finesine.iter().map(|v| format!("{v}_i64")).collect();

@@ -37,6 +37,10 @@ fn theme_labels(variant: ThemeVariant) -> Vec<slint::SharedString> {
         .collect()
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn theme_index(variant: ThemeVariant, id: &str) -> i32 {
     theme::themes_for(variant)
         .iter()
@@ -65,6 +69,10 @@ fn theme_mode_from_index(index: i32) -> ThemeMode {
     }
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "keep related UI setup and event dispatch together in their execution order"
+)]
 pub(crate) fn init(ui: &EditorWindow, shared: &Rc<RefCell<SharedState>>) {
     let ctl = ui.global::<PrefsController>();
     ctl.set_light_themes(model(theme_labels(ThemeVariant::Light)));
@@ -211,6 +219,10 @@ pub(crate) fn push_toolbar_position(ui: &EditorWindow, shared: &Rc<RefCell<Share
     ));
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn populate(ui: &EditorWindow, shared: &Rc<RefCell<SharedState>>) {
     let ctl = ui.global::<PrefsController>();
     let prefs = &shared.borrow().prefs;

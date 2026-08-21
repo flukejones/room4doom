@@ -63,6 +63,10 @@ pub fn point_on_line_side(x: FixedT, y: FixedT, line: &LineDef) -> usize {
 /// bbox layout: [BOXTOP, BOXBOTTOM, BOXLEFT, BOXRIGHT] in raw 16.16.
 /// Returns -1 if the line runs through the box at all.
 #[inline]
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "Doom state and fixed-point conversions deliberately retain their established packed widths and rounding"
+)]
 pub fn box_on_line_side(tmbox: &[i32; 4], ld: &LineDef) -> i32 {
     let mut p1;
     let mut p2;
@@ -231,19 +235,19 @@ impl Ord for Intercept {
 impl Eq for Intercept {}
 
 pub struct BestSlide {
-    pub best_slide_frac: FixedT,
-    pub second_slide_frac: FixedT,
-    pub best_slide_line: Option<MapPtr<LineDef>>,
-    pub second_slide_line: Option<MapPtr<LineDef>>,
+    pub best_frac: FixedT,
+    pub second_frac: FixedT,
+    pub best_line: Option<MapPtr<LineDef>>,
+    pub second_line: Option<MapPtr<LineDef>>,
 }
 
 impl Default for BestSlide {
     fn default() -> Self {
         Self {
-            best_slide_frac: FixedT::ZERO,
-            second_slide_frac: FixedT::ZERO,
-            best_slide_line: None,
-            second_slide_line: None,
+            best_frac: FixedT::ZERO,
+            second_frac: FixedT::ZERO,
+            best_line: None,
+            second_line: None,
         }
     }
 }
@@ -284,6 +288,8 @@ impl PortalZ {
         }
 
         let front = &line.frontsector;
+        // SAFETY: The two-sided portal invariant guarantees the back side/sector exists before
+        // this branch accesses it.
         let back = unsafe { line.backsector.as_ref().unwrap_unchecked() };
 
         let front_ceil = FixedT::from_fixed(front.ceilingheight.to_fixed_raw());
@@ -364,6 +370,10 @@ const FRACUNIT_I: i32 = 0x10000;
 ///
 /// Walks blockmap cells along the ray, collecting line and thing intercepts.
 /// Used by the fixed-point backend for demo-deterministic hitscan.
+#[expect(
+    clippy::too_many_lines,
+    reason = "keep the complete dispatch or geometry pass together without changing its established ordering"
+)]
 pub fn path_traverse_blockmap(
     origin_x: FixedT,
     origin_y: FixedT,
@@ -587,6 +597,8 @@ fn block_things_iterator(
     let mut mobj_ptr = blocklinks[idx];
 
     while let Some(ptr) = mobj_ptr {
+        // SAFETY: These object links reference initialized thinker slots in the level-owned
+        // fixed pool; traversal and mutations are sequenced by the game loop.
         let thing = unsafe { &mut *ptr };
         if !add_thing_intercept(trace_fixed, intercepts, thing, valid_count) {
             return false;
@@ -735,6 +747,10 @@ mod tests {
     }
 
     #[test]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "Doom state and fixed-point conversions deliberately retain their established packed widths and rounding"
+    )]
     fn point_on_line_side_geometry_pinned() {
         let map = e1m1();
         let ld0 = &map.linedefs[0];
@@ -772,6 +788,10 @@ mod tests {
     /// Diagonals: point_on_line_side must agree with the divline form (on-line
     /// 2 maps to back 1).
     #[test]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "Doom state and fixed-point conversions deliberately retain their established packed widths and rounding"
+    )]
     fn point_on_line_side_diagonals_agree_with_divline() {
         let map = e1m1();
         for &ldn in &[5usize, 6, 40, 41] {

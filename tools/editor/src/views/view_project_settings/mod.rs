@@ -48,6 +48,10 @@ pub(crate) fn init(ui: &EditorWindow, shared: &Rc<RefCell<SharedState>>) {
 }
 
 /// Open edge: fill from open project; disabled when none.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn populate(ui: &EditorWindow, shared: &Rc<RefCell<SharedState>>) {
     let ctl = ui.global::<ProjectSettingsController>();
     let state = shared.borrow();

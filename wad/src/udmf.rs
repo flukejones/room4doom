@@ -114,6 +114,10 @@ enum Value {
 }
 
 impl Value {
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "asset coordinates and packed channels deliberately use their established format widths and rounding"
+    )]
     fn as_f64(&self) -> Option<f64> {
         match *self {
             Self::Int(i) => Some(i as f64),
@@ -221,6 +225,10 @@ impl Block {
 }
 
 /// Parse a `TEXTMAP` lump body.
+#[expect(
+    clippy::too_many_lines,
+    reason = "keep format fields and initialization steps visible in their required order"
+)]
 pub fn parse_textmap(text: &str) -> Result<UdmfMap, UdmfError> {
     let mut map = UdmfMap::default();
     let mut lexer = Lexer::new(text);
@@ -237,7 +245,7 @@ pub fn parse_textmap(text: &str) -> Result<UdmfMap, UdmfError> {
             Some(Token::Eq) => {
                 lexer.next_token()?;
                 let value = lexer.value()?;
-                lexer.expect(Token::Semi)?;
+                lexer.expect(&Token::Semi)?;
                 if name == "namespace" {
                     map.namespace = value
                         .as_str()
@@ -500,9 +508,9 @@ impl<'a> Lexer<'a> {
         Ok(Some(tok))
     }
 
-    fn expect(&mut self, want: Token) -> Result<(), UdmfError> {
+    fn expect(&mut self, want: &Token) -> Result<(), UdmfError> {
         match self.next_token()? {
-            Some(t) if t == want => Ok(()),
+            Some(t) if t == *want => Ok(()),
             other => Err(self.err(format!("expected {want:?}, got {other:?}"))),
         }
     }
@@ -516,7 +524,7 @@ impl<'a> Lexer<'a> {
 
     /// Consume `{ ident = value ; ... }` after the opening brace token.
     fn block(&mut self, kind: &str) -> Result<Block, UdmfError> {
-        self.expect(Token::LBrace)?;
+        self.expect(&Token::LBrace)?;
         let mut block = Block {
             line: self.line,
             fields: HashMap::new(),
@@ -526,9 +534,9 @@ impl<'a> Lexer<'a> {
                 Some(Token::RBrace) => return Ok(block),
                 Some(Token::Semi) => {} // nil assignment_expr
                 Some(Token::Ident(field)) => {
-                    self.expect(Token::Eq)?;
+                    self.expect(&Token::Eq)?;
                     let value = self.value()?;
-                    self.expect(Token::Semi)?;
+                    self.expect(&Token::Semi)?;
                     block.fields.insert(field, value);
                 }
                 other => {

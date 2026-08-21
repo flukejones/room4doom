@@ -7,6 +7,10 @@ use super::put_palette_color;
 use crate::assets::FlatPic;
 
 /// Row-major 64×64 flat to RGBA8.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 pub fn flat_to_rgba(pic: &FlatPic, palette: &WadPalette) -> SharedPixelBuffer<Rgba8Pixel> {
     let mut buf = SharedPixelBuffer::<Rgba8Pixel>::new(pic.width as u32, pic.height as u32);
     let bytes = buf.make_mut_bytes();

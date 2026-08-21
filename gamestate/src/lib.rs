@@ -157,7 +157,7 @@ pub struct Game {
     // d_net.c
     _localcmds: [TicCmd; BACKUPTICS],
     usergame: bool,
-    game_skill: Skill,
+    skill: Skill,
     pub paused: bool,
     /// True when the game ticker is blocked (menu active, wipe, or pause).
     /// Render interpolation must be pinned to 1.0 while set, or the view drifts.
@@ -372,7 +372,7 @@ impl Game {
             _localcmds: [TicCmd::new(); BACKUPTICS],
 
             usergame: false,
-            game_skill: Skill::default(),
+            skill: Skill::default(),
             paused: false,
             frozen: false,
             config_values: initial_config,
@@ -399,7 +399,7 @@ impl Game {
     }
 
     pub fn game_skill(&self) -> Skill {
-        self.game_skill
+        self.skill
     }
 
     pub fn game_mission(&self) -> GameMission {
@@ -485,7 +485,7 @@ impl Game {
             player.player_state = PlayerState::Reborn;
         }
 
-        self.game_skill = self.options.skill;
+        self.skill = self.options.skill;
         self.paused = false;
         self.demo.playback = false;
         self.automap = false;
@@ -539,6 +539,8 @@ impl Game {
         let map_entry = self.umapinfo.as_ref().and_then(|u| u.get(&map_name));
         let sky_override = map_entry.and_then(|e| e.sky_texture.as_deref());
 
+        // SAFETY: The game owns the player arrays passed here and keeps their addresses stable
+        // for the loaded level lifetime.
         let level = unsafe {
             LevelState::new_empty(
                 self.options.clone(),
@@ -580,10 +582,10 @@ impl Game {
             spawn_specials(level);
             level.boss_actions = map_entry.and_then(|e| e.boss_actions.clone());
 
-            debug!("Level: skill = {:?}", &level.options.skill);
-            debug!("Level: episode = {}", &level.options.episode);
-            debug!("Level: map = {}", &level.options.map);
-            debug!("Level: player_starts = {:?}", &level.player_starts);
+            debug!("Level: skill = {:?}", level.options.skill);
+            debug!("Level: episode = {}", level.options.episode);
+            debug!("Level: map = {}", level.options.map);
+            debug!("Level: player_starts = {:?}", level.player_starts);
 
             self.level_start_tic = self.game_tic;
         }
@@ -654,7 +656,7 @@ impl Game {
         self.options.skill = header.skill;
         self.options.episode = header.episode;
         self.options.map = header.map;
-        self.game_skill = header.skill;
+        self.skill = header.skill;
 
         // Exit demo mode and enter normal gameplay
         self.usergame = true;
@@ -764,9 +766,7 @@ impl Game {
             self.demo.playback = false;
             self.options.netgame = false;
             self.options.deathmatch = 0;
-            for p in &mut self.players_in_game {
-                *p = false;
-            }
+            self.players_in_game.fill(false);
             self.options.respawn_parm = false;
             self.options.fast_parm = false;
             self.options.no_monsters = false;
@@ -959,6 +959,10 @@ impl Game {
     /// Finish the current level: populate `world_info` for the intermission
     /// screen, determine the next map (respecting UMAPINFO and secret exits),
     /// and trigger victory or intermission state.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep the complete dispatch or geometry pass together without changing its established ordering"
+    )]
     fn do_completed(&mut self) {
         self.pending_action = GameAction::None;
 
@@ -1261,6 +1265,8 @@ impl Game {
                 }
             }
 
+            // SAFETY: The thinker pool and level stay at stable addresses during this single-
+            // threaded tick; callbacks do not replace their backing storage.
             unsafe {
                 let lev = &mut *ptr::from_mut(level);
                 level.thinkers.run_thinkers(lev);

@@ -83,9 +83,9 @@ impl Aabb {
 
     fn centre(&self) -> [f32; 3] {
         [
-            0.5 * (self.min[0] + self.max[0]),
-            0.5 * (self.min[1] + self.max[1]),
-            0.5 * (self.min[2] + self.max[2]),
+            f32::midpoint(self.min[0], self.max[0]),
+            f32::midpoint(self.min[1], self.max[1]),
+            f32::midpoint(self.min[2], self.max[2]),
         ]
     }
 
@@ -421,6 +421,10 @@ mod tests {
     }
 
     /// Every `pick_mesh` hit over a coarse E1M1 grid of downward rays must be in the gather set.
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+    )]
     fn assert_gather_never_prunes(bvh: &MeshBvh, mesh: &[Vert3D], label: &str) {
         let mut leaves = Vec::new();
         let mut checked = 0;

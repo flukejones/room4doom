@@ -43,7 +43,7 @@ impl WallEdge {
 
     /// Midpoint height, for comparisons that need a single value.
     pub(crate) fn mean(self) -> f32 {
-        (self.start + self.end) * 0.5
+        f32::midpoint(self.start, self.end)
     }
 }
 
@@ -126,6 +126,10 @@ pub(crate) struct QuantizedVec3 {
 }
 
 impl QuantizedVec3 {
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "BSP geometry deliberately quantizes coordinates and stores indices in the established on-disk widths"
+    )]
     pub(crate) fn from_vec3(v: Vec3, precision: f32) -> Self {
         Self {
             x: (v.x / precision).round() as i32,

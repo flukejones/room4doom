@@ -6,6 +6,10 @@ use crate::Software3D;
 /// Doom flat textures are always 64×64 (engine format invariant).
 const FLAT_DIM: usize = 64;
 const FLAT_MASK: usize = FLAT_DIM - 1;
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "the fixed 64-texel flat dimension is exactly representable in f32"
+)]
 const FLAT_DIM_F32: f32 = FLAT_DIM as f32;
 
 /// Sample a single sky pixel from the combined u32 XRGB buffer, returning the
@@ -22,6 +26,10 @@ const FLAT_DIM_F32: f32 = FLAT_DIM as f32;
 ///   `sky_r >= sky_tex_height`     → downward extension row `(sky_r -
 /// sky_tex_height)`
 #[inline]
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+)]
 pub(crate) fn sample_sky_pixel(
     sky_col: usize,
     sky_r: i32,
@@ -67,6 +75,10 @@ impl<'a> TextureSampler<'a> {
     /// a wall textured with the sky pic or a flat with the sky flat also
     /// samples as sky, matching the per-face decision before flags existed.
     #[inline(always)]
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub(crate) fn new(
         is_flat: bool,
         is_sky: bool,
@@ -108,7 +120,13 @@ impl<'a> TextureSampler<'a> {
     /// transparent texel (caller skips); otherwise the 0-255 colourmap-lit
     /// palette index for the scene index plane.
     #[inline(always)]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub(crate) fn sample(&'a self, u: f32, v: f32, colourmap: &[usize]) -> u16 {
+        // SAFETY: UV coordinates wrap/clamp to the loaded texture dimensions, and palette
+        // indices address the complete colourmap.
         unsafe {
             match self {
                 TextureSampler::Vertical {
@@ -149,6 +167,11 @@ impl<'a> TextureSampler<'a> {
 const SKY_FILL_INDEX: u16 = 8;
 
 impl Software3D {
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub(crate) fn generate_pseudo_random_colour(id: u32, brightness: usize) -> u32 {
         let mut hash = id.wrapping_mul(0x9E3779B9);
         hash ^= hash >> 15;

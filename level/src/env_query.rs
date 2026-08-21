@@ -14,6 +14,10 @@ use std::ptr;
 
 /// `P_GetNextSector`: the sector on the other side of `line` from `sector`, or
 /// `None` if the line is one-sided.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "MapPtr is a non-owning handle passed by value consistently across Doom query and effect APIs"
+)]
 pub fn get_next_sector(line: MapPtr<LineDef>, sector: MapPtr<Sector>) -> Option<MapPtr<Sector>> {
     if !line.flags.contains(LineDefFlags::TwoSided) {
         return None;
@@ -27,6 +31,10 @@ pub fn get_next_sector(line: MapPtr<LineDef>, sector: MapPtr<Sector>) -> Option<
 }
 
 /// `P_FindMinSurroundingLight`
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "MapPtr is a non-owning handle passed by value consistently across Doom query and effect APIs"
+)]
 pub fn find_min_light_surrounding(sec: MapPtr<Sector>, max: usize) -> usize {
     let mut min = max;
     for line in &sec.lines {
@@ -41,6 +49,10 @@ pub fn find_min_light_surrounding(sec: MapPtr<Sector>, max: usize) -> usize {
 }
 
 /// `P_FindMaxSurroundingLight`
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "MapPtr is a non-owning handle passed by value consistently across Doom query and effect APIs"
+)]
 pub fn find_max_light_surrounding(sec: MapPtr<Sector>, mut max: usize) -> usize {
     for line in &sec.lines {
         if let Some(other) = get_next_sector(line.clone(), sec.clone())
@@ -54,6 +66,10 @@ pub fn find_max_light_surrounding(sec: MapPtr<Sector>, mut max: usize) -> usize 
 }
 
 /// `P_FindLowestCeilingSurrounding`
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "MapPtr is a non-owning handle passed by value consistently across Doom query and effect APIs"
+)]
 pub fn find_lowest_ceiling_surrounding(sec: MapPtr<Sector>) -> SectorHeight {
     let mut height = SectorHeight::MAX;
     for line in &sec.lines {
@@ -68,6 +84,10 @@ pub fn find_lowest_ceiling_surrounding(sec: MapPtr<Sector>) -> SectorHeight {
 }
 
 /// `P_FindHighestCeilingSurrounding`
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "MapPtr is a non-owning handle passed by value consistently across Doom query and effect APIs"
+)]
 pub fn find_highest_ceiling_surrounding(sec: MapPtr<Sector>) -> SectorHeight {
     let mut height = SectorHeight::ZERO;
     for line in &sec.lines {
@@ -82,6 +102,10 @@ pub fn find_highest_ceiling_surrounding(sec: MapPtr<Sector>) -> SectorHeight {
 }
 
 /// `P_FindLowestFloorSurrounding`
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "MapPtr is a non-owning handle passed by value consistently across Doom query and effect APIs"
+)]
 pub fn find_lowest_floor_surrounding(sec: MapPtr<Sector>) -> SectorHeight {
     let mut floor = sec.floorheight;
     for line in &sec.lines {
@@ -96,6 +120,10 @@ pub fn find_lowest_floor_surrounding(sec: MapPtr<Sector>) -> SectorHeight {
 }
 
 /// `P_FindHighestFloorSurrounding`
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "MapPtr is a non-owning handle passed by value consistently across Doom query and effect APIs"
+)]
 pub fn find_highest_floor_surrounding(sec: MapPtr<Sector>) -> SectorHeight {
     let mut floor = -SectorHeight::MAX;
     for line in &sec.lines {
@@ -111,6 +139,10 @@ pub fn find_highest_floor_surrounding(sec: MapPtr<Sector>) -> SectorHeight {
 
 /// `P_FindNextHighestFloor`: the lowest neighbour floor that is still above
 /// `current`.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "MapPtr is a non-owning handle passed by value consistently across Doom query and effect APIs"
+)]
 pub fn find_next_highest_floor(sec: MapPtr<Sector>, current: SectorHeight) -> SectorHeight {
     let mut height_list = Vec::new();
 

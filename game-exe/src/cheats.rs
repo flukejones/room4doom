@@ -60,6 +60,10 @@ impl Cheats {
     }
 
     /// Cheats skip the ticcmd system and directly affect a game-exe
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep the complete dispatch or geometry pass together without changing its established ordering"
+    )]
     pub fn check_input(&mut self, sc: KeyCode, game: &mut Game) {
         let Some(key) = sc.to_char() else {
             return;
@@ -84,9 +88,7 @@ impl Cheats {
                 player.status.armorpoints = 200;
                 player.status.armortype = 2;
 
-                for w in &mut player.status.weaponowned {
-                    *w = true;
-                }
+                player.status.weaponowned.fill(true);
                 for (i, a) in player.status.ammo.iter_mut().enumerate() {
                     *a = player.status.maxammo[i];
                 }
@@ -96,15 +98,11 @@ impl Cheats {
                 player.status.armorpoints = 200;
                 player.status.armortype = 2;
 
-                for w in &mut player.status.weaponowned {
-                    *w = true;
-                }
+                player.status.weaponowned.fill(true);
                 for (i, a) in player.status.ammo.iter_mut().enumerate() {
                     *a = player.status.maxammo[i];
                 }
-                for k in &mut player.status.cards {
-                    *k = true;
-                }
+                player.status.cards.fill(true);
                 player.message = Some(english::STSTR_KFAADDED);
             } else if self.powerup[0].check(key) {
                 // `idbeholdv`: Invulnerability

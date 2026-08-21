@@ -155,6 +155,10 @@ struct PrunedVertices {
     remap: Vec<u32>,
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn prune_vertices(map: &DenseMap) -> Result<PrunedVertices, ExportError> {
     let mut used = vec![false; map.vertices.len()];
     for line in &map.lines {
@@ -195,6 +199,10 @@ fn prune_vertices(map: &DenseMap) -> Result<PrunedVertices, ExportError> {
     })
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn flatten_sides(map: &DenseMap) -> Result<FlatSides<'_>, ExportError> {
     let mut sides = Vec::with_capacity(map.lines.len() * 2);
     let mut front = Vec::with_capacity(map.lines.len());
@@ -256,6 +264,10 @@ fn encode_things(map: &DenseMap) -> Result<Vec<u8>, ExportError> {
     Ok(buf)
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn encode_linedefs(
     map: &DenseMap,
     flat: &FlatSides<'_>,
@@ -307,6 +319,10 @@ fn sector_of(side: &DenseSideDef) -> u32 {
 }
 
 /// Convert the editor model into rbsp's input. Sidedef sector indices are the model's (pre-split) indices; rbsp only reads sector records for 3D geometry heights, which the split never changes.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn to_bsp_input_flat(
     map: &DenseMap,
     flat: &FlatSides<'_>,
@@ -387,6 +403,10 @@ fn uf_find(parent: &mut [u32], mut i: u32) -> u32 {
     i
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn split_assignment(map: &DenseMap, flat: &FlatSides<'_>, output: &BspOutput) -> SectorAssignment {
     let num_ss = output.subsectors.len();
 
@@ -671,6 +691,10 @@ mod tests {
         (verts, edges)
     }
 
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+    )]
     fn one_square_map() -> DenseMap {
         let (verts, edges) = square_at(0.0, 0.0);
         let lines = edges
@@ -702,6 +726,10 @@ mod tests {
     }
 
     /// Two disconnected squares whose sides reference ONE merged sector record — the dwd-import shape that doombsp re-splits at save time.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+    )]
     fn two_disconnected_squares_map() -> DenseMap {
         let (mut verts, edges) = square_at(0.0, 0.0);
         let (verts2, _) = square_at(512.0, 0.0);

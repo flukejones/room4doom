@@ -120,6 +120,10 @@ impl HandsPipeline {
     }
 
     /// Pointers, bones, then joints, into an open world pass.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub fn record(&self, rpass: &mut wgpu::RenderPass<'_>) {
         rpass.set_bind_group(0, &self.cam_bind, &[]);
         rpass.set_bind_group(1, &self.joints_bind, &[]);

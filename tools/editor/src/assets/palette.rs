@@ -11,7 +11,10 @@ pub const COLORMAP_LEVELS: usize = 32;
 pub fn load_palette(wad: &WadData) -> Option<WadPalette> {
     let lump = wad.get_lump("PLAYPAL")?;
     let mut pal = [wad::types::BLACK; 256];
-    for (slot, rgb) in pal.iter_mut().zip(lump.data.chunks_exact(3).take(256)) {
+    for (slot, rgb) in pal
+        .iter_mut()
+        .zip(lump.data.as_chunks::<3>().0.iter().take(256))
+    {
         *slot =
             0xff00_0000 | (u32::from(rgb[0]) << 16) | (u32::from(rgb[1]) << 8) | u32::from(rgb[2]);
     }
@@ -47,6 +50,10 @@ pub fn wad_color_to_rgba(c: u32) -> [u8; 4] {
 }
 
 /// Nearest palette index for `0xFFRRGGBB` via RGB squared distance; 0 for transparent (duplicated from the engine's sky quantiser — editor has no `pic-data` dep).
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 pub fn nearest_palette_index(colour: u32, palette: &[u32]) -> u8 {
     if colour == 0 {
         return 0;

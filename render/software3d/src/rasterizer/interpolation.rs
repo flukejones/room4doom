@@ -37,6 +37,10 @@ impl InterpolationState {
     /// Recompute exact UVs at current position and N pixels ahead,
     /// then set up linear stepping between them.
     #[inline(always)]
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     fn recompute_subdivision(&mut self) {
         let (u0, v0) = Self::correct_uv(
             self.current_tex,

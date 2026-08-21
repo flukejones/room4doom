@@ -17,6 +17,10 @@ fn finetangent_table_length() {
 }
 
 #[test]
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "fixture and benchmark dimensions intentionally use the same numeric conversions as the engine"
+)]
 fn finesine_accuracy_all_entries() {
     use std::f64::consts::TAU;
     for (i, &entry) in FINESINE.iter().enumerate() {

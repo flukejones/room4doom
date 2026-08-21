@@ -58,6 +58,10 @@ impl Mesh {
     }
 
     /// Number of triangle corners to draw.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub fn corner_count(&self) -> u32 {
         self.corner_index.len() as u32
     }
@@ -65,6 +69,10 @@ impl Mesh {
 
 /// Per-polygon corner ranges: a fan of n vertices = `(n-2)*3` corners, in
 /// `fan_corner_attr` order. u32 by contract — these become GPU index ranges.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+)]
 fn poly_corner_ranges(poly_vertex_range: &[(usize, usize)]) -> Vec<(u32, u32)> {
     let mut ranges = Vec::with_capacity(poly_vertex_range.len());
     let mut cursor = 0u32;

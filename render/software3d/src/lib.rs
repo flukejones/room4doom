@@ -334,6 +334,10 @@ pub struct Software3D {
 }
 
 impl Software3D {
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub fn new(width: f32, height: f32, fov: f32) -> Self {
         let mut s = Self {
             width: width as u32,
@@ -369,6 +373,10 @@ impl Software3D {
     }
 
     /// Resizes the renderer viewport and updates the projection matrix.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub fn resize(&mut self, width: f32, height: f32) {
         self.width = width as u32;
         self.height = height as u32;
@@ -397,6 +405,10 @@ impl Software3D {
     }
 
     /// Sets the field of view and updates the projection matrix.
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub fn set_fov(&mut self, fov: f32) {
         self.fov = fov;
         let (hfov, vfov, _) =
@@ -410,6 +422,10 @@ impl Software3D {
 
     /// One-time sky setup: precompute static scale factors and per-column edge
     /// colours. Called when the sky texture changes (e.g. new map).
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     fn init_sky(&mut self, sky_pic: usize, pic_data: &PicData) {
         let sky = pic_data.wall_pic(sky_pic);
         let sky_w = sky.width;
@@ -442,6 +458,10 @@ impl Software3D {
 
     /// Per-frame sky update: recompute only the values that depend on player
     /// angle and pitch. Calls `init_sky` first if the sky texture changed.
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     fn update_sky_params(&mut self, angle_rad: f32, pitch_rad: f32, pic_data: &PicData) {
         let sky_pic = pic_data.sky_pic();
         if sky_pic != self.sky.last_pic {
@@ -468,6 +488,11 @@ impl Software3D {
     /// Runs after all polygons and sprites are rendered. Pixels at depth
     /// <= SKY_DEPTH (sky-marked walls or never-written -1.0) get the sky
     /// sampled at screen coordinates.
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     fn draw_sky_fill<P: PixelFmt>(&self, _pic_data: &PicData, buffer: &mut PixelTarget<P>) {
         if self.sky.extended.is_empty() {
             return;
@@ -545,6 +570,8 @@ impl Software3D {
 
     #[inline(always)]
     fn get_transformed_vertex(&mut self, vertex_idx: usize, bsp3d: &BSP3D) -> (Vec4, Vec4) {
+        // SAFETY: The BSP vertex index also indexes the cache allocated for every BSP vertex;
+        // neither buffer is resized during this pass.
         unsafe {
             let cache_entry = self.vertex_cache.get_unchecked_mut(vertex_idx);
             if !cache_entry.valid {
@@ -566,6 +593,11 @@ impl Software3D {
     }
 
     /// Hi-Z occlusion: true if the box is fully behind existing depth.
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     fn cull_bbox_hiz(&self, bbox: &AABB) -> bool {
         let view_projection = self.view_projection;
         let cp = self.camera_pos;
@@ -634,6 +666,11 @@ impl Software3D {
     /// clip space.
     /// Returns `None` if the polygon should be culled, or `Some(max_inv_w)` if
     /// it passes — with the closest-vertex depth pre-computed for free.
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     fn cull_polygon_bounds(&mut self, gi: usize, bsp3d: &BSP3D) -> Option<f32> {
         let mut all_outside_left = true;
         let mut all_outside_right = true;
@@ -719,6 +756,15 @@ impl Software3D {
     /// Transform, clip, and rasterize a surface polygon. Clip-space frustum
     /// cull, Sutherland-Hodgman clip, perspective divide, hi-Z test, then
     /// draw_polygon dispatch.
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep shared rasterization and culling state in one pass without changing hot-loop structure"
+    )]
     fn render_surface_polygon<P: PixelFmt>(
         &mut self,
         gi: usize,
@@ -920,11 +966,11 @@ impl Software3D {
                 let w = self.width as f32;
                 let vh = self.view_height as f32;
                 let c_screen = Vec2::new(
-                    (c_clip.x / c_clip.w + 1.0) * 0.5 * w,
+                    f32::midpoint(c_clip.x / c_clip.w, 1.0) * w,
                     (1.0 - c_clip.y / c_clip.w) * 0.5 * vh,
                 );
                 let t_screen = Vec2::new(
-                    (t_clip.x / t_clip.w + 1.0) * 0.5 * w,
+                    f32::midpoint(t_clip.x / t_clip.w, 1.0) * w,
                     (1.0 - t_clip.y / t_clip.w) * 0.5 * vh,
                 );
                 let depth = 1.0 / c_clip.w;
@@ -935,6 +981,10 @@ impl Software3D {
 
     /// Texture dimensions for normalising a polygon's prebaked texel UV.
     /// `(1,1)` when untextured (incl. sky) so division is a no-op.
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     fn poly_texture_dims(tex: Option<u32>, is_flat: bool, pic_data: &PicData) -> (f32, f32) {
         let Some(tex) = tex else {
             return (1.0, 1.0);

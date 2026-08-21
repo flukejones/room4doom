@@ -46,7 +46,18 @@ pub fn read_wad_lumps(path: &str) -> HashMap<String, Vec<u8>> {
 // ---------------------------------------------------------------------------
 
 /// Extract a single level from a multi-level WAD into a standalone PWAD.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "fixture and benchmark dimensions intentionally use the same numeric conversions as the engine"
+)]
 pub fn extract_level(wad_path: &str, level_name: &str, out_path: &str) {
+    struct DirEntry {
+        offset: usize,
+        size: usize,
+        name: [u8; 8],
+        clean_name: String,
+    }
+
     let data = std::fs::read(wad_path).unwrap_or_else(|e| panic!("Failed to read {wad_path}: {e}"));
     assert!(data.len() >= 12, "WAD too small for header");
 
@@ -54,12 +65,6 @@ pub fn extract_level(wad_path: &str, level_name: &str, out_path: &str) {
     let dir_offset = i32::from_le_bytes(data[8..12].try_into().unwrap()) as usize;
 
     // Parse directory
-    struct DirEntry {
-        offset: usize,
-        size: usize,
-        name: [u8; 8],
-        clean_name: String,
-    }
 
     let mut entries = Vec::with_capacity(num_lumps);
     for i in 0..num_lumps {

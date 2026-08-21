@@ -55,6 +55,14 @@ macro_rules! key_action {
     }};
 }
 
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
+#[expect(
+    clippy::too_many_lines,
+    reason = "keep related UI setup and event dispatch together in their execution order"
+)]
 pub(crate) fn init(ui: &EditorWindow, shared: &Rc<RefCell<SharedState>>) {
     let canvas = ui.global::<CanvasController>();
 
@@ -373,6 +381,10 @@ pub(crate) fn init(ui: &EditorWindow, shared: &Rc<RefCell<SharedState>>) {
 }
 
 /// Named keyboard actions from the canvas.
+#[expect(
+    clippy::too_many_lines,
+    reason = "keep related UI setup and event dispatch together in their execution order"
+)]
 fn init_keys(ui: &EditorWindow, shared: &Rc<RefCell<SharedState>>) {
     let canvas = ui.global::<CanvasController>();
 
@@ -549,6 +561,10 @@ pub(crate) fn after_edit(ui: &EditorWindow, shared: &Rc<RefCell<SharedState>>, d
 }
 
 /// Push selection counts for canvas context-menu gating.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn sync_selection(ui: &EditorWindow, shared: &Rc<RefCell<SharedState>>) {
     let state = shared.borrow();
     let canvas = ui.global::<CanvasController>();

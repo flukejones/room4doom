@@ -59,6 +59,10 @@ impl LevelEditorState {
     }
 
     /// Cancel: restore the session's open state; no undo record.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "consume the edit-session token so a cancelled session cannot later be committed"
+    )]
     pub fn cancel_session(&mut self, session: EditSession) -> Damage {
         let Some(map) = self.map.as_mut() else {
             return Damage::None;

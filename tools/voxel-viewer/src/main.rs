@@ -22,6 +22,10 @@ use winit::window::{Window, WindowId};
 
 const W: u32 = 640;
 const H: u32 = 480;
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "the fixed 480-pixel height is exactly representable in f32"
+)]
 const FOV_SCALE: f32 = H as f32 * 1.2;
 
 struct Camera {
@@ -51,6 +55,10 @@ impl Camera {
         (pos, look_dir, rt, up)
     }
 
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+    )]
     fn view_proj(_pos: Vec3, fwd: Vec3, _up: Vec3) -> Mat4 {
         // Eye at origin — collection pipeline handles camera translation
         let view = Mat4::look_to_rh(Vec3::ZERO, fwd, Vec3::Z);
@@ -87,6 +95,15 @@ struct App {
 }
 
 impl App {
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+    )]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep the complete dispatch or geometry pass together without changing its established ordering"
+    )]
     fn render(&mut self) {
         #[cfg(feature = "hprof")]
         profile!("render");
@@ -425,6 +442,10 @@ fn pixels_as_u32_mut(pixels: &mut [Pixel]) -> &mut [u32] {
     unsafe { from_raw_parts_mut(pixels.as_mut_ptr().cast::<u32>(), len) }
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn draw_line(buf: &mut [u32], w: i32, h: i32, x0: f32, y0: f32, x1: f32, y1: f32, color: u32) {
     let (mut x, mut y) = (x0 as i32, y0 as i32);
     let (ex, ey) = (x1 as i32, y1 as i32);
@@ -452,6 +473,10 @@ fn draw_line(buf: &mut [u32], w: i32, h: i32, x0: f32, y0: f32, x1: f32, y1: f32
     }
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn draw_rect(
     frame: &mut [u32],
     depth: &mut [f32],
@@ -483,6 +508,10 @@ fn draw_rect(
     }
 }
 
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn project(
     wx: f32,
     wy: f32,
@@ -532,6 +561,10 @@ impl ApplicationHandler for App {
         }
     }
 
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+    )]
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
@@ -613,6 +646,15 @@ impl ApplicationHandler for App {
     }
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
+#[expect(
+    clippy::too_many_lines,
+    reason = "keep the complete dispatch or geometry pass together without changing its established ordering"
+)]
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 {

@@ -29,6 +29,11 @@ struct VoxelSetup {
 }
 
 impl Rasterizer {
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     fn voxel_setup(
         &self,
         origin: glam::Vec3,
@@ -116,6 +121,15 @@ impl Rasterizer {
 
     /// Render voxel slice by iterating occupied texels with clip-space
     /// incremental projection, corner caching, and scanline parallelogram fill.
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep shared rasterization and culling state in one pass without changing hot-loop structure"
+    )]
     pub fn rasterize_voxel_texels<P: PixelFmt>(
         &mut self,
         origin: glam::Vec3,
@@ -283,6 +297,15 @@ impl Rasterizer {
 
     /// Fuzz variant of voxel rendering — reads existing framebuffer pixels at
     /// Y-offset and darkens them, producing the spectre shimmer effect.
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep shared rasterization and culling state in one pass without changing hot-loop structure"
+    )]
     pub fn rasterize_voxel_fuzz<P: PixelFmt>(
         &mut self,
         origin: glam::Vec3,

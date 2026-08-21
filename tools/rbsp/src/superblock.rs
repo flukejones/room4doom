@@ -61,12 +61,12 @@ impl SuperBlock {
 
         // Split along the longer axis.
         let (p1, p2, child) = if (self.x2 - self.x1) >= (self.y2 - self.y1) {
-            let mid = (self.x1 + self.x2) * 0.5;
+            let mid = f64::midpoint(self.x1, self.x2);
             let p1 = sx >= mid;
             let p2 = ex >= mid;
             (p1, p2, mid)
         } else {
-            let mid = (self.y1 + self.y2) * 0.5;
+            let mid = f64::midpoint(self.y1, self.y2);
             let p1 = sy >= mid;
             let p2 = ey >= mid;
             (p1, p2, mid)
@@ -145,8 +145,8 @@ pub fn build_superblock(seg_indices: &[usize], segs: &[Seg], vertices: &[Vertex]
 
     // Ensure power-of-two-ish sizing so splits are balanced.
     let size = (x2 - x1).max(y2 - y1).max(LEAF_SIZE);
-    let cx = (x1 + x2) * 0.5;
-    let cy = (y1 + y2) * 0.5;
+    let cx = f64::midpoint(x1, x2);
+    let cy = f64::midpoint(y1, y2);
 
     let mut root = SuperBlock::new(
         cx - size * 0.5,

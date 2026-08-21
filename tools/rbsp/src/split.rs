@@ -1,7 +1,10 @@
 //! Seg splitting against partition lines.
 
 use crate::picknode::{classify_point, classify_seg};
-use crate::types::*;
+use crate::types::{
+    ClipPoly, EPSILON, Float, LineDefAccess, PARALLEL_EPSILON, PointSide, Seg, SegSide,
+    SideDefAccess, VERTEX_EPSILON, Vertex, WallTip,
+};
 use crate::vertex_pool::VertexPool;
 use crate::walltip::copy_wall_tips_for_split;
 
@@ -89,6 +92,10 @@ pub struct SplitResult {
 #[allow(
     trivial_numeric_casts,
     reason = "f64 -> Float narrows only with f32 feature"
+)]
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "BSP geometry deliberately quantizes coordinates and stores indices in the established on-disk widths"
 )]
 pub fn split_segs_and_poly<L: LineDefAccess, S: SideDefAccess>(
     seg_indices: &[usize],

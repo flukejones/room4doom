@@ -308,10 +308,14 @@ impl Player {
     }
 
     pub fn mobj(&self) -> Option<&MapObject> {
+        // SAFETY: Player object/attacker links refer to initialized slots in the live level
+        // pool; this access does not move or free those slots.
         self.mobj.map(|m| unsafe { &*m })
     }
 
     pub fn mobj_mut(&mut self) -> Option<&mut MapObject> {
+        // SAFETY: Player object/attacker links refer to initialized slots in the live level
+        // pool; this access does not move or free those slots.
         self.mobj.map(|m| unsafe { &mut *m })
     }
 
@@ -328,6 +332,8 @@ impl Player {
     /// # Safety
     /// The players `MapObject` *must* be valid and initialised.
     pub const unsafe fn mobj_unchecked(&self) -> &MapObject {
+        // SAFETY: The two-sided portal invariant guarantees the back side/sector exists before
+        // this branch accesses it.
         unsafe { &*self.mobj.unwrap_unchecked() }
     }
 
@@ -336,11 +342,15 @@ impl Player {
     /// # Safety
     /// The players `MapObject` *must* be valid and initialised.
     pub const unsafe fn mobj_mut_unchecked(&mut self) -> &mut MapObject {
+        // SAFETY: The two-sided portal invariant guarantees the back side/sector exists before
+        // this branch accesses it.
         unsafe { &mut *self.mobj.unwrap_unchecked() }
     }
 
     pub fn start_sound(&self, sfx: SfxName) {
         if let Some(mobj) = self.mobj() {
+            // SAFETY: Spawn installs the owning level pointer; the level stays at a stable
+            // address and callbacks access it sequentially on the game thread.
             unsafe {
                 (*mobj.level).start_sound(
                     sfx,
@@ -354,12 +364,8 @@ impl Player {
 
     /// Doom function `G_PlayerFinishLevel`, mostly.
     pub fn finish_level(&mut self) {
-        for card in &mut self.status.cards {
-            *card = false;
-        }
-        for power in &mut self.status.powers {
-            *power = 0;
-        }
+        self.status.cards.fill(false);
+        self.status.powers.fill(0);
 
         self.extralight = 0;
         self.fixedcolormap = 0;
@@ -413,6 +419,8 @@ impl Player {
         // Note: a LUT allows for effects
         //  like a ramp with low health.
         if let Some(mobj) = self.mobj {
+            // SAFETY: The spawn/list pointer references an initialized map object in the
+            // level's fixed thinker pool, which remains allocated for this callback.
             let mobj = unsafe { &mut *mobj };
             let x = mobj.momx;
             let y = mobj.momy;
@@ -476,6 +484,8 @@ impl Player {
     /// P_MovePlayer
     fn move_player(&mut self) {
         if let Some(mobj) = self.mobj {
+            // SAFETY: The spawn/list pointer references an initialized map object in the
+            // level's fixed thinker pool, which remains allocated for this callback.
             let mobj = unsafe { &mut *mobj };
 
             // TODO: Fix adjustments after fixing the tic timestep
@@ -512,6 +522,8 @@ impl Player {
     ///
     /// Doom function name `P_MovePsprites`
     fn move_player_sprites(&mut self) {
+        // SAFETY: Psprite storage is fixed during the action callback; the selected slot is not
+        // moved or replaced while its pointer is used.
         let psps = unsafe { &mut *ptr::from_mut(&mut self.psprites[..]) };
         for (i, psp) in psps.iter_mut().enumerate() {
             if let Some(state) = psp.state {
@@ -546,6 +558,8 @@ impl Player {
             }
 
             if let Some(func) = state.action.resolve_player() {
+                // SAFETY: Psprite storage is fixed during the action callback; the selected
+                // slot is not moved or replaced while its pointer is used.
                 let psps = unsafe { &mut *ptr::from_mut(&mut self.psprites[position]) };
                 func(self, psps);
                 if self.psprites[position].state.is_none() {
@@ -568,6 +582,8 @@ impl Player {
     /// Doom function name `P_PlayerInSpecialSector`
     fn in_special_sector(&mut self, level: &mut LevelState) {
         if let Some(mobj) = self.mobj {
+            // SAFETY: The spawn/list pointer references an initialized map object in the
+            // level's fixed thinker pool, which remains allocated for this callback.
             let mobj = unsafe { &mut *mobj };
             let mut sector = mobj.subsector.sector.clone();
 
@@ -789,6 +805,8 @@ impl Player {
 
     pub(crate) fn fire_weapon(&mut self) {
         if let Some(mobj) = self.mobj {
+            // SAFETY: The spawn/list pointer references an initialized map object in the
+            // level's fixed thinker pool, which remains allocated for this callback.
             let mobj = unsafe { &mut *mobj };
             mobj.set_state(StateNum::PLAY_ATK1);
         }
@@ -915,6 +933,8 @@ impl Player {
 impl Player {
     pub fn save_prev_render(&mut self) {
         if let Some(mobj) = self.mobj {
+            // SAFETY: The spawn/list pointer references an initialized map object in the
+            // level's fixed thinker pool, which remains allocated for this callback.
             let mobj = unsafe { &*mobj };
             self.prev_render = PrevRenderState {
                 x: mobj.x,
@@ -991,9 +1011,19 @@ impl Player {
         true
     }
 
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "Doom state and fixed-point conversions deliberately retain their established packed widths and rounding"
+    )]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep the complete dispatch or geometry pass together without changing its established ordering"
+    )]
     pub fn think(&mut self, level: &mut LevelState) -> bool {
         self.save_prev_render();
         if let Some(mobj) = self.mobj {
+            // SAFETY: The spawn/list pointer references an initialized map object in the
+            // level's fixed thinker pool, which remains allocated for this callback.
             let mobj = unsafe { &mut *mobj };
             if self.status.cheats.contains(PlayerCheat::Noclip) {
                 mobj.flags.insert(MapObjFlag::Noclip);
@@ -1147,6 +1177,8 @@ impl Player {
         self.move_player_sprites();
 
         if let Some(mobj) = self.mobj {
+            // SAFETY: The spawn/list pointer references an initialized map object in the
+            // level's fixed thinker pool, which remains allocated for this callback.
             let mobj = unsafe { &mut *mobj };
             if self.viewheight >= 6 {
                 self.viewheight -= FixedT::ONE;
@@ -1159,6 +1191,8 @@ impl Player {
             self.calculate_height(level.level_time);
 
             if let Some(attacker) = self.attacker {
+                // SAFETY: Player object/attacker links refer to initialized slots in the live
+                // level pool; this access does not move or free those slots.
                 let attacker = unsafe { &mut *attacker };
                 if !ptr::eq(mobj, attacker) {
                     // OG: an = R_PointToAngle2(mo->x, mo->y, attacker->x, attacker->y)

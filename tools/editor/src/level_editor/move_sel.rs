@@ -56,6 +56,15 @@ impl LevelEditorState {
         };
     }
 
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+    )]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep the complete dispatch or geometry pass together without changing its established ordering"
+    )]
     pub(super) fn finish_move(&mut self) -> Damage {
         self.overlay = Overlay::None;
         let DragState::MoveSel {
@@ -248,6 +257,10 @@ impl LevelEditorState {
         Damage::Overlay
     }
 
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+    )]
     pub(super) fn move_selection_to(&mut self, world: [f32; 2]) -> Damage {
         let DragState::MoveSel {
             start_world,

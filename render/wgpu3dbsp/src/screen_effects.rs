@@ -37,6 +37,10 @@ impl SceneEffects {
     /// shared [`player_cshift`] (one definition for the CPU and GPU paths);
     /// invert is set when the player holds the invulnerability inverse colourmap
     /// (`fixedcolormap == INVERSECOLORMAP`).
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub fn new(damagecount: i32, bonuscount: i32, radsuit: bool, fixedcolormap: usize) -> Self {
         let (tint, pct) = player_cshift(damagecount, bonuscount, radsuit);
         let tint_rgb = [

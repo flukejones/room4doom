@@ -1,7 +1,7 @@
 //! Clip polygon operations.
 
 use crate::picknode::classify_point;
-use crate::types::*;
+use crate::types::{ClipPoly, Float, MARGIN, PARALLEL_EPSILON, PointSide, Seg, Vertex};
 use crate::vertex_pool::VertexPool;
 
 /// Compute the signed area of a polygon (shoelace formula).

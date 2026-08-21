@@ -6,7 +6,7 @@ use std::{fmt, fs, io, str};
 
 use crate::types::{GameMission, GameMode, WadBlockMap};
 
-const FRACUNIT: f32 = (1 << 16) as f32;
+const FRACUNIT: f32 = 65_536.0;
 
 /// Index used to find a specific lump.
 ///
@@ -150,6 +150,10 @@ impl Lump {
         ])
     }
 
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "16.16 WAD coordinates intentionally round to f32 geometry"
+    )]
     pub fn read_u32_to_f32(&self, offset: usize) -> f32 {
         i32::from_le_bytes([
             self.data[offset],
@@ -166,7 +170,7 @@ impl fmt::Debug for Lump {
         write!(
             f,
             "\nWadDirectory {{\n  lump_name: {},\n  lump_size: {},\n}}",
-            &self.name,
+            self.name,
             self.data.len()
         )
     }
@@ -190,7 +194,7 @@ impl WadData {
     /// Panics on read failure — use [`WadData::try_new`] for user-supplied paths.
     pub fn new(file_path: &Path) -> Self {
         Self::try_new(file_path)
-            .unwrap_or_else(|e| panic!("Could not read wad file {:?}: {e}", &file_path))
+            .unwrap_or_else(|e| panic!("Could not read wad file {file_path:?}: {e}"))
     }
 
     /// Fallible [`WadData::new`]: errors instead of panicking on an unreadable file.
@@ -225,9 +229,13 @@ impl WadData {
     /// Append lumps from an additional WAD file (PWAD). Later lumps override
     /// earlier ones with the same name.
     /// Panics on read failure — use [`WadData::try_add_file`] for user-supplied paths.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "preserve the owned-path convenience API; try_add_file already provides the borrowed API"
+    )]
     pub fn add_file(&mut self, file_path: PathBuf) {
         self.try_add_file(&file_path)
-            .unwrap_or_else(|e| panic!("Could not read {:?}: {e}", &file_path));
+            .unwrap_or_else(|e| panic!("Could not read {file_path:?}: {e}"));
     }
 
     /// Fallible [`WadData::add_file`]: errors instead of panicking on an unreadable file.
@@ -495,12 +503,11 @@ mod tests {
     use crate::types::{GameMission, GameMode};
     use crate::wad::WadData;
     use std::fs;
-    use std::path::PathBuf;
 
     use test_utils::doom1_wad_path;
 
-    fn read_file(file_path: PathBuf) -> Vec<u8> {
-        fs::read(&file_path).unwrap()
+    fn read_file(file_path: impl AsRef<std::path::Path>) -> Vec<u8> {
+        fs::read(file_path).unwrap()
     }
 
     #[test]

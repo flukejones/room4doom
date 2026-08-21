@@ -41,6 +41,10 @@ pub struct VoxelTransform {
 const MAX_BAND: usize = 15;
 
 /// Compute a voxel's world transform from its slices metadata + per-frame state.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+)]
 pub fn voxel_transform(vslices: &VoxelSlices, input: &VoxelTransformIn) -> VoxelTransform {
     let spin_rate = if input.dropped {
         vslices.dropped_spin

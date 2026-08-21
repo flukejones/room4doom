@@ -11,6 +11,10 @@ pub struct Pk3Voxels {
     pub kvx_files: HashMap<String, Vec<u8>>,
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "asset coordinates and packed channels deliberately use their established format widths and rounding"
+)]
 pub fn extract_voxels(path: &Path, game_mode: GameMode) -> Option<Pk3Voxels> {
     let file = File::open(path)
         .map_err(|e| log::warn!("Failed to open PK3 {path:?}: {e}"))

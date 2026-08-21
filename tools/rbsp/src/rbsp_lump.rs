@@ -8,7 +8,7 @@
 //! sections VERTS3D, POLYS, POLYVERTS, LEAVES3D, SHAREDWALLS.
 
 use crate::bsp3d::lump::{Bsp3dLump, LeafRecord, PolyFlags, PolyRecord, TreeNode};
-use crate::types::*;
+use crate::types::{BBox, BspOutput, ConvexPoly, Float, Node, Seg, Side, SubSector, Vertex};
 use glam::Vec3;
 
 const MAGIC: &[u8; 4] = b"RBSP";
@@ -29,6 +29,14 @@ const TREE_PLANE_SIZE: usize = 25;
 const TREE_KIND_VERTICAL: u8 = 0;
 const TREE_KIND_PLANE: u8 = 1;
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "BSP geometry deliberately quantizes coordinates and stores indices in the established on-disk widths"
+)]
+#[expect(
+    clippy::too_many_lines,
+    reason = "keep format fields and initialization steps visible in their required order"
+)]
 pub fn write_rbsp_lump(output: &BspOutput, bsp3d: &Bsp3dLump, classic_nodes: bool) -> Vec<u8> {
     // Flatten subsector seg_indices into a single array.
     let mut flat_seg_indices: Vec<u32> = Vec::new();
@@ -213,6 +221,10 @@ pub fn write_rbsp_lump(output: &BspOutput, bsp3d: &Bsp3dLump, classic_nodes: boo
     buf
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "BSP geometry deliberately quantizes coordinates and stores indices in the established on-disk widths"
+)]
 fn write_node(buf: &mut Vec<u8>, node: &Node) {
     buf.extend_from_slice(&(node.x as f32).to_le_bytes());
     buf.extend_from_slice(&(node.y as f32).to_le_bytes());
@@ -231,6 +243,14 @@ fn write_node(buf: &mut Vec<u8>, node: &Node) {
 /// Read an RBSP binary lump into a `BspOutput` plus the 3D geometry lump.
 /// Returns `None` if the data is invalid or has wrong magic/version (v1 lumps
 /// are treated as absent — the loader rebuilds).
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "BSP geometry deliberately quantizes coordinates and stores indices in the established on-disk widths"
+)]
+#[expect(
+    clippy::too_many_lines,
+    reason = "keep format fields and initialization steps visible in their required order"
+)]
 pub fn read_rbsp_lump(data: &[u8]) -> Option<(BspOutput, Bsp3dLump)> {
     if data.len() < HEADER_SIZE + DIR_SIZE {
         return None;

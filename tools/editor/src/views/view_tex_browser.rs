@@ -261,6 +261,10 @@ fn patch_entry(gfx: &mut GfxCache, assets: &EditorAssets, wad: &WadData, name: &
 }
 
 /// Row index of `name` (ASCII case-insensitive) among `names`, or -1 when absent.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 pub(crate) fn entry_index<N: AsRef<str>>(names: impl IntoIterator<Item = N>, name: &str) -> i32 {
     names
         .into_iter()
@@ -331,6 +335,10 @@ pub(crate) fn texture_entries(
 }
 
 /// Flat entries filtered by uppercased substring.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 pub(crate) fn flat_entries(
     gfx: &mut GfxCache,
     assets: &EditorAssets,

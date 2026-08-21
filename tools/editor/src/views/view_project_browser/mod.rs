@@ -363,6 +363,10 @@ fn toggle_expand(
 }
 
 /// Left-tree click: WAD → lump column; project file → content; dir → select only.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn select_tree_row(ui: &EditorWindow, browser: &Rc<RefCell<BrowserState>>, row: usize) {
     let ctl = ui.global::<ProjectBrowserController>();
     ctl.set_tree_active(row as i32);
@@ -473,6 +477,10 @@ fn is_ron(path: &Path) -> bool {
         .is_some_and(|e| e.eq_ignore_ascii_case("ron"))
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn select_lump(ui: &EditorWindow, browser: &Rc<RefCell<BrowserState>>, row: usize) {
     let ctl = ui.global::<ProjectBrowserController>();
     ctl.set_lump_active(row as i32);

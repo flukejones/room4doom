@@ -77,6 +77,10 @@ fn resolve_def(
 }
 
 /// Parse + palette-remap + generate slices and GPU faces for one job.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "asset coordinates and packed channels deliberately use their established format widths and rounding"
+)]
 fn build_model(job: &BuildJob, doom_palette: &[u8]) -> Option<(VoxelSlices, Vec<VoxelFace>)> {
     let mut model = match kvx::VoxelModel::load(&job.data) {
         Ok(m) => m,
@@ -203,6 +207,10 @@ impl VoxelManager {
         mgr
     }
 
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "asset coordinates and packed channels deliberately use their established format widths and rounding"
+    )]
     fn load_defs(
         &mut self,
         defs: &[voxeldef::VoxelDef],
@@ -277,6 +285,10 @@ impl VoxelManager {
 
     /// Look up voxel slices for a sprite by engine sprite index and frame
     /// index.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "asset coordinates and packed channels deliberately use their established format widths and rounding"
+    )]
     pub fn get(&self, sprite_index: usize, frame_index: usize) -> Option<&VoxelSlices> {
         let key = ((sprite_index as u32) << 16) | (frame_index as u32);
         self.lookup.get(&key).map(|&idx| &self.models[idx])
@@ -285,6 +297,10 @@ impl VoxelManager {
     /// Look up the model index + slices for a sprite/frame. The index is stable
     /// and parallel to [`Self::faces`], so a GPU renderer can map a thing to its
     /// baked face buffer.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "asset coordinates and packed channels deliberately use their established format widths and rounding"
+    )]
     pub fn get_indexed(
         &self,
         sprite_index: usize,

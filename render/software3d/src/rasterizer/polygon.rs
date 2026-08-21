@@ -22,6 +22,15 @@ impl Software3D {
     /// Fast-path rasteriser: zero debug branches in the inner loop.
     /// Used when no debug draw options are active.
     #[inline(always)]
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep shared rasterization and culling state in one pass without changing hot-loop structure"
+    )]
     pub(crate) fn draw_polygon<P: PixelFmt>(
         &mut self,
         bsp3d: &BSP3D,
@@ -87,7 +96,11 @@ impl Software3D {
             // when a scanline grazes a short edge near a vertex.
             for ei in 0..vertex_count {
                 let ni = (ei + 1) % vertex_count;
+                // SAFETY: ei iterates over vertex_count and ni wraps modulo that count; the
+                // projected vertex and reciprocal-depth slices have that length.
                 let start = unsafe { *vertices.get_unchecked(ei) };
+                // SAFETY: ei iterates over vertex_count and ni wraps modulo that count; the
+                // projected vertex and reciprocal-depth slices have that length.
                 let end = unsafe { *vertices.get_unchecked(ni) };
                 let dy = end.y - start.y;
                 if dy.abs() < f32::EPSILON {
@@ -101,7 +114,11 @@ impl Software3D {
                 if y_f >= min_y && y_f < max_y {
                     let t = (y_f - start.y) / dy;
                     let x = start.x + (end.x - start.x) * t;
+                    // SAFETY: ei iterates over vertex_count and ni wraps modulo that count; the
+                    // projected vertex and reciprocal-depth slices have that length.
                     let iw_start = unsafe { *inv_w_slice.get_unchecked(ei) };
+                    // SAFETY: ei iterates over vertex_count and ni wraps modulo that count; the
+                    // projected vertex and reciprocal-depth slices have that length.
                     let iw_end = unsafe { *inv_w_slice.get_unchecked(ni) };
                     let iw = iw_start + (iw_end - iw_start) * t;
                     if x < x0 {
@@ -279,6 +296,11 @@ impl Software3D {
     /// Draw a sprite polygon (billboard quad triangle).
     /// Uses masked rendering: peeks depth, skips transparent pixels, doesn't
     /// write depth.
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub(crate) fn draw_sprite_polygon<P: PixelFmt>(
         &mut self,
         quad: &crate::scene::sprites::SpriteQuad,
@@ -346,6 +368,11 @@ impl Software3D {
 
     /// Fuzz variant of sprite rendering — reads existing framebuffer pixels
     /// at Y-offset and darkens them for the spectre shimmer effect.
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub(crate) fn draw_sprite_fuzz<P: PixelFmt>(
         &mut self,
         quad: &crate::scene::sprites::SpriteQuad,
@@ -413,6 +440,11 @@ impl Software3D {
     }
 
     /// Shared setup for sprite polygon rendering.
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     fn sprite_setup(
         &self,
         quad: &crate::scene::sprites::SpriteQuad,
@@ -457,6 +489,11 @@ impl Software3D {
     }
 
     /// Compute scanline span for a given Y in a sprite polygon.
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     fn sprite_scanline(setup: &SpriteSetup, y: usize) -> Option<SpriteScanline> {
         let y_f = y as f32;
         let mut x0 = f32::INFINITY;

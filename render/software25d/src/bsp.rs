@@ -12,7 +12,6 @@ use log::trace;
 use math::{ANG90, ANG180, ANGLETOFINESHIFT, Angle, Bam, FixedT};
 use pic_data::PicData;
 use render_common::{DrawBuffer as _, PixelFmt, PixelTarget, RenderView};
-use std::mem;
 
 const MAX_SEGS: usize = 128;
 const MAX_SECTS: usize = 4096;
@@ -94,6 +93,10 @@ impl Software25D {
     ///   back-to-front
     ///
     /// Render the player view, writing final pixels directly into `rend`.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub fn draw_view<P: PixelFmt>(
         &mut self,
         view: &RenderView,
@@ -144,6 +147,11 @@ impl Software25D {
     #[allow(
         clippy::large_stack_arrays,
         reason = "OG-style fixed vissprite pool; renderer is long-lived, built once"
+    )]
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
     )]
     pub fn new(fov: f32, width: f32, height: f32, hi_res: bool) -> Self {
         let look_dirs = LookDirs::new(hi_res);
@@ -253,9 +261,7 @@ impl Software25D {
     }
 
     fn clear(&mut self, screen_width: FixedT) {
-        for vis in &mut self.vissprites {
-            *vis = unsafe { mem::zeroed::<VisSprite>() };
-        }
+        self.vissprites.fill(VisSprite::default());
         self.next_vissprite = 0;
         self.checked_sectors.copy_from_slice(&[-1; MAX_SECTS]);
         self.checked_idx = 0;
@@ -687,23 +693,21 @@ impl Software25D {
         let rb_x = FixedT::from_f32(bbox[1].x);
         let rb_y = FixedT::from_f32(bbox[1].y);
 
-        let boxx;
-        let boxy;
-        if origin_x <= lt_x {
-            boxx = 0;
+        let boxx = if origin_x <= lt_x {
+            0
         } else if origin_x < rb_x {
-            boxx = 1;
+            1
         } else {
-            boxx = 2;
-        }
+            2
+        };
 
-        if origin_y >= lt_y {
-            boxy = 0;
+        let boxy = if origin_y >= lt_y {
+            0
         } else if origin_y > rb_y {
-            boxy = 1;
+            1
         } else {
-            boxy = 2;
-        }
+            2
+        };
 
         let boxpos = (boxy << 2) + boxx;
         if boxpos == 5 || boxpos > 10 {

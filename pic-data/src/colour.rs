@@ -43,6 +43,10 @@ impl PixelFmt for u8 {
     /// Never called for `u8` on the direct path (the index is stored directly);
     /// total impl returning the low byte.
     #[inline]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "asset coordinates and packed channels deliberately use their established format widths and rounding"
+    )]
     fn from_argb(argb: WadColour, _order: ByteOrder) -> Self {
         argb as Self
     }
@@ -186,6 +190,10 @@ mod tests {
     use wad::types::WadPalette;
 
     /// 14 deterministic palettes, distinct colours per (tint, index).
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "asset coordinates and packed channels deliberately use their established format widths and rounding"
+    )]
     fn fake_palettes() -> [WadPalette; PALETTE_LEN] {
         let mut pals: [WadPalette; PALETTE_LEN] = Default::default();
         for (tint, pal) in pals.iter_mut().enumerate() {

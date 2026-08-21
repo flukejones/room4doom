@@ -101,6 +101,10 @@ impl Default for HealthBleed {
 }
 
 impl HealthBleed {
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub fn update(&mut self, health: i32, width: usize, height: usize) {
         let health = health.clamp(0, 100);
         if self.target.is_empty() || width != self.width || height != self.height {
@@ -139,6 +143,11 @@ impl HealthBleed {
 
     /// Build the per-column targets, band depth and jittered boundaries for a
     /// given size (cold path: size change or [`Self::reset`]).
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     fn rebuild(&mut self, width: usize, height: usize) {
         self.target = build_column_targets(width, height);
         self.shown = vec![0u16; width];
@@ -183,6 +192,11 @@ impl HealthBleed {
 /// Build the full per-column max-length shape: a smooth value-noise baseline,
 /// then sharp peaks placed on top — each swelling the baseline into a soft
 /// crest so it rises out of a hump, not an arbitrary baseline height.
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+)]
 fn build_column_targets(width: usize, height: usize) -> Vec<u16> {
     let max_len = (height as f32 * BLEED_MAX_FRAC) as i32;
     let base_len = (height as f32 * BLEED_BASE_FRAC) as i32;
@@ -270,6 +284,10 @@ mod bleed_tests {
 
     /// Lower health grows the columns (the GPU upload sees longer `shown`).
     #[test]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     fn lower_health_grows_columns() {
         let total = |health: i32| -> u32 {
             let mut v = HealthBleed::default();
@@ -295,6 +313,11 @@ mod bleed_tests {
 /// Value noise: a random control point in `0..amplitude` every `step` columns,
 /// cosine-interpolated between them. Smooth undulation with no per-column
 /// alternation; `step` is the feature size (larger = broader curves).
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+)]
 fn smooth_noise(width: usize, amplitude: i32, step: usize) -> Vec<i32> {
     let step = step.max(1);
     let ctrl: Vec<f32> = (0..width / step + 2)
@@ -704,6 +727,11 @@ pub struct BufferSize {
 }
 
 impl BufferSize {
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub const fn new(width: usize, height: usize) -> Self {
         Self {
             hi_res: height > 200,
@@ -744,9 +772,17 @@ impl BufferSize {
     pub const fn height_f32(&self) -> f32 {
         self.height_f32
     }
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub const fn half_width_f32(&self) -> f32 {
         self.half_width() as f32
     }
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub const fn half_height_f32(&self) -> f32 {
         self.half_height() as f32
     }
@@ -763,12 +799,20 @@ impl BufferSize {
     pub const fn view_height_usize(&self) -> usize {
         (self.height - self.statusbar_height) as u32 as usize
     }
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub const fn view_height_f32(&self) -> f32 {
         (self.height - self.statusbar_height) as f32
     }
     pub const fn half_view_height(&self) -> i32 {
         self.view_height() / 2
     }
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub const fn half_view_height_f32(&self) -> f32 {
         self.half_view_height() as f32
     }

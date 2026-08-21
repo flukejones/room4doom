@@ -111,6 +111,10 @@ pub fn resolve_tint_state(
 /// Returns the packed tint (`0x00RRGGBB`) and blend fraction `0.0..1.0`. The
 /// single definition of the cshift colours — used by both the CPU smooth fade
 /// and the GPU screen-effects pass.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "asset coordinates and packed channels deliberately use their established format widths and rounding"
+)]
 pub fn player_cshift(damagecount: i32, bonuscount: i32, radsuit: bool) -> (u32, f32) {
     if damagecount != 0 {
         (
@@ -154,6 +158,11 @@ impl Default for CrtGamma {
 
 /// Build a luminance-only tone curve LUT that simulates CRT phosphor response.
 /// Applied to each palette entry in luminance space to preserve colour ratios.
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    reason = "asset coordinates and packed channels deliberately use their established format widths and rounding"
+)]
 fn build_crt_tone_lut(brightness: f32, black_crush: f32, highlight_boost: f32) -> [u8; 256] {
     let mut lut = [0u8; 256];
     for (i, entry) in lut.iter_mut().enumerate() {
@@ -172,6 +181,11 @@ fn build_crt_tone_lut(brightness: f32, black_crush: f32, highlight_boost: f32) -
 
 /// Apply CRT tone curve to a single palette colour.
 /// Works in luminance space to avoid over-saturating.
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    reason = "asset coordinates and packed channels deliberately use their established format widths and rounding"
+)]
 fn apply_crt_tone(color: u32, tone_lut: &[u8; 256], saturation: f32) -> u32 {
     let r = ((color >> 16) & 0xFF) as f32;
     let g = ((color >> 8) & 0xFF) as f32;
@@ -285,6 +299,10 @@ impl PicData {
         Self::init_with_crt_gamma(wad, sprite_names, CrtGamma::default())
     }
 
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "asset coordinates and packed channels deliberately use their established format widths and rounding"
+    )]
     pub fn init_with_crt_gamma(wad: &WadData, sprite_names: &[&str], crt_gamma: CrtGamma) -> Self {
         print!("Init image data  [");
 
@@ -443,6 +461,11 @@ impl PicData {
         self.use_fixed_colourmap = colourmap;
     }
 
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "asset coordinates and packed channels deliberately use their established format widths and rounding"
+    )]
     fn init_zlight_scales() -> [[usize; 128]; 16] {
         print!(".");
         let mut tmp = [[0usize; 128]; 16];
@@ -585,6 +608,10 @@ impl PicData {
         (flats, skynum)
     }
 
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "asset coordinates and packed channels deliberately use their established format widths and rounding"
+    )]
     fn build_wall_pic(texture: WadTexture, patches: &[WadPatch]) -> WallPic {
         let mut compose = vec![u16::MAX; texture.height as usize * texture.width as usize];
         for wad_tex_patch in &texture.patches {
@@ -614,7 +641,7 @@ impl PicData {
             }
         }
 
-        debug!("Built texture: {}", &texture.name);
+        debug!("Built texture: {}", texture.name);
         WallPic {
             name: texture.name,
             width: texture.width as usize,
@@ -758,6 +785,11 @@ impl PicData {
     /// Smooth fade: blend a continuous tint over palette 0 by intensity (Quake
     /// cshift). Rebuilds palette 0 each call from raw+gamma+tint; `use_pallette`
     /// stays 0. Intensity tracks the same counts, so it decays as they do.
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "asset coordinates and packed channels deliberately use their established format widths and rounding"
+    )]
     fn apply_smooth_cshift(&mut self, damagecount: i32, bonuscount: i32, radsuit: bool) {
         self.use_pallette = 0;
         let (tint, pct) = player_cshift(damagecount, bonuscount, radsuit);
@@ -846,11 +878,17 @@ impl PicData {
     }
 
     #[inline(always)]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "asset coordinates and packed channels deliberately use their established format widths and rounding"
+    )]
     pub fn base_colourmap(&self, light_level: usize, wall_scale: f32) -> &[usize] {
         if self.use_fixed_colourmap != 0 {
             return &self.colourmap[self.use_fixed_colourmap];
         }
         let colourmap = (wall_scale as u32).min(47) as usize;
+        // SAFETY: Light/colourmap indices are clamped to the generated lookup-table dimensions;
+        // fixed maps come from the loaded colourmap set.
         unsafe {
             self.lightscale_colourmap
                 .get_unchecked(light_level * 48 + colourmap)
@@ -858,12 +896,18 @@ impl PicData {
     }
 
     #[inline(always)]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "asset coordinates and packed channels deliberately use their established format widths and rounding"
+    )]
     pub fn vert_light_colourmap(&self, light_level: usize, wall_scale: f32) -> &[usize] {
         if self.use_fixed_colourmap != 0 {
             return &self.colourmap[self.use_fixed_colourmap];
         }
 
         let colourmap = ((wall_scale * 15.8) as u32).min(MAXLIGHTSCALE as u32 - 1) as usize;
+        // SAFETY: Light/colourmap indices are clamped to the generated lookup-table dimensions;
+        // fixed maps come from the loaded colourmap set.
         unsafe {
             self.lightscale_colourmap
                 .get_unchecked(light_level * 48 + colourmap)
@@ -874,6 +918,8 @@ impl PicData {
     pub fn flat_light_colourmap(&self, mut light_level: usize, mut scale: usize) -> &[usize] {
         if self.use_fixed_colourmap != 0 {
             #[cfg(not(feature = "safety_check"))]
+            // SAFETY: Light/colourmap indices are clamped to the generated lookup-table
+            // dimensions; fixed maps come from the loaded colourmap set.
             unsafe {
                 return self.colourmap.get_unchecked(self.use_fixed_colourmap);
             }
@@ -884,6 +930,8 @@ impl PicData {
         scale &= MAXLIGHTZ - 1;
         light_level = light_level.min(15);
 
+        // SAFETY: Light/colourmap indices are clamped to the generated lookup-table dimensions;
+        // fixed maps come from the loaded colourmap set.
         unsafe {
             self.zlight_colourmap
                 .get_unchecked(light_level * 128 + scale)
@@ -893,6 +941,8 @@ impl PicData {
     #[inline(always)]
     pub fn get_texture(&self, num: usize) -> &WallPic {
         #[cfg(not(feature = "safety_check"))]
+        // SAFETY: The asset loader resolves these indices into the corresponding
+        // translation/texture/sprite arrays before rendering.
         unsafe {
             let num = self.wall_translation.get_unchecked(num);
             self.walls.get_unchecked(*num)
@@ -913,6 +963,8 @@ impl PicData {
             self.flats.len()
         );
         #[cfg(not(feature = "safety_check"))]
+        // SAFETY: The asset loader resolves these indices into the corresponding
+        // translation/texture/sprite arrays before rendering.
         unsafe {
             let num = self.flat_translation.get_unchecked(num);
             self.flats.get_unchecked(*num)
@@ -947,6 +999,8 @@ impl PicData {
     #[inline(always)]
     pub fn wall_pic(&self, texture: usize) -> &WallPic {
         #[cfg(not(feature = "safety_check"))]
+        // SAFETY: The asset loader resolves these indices into the corresponding
+        // translation/texture/sprite arrays before rendering.
         unsafe {
             self.walls
                 .get_unchecked(*self.wall_translation.get_unchecked(texture))
@@ -958,6 +1012,8 @@ impl PicData {
     #[inline(always)]
     pub fn wall_pic_column(&self, texture: usize, mut texture_column: usize) -> &[u16] {
         #[cfg(not(feature = "safety_check"))]
+        // SAFETY: The asset loader resolves these indices into the corresponding
+        // translation/texture/sprite arrays before rendering.
         let texture = unsafe {
             self.walls
                 .get_unchecked(*self.wall_translation.get_unchecked(texture))
@@ -970,6 +1026,8 @@ impl PicData {
         let column_end = column_start + texture.height;
 
         #[cfg(not(feature = "safety_check"))]
+        // SAFETY: The asset loader resolves these indices into the corresponding
+        // translation/texture/sprite arrays before rendering.
         unsafe {
             texture.data.get_unchecked(column_start..column_end)
         }
@@ -984,6 +1042,10 @@ impl PicData {
 
     /// Height in pixels of a wall texture by index (OG `textureheight`).
     #[inline(always)]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "asset coordinates and packed channels deliberately use their established format widths and rounding"
+    )]
     pub fn texture_height(&self, texture: usize) -> i32 {
         self.wall_pic(texture).height as i32
     }
@@ -1014,6 +1076,8 @@ impl PicData {
     #[inline(always)]
     pub fn sprite_def(&self, sprite_num: usize) -> &SpriteDef {
         #[cfg(not(feature = "safety_check"))]
+        // SAFETY: The asset loader resolves these indices into the corresponding
+        // translation/texture/sprite arrays before rendering.
         unsafe {
             self.sprite_defs.get_unchecked(sprite_num)
         }
@@ -1024,6 +1088,8 @@ impl PicData {
     #[inline(always)]
     pub fn sprite_patch(&self, num: usize) -> &SpritePic {
         #[cfg(not(feature = "safety_check"))]
+        // SAFETY: The asset loader resolves these indices into the corresponding
+        // translation/texture/sprite arrays before rendering.
         unsafe {
             self.sprite_patches.get_unchecked(num)
         }
@@ -1050,6 +1116,8 @@ impl PicData {
         for x in (0..width).step_by(x_step) {
             for y in (0..height).step_by(y_step) {
                 #[cfg(not(feature = "safety_check"))]
+                // SAFETY: The loops bound x/y by the loaded texture dimensions, whose backing
+                // data covers the complete texture.
                 unsafe {
                     let c = texture.data.get_unchecked(x * texture.height + y);
                     let colourmap = self.vert_light_colourmap(light, scale);
@@ -1092,6 +1160,8 @@ impl PicData {
         for x in (0..64).step_by(sample_step) {
             for y in (0..64).step_by(sample_step) {
                 #[cfg(not(feature = "safety_check"))]
+                // SAFETY: The loops bound x/y by the loaded texture dimensions, whose backing
+                // data covers the complete texture.
                 unsafe {
                     let c = flat.data.get_unchecked(y * 64 + x);
                     let cm = self
@@ -1185,10 +1255,18 @@ mod fade_tests {
         assert_eq!(player_cshift(0, 0, false), (0, 0.0));
         let (tint, pct) = player_cshift(64, 16, true);
         assert_eq!(tint, CSHIFT_DAMAGE);
-        assert_eq!(pct, CSHIFT_DAMAGE_MAX, "full damage count = max strength");
+        assert_eq!(
+            pct.to_bits(),
+            CSHIFT_DAMAGE_MAX.to_bits(),
+            "full damage count = max strength"
+        );
         let (tint, pct) = player_cshift(0, 32, true);
         assert_eq!(tint, CSHIFT_BONUS);
-        assert_eq!(pct, CSHIFT_BONUS_MAX, "full bonus count = max strength");
+        assert_eq!(
+            pct.to_bits(),
+            CSHIFT_BONUS_MAX.to_bits(),
+            "full bonus count = max strength"
+        );
         assert_eq!(
             player_cshift(0, 0, true),
             (CSHIFT_RADSUIT, CSHIFT_RADSUIT_PCT)

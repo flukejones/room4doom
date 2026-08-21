@@ -1,5 +1,3 @@
-use std::f32;
-
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
 
@@ -93,6 +91,8 @@ impl DepthBuffer {
     #[inline]
     pub fn peek_depth_unchecked(&self, x: usize, y: usize) -> f32 {
         let index = y * self.width + x;
+        // SAFETY: Rasterization clips x/y to the depth-buffer dimensions before this hot-path
+        // lookup.
         unsafe { *self.depths.get_unchecked(index) }
     }
 
@@ -199,6 +199,10 @@ impl DepthBuffer {
 
     /// Hi-Z occlusion test. Conservative: never produces false rejections.
     #[inline]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub fn is_occluded_hiz(
         &self,
         screen_min_x: usize,

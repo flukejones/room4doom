@@ -177,6 +177,11 @@ fn populate(ui: &EditorWindow, shared: &Rc<RefCell<SharedState>>) -> bool {
     true
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn render(ui: &EditorWindow, state: &SharedState) {
     let ctl = ui.global::<SectorEditController>();
     let Some(draft) = state.sector_edit.as_ref() else {

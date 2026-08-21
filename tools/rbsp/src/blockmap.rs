@@ -12,7 +12,7 @@
 //! lists:    per block: 0, linedef indices…, -1  (i16 LE)
 //! ```
 
-use crate::types::*;
+use crate::types::{BBox, Vertex, WadLineDef};
 
 const BLOCKMAP_BLOCK_SIZE: i16 = 128;
 /// Blockmap origin aligns down to an 8-unit boundary (vanilla behavior).
@@ -25,6 +25,10 @@ const HEADER_WORDS: usize = 4;
 /// `linedefs` reference original WAD vertex indices; `vertices` may contain
 /// additional BSP split vertices beyond those (ignored here). `map_bounds`
 /// must cover all linedef endpoints.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "BSP geometry deliberately quantizes coordinates and stores indices in the established on-disk widths"
+)]
 pub fn create_blockmap(linedefs: &[WadLineDef], vertices: &[Vertex], map_bounds: &BBox) -> Vec<u8> {
     let origin_x = (map_bounds.min_x.floor() as i16) & ORIGIN_ALIGN_MASK;
     let origin_y = (map_bounds.min_y.floor() as i16) & ORIGIN_ALIGN_MASK;
@@ -84,6 +88,10 @@ pub fn create_blockmap(linedefs: &[WadLineDef], vertices: &[Vertex], map_bounds:
 /// Check if a linedef intersects or is inside a block.
 /// Uses i32 for intermediate coordinates to match C's `int` and avoid
 /// overflow.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "BSP geometry deliberately quantizes coordinates and stores indices in the established on-disk widths"
+)]
 fn is_linedef_in_block(
     linedef: &WadLineDef,
     vertices: &[Vertex],

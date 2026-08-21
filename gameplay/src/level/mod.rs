@@ -126,6 +126,8 @@ impl LevelState {
         Self {
             map_name: String::new(),
             level_data,
+            // SAFETY: The level owns this fixed thinker allocation; game-owned player arrays
+            // outlive the level and spawning happens after initialization.
             thinkers: unsafe { ThinkerAlloc::new(0) },
             options,
             respawn_queue: VecDeque::with_capacity(MAX_RESPAWNS),
@@ -158,6 +160,8 @@ impl LevelState {
 
     pub(crate) fn stop_movers(&mut self, tag: i16) {
         for mover in &mut self.active_movers {
+            // SAFETY: Active movers live in fixed thinker slots and are removed from the active
+            // list before their slots are released.
             let mover = unsafe { &mut **mover };
             if mover.tag == tag && mover.phase != MoverPhase::InStasis {
                 mover.stasis_phase = mover.phase;
@@ -168,6 +172,8 @@ impl LevelState {
 
     pub(crate) fn activate_movers_in_stasis(&mut self, tag: i16) {
         for mover in &mut self.active_movers {
+            // SAFETY: Active movers live in fixed thinker slots and are removed from the active
+            // list before their slots are released.
             let mover = unsafe { &mut **mover };
             if mover.tag == tag && mover.phase == MoverPhase::InStasis {
                 mover.phase = mover.stasis_phase;
@@ -194,18 +200,26 @@ impl LevelState {
         if let Some(index) = self.active_movers.iter().position(|p| ptr::eq(*p, mover)) {
             self.active_movers.remove(index);
         }
+        // SAFETY: Active movers live in fixed thinker slots and are removed from the active
+        // list before their slots are released.
         unsafe { &mut *mover.thinker }.mark_remove();
     }
 
     pub(super) fn players_in_game(&self) -> &[bool; MAXPLAYERS] {
+        // SAFETY: The game owns these fixed player arrays and keeps them alive at the addresses
+        // supplied when the level is constructed.
         unsafe { &*self.players_in_game }
     }
 
     pub(super) fn players(&self) -> &[Player; MAXPLAYERS] {
+        // SAFETY: The game owns these fixed player arrays and keeps them alive at the addresses
+        // supplied when the level is constructed.
         unsafe { &*self.players }
     }
 
     pub(super) fn players_mut(&mut self) -> &mut [Player; MAXPLAYERS] {
+        // SAFETY: The game owns these fixed player arrays and keeps them alive at the addresses
+        // supplied when the level is constructed.
         unsafe { &mut *self.players }
     }
 
@@ -245,6 +259,8 @@ impl LevelState {
         let num_blocks = (bm.columns * bm.rows) as usize;
         self.blocklinks = vec![None; num_blocks];
 
+        // SAFETY: The level owns this fixed thinker allocation; game-owned player arrays
+        // outlive the level and spawning happens after initialization.
         unsafe {
             self.thinkers = ThinkerAlloc::new(self.level_data.things().len() * 2 + 256);
         }

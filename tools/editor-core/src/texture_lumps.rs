@@ -44,6 +44,10 @@ impl fmt::Display for TextureLumpError {
 impl Error for TextureLumpError {}
 
 /// Encode one `TEXTURE<n>` lump per set (TEXTURE1, TEXTURE2, …) plus the shared PNAMES lump; `extra_patch_names` are appended to PNAMES even when no texture references them (so imported patches register), deduped against the texture-referenced names.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 pub fn encode_texture_lumps(
     texture_sets: &[Vec<TextureDef>],
     extra_patch_names: &[Name8],

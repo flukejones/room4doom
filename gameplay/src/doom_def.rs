@@ -1,6 +1,19 @@
 use crate::info::StateNum;
-use crate::player_sprite::*;
-use crate::thing::enemy::*;
+use crate::player_sprite::{
+    a_bfgsound, a_bfgspray, a_checkreload, a_closeshotgun2, a_firebfg, a_firecgun, a_firemissile,
+    a_firepistol, a_fireplasma, a_fireshotgun, a_fireshotgun2, a_gunflash, a_light0, a_light1,
+    a_light2, a_loadshotgun2, a_lower, a_openshotgun2, a_punch, a_raise, a_refire, a_saw,
+    a_weaponready,
+};
+use crate::thing::enemy::{
+    a_babymetal, a_bossdeath, a_brainawake, a_braindie, a_brainexplode, a_brainpain, a_brainscream,
+    a_brainspit, a_bruisattack, a_bspiattack, a_chase, a_cposattack, a_cposrefire, a_cyberattack,
+    a_explode, a_facetarget, a_fall, a_fatattack1, a_fatattack2, a_fatattack3, a_fatraise, a_fire,
+    a_firecrackle, a_headattack, a_hoof, a_keendie, a_look, a_metal, a_pain, a_painattack,
+    a_paindie, a_playerscream, a_posattack, a_sargattack, a_scream, a_skelfist, a_skelmissile,
+    a_skelwhoosh, a_skullattack, a_spawnfly, a_spawnsound, a_spidrefire, a_sposattack, a_startfire,
+    a_tracer, a_troopattack, a_vileattack, a_vilechase, a_vilestart, a_viletarget, a_xscream,
+};
 use crate::{MapObject, Player, PspDef};
 
 /// Do not know where this is set

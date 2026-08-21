@@ -175,6 +175,10 @@ impl ThingEdit {
 }
 
 /// Row index for `value` in the preset combo, or -1 when absent.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn special_index(values: &slint::ModelRc<i32>, value: i32) -> i32 {
     values
         .iter()
@@ -238,6 +242,10 @@ fn push_thing_types(ui: &EditorWindow, shared: &Rc<RefCell<SharedState>>) {
 }
 
 /// Row index for `kind` in the controller's `type-num` list, or -1.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn type_row(ctl: &ThingInspectorController, kind: i32) -> i32 {
     ctl.get_type_num()
         .iter()

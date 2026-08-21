@@ -14,6 +14,10 @@ use crate::render::wgpu::{AtlasData, WallRect};
 use crate::render::{FNV_OFFSET, fnv_fold};
 
 /// [`assets::FLAT_SIDE`] in the atlas's u32 texel arithmetic.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "the fixed 64-texel flat dimension fits u32"
+)]
 const FLAT_SIDE: u32 = assets::FLAT_SIDE as u32;
 /// Sprite atlas padding (texels) — prevents neighbour bleed under nearest sampling.
 const SPRITE_PAD: u32 = 1;
@@ -158,6 +162,11 @@ fn fold_name(mut h: u64, n: &Name8, sep: u64) -> u64 {
 }
 
 /// Pack distinct flats into a horizontal strip of 64×64 RGBA tiles.
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn pack_flat_atlas(
     assets: &EditorAssets,
     map: &EditorMap,
@@ -204,6 +213,10 @@ fn pack_flat_atlas(
 }
 
 /// Shelf-pack all map wall textures into one RGBA atlas from the composed cache.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn pack_wall_atlas(
     assets: &EditorAssets,
     map: &EditorMap,
@@ -334,6 +347,10 @@ pub fn collect_wall_names(assets: &EditorAssets, map: &EditorMap) -> Vec<Name8> 
 }
 
 /// Shelf-pack thing icons into one RGBA atlas; returns bytes, dims, and kind→slot map.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn pack_sprite_atlas(
     sprites: &ThingSpriteCache,
     map: &EditorMap,
@@ -393,6 +410,10 @@ mod tests {
     use wad::WadData;
 
     #[test]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+    )]
     fn e1m1_flat_atlas_packs_distinct_flats() {
         let wad = WadData::new(&test_utils::doom1_wad_path());
         let map = editor_core::import_wad_map(&wad, "E1M1").expect("E1M1 imports");
@@ -430,6 +451,10 @@ mod tests {
     }
 
     #[test]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+    )]
     fn e1m1_wall_atlas_packs_and_bounds() {
         let wad = WadData::new(&test_utils::doom1_wad_path());
         let map = editor_core::import_wad_map(&wad, "E1M1").expect("E1M1 imports");
@@ -467,7 +492,12 @@ mod tests {
             );
         }
 
-        let has_opaque = data.wall_rgba.chunks_exact(4).any(|p| p[3] == 0xff);
+        let has_opaque = data
+            .wall_rgba
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .any(|p| p[3] == 0xff);
         assert!(has_opaque, "wall atlas has opaque texels");
     }
 

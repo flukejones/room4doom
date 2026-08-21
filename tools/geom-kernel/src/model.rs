@@ -173,12 +173,20 @@ impl EditorMap {
 
     /// Flatten to the on-disk shape: elements in slot order, references as dense list positions. Panics on a dangling reference (kernel invariant).
     pub fn to_dense(&self) -> DenseMap {
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "dense positions cannot exceed the arena's u32 slot indices"
+        )]
         let vert_pos: HashMap<VertKey, u32> = self
             .vertices
             .keys()
             .enumerate()
             .map(|(i, k)| (k, i as u32))
             .collect();
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "dense positions cannot exceed the arena's u32 slot indices"
+        )]
         let sector_pos: HashMap<SectorKey, u32> = self
             .sectors
             .keys()
@@ -207,7 +215,7 @@ impl EditorMap {
                     special: l.special,
                     tag: l.tag,
                     front: side(&l.front),
-                    back: l.back.as_ref().map(&side),
+                    back: l.back.as_ref().map(side),
                 })
                 .collect(),
             sectors: self.sectors.values().copied().collect(),

@@ -63,6 +63,8 @@ impl TryFrom<u16> for SpriteNum {
         if v < Self::Count as u16 {
             // Sound: `#[repr(u16)]` with contiguous `0..Count` discriminants,
             // and `v` is bounds-checked against that range above.
+            // SAFETY: The preceding bounds check restricts the integer to the contiguous
+            // discriminants of this repr enum.
             Ok(unsafe { std::mem::transmute::<u16, Self>(v) })
         } else {
             Err(v)
@@ -199,6 +201,8 @@ Count,
 impl From<u16> for StateNum {
     fn from(w: u16) -> Self {
         assert!(w < Self::Count as u16, "{w} is not a variant of StateNum");
+        // SAFETY: The preceding bounds check restricts the integer to the contiguous
+        // discriminants of this repr enum.
         unsafe { std::mem::transmute(w) }
     }
 }
@@ -268,6 +272,8 @@ impl MapObjKind {
 impl From<u16> for MapObjKind {
     fn from(i: u16) -> Self {
         assert!(i < Self::Count as u16, "{i} is not a variant of MapObjKind");
+        // SAFETY: The preceding bounds check restricts the integer to the contiguous
+        // discriminants of this repr enum.
         unsafe { std::mem::transmute(i) }
     }
 }

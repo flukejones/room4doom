@@ -600,6 +600,10 @@ struct CachedGeometry {
 }
 
 impl WgpuRenderer {
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep related UI setup and event dispatch together in their execution order"
+    )]
     fn new(device: wgpu::Device, queue: wgpu::Queue) -> Self {
         let line_shader = shader_module(&device, "editor-line-shader", LINE_WGSL);
         let thing_shader = shader_module(&device, "editor-thing-shader", THING_WGSL);
@@ -1075,6 +1079,10 @@ impl WgpuRenderer {
         self.grid_z.set(z);
     }
 
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+    )]
     fn set_overlay(&mut self, lines: &[LineInst], markers: &[MarkerInst]) {
         self.overlay_lines = (!lines.is_empty()).then(|| {
             (
@@ -1114,6 +1122,10 @@ impl WgpuRenderer {
     }
 
     /// Patch a surface3d vertex range. False = beyond capacity, caller re-uploads the mirror.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+    )]
     fn patch_surface(&mut self, offset: u32, verts: &[Vert3D]) -> bool {
         let Some(g) = &mut self.geometry else {
             return true;
@@ -1269,6 +1281,14 @@ impl WgpuRenderer {
     }
 
     /// Encode the cached geometry into a fresh texture. `extra_usage` adds `COPY_SRC` for readback.
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+    )]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep the complete dispatch or geometry pass together without changing its established ordering"
+    )]
     fn encode_to_texture(
         &self,
         width: u32,
@@ -1482,6 +1502,10 @@ impl WgpuRenderer {
     }
 
     /// Slot-addressed vertex buffer with slack capacity; unwritten tail is zeroed (invisible).
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+    )]
     fn slot_buffer<T: Pod>(&self, data: &[T], label: &str) -> SlotBuffer {
         let len = data.len() as u32;
         let cap = slot_cap(len);
@@ -1832,6 +1856,10 @@ mod tests {
     }
 
     #[test]
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+    )]
     fn surface3d_renders_with_depth() {
         let Some(mut r) = headless_renderer() else {
             eprintln!("no wgpu adapter; skipping GPU render test");
@@ -1857,7 +1885,7 @@ mod tests {
             hi[0] = hi[0].max(v.x);
             hi[1] = hi[1].max(v.y);
         }
-        let centre = [(lo[0] + hi[0]) * 0.5, (lo[1] + hi[1]) * 0.5];
+        let centre = [f32::midpoint(lo[0], hi[0]), f32::midpoint(lo[1], hi[1])];
         let camera = export_camera(centre, zoom, h as f32);
 
         let style = CanvasStyle::default();
@@ -1911,6 +1939,10 @@ mod tests {
 
     /// Grid shader paints lines over an empty canvas; regression for the "I see no grid" bug.
     #[test]
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+    )]
     fn grid_shader_paints_lines_top_down() {
         let Some(mut r) = headless_renderer() else {
             eprintln!("no wgpu adapter; skipping GPU render test");

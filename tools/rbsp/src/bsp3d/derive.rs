@@ -127,6 +127,10 @@ impl Bsp3dLump {
     }
 
     /// Per-linedef wall polygon lists.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "BSP geometry deliberately quantizes coordinates and stores indices in the established on-disk widths"
+    )]
     pub fn linedef_wall_polys(&self, num_linedefs: usize) -> Vec<Vec<u32>> {
         let mut table = vec![Vec::new(); num_linedefs];
         for (gi, p) in self.polys.iter().enumerate() {

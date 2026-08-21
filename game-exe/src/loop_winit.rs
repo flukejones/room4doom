@@ -196,6 +196,14 @@ impl DoomApp {
 }
 
 impl ApplicationHandler for DoomApp {
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "screen, input and game-state values deliberately retain their established numeric widths and rounding"
+    )]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep related UI setup and event dispatch together in their execution order"
+    )]
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.window.is_some() {
             return;
@@ -371,6 +379,15 @@ impl ApplicationHandler for DoomApp {
         self.window = Some(window);
     }
 
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "screen, input and game-state values deliberately retain their established numeric widths and rounding"
+    )]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep related UI setup and event dispatch together in their execution order"
+    )]
     fn window_event(
         &mut self,
         event_loop: &ActiveEventLoop,
@@ -592,6 +609,10 @@ impl ApplicationHandler for DoomApp {
         }
     }
 
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "screen, input and game-state values deliberately retain their established numeric widths and rounding"
+    )]
     fn device_event(
         &mut self,
         _event_loop: &ActiveEventLoop,

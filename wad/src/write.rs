@@ -29,6 +29,8 @@ const DIR_ENTRY_LEN: usize = 16;
 pub enum WadWriteError {
     /// A lump name exceeds [`LUMP_NAME_LEN`] bytes.
     NameTooLong(String),
+    /// A count, offset, or lump size exceeds the signed 32-bit WAD format.
+    TooLarge,
     Io(io::Error),
 }
 
@@ -39,6 +41,7 @@ impl fmt::Display for WadWriteError {
                 write!(f, "lump name longer than {LUMP_NAME_LEN} bytes: {name:?}")
             }
             Self::Io(e) => write!(f, "pwad io error: {e}"),
+            Self::TooLarge => write!(f, "pwad exceeds the format's 32-bit size limits"),
         }
     }
 }
@@ -60,28 +63,43 @@ pub fn write_pwad(lumps: &[Lump]) -> Result<Vec<u8>, WadWriteError> {
         }
     }
 
-    let data_len: usize = lumps.iter().map(|l| l.data.len()).sum();
-    let mut out = Vec::with_capacity(HEADER_LEN + data_len + lumps.len() * DIR_ENTRY_LEN);
+    let count = wad_i32(lumps.len())?;
+    let data_len = lumps.iter().try_fold(HEADER_LEN, |n, lump| {
+        n.checked_add(lump.data.len())
+            .ok_or(WadWriteError::TooLarge)
+    })?;
+    let directory_offset = wad_i32(data_len)?;
+    let capacity = lumps
+        .len()
+        .checked_mul(DIR_ENTRY_LEN)
+        .and_then(|n| n.checked_add(data_len))
+        .ok_or(WadWriteError::TooLarge)?;
+    let mut out = Vec::with_capacity(capacity);
 
     out.extend_from_slice(PWAD_MAGIC);
-    out.extend_from_slice(&(lumps.len() as i32).to_le_bytes());
-    out.extend_from_slice(&((HEADER_LEN + data_len) as i32).to_le_bytes());
+    out.extend_from_slice(&count.to_le_bytes());
+    out.extend_from_slice(&directory_offset.to_le_bytes());
 
     for lump in lumps {
         out.extend_from_slice(&lump.data);
     }
 
-    let mut offset = HEADER_LEN;
+    let mut offset = wad_i32(HEADER_LEN)?;
     for lump in lumps {
-        out.extend_from_slice(&(offset as i32).to_le_bytes());
-        out.extend_from_slice(&(lump.data.len() as i32).to_le_bytes());
+        let size = wad_i32(lump.data.len())?;
+        out.extend_from_slice(&offset.to_le_bytes());
+        out.extend_from_slice(&size.to_le_bytes());
         let mut name = [0u8; LUMP_NAME_LEN];
         name[..lump.name.len()].copy_from_slice(lump.name.as_bytes());
         out.extend_from_slice(&name);
-        offset += lump.data.len();
+        offset += size;
     }
 
     Ok(out)
+}
+
+fn wad_i32(value: usize) -> Result<i32, WadWriteError> {
+    i32::try_from(value).map_err(|_| WadWriteError::TooLarge)
 }
 
 /// Serialize and write a PWAD file.
@@ -133,6 +151,15 @@ mod tests {
         let lumps = [lump("WAYTOOLONG", &[])];
         let err = write_pwad(&lumps).expect_err("10-byte name invalid");
         assert!(matches!(err, WadWriteError::NameTooLong(_)), "{err}");
+    }
+
+    #[test]
+    fn format_size_limit_is_checked_without_allocating() {
+        assert_eq!(wad_i32(i32::MAX as usize).unwrap(), i32::MAX);
+        assert!(matches!(
+            wad_i32(i32::MAX as usize + 1),
+            Err(WadWriteError::TooLarge)
+        ));
     }
 
     #[test]

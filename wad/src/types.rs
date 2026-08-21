@@ -58,19 +58,19 @@ pub const fn rgb_u32(r: u8, g: u8, b: u8) -> WadColour {
 /// Extract the red channel from a `WadColour`.
 #[inline(always)]
 pub const fn colour_r(c: WadColour) -> u8 {
-    (c >> 16) as u8
+    c.to_le_bytes()[2]
 }
 
 /// Extract the green channel from a `WadColour`.
 #[inline(always)]
 pub const fn colour_g(c: WadColour) -> u8 {
-    (c >> 8) as u8
+    c.to_le_bytes()[1]
 }
 
 /// Extract the blue channel from a `WadColour`.
 #[inline(always)]
 pub const fn colour_b(c: WadColour) -> u8 {
-    c as u8
+    c.to_le_bytes()[0]
 }
 
 /// There are typically 14 palettes available during gameplay. These range from
@@ -169,6 +169,11 @@ impl WadPatch {
 
     /// Create a patch from lump data. The data must be that which is associated
     /// with the patch, e.g, `wad.file_data[lump.handle]`
+    #[expect(
+        clippy::cast_precision_loss,
+        clippy::cast_possible_truncation,
+        reason = "flat fallback preserves the existing f32 square-root and integer dimension rounding"
+    )]
     pub fn from_lump(lump: &Lump) -> Self {
         let data = &lump.data;
         // Header is 8 bytes (width, height, left/top offset) plus the column

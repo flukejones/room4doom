@@ -23,6 +23,10 @@ impl Intermission {
         }
     }
 
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "screen, input and game-state values deliberately retain their established numeric widths and rounding"
+    )]
     pub(super) fn draw_on_lnode(
         &self,
         lv: usize,

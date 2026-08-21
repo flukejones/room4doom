@@ -123,6 +123,10 @@ pub struct UdmfInput {
 }
 
 impl UdmfInput {
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "BSP geometry deliberately quantizes coordinates and stores indices in the established on-disk widths"
+    )]
     pub fn from_map(map: &UdmfMap) -> Self {
         let vertices = map
             .vertices
@@ -199,6 +203,10 @@ impl UdmfInput {
     }
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "BSP geometry deliberately quantizes coordinates and stores indices in the established on-disk widths"
+)]
 fn plane_from_udmf(p: [f64; 4]) -> Option<SlopePlane> {
     SlopePlane::new(p[0] as f32, p[1] as f32, p[2] as f32, p[3] as f32)
 }

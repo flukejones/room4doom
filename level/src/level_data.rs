@@ -19,13 +19,22 @@ use std::env;
 use std::hash::Hasher as _;
 use std::path::{Path, PathBuf};
 use std::str;
+use std::sync::OnceLock;
 use std::time::Instant;
 use std::{fs, process};
 
 const CELL_SIZE: f32 = 128.0;
-use wad::types::*;
+use wad::types::{WadLineDef, WadSector, WadSideDef, WadTexture, WadThing, WadVertex};
 use wad::udmf::{UdmfLineDef, UdmfThing, parse_textmap};
 use wad::{MapLump, WadData};
+
+static RBSP_CACHE_DIRECTORY: OnceLock<PathBuf> = OnceLock::new();
+
+/// Override the RBSP cache directory before loading maps. The first override
+/// wins; concurrent readers never require process-wide environment mutation.
+pub fn set_rbsp_cache_directory(directory: PathBuf) -> Result<(), PathBuf> {
+    RBSP_CACHE_DIRECTORY.set(directory)
+}
 
 /// The smallest vector and the largest vertex, combined make up a
 /// rectangle enclosing the level area
@@ -166,6 +175,14 @@ impl LevelData {
     }
 
     /// The level struct *must not move after this*
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "map geometry deliberately converts between fixed-point coordinates, float meshes and packed indices"
+    )]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep format fields and initialization steps visible in their required order"
+    )]
     pub fn load(
         &mut self,
         map_name: &str,
@@ -303,6 +320,15 @@ impl LevelData {
     /// subsectors from `bsp`, blockmap/reject/extents, and the 3D-BSP parse.
     /// Reads only `self.*` + the BSP outputs, so the classic and UDMF fronts
     /// run it identically.
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "map geometry deliberately converts between fixed-point coordinates, float meshes and packed indices"
+    )]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep format fields and initialization steps visible in their required order"
+    )]
     fn finalize_after_linedefs(
         &mut self,
         map_name: &str,
@@ -442,6 +468,14 @@ impl LevelData {
     /// vertices → linedefs) but from `UdmfMap` records, attaching sector slope
     /// planes, then runs the shared finalize tail. No WAD-record synthesis: the
     /// 2D BSP is built straight from the UDMF-derived `BspInput`.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "map geometry deliberately converts between fixed-point coordinates, float meshes and packed indices"
+    )]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep format fields and initialization steps visible in their required order"
+    )]
     fn load_udmf(
         &mut self,
         map_name: &str,
@@ -618,6 +652,10 @@ impl LevelData {
         }
     }
 
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "map geometry deliberately converts between fixed-point coordinates, float meshes and packed indices"
+    )]
     fn load_sectors(
         &mut self,
         map_name: &str,
@@ -745,6 +783,14 @@ impl LevelData {
         );
     }
 
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "map geometry deliberately converts between fixed-point coordinates, float meshes and packed indices"
+    )]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep format fields and initialization steps visible in their required order"
+    )]
     pub fn build_blockmap(&mut self, map_name: &str) {
         if self.linedefs.is_empty() {
             warn!("{map_name}: No linedefs, cannot build blockmap");
@@ -1035,6 +1081,10 @@ where
 
 /// Convert a UDMF thing to the classic `WadThing` the spawn path consumes.
 /// UDMF positive booleans map to the classic THINGS flag bits.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map geometry deliberately converts between fixed-point coordinates, float meshes and packed indices"
+)]
 fn udmf_thing_to_wad(t: &UdmfThing) -> WadThing {
     let mut flags = 0i16;
     if t.skill1 || t.skill2 {
@@ -1097,6 +1147,10 @@ fn udmf_linedef_flags(l: &UdmfLineDef) -> u32 {
 
 /// UDMF sector plane equation to the runtime [`SlopePlane`]; `None` for a
 /// degenerate vertical plane.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map geometry deliberately converts between fixed-point coordinates, float meshes and packed indices"
+)]
 fn udmf_plane(p: [f64; 4]) -> Option<SlopePlane> {
     SlopePlane::new(p[0] as f32, p[1] as f32, p[2] as f32, p[3] as f32)
 }
@@ -1110,11 +1164,12 @@ fn rbsp_cache_path(
     has_sky: bool,
     sky_fillers: bool,
 ) -> Option<PathBuf> {
-    let dir = match env::var_os("ROOM4DOOM_CACHE_DIR") {
-        Some(d) => PathBuf::from(d),
-        None => dirs::cache_dir()?.join("room4doom"),
-    }
-    .join("rbsp");
+    let dir = RBSP_CACHE_DIRECTORY
+        .get()
+        .cloned()
+        .or_else(|| env::var_os("ROOM4DOOM_CACHE_DIR").map(PathBuf::from))
+        .or_else(|| dirs::cache_dir().map(|d| d.join("room4doom")))?
+        .join("rbsp");
     let mut hasher = DefaultHasher::new();
     for lump in ["VERTEXES", "LINEDEFS", "SIDEDEFS", "SECTORS"] {
         hasher.write(&find_map_lump(wad, map_name, lump).unwrap_or_default());

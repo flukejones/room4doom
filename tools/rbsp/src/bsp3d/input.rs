@@ -107,6 +107,14 @@ impl Bsp3dInput {
     /// `sky_flat` marks sky surfaces by flat name (typically `"F_SKY1"`);
     /// `None` disables all sky handling. `sky_fillers` additionally gates the
     /// synthetic filler walls (the engine requires a sky wall texture too).
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "BSP geometry deliberately quantizes coordinates and stores indices in the established on-disk widths"
+    )]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep related UI setup and event dispatch together in their execution order"
+    )]
     pub fn new<L, S, SE>(
         linedefs: &[L],
         sidedefs: &[S],
@@ -253,6 +261,10 @@ impl Bsp3dInput {
 
 /// For each two-sided seg, find the subsectors across it: segs on the same
 /// linedef, other side, with an overlapping span.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "BSP geometry deliberately quantizes coordinates and stores indices in the established on-disk widths"
+)]
 fn link_back_subsectors(
     segs: &mut [InputSeg],
     linedefs: &[InputLineDef],

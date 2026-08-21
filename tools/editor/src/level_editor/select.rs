@@ -137,6 +137,10 @@ impl LevelEditorState {
         }
     }
 
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+    )]
     pub(super) fn rubber_select(&mut self, mode: SelectMode, a: [f32; 2], b: [f32; 2]) -> Damage {
         let Some(map) = &self.map else {
             return Damage::None;

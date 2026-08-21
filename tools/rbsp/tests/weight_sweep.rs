@@ -35,16 +35,11 @@ fn load_input(
     }
 }
 
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "fixture and benchmark dimensions intentionally use the same numeric conversions as the engine"
+)]
 fn tree_depth(nodes: &[rbsp::Node], root: u32) -> (usize, f64) {
-    let (mut count, mut sum, mut max_d) = (0usize, 0usize, 0usize);
-    walk(nodes, root, 0, &mut count, &mut sum, &mut max_d);
-    let avg = if count > 0 {
-        sum as f64 / count as f64
-    } else {
-        0.0
-    };
-    return (max_d, avg);
-
     fn walk(
         nodes: &[rbsp::Node],
         child: u32,
@@ -63,9 +58,22 @@ fn tree_depth(nodes: &[rbsp::Node], root: u32) -> (usize, f64) {
         walk(nodes, n.child_right, d + 1, c, s, m);
         walk(nodes, n.child_left, d + 1, c, s, m);
     }
+
+    let (mut count, mut sum, mut max_d) = (0usize, 0usize, 0usize);
+    walk(nodes, root, 0, &mut count, &mut sum, &mut max_d);
+    let avg = if count > 0 {
+        sum as f64 / count as f64
+    } else {
+        0.0
+    };
+    (max_d, avg)
 }
 
 #[test]
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "fixture and benchmark dimensions intentionally use the same numeric conversions as the engine"
+)]
 fn sweep() {
     let weights: Vec<rbsp::Float> = (8..=16).map(|w| w as rbsp::Float).collect();
 

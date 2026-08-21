@@ -51,6 +51,8 @@ impl<'a, T: PixelFmt> PixelTarget<'a, T> {
     /// Write a resolved pixel at flat `pos` (`y * pitch() + x`).
     #[inline(always)]
     pub fn write(&mut self, pos: usize, px: T) {
+        // SAFETY: The drawing caller clips positions to the target dimensions; the backing
+        // slice covers every pixel, including its row pitch.
         unsafe {
             *self.surface.get_unchecked_mut(pos) = px;
         }
@@ -68,6 +70,8 @@ impl<'a, T: PixelFmt> PixelTarget<'a, T> {
     /// Fuzz RMW: RGB-halve `src_pos`'s pixel into `dst_pos`.
     #[inline(always)]
     pub fn fuzz(&mut self, dst_pos: usize, src_pos: usize) {
+        // SAFETY: The drawing caller clips positions to the target dimensions; the backing
+        // slice covers every pixel, including its row pitch.
         unsafe {
             let px = *self.surface.get_unchecked(src_pos);
             *self.surface.get_unchecked_mut(dst_pos) = px.darken();
@@ -96,6 +100,8 @@ impl<T: PixelFmt> DrawBuffer for PixelTarget<'_, T> {
     #[inline]
     fn set_pixel(&mut self, x: usize, y: usize, colour: u32) {
         let pos = y * self.pitch + x;
+        // SAFETY: The drawing caller clips positions to the target dimensions; the backing
+        // slice covers every pixel, including its row pitch.
         unsafe {
             *self.surface.get_unchecked_mut(pos) = T::from_argb(colour, self.order);
         }
@@ -112,6 +118,10 @@ mod tests {
     use super::*;
     use pic_data::WadPalette;
 
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     fn pal<T: PixelFmt>() -> PalLit<T> {
         let mut pals: [WadPalette; pic_data::PALETTE_LEN] = Default::default();
         for (t, p) in pals.iter_mut().enumerate() {

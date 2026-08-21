@@ -18,6 +18,11 @@ pub struct WallBand {
 }
 
 /// Render a wall elevation: bands top-to-bottom, textures tile per world unit; caller must [`EditorAssets::ensure_composed`] band textures first.
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 pub fn render_wall(
     assets: &EditorAssets,
     bands: &[WallBand],

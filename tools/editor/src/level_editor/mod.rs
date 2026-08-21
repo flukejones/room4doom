@@ -455,6 +455,10 @@ impl LevelEditorState {
         }
     }
 
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+    )]
     fn snap_point(&mut self, world: [f32; 2]) -> [f32; 2] {
         let grid_snap = |w: [f32; 2]| [snap(w[0], self.grid), snap(w[1], self.grid)];
         // Angle rays anchor on the previous chain point (line draw only).
@@ -501,6 +505,10 @@ impl LevelEditorState {
 }
 
 /// Thing pick-leaves for the BVH: id = arena slot, half-extent from the kind cache.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 pub(crate) fn thing_leaves(map: &EditorMap, extents: &HashMap<i32, [f32; 2]>) -> Vec<ThingLeaf> {
     map.things
         .iter()

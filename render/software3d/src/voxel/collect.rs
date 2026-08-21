@@ -44,6 +44,15 @@ pub enum CollectResult {
     Collected(u32, u32),
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+)]
+#[expect(
+    clippy::too_many_lines,
+    reason = "keep shared rasterization and culling state in one pass without changing hot-loop structure"
+)]
 pub fn collect_visible_slices<'a>(
     vslices: &'a VoxelSlices,
     params: &VoxelCollectParams,

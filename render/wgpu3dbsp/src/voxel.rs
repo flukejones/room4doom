@@ -149,6 +149,10 @@ impl VoxelScratch {
     /// Select voxel-eligible things in one sector's thinglist and resolve each
     /// to a [`VoxelInstance`]. Called from the world walk for each
     /// frustum-visible sector; GPU depth handles occlusion.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub fn collect_in_sector(&mut self, ctx: &VoxelCollectCtx, sector: &Sector) {
         let VoxelCollectCtx {
             view,
@@ -228,6 +232,10 @@ impl VoxelScratch {
 
     /// Group the collected instances by model, opaque before fuzz within each
     /// model, ready for upload.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub fn finish_collect(&mut self) {
         // Group by model (depth ordering within a model is handled by the GPU
         // depth buffer; the fuzz split must be one contiguous run per model so
@@ -397,6 +405,10 @@ impl VoxelPipeline {
     /// Bake (or re-bake) the per-model face buffers from the manager. Called on
     /// first build and on a palette-generation change (face colours are resolved
     /// through the base palette). `palette` is `pic_data.palettes()[0]`.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub fn build_models(&mut self, device: &wgpu::Device, mgr: &VoxelManager, pic_data: &PicData) {
         let palette = &pic_data.palettes()[0];
         self.models.clear();
@@ -517,6 +529,10 @@ impl VoxelPipeline {
 
     /// Grow + rebind the instance buffer when the count exceeds capacity, then
     /// upload. Empty frames are a no-op.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     fn upload_instances(
         &mut self,
         device: &wgpu::Device,

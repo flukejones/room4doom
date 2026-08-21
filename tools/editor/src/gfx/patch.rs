@@ -11,6 +11,10 @@ use crate::assets::{compose_texture_indices, patch_dims};
 const PATCH_HIGHLIGHT: [u8; 4] = [0xff, 0xe0, 0x40, 0xff];
 
 /// Composite a texture preview: reuses `compose_texture_indices` so preview matches canvas; missing patch → magenta, genuine transparency → clear; optionally strokes `highlight` patch bounds and applies a COLORMAP light level.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 pub fn compose_texture_highlight(
     def: &TextureDef,
     imported: &[ImportedPatch],

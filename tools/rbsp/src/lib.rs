@@ -198,6 +198,10 @@ where
     }
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "BSP geometry deliberately quantizes coordinates and stores indices in the established on-disk widths"
+)]
 fn compact_vertices<L: LineDefAccess>(
     vertices: Vec<Vertex>,
     segs: &mut [Seg],

@@ -76,6 +76,10 @@ impl SnapIndex {
     }
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn cell(x: f32, y: f32) -> [i32; 2] {
     [
         (x / SNAP_CELL).floor() as i32,
@@ -83,6 +87,10 @@ fn cell(x: f32, y: f32) -> [i32; 2] {
     ]
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn span(lo: f32, hi: f32) -> RangeInclusive<i32> {
     ((lo / SNAP_CELL).floor() as i32)..=((hi / SNAP_CELL).floor() as i32)
 }

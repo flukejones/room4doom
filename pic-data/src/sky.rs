@@ -53,6 +53,10 @@ const SKY_FADE_SPAN_FRAC: f32 = 0.22;
 /// blended with full strength at the join and fading to zero at this depth.
 const SKY_JITTER_START_ROW: usize = 24;
 /// Extension rows per source row advanced by the jitter walk.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "the 24-row jitter interval is exactly representable in f32"
+)]
 const SKY_JITTER_WALK_RATE: f32 = SKY_JITTER_START_ROW as f32 / 2.0;
 /// Maximum per-column drift added to the walk position, in fractional source
 /// rows.
@@ -65,6 +69,11 @@ const SKY_DRIFT_SMOOTHNESS: f32 = 0.08;
 /// `data` is the column-major source texture (`u16` palette indices, `u16::MAX`
 /// = transparent), `colourmap`/`palette` resolve it to `0xFFRRGGBB`. Each output
 /// texel is `pixel(xrgb)`, where `xrgb` is `0` for transparent source.
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    reason = "asset coordinates and packed channels deliberately use their established format widths and rounding"
+)]
 pub fn build_sky_extended<T>(
     data: &[u16],
     width: usize,
@@ -184,6 +193,10 @@ pub fn build_sky_extended<T>(
 
 /// Nearest Doom palette index for an `0xFFRRGGBB` colour (RGB squared distance).
 /// Quantizes the sky gradient into the index plane (`0` for transparent).
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "asset coordinates and packed channels deliberately use their established format widths and rounding"
+)]
 pub fn nearest_palette_index(colour: u32, palette: &[u32]) -> u8 {
     if colour == 0 {
         return 0;
@@ -211,6 +224,10 @@ fn smoothstep(t: f32) -> f32 {
     t * t * (3.0 - 2.0 * t)
 }
 
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "asset coordinates and packed channels deliberately use their established format widths and rounding"
+)]
 fn hrand(x: u32, y: u32, seed: u32) -> f32 {
     let n = x
         .wrapping_add(y.wrapping_mul(2654435761))
@@ -238,6 +255,10 @@ fn resolve(
     }
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "asset coordinates and packed channels deliberately use their established format widths and rounding"
+)]
 fn lerp_color(a: u32, b: u32, t: f32) -> u32 {
     let ar = (a >> 16) as u8;
     let ag = (a >> 8) as u8;
@@ -253,6 +274,11 @@ fn lerp_color(a: u32, b: u32, t: f32) -> u32 {
 
 /// Sample the top source strip at `row_idx` rows from the join, with drift.
 /// Walk advances from row 0 (join) toward row `source_rows-1` (away from join).
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    reason = "asset coordinates and packed channels deliberately use their established format widths and rounding"
+)]
 fn jitter_sample_up(
     data: &[u16],
     col: usize,
@@ -277,6 +303,11 @@ fn jitter_sample_up(
 /// Sample the bottom source strip at `row_idx` rows from the join, with drift.
 /// Walk advances from row `height-1` (join) toward row `height-source_rows`
 /// (away).
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    reason = "asset coordinates and packed channels deliberately use their established format widths and rounding"
+)]
 fn jitter_sample_down(
     data: &[u16],
     col: usize,
@@ -302,6 +333,10 @@ fn jitter_sample_down(
 }
 
 /// Average `count` rows starting at `row_start` across all columns.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "asset coordinates and packed channels deliberately use their established format widths and rounding"
+)]
 fn avg_rows_color(
     data: &[u16],
     width: usize,
@@ -332,6 +367,10 @@ fn avg_rows_color(
     }
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "asset coordinates and packed channels deliberately use their established format widths and rounding"
+)]
 fn build_drift(width: usize, rows: usize, max_drift: f32, smoothness: f32, seed: u32) -> Vec<f32> {
     let mut drift = vec![0.0f32; width * rows];
     for col in 0..width {

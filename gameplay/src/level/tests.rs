@@ -127,6 +127,10 @@ mod map_data_tests {
 
     #[test]
     #[allow(clippy::float_cmp)]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "Doom state and fixed-point conversions deliberately retain their established packed widths and rounding"
+    )]
     fn check_e1m1_lump_pointers() {
         let wad = WadData::new(&doom1_wad_path());
         let mut map = LevelData::default();
@@ -153,6 +157,10 @@ mod map_data_tests {
     }
 
     #[test]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "Doom state and fixed-point conversions deliberately retain their established packed widths and rounding"
+    )]
     fn check_e1m1_linedefs() {
         let wad = WadData::new(&doom1_wad_path());
         let mut map = LevelData::default();

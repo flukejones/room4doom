@@ -52,6 +52,8 @@ pub(crate) fn a_weaponready(player: &mut Player, pspr: &mut PspDef) {
             mobj.set_state(StateNum::PLAY);
         }
 
+        // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address
+        // and callbacks access it sequentially on the game thread.
         level_time = unsafe { (*mobj.level).level_time };
 
         if let Some(state) = pspr.state {
@@ -233,6 +235,10 @@ pub(crate) fn a_firecgun(player: &mut Player, pspr: &mut PspDef) {
     player.set_psprite(PsprNum::Flash as usize, state);
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "Doom state and fixed-point conversions deliberately retain their established packed widths and rounding"
+)]
 pub(crate) fn a_fireplasma(player: &mut Player, _pspr: &mut PspDef) {
     player.subtract_readyweapon_ammo(1);
     let state = StateNum::from(
@@ -241,6 +247,8 @@ pub(crate) fn a_fireplasma(player: &mut Player, _pspr: &mut PspDef) {
     player.set_psprite(PsprNum::Flash as usize, state);
     let aim = player.aim;
     if let Some(mobj) = player.mobj_raw() {
+        // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address
+        // and callbacks access it sequentially on the game thread.
         unsafe {
             (*mobj).start_sound(SfxName::Plasma);
             MapObject::spawn_player_missile(
@@ -261,6 +269,8 @@ pub(crate) fn a_firemissile(player: &mut Player, _pspr: &mut PspDef) {
     // );
     let aim = player.aim;
     if let Some(mobj) = player.mobj_raw() {
+        // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address
+        // and callbacks access it sequentially on the game thread.
         unsafe {
             (*mobj).start_sound(SfxName::Rlaunc);
             MapObject::spawn_player_missile(
@@ -281,6 +291,8 @@ pub(crate) fn a_firebfg(player: &mut Player, _pspr: &mut PspDef) {
     // );
     let aim = player.aim;
     if let Some(mobj) = player.mobj_raw() {
+        // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address
+        // and callbacks access it sequentially on the game thread.
         unsafe {
             MapObject::spawn_player_missile(
                 &mut *mobj,
@@ -313,6 +325,8 @@ pub(crate) fn a_bfgspray(player: &mut MapObject) {
         player.angle = old_angle;
         if let Some(aim) = aim {
             let mut lt = aim.line_target;
+            // SAFETY: Spawn installs the owning level pointer; the level stays at a stable
+            // address and callbacks access it sequentially on the game thread.
             let level = unsafe { &mut *player.level };
             let z = lt.z + lt.height.shr(2);
             MapObject::spawn_map_object(lt.x, lt.y, z, MapObjKind::MT_EXTRABFG, level);
@@ -322,6 +336,8 @@ pub(crate) fn a_bfgspray(player: &mut MapObject) {
                 damage += (p_random() & 7) + 1;
             }
             // OG: P_DamageMobj(linetarget, mo->target, mo->target, damage)
+            // SAFETY: This player link references the game-owned player array (or the live
+            // TestLevel pool); that storage outlives this access.
             let source = player.target.map(|t| unsafe { (*t).mobj_mut() });
             let inflictor = source.as_ref().map(|s| (s.x, s.y, s.z));
             lt.p_take_damage(inflictor, source, damage);

@@ -21,14 +21,21 @@ pub use doom_trig::{
 pub use fixed_point::{FRACBITS, FRACUNIT, FixedT, Inner, p_aprox_distance};
 pub use intercept::*;
 
-const FRACBITS_F: i32 = 16;
-const FRACUNIT_F: f32 = (1 << FRACBITS_F) as f32;
+const FRACUNIT_F: f32 = 65_536.0;
 
 /// Convert a Doom `fixed_t` fixed-point value to `f32`
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "fixed-point values intentionally round to the renderer's f32 precision"
+)]
 pub const fn fixed_to_float(value: i32) -> f32 {
     value as f32 / FRACUNIT_F
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "Doom fixed-point conversion truncates fractional bits and saturates out-of-range floats"
+)]
 pub const fn float_to_fixed(value: f32) -> i32 {
     (value * FRACUNIT_F) as i32
 }

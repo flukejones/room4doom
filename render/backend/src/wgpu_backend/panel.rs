@@ -87,7 +87,7 @@ impl Panel {
     }
 
     /// Upload the plane's ARGB pixels.
-    pub fn upload(&self, queue: &wgpu::Queue, pixels: &[u32]) {
+    pub(super) fn upload(&self, queue: &wgpu::Queue, pixels: &[u32]) {
         queue.write_texture(
             wgpu::TexelCopyTextureInfo {
                 texture: &self.texture,
@@ -109,7 +109,7 @@ impl Panel {
         );
     }
 
-    pub fn size(&self) -> (u32, u32) {
+    pub(super) fn size(&self) -> (u32, u32) {
         (self.w, self.h)
     }
 }
@@ -122,7 +122,7 @@ pub(crate) struct PanelPipeline {
 }
 
 impl PanelPipeline {
-    pub fn new(device: &wgpu::Device, projected: bool) -> Self {
+    pub(super) fn new(device: &wgpu::Device, projected: bool) -> Self {
         let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("ui_panel_bgl"),
             entries: &[tex_entry(0), bind_sampler_entry(1), placement_entry(2)],
@@ -183,14 +183,14 @@ impl PanelPipeline {
     }
 
     /// A panel backed by a `w`×`h` texture.
-    pub fn panel(&self, device: &wgpu::Device, w: u32, h: u32) -> Panel {
+    pub(super) fn panel(&self, device: &wgpu::Device, w: u32, h: u32) -> Panel {
         Panel::new(device, self, w, h)
     }
 
     /// Blend `panel` over the pass's target at `clip_from_panel`. The quad is
     /// the unit square, so the matrix carries the extents and identity fills
     /// the screen. Records into the caller's pass — no pass of its own.
-    pub fn record(
+    pub(super) fn record(
         &self,
         queue: &wgpu::Queue,
         rpass: &mut wgpu::RenderPass<'_>,

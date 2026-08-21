@@ -5,6 +5,10 @@
 /// `MAXLIGHTSCALE - 1`. (Mirrors pic-data's private `MAXLIGHTSCALE`.)
 pub const MAXLIGHTSCALE: i32 = 48;
 /// Colourmap-index ceiling — the highest scale index `base_colourmap` accepts.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "the 47 colourmap indices are exactly representable in f32"
+)]
 pub const WEAPON_LIGHT_INDEX_MAX: f32 = (MAXLIGHTSCALE - 1) as f32;
 /// Extra colourmap-index boost so the held weapon reads brighter than its
 /// sector.

@@ -74,6 +74,10 @@ impl Messages {
         }
     }
 
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "screen, input and game-state values deliberately retain their established numeric widths and rounding"
+    )]
     pub fn draw_wrapped(&self, buffer: &mut impl DrawBuffer) {
         let (sx, sy) = hud_scale(buffer);
 

@@ -52,6 +52,10 @@ fn side_bands(
 }
 
 /// Like `side_bands` but tagged with `TexSlot` and uncropped.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 pub(crate) fn side_bands_tagged(
     s: &Sector,
     other: Option<&Sector>,
@@ -211,6 +215,10 @@ pub fn handle_hover(ui: &EditorWindow, shared: &Rc<RefCell<SharedState>>, pos: [
     }
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn hover_delayed(ui: &EditorWindow, shared: &Rc<RefCell<SharedState>>, pos: [f32; 2]) {
     let canvas = ui.global::<CanvasController>();
     let can_hover = hoverable(&mut shared.borrow_mut(), &canvas);
@@ -360,6 +368,10 @@ fn wall_side(side: Option<&SidePreview>) -> WallSide {
     }
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn rebuild_sector(ui: &EditorWindow, state: &mut SharedState, pixel_ratio: f32) {
     let canvas = ui.global::<CanvasController>();
     let Some(sector) = state

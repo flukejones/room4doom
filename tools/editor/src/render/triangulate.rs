@@ -119,6 +119,10 @@ struct Group {
 }
 
 /// Classify rings by nesting parity (even depth = outer, odd = hole), group holes under their immediate parent outer, orient (outer CCW, hole CW) for the sweep's interior-on-the-left rule.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "consume temporary source rings and release them after building the owned groups"
+)]
 fn group_loops(rings: Vec<Vec<TriVert>>) -> Vec<Group> {
     let n = rings.len();
     // depth[i] = how many other rings contain ring i's first vertex.
@@ -309,6 +313,10 @@ struct Span {
 }
 
 /// Partition arena into y-monotone pieces (de Berg §3.2); classifies on original topology, collects then applies diagonals. Multi-span status locates each vertex unambiguously — no nearest-edge guessing.
+#[expect(
+    clippy::too_many_lines,
+    reason = "keep the complete dispatch or geometry pass together without changing its established ordering"
+)]
 fn partition(arena: &Arena) -> Vec<(usize, usize)> {
     let n = arena.verts.len();
     let prev = &arena.prev;
@@ -1041,6 +1049,10 @@ mod tests {
         assert_eq!(st, full, "incremental cache matches full rebuild");
     }
 
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep the complete dispatch or geometry pass together without changing its established ordering"
+    )]
     fn e6m6_s59() -> Vec<Vec<[f32; 2]>> {
         vec![
             vec![

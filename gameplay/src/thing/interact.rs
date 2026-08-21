@@ -8,7 +8,13 @@ use sound_common::SfxName;
 use crate::MapObject;
 use crate::doom_def::{AmmoType, Card, PowerType};
 use crate::info::{MapObjKind, STATES, SpriteNum, StateNum};
-use crate::lang::english::*;
+use crate::lang::english::{
+    GOTARMBONUS, GOTARMOR, GOTBACKPACK, GOTBERSERK, GOTBFG9000, GOTBLUECARD, GOTBLUESKUL, GOTCELL,
+    GOTCELLBOX, GOTCHAINGUN, GOTCHAINSAW, GOTCLIP, GOTCLIPBOX, GOTHTHBONUS, GOTINVIS, GOTINVUL,
+    GOTLAUNCHER, GOTMAP, GOTMEDIKIT, GOTMEDINEED, GOTMEGA, GOTMSPHERE, GOTPLASMA, GOTREDCARD,
+    GOTREDSKULL, GOTROCKBOX, GOTROCKET, GOTSHELLBOX, GOTSHELLS, GOTSHOTGUN, GOTSHOTGUN2, GOTSTIM,
+    GOTSUIT, GOTSUPER, GOTVISOR, GOTYELWCARD, GOTYELWSKUL,
+};
 use crate::player::{PlayerCheat, PlayerState};
 use crate::thing::MapObjFlag;
 use game_config::{Skill, WeaponType};
@@ -45,6 +51,10 @@ impl MapObject {
     /// `inflictor` is the position of the thing that caused direct damage.
     /// `source` is the ultimate originator (e.g. the player who fired the
     /// rocket).
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep the complete dispatch or geometry pass together without changing its established ordering"
+    )]
     pub(crate) fn p_take_damage(
         &mut self,
         inflictor: Option<(FixedT, FixedT, FixedT)>,
@@ -65,6 +75,8 @@ impl MapObject {
             self.momz = FixedT::ZERO;
         }
 
+        // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address
+        // and callbacks access it sequentially on the game thread.
         unsafe {
             if self.player.is_some() && (*self.level).options.skill == Skill::Baby {
                 damage >>= 1; // take half damage in trainer mode
@@ -77,6 +89,8 @@ impl MapObject {
         if let Some((inflict_x, inflict_y, inflict_z)) = inflictor {
             let no_chainsaw = source.as_ref().is_none_or(|src| {
                 src.player.is_none()
+                    // SAFETY: This player link references the game-owned player array (or the
+                    // live TestLevel pool); that storage outlives this access.
                     || unsafe { (*src.player.unwrap()).status.readyweapon != WeaponType::Chainsaw }
             });
             if !self.flags.contains(MapObjFlag::Noclip) && no_chainsaw {
@@ -255,6 +269,8 @@ impl MapObject {
             _ => return,
         };
 
+        // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address
+        // and callbacks access it sequentially on the game thread.
         unsafe {
             let mobj = Self::spawn_map_object(self.x, self.y, self.floorz, item, &mut *self.level);
             (*mobj).flags.insert(MapObjFlag::Dropped);
@@ -264,6 +280,10 @@ impl MapObject {
     /// Interact with special pickups
     ///
     /// Doom function name `P_TouchSpecialThing`
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep the complete dispatch or geometry pass together without changing its established ordering"
+    )]
     pub(crate) fn touch_special(&mut self, special: &mut Self) {
         let delta = special.z - self.z;
 
@@ -275,6 +295,8 @@ impl MapObject {
         let mut sound = SfxName::Itemup;
 
         if let Some(player) = self.player {
+            // SAFETY: This player link references the game-owned player array (or the live
+            // TestLevel pool); that storage outlives this access.
             let player = unsafe { &mut *player };
 
             if self.health <= 0 {
@@ -282,6 +304,8 @@ impl MapObject {
                 return;
             }
 
+            // SAFETY: Spawn installs the owning level pointer; the level stays at a stable
+            // address and callbacks access it sequentially on the game thread.
             let skill = unsafe { (*self.level).options.skill };
             match special.sprite {
                 SpriteNum::ARM1 => {

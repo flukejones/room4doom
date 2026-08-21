@@ -71,6 +71,14 @@ impl LevelEditorState {
     }
 
     /// Pick vertex > edge > thing > face; solid surfaces occlude. Grid-plane Z = hit Z.
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+    )]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep the complete dispatch or geometry pass together without changing its established ordering"
+    )]
     pub fn pick_3d_select(&self, pos: [f32; 2], mode: SelectMode) -> Option<PickHit> {
         let map = self.map.as_ref()?;
         let (origin, raw_dir) = self.pick_ray(pos)?;
@@ -363,6 +371,10 @@ impl LevelEditorState {
         self.camera.set_pivot(pivot);
     }
 
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+    )]
     fn selection_centre(&self) -> Option<[f32; 3]> {
         let map = self.map.as_ref()?;
         let mut sum = [0.0f32; 2];
@@ -382,7 +394,7 @@ impl LevelEditorState {
                 SelItem::Line(k) => {
                     if let Some(l) = map.lines.get(k) {
                         let (a, b) = (map.vertices[l.v1], map.vertices[l.v2]);
-                        add((a.x + b.x) * 0.5, (a.y + b.y) * 0.5);
+                        add(f32::midpoint(a.x, b.x), f32::midpoint(a.y, b.y));
                     }
                 }
                 SelItem::Thing(k) => {

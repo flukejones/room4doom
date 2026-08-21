@@ -1,7 +1,9 @@
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 use glam::Vec3;
+use level::level_data::set_rbsp_cache_directory;
 use level::{BSP3D, LevelData, MovementType};
 use math::FixedT;
 use wad::WadData;
@@ -46,21 +48,26 @@ pub fn kvx_path(name: &str) -> PathBuf {
     user_wad_dir().join("cheello_voxels/voxels").join(name)
 }
 
-/// Point the engine's rbsp sidecar cache at a per-process temp dir so tests
-/// never read stale entries from (or pollute) the user's real cache. Repeat
-/// loads within one test binary still exercise the cache-hit path.
-fn isolate_rbsp_cache() {
-    static ONCE: std::sync::Once = std::sync::Once::new();
-    ONCE.call_once(|| {
-        let dir = std::env::temp_dir().join(format!("room4doom-test-cache-{}", std::process::id()));
-        // Tests run threaded, but Once runs before any load touches the var.
-        unsafe { std::env::set_var("ROOM4DOOM_CACHE_DIR", &dir) };
-    });
+/// Configure and return the per-process temporary RBSP cache directory.
+///
+/// Keeps test loads out of the user's cache. Repeated loads within one test
+/// binary still exercise the cache-hit path.
+pub fn rbsp_cache_directory() -> &'static Path {
+    static DIRECTORY: OnceLock<PathBuf> = OnceLock::new();
+    DIRECTORY
+        .get_or_init(|| {
+            let dir =
+                std::env::temp_dir().join(format!("room4doom-test-cache-{}", std::process::id()));
+            set_rbsp_cache_directory(dir.clone())
+                .expect("test cache is configured once before map loading");
+            dir
+        })
+        .as_path()
 }
 
 /// Load a map with a no-op flat lookup (BSP/PVS tests don't need real flats).
 pub fn load_map(wad_path: &Path, map_name: &str) -> LevelData {
-    isolate_rbsp_cache();
+    rbsp_cache_directory();
     let wad = WadData::new(wad_path);
     let mut map = LevelData::default();
     map.load(map_name, |_| None, &wad, None, None);
@@ -69,7 +76,7 @@ pub fn load_map(wad_path: &Path, map_name: &str) -> LevelData {
 
 /// Load a map from a base WAD with a PWAD merged.
 pub fn load_map_with_pwad(base_wad: &Path, pwad: &Path, map_name: &str) -> LevelData {
-    isolate_rbsp_cache();
+    rbsp_cache_directory();
     let mut wad = WadData::new(base_wad);
     wad.add_file(pwad.into());
     let mut map = LevelData::default();
@@ -136,6 +143,10 @@ pub fn collect_sector_vertices(
 }
 
 /// Linedef IDs of every segment bordering `sector_id` (front or back side).
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "screen, input and game-state values deliberately retain their established numeric widths and rounding"
+)]
 pub fn collect_border_linedefs(map: &LevelData, sector_id: usize) -> BTreeSet<usize> {
     map.segments
         .iter()
@@ -251,7 +262,7 @@ pub fn assert_floor_ceiling_normals(map: &LevelData) {
 /// Uses manual lump scan for flat list (LumpIter has a bug with multi-chunk
 /// flat sections where IWAD flats get dropped when PWAD has its own section).
 pub fn load_map_with_flats(wad: &WadData, map_name: &str) -> (LevelData, Option<usize>) {
-    isolate_rbsp_cache();
+    rbsp_cache_directory();
     let mut flats = Vec::new();
     let mut in_flats = false;
     for l in wad.lumps() {

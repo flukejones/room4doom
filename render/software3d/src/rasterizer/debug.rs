@@ -13,6 +13,10 @@ use crate::{DebugColourMode, Software3D};
 
 /// Write a pixel, alpha-blending against the existing buffer if alpha is set.
 #[inline(always)]
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+)]
 pub(crate) fn write_pixel(
     buffer: &mut impl DrawBuffer,
     x: usize,
@@ -42,6 +46,15 @@ impl Software3D {
     /// Debug-path rasteriser: supports alpha blending, depth disable,
     /// debug colour modes (sector_id, depth, normals, overdraw), and wireframe.
     /// Only called when `DebugDrawOptions::is_active()` is true.
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep shared rasterization and culling state in one pass without changing hot-loop structure"
+    )]
     pub(crate) fn draw_polygon_debug(
         &mut self,
         bsp3d: &BSP3D,
@@ -87,7 +100,7 @@ impl Software3D {
         // Sub-pixel-height polygon: ceil/floor inverted the Y range.
         // Snap to the nearest integer scanline.
         if y_start > y_end {
-            let mid = ((bounds.0.y + bounds.1.y) * 0.5).round() as u32 as usize;
+            let mid = f32::midpoint(bounds.0.y, bounds.1.y).round() as u32 as usize;
             if mid < self.height as usize {
                 y_start = mid;
                 y_end = mid;
@@ -121,7 +134,11 @@ impl Software3D {
 
             for ei in 0..vertex_count {
                 let ni = (ei + 1) % vertex_count;
+                // SAFETY: ei iterates over vertex_count and ni wraps modulo that count; the
+                // projected vertex and reciprocal-depth slices have that length.
                 let start = unsafe { *vertices.get_unchecked(ei) };
+                // SAFETY: ei iterates over vertex_count and ni wraps modulo that count; the
+                // projected vertex and reciprocal-depth slices have that length.
                 let end = unsafe { *vertices.get_unchecked(ni) };
                 let dy = end.y - start.y;
                 if dy.abs() < f32::EPSILON {
@@ -135,7 +152,11 @@ impl Software3D {
                 if y_f >= min_y && y_f < max_y {
                     let t = (y_f - start.y) / dy;
                     let x = start.x + (end.x - start.x) * t;
+                    // SAFETY: ei iterates over vertex_count and ni wraps modulo that count; the
+                    // projected vertex and reciprocal-depth slices have that length.
                     let iw_start = unsafe { *inv_w_slice.get_unchecked(ei) };
+                    // SAFETY: ei iterates over vertex_count and ni wraps modulo that count; the
+                    // projected vertex and reciprocal-depth slices have that length.
                     let iw_end = unsafe { *inv_w_slice.get_unchecked(ni) };
                     let iw = iw_start + (iw_end - iw_start) * t;
                     if found == 0 {
@@ -320,6 +341,10 @@ impl Software3D {
 
     /// Apply debug colour mode transformation to a sampled texel.
     #[inline(always)]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     fn apply_debug_colour(
         &self,
         original: u32,
@@ -349,6 +374,11 @@ impl Software3D {
 
     /// Draw a line between two screen points with depth testing
     #[inline(always)]
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     fn draw_line(
         &mut self,
         start: Vec2,
@@ -410,6 +440,10 @@ impl Software3D {
     }
 
     /// Draw normal direction lines as a post-render overlay.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub(crate) fn draw_debug_normal_lines(&mut self, buffer: &mut impl DrawBuffer) {
         let lines = mem::take(&mut self.debug.normal_lines);
         let base = 0xFFC83C0A; // deep ember

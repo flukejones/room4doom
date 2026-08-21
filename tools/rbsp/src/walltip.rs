@@ -56,6 +56,10 @@ pub fn build_wall_tips<L: LineDefAccess, S: SideDefAccess>(
 
 /// Query which sector occupies angle θ at a given vertex.
 /// Returns None if the vertex has no wall-tips (synthetic vertex).
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "BSP geometry deliberately quantizes coordinates and stores indices in the established on-disk widths"
+)]
 pub fn wall_tip_sector_at(tips: &[WallTip], angle: f64) -> Option<u32> {
     if tips.is_empty() {
         return None;

@@ -15,7 +15,7 @@ mod timestep;
 #[cfg(feature = "vr")]
 mod vr_bridge;
 
-use cli::*;
+use cli::CLIOptions;
 #[cfg(all(
     any(feature = "display-softbuffer", feature = "display-wgpu"),
     not(feature = "display-sdl2")
@@ -189,7 +189,7 @@ fn run_winit(
     // redraw loop stalls when the window lacks focus, so live tracing is
     // unreliable; this path drives tics directly.
     if options.headless {
-        run_headless(game, input_state, options);
+        run_headless(game, input_state, &options);
         return Ok(());
     }
 
@@ -205,7 +205,7 @@ fn run_winit(
     any(feature = "display-softbuffer", feature = "display-wgpu"),
     not(feature = "display-sdl2")
 ))]
-fn run_headless(mut game: Game, mut input: input::InputState, options: CLIOptions) {
+fn run_headless(mut game: Game, mut input: input::InputState, options: &CLIOptions) {
     let mut machines = GameSubsystem {
         statusbar: Statusbar::new(game.game_type.mode, &game.wad_data),
         intermission: Intermission::new(game.game_type.mode, &game.wad_data, &game.umapinfo),

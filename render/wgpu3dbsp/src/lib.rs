@@ -334,6 +334,11 @@ impl Wgpu3D {
     /// Per-frame setup: live buffer uploads (sector light, animation
     /// translation), camera + light uniforms, sky params, and the view frustum
     /// for the world walk.
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     fn frame_setup(
         &mut self,
         view: &RenderView,
@@ -395,6 +400,10 @@ impl Wgpu3D {
     /// culling, emitting visible corner ids and collecting sprite/voxel
     /// instances from each visible leaf's sectors. Returns the visible corner
     /// count.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     fn walk_world(
         &mut self,
         view: &RenderView,

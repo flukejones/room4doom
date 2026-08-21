@@ -1,7 +1,7 @@
 use log::debug;
 
 use crate::extended::NodeLumpType;
-use crate::types::*;
+use crate::types::{WadFlat, WadPatch, WadRecord, WadTexPatch, WadTexture};
 use crate::{Lump, MapLump, WadData};
 use std::marker::PhantomData;
 
@@ -339,12 +339,40 @@ impl WadData {
 
     pub fn node_lump_type(&self, map_name: &str) -> NodeLumpType {
         let info = self.find_lump_for_map_or_panic(map_name, MapLump::Nodes);
-        let bytes = [
-            info.read_i16(0) as u8,
-            info.read_i16(1) as u8,
-            info.read_i16(2) as u8,
-            info.read_i16(3) as u8,
-        ];
+        let bytes: [u8; 4] = info.data[..4].try_into().expect("four-byte node signature");
         NodeLumpType::from_bytes(&bytes)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::extended::{ExtendedNodeType, NodeLumpType};
+    use crate::write::save_pwad;
+    use crate::{Lump, WadData};
+
+    #[test]
+    fn node_magic_needs_only_four_bytes() {
+        let lumps: Vec<Lump> = [
+            "E1M1", "THINGS", "LINEDEFS", "SIDEDEFS", "VERTEXES", "SEGS", "SSECTORS", "NODES",
+        ]
+        .into_iter()
+        .map(|name| Lump {
+            name: name.to_owned(),
+            data: if name == "NODES" {
+                b"XNOD".to_vec()
+            } else {
+                Vec::new()
+            },
+        })
+        .collect();
+        let path =
+            std::env::temp_dir().join(format!("room4doom-node-magic-{}.wad", std::process::id()));
+        save_pwad(&path, &lumps).unwrap();
+        let wad = WadData::new(&path);
+        assert_eq!(
+            wad.node_lump_type("E1M1"),
+            NodeLumpType::Extended(ExtendedNodeType::XNOD)
+        );
+        std::fs::remove_file(path).unwrap();
     }
 }

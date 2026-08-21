@@ -486,6 +486,10 @@ pub fn fillet_vertex(map: &mut EditorMap, v: VertKey, radius: f32, segments: u32
     }
     let mut pts: Vec<[f32; 2]> = (0..=segments)
         .map(|i| {
+            #[expect(
+                clippy::cast_precision_loss,
+                reason = "arc interpolation uses the same f32 precision as the geometry"
+            )]
             let a = a0 + sweep * i as f32 / segments as f32;
             [centre[0] + radius * a.cos(), centre[1] + radius * a.sin()]
         })
@@ -561,6 +565,10 @@ pub fn align_vertices(map: &EditorMap, verts: &[VertKey], axis: Axis) -> Vec<(Ve
     if pts.len() < 2 {
         return Vec::new();
     }
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "mean division uses the same f32 precision as the coordinate sum"
+    )]
     let target = pts.iter().map(|(_, p)| axis.get(*p)).sum::<f32>() / pts.len() as f32;
     pts.into_iter()
         .filter(|(_, p)| axis.get(*p) != target)
@@ -583,10 +591,18 @@ pub fn distribute_vertices(
         axis.get(pts[0].1),
         axis.get(pts.last().expect("three or more").1),
     );
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "spacing uses the same f32 precision as the selection coordinates"
+    )]
     let step = (hi - lo) / (pts.len() - 1) as f32;
     pts.iter()
         .enumerate()
         .filter_map(|(i, &(k, p))| {
+            #[expect(
+                clippy::cast_precision_loss,
+                reason = "spacing uses the same f32 precision as the selection coordinates"
+            )]
             let target = lo + step * i as f32;
             (axis.get(p) != target).then_some((k, axis.set(p, target)))
         })
@@ -879,6 +895,10 @@ pub fn paste_fragment(
         }));
     }
     let mut new_things = Vec::with_capacity(fragment.things.len());
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "thing offsets intentionally truncate toward zero to match their integer coordinates"
+    )]
     for t in fragment.things.values() {
         new_things.push(map.things.insert(Thing {
             x: t.x + delta[0] as i32,
@@ -896,6 +916,10 @@ pub fn fragment_min_corner(fragment: &EditorMap) -> [f32; 2] {
         min[0] = min[0].min(v.x);
         min[1] = min[1].min(v.y);
     }
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "thing coordinates share the f32 bounds used by fragment vertices"
+    )]
     for t in fragment.things.values() {
         min[0] = min[0].min(t.x as f32);
         min[1] = min[1].min(t.y as f32);
@@ -915,9 +939,17 @@ pub fn ngon_points(center: [f32; 2], pointer: [f32; 2], sides: u32) -> Vec<[f32;
     let (dx, dy) = (pointer[0] - center[0], pointer[1] - center[1]);
     let radius = (dx * dx + dy * dy).sqrt();
     let rot = dy.atan2(dx);
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "polygon angles use the same f32 precision as the geometry"
+    )]
     let step = TAU / sides as f32;
     (0..sides)
         .map(|k| {
+            #[expect(
+                clippy::cast_precision_loss,
+                reason = "polygon angles use the same f32 precision as the geometry"
+            )]
             let a = rot + step * k as f32;
             [center[0] + radius * a.cos(), center[1] + radius * a.sin()]
         })

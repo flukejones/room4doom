@@ -75,7 +75,7 @@ impl TargetTexture {
 }
 
 impl PostChain {
-    pub fn new(
+    pub(super) fn new(
         device: &wgpu::Device,
         effects: Vec<PostEffect>,
         frame_view: &wgpu::TextureView,
@@ -135,7 +135,7 @@ impl PostChain {
 
     /// Recreate intermediate targets at the surface size and rebuild every
     /// pass's bind group over its input texture. Called on init and resize.
-    pub fn resize(
+    pub(super) fn resize(
         &mut self,
         device: &wgpu::Device,
         frame_view: &wgpu::TextureView,

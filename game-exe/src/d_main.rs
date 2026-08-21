@@ -46,6 +46,11 @@ use crate::cheats::Cheats;
 
 /// Build a render view from the current player state.
 /// Returns `None` when the player has no map object (e.g. during intermission).
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    reason = "screen, input and game-state values deliberately retain their established numeric widths and rounding"
+)]
 fn build_render_view(player: &Player, frac: f32, game_tic: u32) -> Option<RenderView> {
     let mobj = player.mobj()?;
     let prev = &player.prev_render;
@@ -121,6 +126,10 @@ fn build_screen_effects(player: &Player, bleed_enabled: bool) -> ScreenEffects {
 
 /// Load voxel models from the CLI-specified directory (if any) and attach
 /// them to the render target.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "screen, input and game-state values deliberately retain their established numeric widths and rounding"
+)]
 pub(crate) fn load_voxels(
     options: &CLIOptions,
     wad: &wad::WadData,

@@ -8,6 +8,7 @@ use crate::assets::decode_patch;
 use crate::render::sprites::{SpriteRgba, ThingSpriteCache};
 
 /// Source of a thing's icon sprite.
+#[derive(Clone, Copy)]
 pub enum SpriteSource<'a> {
     /// Full patch lump name (project `things.dsp` icon).
     Patch(&'a str),
@@ -40,6 +41,10 @@ pub fn ensure_thing_sprite(
     cache.insert(kind, sprite);
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn sprite_from_lump(lump: &wad::Lump, palette: &WadPalette) -> Option<SpriteRgba> {
     let patch = decode_patch(&lump.data)?;
     let mut rgba = vec![0u8; patch.width * patch.height * 4];

@@ -1,4 +1,3 @@
-use std::mem::MaybeUninit;
 use std::sync::OnceLock;
 
 use log::warn;
@@ -28,19 +27,10 @@ pub fn load_num_sprites(pattern: &str, start: usize, wad: &WadData) -> [WadPatch
 
 /// Load the 6 status-bar key card sprites (`STKEYS0`..`STKEYS5`).
 pub fn load_key_sprites(wad: &WadData) -> [WadPatch; 6] {
-    let mut keys: [MaybeUninit<WadPatch>; 6] = [
-        MaybeUninit::uninit(),
-        MaybeUninit::uninit(),
-        MaybeUninit::uninit(),
-        MaybeUninit::uninit(),
-        MaybeUninit::uninit(),
-        MaybeUninit::uninit(),
-    ];
-    for (i, key) in keys.iter_mut().enumerate() {
+    std::array::from_fn(|i| {
         let lump = wad.get_lump(&format!("STKEYS{i}")).unwrap();
-        *key = MaybeUninit::new(WadPatch::from_lump(lump));
-    }
-    unsafe { keys.map(|n| n.assume_init()) }
+        WadPatch::from_lump(lump)
+    })
 }
 
 pub fn load_char_patches(wad: &WadData) {
@@ -106,6 +96,11 @@ pub fn draw_flat(flat: &WadFlat, palette: &WadPalette, pixels: &mut impl DrawBuf
 /// `sx` controls column width, `sy` controls row height. Uses fractional
 /// accumulation for both axes so the scaling is correct even at non-integer
 /// scales (e.g. sx=0.833 for CRT-correct fullscreen patches).
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    reason = "screen, input and game-state values deliberately retain their established numeric widths and rounding"
+)]
 pub fn draw_patch(
     patch: &WadPatch,
     x: f32,
@@ -150,6 +145,11 @@ pub fn draw_patch(
 
 /// Draw a patch with a colour tint applied. `tint` is 0xRRGGBB where
 /// each channel multiplies the palette colour (255 = full, 0 = black).
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    reason = "screen, input and game-state values deliberately retain their established numeric widths and rounding"
+)]
 pub fn draw_patch_tinted(
     patch: &WadPatch,
     x: f32,
@@ -370,6 +370,10 @@ impl HUDString {
         self.data.clear();
     }
 
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "screen, input and game-state values deliberately retain their established numeric widths and rounding"
+    )]
     pub fn draw_pixels(
         &self,
         mut x: f32,

@@ -89,10 +89,10 @@ struct MenuItem {
 }
 
 impl MenuItem {
-    fn new(status: Status, patch: impl ToString, action: MenuAction, hotkey: char) -> Self {
+    fn new(status: Status, patch: impl Into<String>, action: MenuAction, hotkey: char) -> Self {
         Self {
             status,
-            patch: patch.to_string(),
+            patch: patch.into(),
             action,
             hotkey,
             kind: ItemKind::Patch,
@@ -172,9 +172,9 @@ struct Title {
 }
 
 impl Title {
-    fn new(patch: impl ToString, x: i32, y: i32) -> Self {
+    fn new(patch: impl Into<String>, x: i32, y: i32) -> Self {
         Self {
-            patch: patch.to_string(),
+            patch: patch.into(),
             x,
             y,
         }
@@ -325,6 +325,14 @@ impl GameMenu {
     /// - Creates all menu pages (top-level, episodes, skill, options, etc.)
     /// - Pre-caches title/item/skull patches from the WAD
     /// - Adjusts episode count based on available WAD lumps
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "screen, input and game-state values deliberately retain their established numeric widths and rounding"
+    )]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep related UI setup and event dispatch together in their execution order"
+    )]
     pub fn new(mode: GameMode, wad: &WadData) -> Self {
         let x_pos = |original_x: i32| -> i32 { original_x };
 
@@ -719,6 +727,10 @@ impl GameMenu {
     /// Draw an OG Doom thermometer slider: left cap + n middle + right cap +
     /// dot. The slider is vertically centered on the text line, dot offset
     /// 1px down.
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "screen, input and game-state values deliberately retain their established numeric widths and rounding"
+    )]
     fn draw_thermo(
         &self,
         x: f32,
@@ -759,6 +771,10 @@ impl GameMenu {
 
     /// Apply a left/right adjustment to a slider, toggle, or cycle menu item.
     /// Returns true if the value changed.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "screen, input and game-state values deliberately retain their established numeric widths and rounding"
+    )]
     fn adjust_option_item<T: ConfigTraits>(
         &mut self,
         menu_idx: usize,
@@ -1023,6 +1039,10 @@ impl GameMenu {
     }
 
     /// Commit save: write to slot file and close menu.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "screen, input and game-state values deliberately retain their established numeric widths and rounding"
+    )]
     fn do_save<T: GameTraits + ConfigTraits>(&mut self, slot: usize, game: &mut T) {
         let desc = self.save_strings[slot].clone();
         game.save_game(format!("slot{slot}"), desc);
@@ -1035,6 +1055,10 @@ impl GameMenu {
     }
 
     /// Draw save/load border decoration around a slot row.
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "screen, input and game-state values deliberately retain their established numeric widths and rounding"
+    )]
     fn draw_save_border(&self, x: f32, y: f32, sx: f32, sy: f32, pixels: &mut impl DrawBuffer) {
         let left = self.get_patch("M_LSLEFT");
         let center = self.get_patch("M_LSCNTR");
@@ -1060,6 +1084,15 @@ impl GameMenu {
     /// - Draws titles, item patches/labels, skull cursor
     /// - Handles save/load slot rendering with text cursor
     /// - Draws options submenus with sliders, toggles, and cycle values
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "screen, input and game-state values deliberately retain their established numeric widths and rounding"
+    )]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep the complete dispatch or geometry pass together without changing its established ordering"
+    )]
     fn draw_pixels(&self, pixels: &mut impl DrawBuffer) {
         let (sx, sy) = hud_scale(pixels);
 
@@ -1261,6 +1294,10 @@ impl SubsystemTrait for GameMenu {
         }
     }
 
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep the complete dispatch or geometry pass together without changing its established ordering"
+    )]
     fn responder<T: GameTraits + ConfigTraits>(&mut self, mut sc: KeyCode, game: &mut T) -> bool {
         // Save description string editing intercepts all input
         if self.save_enter {

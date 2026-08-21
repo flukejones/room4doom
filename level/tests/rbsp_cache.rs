@@ -2,7 +2,7 @@
 //! lump must materialize runtime data identical to an in-process build.
 
 use level::LevelData;
-use test_utils::{doom1_wad_path, load_map, load_map_with_pwad};
+use test_utils::{doom1_wad_path, load_map, load_map_with_pwad, rbsp_cache_directory};
 
 fn assert_same_runtime(a: &LevelData, b: &LevelData) {
     // 2D structures.
@@ -90,12 +90,9 @@ fn wad_lump_matches_built() {
 fn cache_hit_produces_identical_runtime() {
     let a = load_map(&doom1_wad_path(), "E1M2");
 
-    // test-utils points ROOM4DOOM_CACHE_DIR at a per-process temp dir; the
+    // test-utils configures a per-process temp cache directory; the
     // load above must have written the entry there.
-    let cache_dir = std::path::PathBuf::from(
-        std::env::var_os("ROOM4DOOM_CACHE_DIR").expect("test cache dir set"),
-    )
-    .join("rbsp");
+    let cache_dir = rbsp_cache_directory().join("rbsp");
     let cached: Vec<_> = std::fs::read_dir(&cache_dir)
         .expect("cache dir created")
         .filter_map(Result::ok)

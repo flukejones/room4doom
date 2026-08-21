@@ -144,11 +144,16 @@ impl WorldRenderer {
 
     /// The tracked hands to draw next frame. Only the GPU renderer draws them.
     #[cfg(feature = "wgpu3d")]
-    pub(crate) fn set_hands(&mut self, hands: Option<HandPose>) {
-        match self {
-            Self::Wgpu3D(r) => r.set_hands(hands),
-            #[allow(unreachable_patterns)]
-            _ => {}
+    #[cfg_attr(
+        not(any(feature = "software25d", feature = "software3d", feature = "wgpu3dbsp")),
+        expect(
+            irrefutable_let_patterns,
+            reason = "hardware-only builds have one renderer variant"
+        )
+    )]
+    pub(crate) fn set_hands(&mut self, hands: Option<&HandPose>) {
+        if let Self::Wgpu3D(r) = self {
+            r.set_hands(hands.copied());
         }
     }
 

@@ -49,6 +49,10 @@ pub(crate) fn refresh_recent(ui: &EditorWindow, shared: &Rc<RefCell<SharedState>
 }
 
 /// Recompute missing-resources and push to panel; call after atlas refresh so the texture index reflects this map's WAD.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 pub(crate) fn refresh_resources(ui: &EditorWindow, shared: &Rc<RefCell<SharedState>>) {
     let (entries, required_wads): (Vec<ResourceEntry>, String) = {
         let mut state = shared.borrow_mut();
@@ -99,6 +103,10 @@ pub(crate) fn import_dpr(shared: &Rc<RefCell<SharedState>>, path: &Path) {
     }
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn adopt_project(shared: &Rc<RefCell<SharedState>>, project: Project, recent: Option<&str>) {
     let state = &mut *shared.borrow_mut();
     for thing in &project.things {

@@ -6,6 +6,10 @@ use crate::types::{Float, VERTEX_EPSILON, Vertex};
 
 const GRID_SCALE: Float = 1.0 / VERTEX_EPSILON;
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "BSP geometry deliberately quantizes coordinates and stores indices in the established on-disk widths"
+)]
 fn grid_key(x: Float, y: Float) -> (i32, i32) {
     (
         (x * GRID_SCALE).floor() as i32,
@@ -34,6 +38,10 @@ impl VertexPool {
     }
 
     /// Insert a vertex without dedup. Guarantees sequential index assignment.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "BSP geometry deliberately quantizes coordinates and stores indices in the established on-disk widths"
+    )]
     pub fn insert(&mut self, x: Float, y: Float) -> u32 {
         let idx = self.vertices.len() as u32;
         let (gx, gy) = grid_key(x, y);
@@ -46,6 +54,10 @@ impl VertexPool {
     }
 
     /// Insert a vertex, deduplicating by proximity. Returns the index.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "BSP geometry deliberately quantizes coordinates and stores indices in the established on-disk widths"
+    )]
     pub fn dedup(&mut self, x: Float, y: Float) -> u32 {
         let (gx, gy) = grid_key(x, y);
 

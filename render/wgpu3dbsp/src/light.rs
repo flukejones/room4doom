@@ -47,6 +47,10 @@ pub struct LightParams {
 impl LightParams {
     /// Build from the runtime config; the fixed Doom constants come from this
     /// module so all three light paths read one source.
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub fn new(config: &RenderConfig) -> Self {
         Self {
             light_levels: LIGHT_LEVELS as f32,

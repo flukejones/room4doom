@@ -2,6 +2,8 @@
 //! movement, stairs, two-sided face flips, cross-sector drag isolation, leaf
 //! AABB coverage, and vanilla-special normalisation.
 
+use std::collections::BTreeSet;
+
 use glam::Vec2;
 use level::env_target::mover_targets_for_sector;
 use level::special_encode::{LineSpecial, MoverKind};
@@ -565,7 +567,7 @@ fn e6m1_ld1200_lower_wall_shared_both_sides() {
         .find(|&gi| bsp3d.wall_slot(gi) == Some(WallSlot::Lower))
         .expect("ld1200 lower wall exists");
 
-    let mut owning_sectors = std::collections::BTreeSet::new();
+    let mut owning_sectors = BTreeSet::new();
     for ss in 0..bsp3d.leaves.len() {
         if bsp3d.leaf_poly_indices(ss).any(|g| g == gi) {
             owning_sectors.insert(bsp3d.leaves[ss].sector.num as usize);
@@ -687,9 +689,6 @@ fn e6m1_sector76_floor_ceil_separation() {
 #[cfg_attr(not(feature = "wad-doom2"), ignore = "needs doom2.wad (~/doom/)")]
 #[test]
 fn map03_stairs_do_not_overrun_sector_90() {
-    let map = load_map(&doom2_wad_path(), "MAP03");
-
-    // 2D point-in-polygon over a subsector's carved floor (XY).
     fn point_in_floor(verts: &[Vec2], p: Vec2) -> bool {
         let mut inside = false;
         let n = verts.len();
@@ -706,6 +705,10 @@ fn map03_stairs_do_not_overrun_sector_90() {
         }
         inside
     }
+
+    let map = load_map(&doom2_wad_path(), "MAP03");
+
+    // 2D point-in-polygon over a subsector's carved floor (XY).
 
     // Find the subsector whose floor polygon contains `p` → (ss, sector, z).
     let floor_at = |p: Vec2| -> (usize, usize, f32) {
@@ -774,6 +777,10 @@ fn map03_stairs_do_not_overrun_sector_90() {
 
 #[cfg_attr(not(feature = "wad-doom2"), ignore = "needs doom2.wad (~/doom/)")]
 #[test]
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "fixture and benchmark dimensions intentionally use the same numeric conversions as the engine"
+)]
 fn map03_ld86_inverted_lift_wall_presents_back_texture() {
     let mut map = load_map(&doom2_wad_path(), "MAP03");
 
@@ -812,6 +819,10 @@ fn map03_ld86_inverted_lift_wall_presents_back_texture() {
 
 #[cfg_attr(not(feature = "wad-doom2"), ignore = "needs doom2.wad (~/doom/)")]
 #[test]
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "fixture and benchmark dimensions intentionally use the same numeric conversions as the engine"
+)]
 fn map29_ld10_single_shared_lower_wall() {
     let map = load_map(&doom2_wad_path(), "MAP29");
     let bsp3d = &map.bsp_3d;
@@ -889,6 +900,10 @@ fn doom1_maps_have_no_unhandled_specials() {
 // ---------------------------------------------------------------------------
 
 #[test]
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "fixture and benchmark dimensions intentionally use the same numeric conversions as the engine"
+)]
 fn e1m1_update_flat_texture_resolves_from_sector() {
     let mut map = load_map(&doom1_wad_path(), "E1M1");
 

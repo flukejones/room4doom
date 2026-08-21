@@ -124,6 +124,8 @@ impl TestLevel {
     pub fn spawn_player(&mut self, x: i32, y: i32) -> *mut MapObject {
         let mobj = self.spawn_ptr(x, y, MapObjKind::MT_PLAYER);
         let player: *mut Player = &mut self.players[0];
+        // SAFETY: This player link references the game-owned player array (or the live
+        // TestLevel pool); that storage outlives this access.
         unsafe {
             (*mobj).player = Some(player);
             (*mobj).health = (*player).status.health;

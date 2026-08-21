@@ -166,6 +166,10 @@ mod cross_ref {
     }
 
     #[test]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "fixture and benchmark dimensions intentionally use the same numeric conversions as the engine"
+    )]
     fn e1m1_vertexes() {
         let wad = WadData::new(&doom1_wad_path());
         let verts: Vec<_> = wad
@@ -183,6 +187,10 @@ mod cross_ref {
     }
 
     #[test]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "fixture and benchmark dimensions intentionally use the same numeric conversions as the engine"
+    )]
     fn e1m1_linedefs() {
         let wad = WadData::new(&doom1_wad_path());
         let lines: Vec<_> = wad
@@ -234,7 +242,16 @@ mod cross_ref {
     }
 
     #[test]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "fixture and benchmark dimensions intentionally use the same numeric conversions as the engine"
+    )]
     fn e1m1_sidedefs() {
+        fn norm(s: &str) -> &str {
+            let s = s.trim_end_matches('\0');
+            if s == "-" { "" } else { s }
+        }
+
         let wad = WadData::new(&doom1_wad_path());
         let sides: Vec<_> = wad
             .map_iter::<WadSideDef>("E1M1", MapLump::SideDefs)
@@ -244,10 +261,6 @@ mod cross_ref {
             "/../data/test_files/vanilla/doom1_e1m1_sidedefs.json"
         ));
         assert_eq!(sides.len(), reference.len());
-        fn norm(s: &str) -> &str {
-            let s = s.trim_end_matches('\0');
-            if s == "-" { "" } else { s }
-        }
         for (i, (s, r)) in sides.iter().zip(reference.iter()).enumerate() {
             assert_eq!(
                 s.x_offset,
@@ -283,6 +296,10 @@ mod cross_ref {
     }
 
     #[test]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "fixture and benchmark dimensions intentionally use the same numeric conversions as the engine"
+    )]
     fn e1m1_sectors() {
         let wad = WadData::new(&doom1_wad_path());
         let sectors: Vec<_> = wad
@@ -329,6 +346,10 @@ mod cross_ref {
     }
 
     #[test]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "fixture and benchmark dimensions intentionally use the same numeric conversions as the engine"
+    )]
     fn e1m1_things() {
         let wad = WadData::new(&doom1_wad_path());
         let things: Vec<_> = wad.map_iter::<WadThing>("E1M1", MapLump::Things).collect();

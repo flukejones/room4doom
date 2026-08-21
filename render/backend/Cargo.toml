@@ -48,9 +48,6 @@ test-utils.workspace = true
 wad.workspace = true
 naga = { version = "29", features = ["wgsl-in"] }
 
-[dev-features]
-default = ["software25d", "software3d", "display-softbuffer"]
-
 [[example]]
 name = "minimal"
 # Needs a winit backend (softbuffer or wgpu) + a renderer; the active backend is

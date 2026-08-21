@@ -29,6 +29,14 @@ pub struct TexDrag {
     grab: [i32; 2],
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
+#[expect(
+    clippy::too_many_lines,
+    reason = "keep related UI setup and event dispatch together in their execution order"
+)]
 pub(crate) fn init(ui: &EditorWindow, shared: &Rc<RefCell<SharedState>>) {
     let weak = ui.as_weak();
     let s = shared.clone();
@@ -407,6 +415,10 @@ pub(crate) fn init(ui: &EditorWindow, shared: &Rc<RefCell<SharedState>>) {
 }
 
 /// Fit texture into preview pane at integer zoom (capped), push dims.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn recompute_zoom(
     ui: &EditorWindow,
     shared: &Rc<RefCell<SharedState>>,
@@ -434,12 +446,20 @@ fn recompute_zoom(
     ctl.set_preview_h(th * zoom);
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn preview_texel(state: &SharedState, x: f32, y: f32) -> [i32; 2] {
     let zoom = state.texedit.zoom.max(1.0);
     [(x / zoom).floor() as i32, (y / zoom).floor() as i32]
 }
 
 /// Press: hit-test topmost patch, select it, begin drag (records undo step).
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn preview_press(ui: &EditorWindow, shared: &Rc<RefCell<SharedState>>, x: f32, y: f32) {
     let ctl = ui.global::<TexEditController>();
     let current = ctl.get_current();
@@ -487,6 +507,10 @@ fn patch_name_at(state: &SharedState, current: i32, patch: usize) -> Option<Stri
 }
 
 /// Ctrl-Z/Y: undo/redo; C/X/V: patch clipboard; arrows: nudge patch or navigate list.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn texedit_key(
     ui: &EditorWindow,
     shared: &Rc<RefCell<SharedState>>,
@@ -584,6 +608,10 @@ fn cut_patch(ui: &EditorWindow, shared: &Rc<RefCell<SharedState>>) {
 }
 
 /// Append clipboard patches offset by `PATCH_PASTE_OFFSET`; select last.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn paste_patches(ui: &EditorWindow, shared: &Rc<RefCell<SharedState>>) {
     let ctl = ui.global::<TexEditController>();
     let current = ctl.get_current();
@@ -609,6 +637,10 @@ fn paste_patches(ui: &EditorWindow, shared: &Rc<RefCell<SharedState>>) {
 }
 
 /// Hit-test topmost patch at `texel`, record drag. Returns hit index.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn drag_start(state: &mut SharedState, current: i32, texel: [i32; 2]) -> Option<usize> {
     let (wad, imported, def) = wad_and_def(state, current)?;
     let mut hit = None;
@@ -758,6 +790,10 @@ fn redo_textures(ui: &EditorWindow, shared: &Rc<RefCell<SharedState>>) {
     restore_snapshot(ui, shared, true);
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn restore_snapshot(ui: &EditorWindow, shared: &Rc<RefCell<SharedState>>, redo: bool) {
     let len = {
         let state = &mut *shared.borrow_mut();
@@ -962,7 +998,9 @@ fn decode_png_rgba8(path: &Path) -> Result<(usize, usize, Vec<u8>), png::Decodin
 
 /// Quantize RGBA8 → palette indices; alpha=0 maps to `u16::MAX` (transparent).
 fn quantize_to_indices(rgba: &[u8], palette: &wad::types::WadPalette) -> Vec<u16> {
-    rgba.chunks_exact(4)
+    rgba.as_chunks::<4>()
+        .0
+        .iter()
         .map(|px| {
             if px[3] == 0 {
                 return u16::MAX;
@@ -1005,6 +1043,10 @@ fn select(ui: &EditorWindow, shared: &Rc<RefCell<SharedState>>, index: i32) {
     refresh_preview(ui, shared, index);
 }
 
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn refresh_preview(ui: &EditorWindow, shared: &Rc<RefCell<SharedState>>, index: i32) {
     let ctl = ui.global::<TexEditController>();
     let highlight = {

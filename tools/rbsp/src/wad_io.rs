@@ -16,7 +16,9 @@ use wad::wad::MapLump;
 use crate::blockmap::create_blockmap;
 use crate::bsp3d::{Bsp3dBuilder, Bsp3dInput};
 use crate::rbsp_lump::write_rbsp_lump;
-use crate::types::*;
+use crate::types::{
+    BBox, BspInput, BspOptions, Side, Vertex, WadLineDef, WadSector, WadSideDef, WadVertex,
+};
 use crate::{BspOutput, build_bsp};
 
 const PWAD_MAGIC: &[u8; 4] = b"PWAD";
@@ -323,6 +325,10 @@ fn is_map_marker(name: &str) -> bool {
 
 // --- Traditional Doom format writers ---
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "BSP geometry deliberately quantizes coordinates and stores indices in the established on-disk widths"
+)]
 fn write_vertexes(output: &BspOutput) -> Vec<u8> {
     let mut buf = Vec::with_capacity(output.vertices.len() * 4);
     for v in &output.vertices {
@@ -332,6 +338,10 @@ fn write_vertexes(output: &BspOutput) -> Vec<u8> {
     buf
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "BSP geometry deliberately quantizes coordinates and stores indices in the established on-disk widths"
+)]
 fn write_segs(output: &BspOutput) -> Vec<u8> {
     let mut buf = Vec::with_capacity(output.segs.len() * 12);
     for seg in &output.segs {
@@ -353,6 +363,10 @@ fn write_segs(output: &BspOutput) -> Vec<u8> {
     buf
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "BSP geometry deliberately quantizes coordinates and stores indices in the established on-disk widths"
+)]
 fn write_ssectors(output: &BspOutput) -> Vec<u8> {
     let mut buf = Vec::with_capacity(output.subsectors.len() * 4);
     for ss in &output.subsectors {
@@ -362,6 +376,10 @@ fn write_ssectors(output: &BspOutput) -> Vec<u8> {
     buf
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "BSP geometry deliberately quantizes coordinates and stores indices in the established on-disk widths"
+)]
 fn write_nodes(output: &BspOutput) -> Vec<u8> {
     let mut buf = Vec::with_capacity(output.nodes.len() * 28);
     for node in &output.nodes {
@@ -379,6 +397,10 @@ fn write_nodes(output: &BspOutput) -> Vec<u8> {
     buf
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "BSP geometry deliberately quantizes coordinates and stores indices in the established on-disk widths"
+)]
 fn write_bbox_i16(buf: &mut Vec<u8>, bbox: &BBox) {
     buf.extend_from_slice(&(bbox.max_y as i16).to_le_bytes()); // top
     buf.extend_from_slice(&(bbox.min_y as i16).to_le_bytes()); // bottom
@@ -428,6 +450,10 @@ fn sort_level_lumps(lumps: &mut [OutputLump]) {
     }
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "BSP geometry deliberately quantizes coordinates and stores indices in the established on-disk widths"
+)]
 fn write_pwad(path: &Path, lumps: &[OutputLump]) -> io::Result<()> {
     let mut file = File::create(path)?;
 

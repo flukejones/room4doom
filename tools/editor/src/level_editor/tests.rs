@@ -1384,6 +1384,10 @@ fn thing_edits_report_edited_for_the_reconciler() {
 
 /// Every E1M1 thing's z must equal its sector floor (derived on import).
 #[test]
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn imported_things_carry_their_sector_floor_z() {
     use editor_core::geom::sector_at;
     let app = app_with_map();

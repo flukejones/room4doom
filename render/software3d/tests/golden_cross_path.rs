@@ -70,6 +70,10 @@ fn load(map: &str) -> Option<(LevelData, PicData)> {
 
 /// Render the fixed pose via the direct `PixelTarget` path (final `T` pixels, no
 /// resolve). Tight pitch, so the returned buffer is directly comparable.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "fixture and benchmark dimensions intentionally use the same numeric conversions as the engine"
+)]
 fn render_direct<T: PixelFmt + Copy>(w: usize, h: usize) -> Option<Vec<T>> {
     let (mut level, mut pics) = load("E1M2")?;
     let mut r = Software3D::new(w as f32, h as f32, FOV);

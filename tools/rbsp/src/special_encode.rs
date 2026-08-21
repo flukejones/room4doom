@@ -1008,6 +1008,7 @@ const fn boom_crusher(base: u32, trig: Trigger, speed: u32, silent: u32) -> u32 
 /// The generalized form of a vanilla mover special (1-141). `None` for every
 /// other number, including already-generalized ones.
 #[rustfmt::skip]
+#[expect(clippy::too_many_lines, reason = "keep the complete Doom special mapping table together")]
 fn encode_table(special: u32) -> Option<u32> {
     let f = GEN_FLOOR_BASE;
     let c = GEN_CEILING_BASE;
@@ -1320,6 +1321,10 @@ mod tests {
     /// demo-safety round-trip: the engine, after load-rewrite, dispatches on
     /// this kind.
     #[test]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep the complete dispatch or geometry pass together without changing its established ordering"
+    )]
     fn decode_round_trip_kinds() {
         let cases: &[(u32, MoverKind)] = &[
             // floors

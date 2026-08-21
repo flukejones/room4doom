@@ -129,6 +129,14 @@ impl SurfaceSlots {
 }
 
 /// Write `verts` into `span` padded to cap; overflow relocates to the tail and tombstones the old region.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "consume temporary rebuilt geometry so its allocation is released after updating the cached span"
+)]
 fn update_span(
     span: &mut Span,
     used: &mut u32,
@@ -211,6 +219,10 @@ pub fn build_surface(
 }
 
 /// Floor + ceiling vertices for one sector (floor CCW, ceiling reversed to face down).
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 pub fn sector_surface_verts(map: &EditorMap, tris: &SectorTris, key: SectorKey) -> Vec<Vert3D> {
     let Some(sector) = map.sectors.get(key) else {
         return Vec::new();
@@ -321,6 +333,14 @@ pub struct WallBand3D {
 }
 
 /// Wall bands for a line: one-sided → full mid; two-sided → upper/lower/masked-mid front+back. Skips empty or zero-height.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
+#[expect(
+    clippy::too_many_lines,
+    reason = "keep the complete dispatch or geometry pass together without changing its established ordering"
+)]
 pub fn wall_bands(
     map: &EditorMap,
     line: &LineDef,
@@ -478,6 +498,10 @@ pub fn wall_bands(
     bands
 }
 
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn emit_quad(
     band: &WallBand3D,
     source: u32,
@@ -580,6 +604,10 @@ mod tests {
     }
 
     #[test]
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+    )]
     fn floor_verts_at_floor_height_ceil_at_ceil_height() {
         let map = load_e1m1();
         let wall_rects = make_wall_rects(&map);
@@ -845,6 +873,10 @@ mod tests {
 
     /// A value edit that fits its span patches in place; an outgrown span relocates to the tail.
     #[test]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+    )]
     fn span_update_patches_in_place_and_relocates_on_overflow() {
         use super::{SpanPatch, sector_surface_verts};
         let mut map = load_e1m1();

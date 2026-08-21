@@ -90,9 +90,9 @@ pub struct Sky {
     pipeline: wgpu::RenderPipeline,
     uniform: wgpu::Buffer,
     bind: wgpu::BindGroup,
-    sky_band: [f32; 2],
-    sky_dark: [f32; 3],
-    sky_bright: [f32; 3],
+    band: [f32; 2],
+    dark: [f32; 3],
+    bright: [f32; 3],
 }
 
 impl Sky {
@@ -185,9 +185,9 @@ impl Sky {
             pipeline,
             uniform,
             bind,
-            sky_band,
-            sky_dark,
-            sky_bright,
+            band: sky_band,
+            dark: sky_dark,
+            bright: sky_bright,
         }
     }
 
@@ -207,9 +207,9 @@ impl Sky {
             projection,
             width,
             view_height,
-            self.sky_band,
-            self.sky_dark,
-            self.sky_bright,
+            self.band,
+            self.dark,
+            self.bright,
             mode,
             time,
         );
@@ -251,6 +251,11 @@ impl Sky {
 /// the view and the [lo, hi) v-range the original texture band occupies, so the
 /// shader can place the horizon inside it. The extension fades the texture into
 /// the averaged zenith/nadir colours (matches software3d's smooth sky).
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+)]
 fn upload_sky_texture(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
@@ -302,6 +307,10 @@ fn upload_sky_texture(
 }
 
 /// Average RGB of the sky texture's opaque texels through the base palette.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+)]
 fn sky_average_color(pic_data: &PicData, sky_pic: usize) -> [u8; 3] {
     let tex = pic_data.wall_pic(sky_pic);
     let palette = &pic_data.palettes()[0];

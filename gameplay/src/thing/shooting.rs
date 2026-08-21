@@ -74,6 +74,8 @@ impl MapObject {
         let xy2_x = ox + cos * distance.to_i32();
         let xy2_y = oy + sin * distance.to_i32();
 
+        // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address
+        // and callbacks access it sequentially on the game thread.
         let level = unsafe { &mut *self.level };
         path_traverse_blockmap(
             ox,
@@ -118,6 +120,8 @@ impl MapObject {
         let sin = math::fine_sin(bam);
         let xy2_x = start_x + cos * attack_range.to_i32();
         let xy2_y = start_y + sin * attack_range.to_i32();
+        // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address
+        // and callbacks access it sequentially on the game thread.
         let level = unsafe { &mut *self.level };
         // OG: trace origin is nudged inside P_PathTraverse before trace
         // global is set. Replicate the nudge for ShootTraverse.
@@ -170,6 +174,8 @@ impl MapObject {
     ///
     /// Doom function name `P_RadiusAttack`
     pub fn radius_attack(&mut self, damage: i32) {
+        // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address
+        // and callbacks access it sequentially on the game thread.
         let level = unsafe { &mut *self.level };
         level.valid_count = level.valid_count.wrapping_add(1);
         let valid = level.valid_count;
@@ -197,6 +203,9 @@ impl MapObject {
                 let idx = (by * bmw + bx) as usize;
                 let mut mobj_ptr = level.blocklinks[idx];
                 while let Some(ptr) = mobj_ptr {
+                    // SAFETY: These object links reference initialized thinker slots in the
+                    // level-owned fixed pool; traversal and mutations are sequenced by the game
+                    // loop.
                     let thing = unsafe { &mut *ptr };
                     mobj_ptr = thing.b_next;
                     if !self.radius_damage_other(thing, damage, valid) {
@@ -238,6 +247,8 @@ impl MapObject {
             let actual = damage - dist_i;
             other.p_take_damage(
                 Some((self.x, self.y, self.z)),
+                // SAFETY: These object links reference initialized thinker slots in the level-
+                // owned fixed pool; traversal and mutations are sequenced by the game loop.
                 self.target.map(|t| unsafe { (*t).mobj_mut() }),
                 actual,
             );
@@ -324,6 +335,8 @@ impl MapObject {
     ) -> bool {
         let z_start = self.z + self.height - self.height.shr(2);
 
+        // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address
+        // and callbacks access it sequentially on the game thread.
         let level = unsafe { &mut *self.level };
         // OG: BSP-based sight check (P_CheckSight / P_CrossBSPNode)
         let strace = DivLineFixed {
@@ -416,6 +429,10 @@ impl MapObject {
     /// Check if there is a clear line of sight to the selected target object.
     /// This checks the '2D top-down' nature of Doom, followed by the Z
     /// (height) axis.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "Doom state and fixed-point conversions deliberately retain their established packed widths and rounding"
+    )]
     pub(crate) fn check_sight_target(&mut self, target: &Self) -> bool {
         #[cfg(feature = "hprof")]
         profile!("check_sight_target");
@@ -441,6 +458,8 @@ impl MapObject {
         #[cfg(feature = "hprof")]
         profile!("check_melee_range");
         if let Some(target) = self.target {
+            // SAFETY: These object links reference initialized thinker slots in the level-owned
+            // fixed pool; traversal and mutations are sequenced by the game loop.
             let target = unsafe { (*target).mobj() };
 
             let dist = p_aprox_distance(target.x - self.x, target.y - self.y);
@@ -460,6 +479,8 @@ impl MapObject {
         #[cfg(feature = "hprof")]
         profile!("check_missile_range");
         if let Some(target) = self.target {
+            // SAFETY: These object links reference initialized thinker slots in the level-owned
+            // fixed pool; traversal and mutations are sequenced by the game loop.
             let target = unsafe { (*target).mobj() };
 
             if !self.check_sight_target(target) {
@@ -755,6 +776,8 @@ impl ShootTraverse {
             }
         }
 
+        // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address
+        // and callbacks access it sequentially on the game thread.
         MapObject::spawn_puff(x, y, z, self.attack_range, unsafe { &mut *shooter.level });
     }
 
@@ -839,16 +862,19 @@ impl ShootTraverse {
                     .fixed_mul(frac_adj.fixed_mul(self.attack_range));
 
             if thing.flags.contains(MapObjFlag::Noblood) {
+                // SAFETY: Spawn installs the owning level pointer; the level stays at a stable
+                // address and callbacks access it sequentially on the game thread.
                 MapObject::spawn_puff(x, y, z, self.attack_range, unsafe { &mut *thing.level });
             } else {
+                // SAFETY: Spawn installs the owning level pointer; the level stays at a stable
+                // address and callbacks access it sequentially on the game thread.
                 MapObject::spawn_blood(x, y, z, self.damage, unsafe { &mut *thing.level });
             }
 
             if self.damage > 0 {
                 let inflictor = Some((shooter.x, shooter.y, shooter.z));
                 // OG: P_DamageMobj(th, shootthing, shootthing, la_damage)
-                let source = unsafe { &mut *ptr::from_mut(shooter) };
-                thing.p_take_damage(inflictor, Some(source), self.damage);
+                thing.p_take_damage(inflictor, Some(shooter), self.damage);
                 return false;
             }
         }
@@ -1070,11 +1096,15 @@ mod shooting_tests {
         let mut level = TestLevel::load("E1M1");
         // Target via raw ptr so it survives spawning the bomb.
         let target = level.spawn_ptr(1056, -3616, MapObjKind::MT_POSSESSED);
+        // SAFETY: These object links reference initialized thinker slots in the level-owned
+        // fixed pool; traversal and mutations are sequenced by the game loop.
         let target_health = unsafe { (*target).health };
         let bomb = level.spawn(1056, -3616, MapObjKind::MT_BARREL);
 
         bomb.radius_attack(10);
 
+        // SAFETY: These object links reference initialized thinker slots in the level-owned
+        // fixed pool; traversal and mutations are sequenced by the game loop.
         assert_eq!(unsafe { (*target).health }, target_health - 10);
     }
 

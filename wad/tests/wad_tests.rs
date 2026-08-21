@@ -96,6 +96,10 @@ fn find_sunder15_reject() {
 
 #[test]
 #[cfg_attr(not(feature = "wad-sunder"), ignore = "needs sunder.wad (~/doom/)")]
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "fixture and benchmark dimensions intentionally use the same numeric conversions as the engine"
+)]
 fn sunder_tall_patch_rows_past_255() {
     let wad = WadData::new(&sunder_wad_path());
     // MAKROK12: 512-tall single-patch texture (PNAMES[1844]); DeePsea

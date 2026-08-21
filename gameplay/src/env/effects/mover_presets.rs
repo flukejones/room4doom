@@ -115,6 +115,10 @@ fn build_door(sec: MapPtr<Sector>, kind: DoorKind) -> Option<(MoveEffect, Option
 }
 
 /// EV_DoDoor. Can affect multiple sectors via the sector tag.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "MapPtr is a non-owning handle passed by value consistently across Doom query and effect APIs"
+)]
 pub fn ev_do_door(line: MapPtr<LineDef>, kind: DoorKind, level: &mut LevelState) -> bool {
     let mut ret = false;
     for sector in level
@@ -274,6 +278,10 @@ fn aim_floor(floor: &mut MoveEffect, dest: SectorHeight, up: bool) {
 }
 
 /// EV_DoFloor. `DonutRaise` routes through [`ev_do_donut`] instead.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "MapPtr is a non-owning handle passed by value consistently across Doom query and effect APIs"
+)]
 pub fn ev_do_floor(line: MapPtr<LineDef>, kind: FloorKind, level: &mut LevelState) -> bool {
     let mut ret = false;
 
@@ -330,6 +338,10 @@ pub fn ev_do_floor(line: MapPtr<LineDef>, kind: FloorKind, level: &mut LevelStat
 }
 
 /// EV_BuildStairs
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "MapPtr is a non-owning handle passed by value consistently across Doom query and effect APIs"
+)]
 pub fn ev_build_stairs(line: MapPtr<LineDef>, kind: StairKind, level: &mut LevelState) -> bool {
     let mut ret = false;
     let (speed, stair_size) = match kind {
@@ -409,6 +421,10 @@ pub fn ev_build_stairs(line: MapPtr<LineDef>, kind: StairKind, level: &mut Level
 
 /// EV_DoDonut. Raises the surrounding ring to the pool floor while the pool
 /// itself drops to meet it.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "MapPtr is a non-owning handle passed by value consistently across Doom query and effect APIs"
+)]
 pub fn ev_do_donut(line: MapPtr<LineDef>, level: &mut LevelState) -> bool {
     let mut ret = false;
 
@@ -460,6 +476,10 @@ pub fn ev_do_donut(line: MapPtr<LineDef>, level: &mut LevelState) -> bool {
 }
 
 /// EV_DoCeiling
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "MapPtr is a non-owning handle passed by value consistently across Doom query and effect APIs"
+)]
 pub fn ev_do_ceiling(line: MapPtr<LineDef>, kind: CeilKind, level: &mut LevelState) -> bool {
     let mut ret = false;
 
@@ -537,11 +557,19 @@ fn plat_sounds() -> MoverSounds {
 }
 
 /// EV_StopPlat
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "MapPtr is a non-owning handle passed by value consistently across Doom query and effect APIs"
+)]
 pub fn ev_stop_platform(line: MapPtr<LineDef>, level: &mut LevelState) {
     level.stop_movers(line.tag);
 }
 
 /// EV_DoPlat. `amount` is the RaiseAndChange height delta.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "MapPtr is a non-owning handle passed by value consistently across Doom query and effect APIs"
+)]
 pub fn ev_do_platform(
     line: MapPtr<LineDef>,
     kind: PlatKind,

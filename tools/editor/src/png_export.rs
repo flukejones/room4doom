@@ -60,6 +60,10 @@ impl From<png::EncodingError> for PngExportError {
 }
 
 /// Map image dimensions at `scale`, including margin.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 pub fn image_size(bounds: WorldRect, scale: f32) -> (u32, u32) {
     let w = ((bounds.max_x - bounds.min_x + 2.0 * PNG_MARGIN_UNITS) * scale).ceil() as u32;
     let h = ((bounds.max_y - bounds.min_y + 2.0 * PNG_MARGIN_UNITS) * scale).ceil() as u32;
@@ -67,6 +71,10 @@ pub fn image_size(bounds: WorldRect, scale: f32) -> (u32, u32) {
 }
 
 /// Render the whole map at `scale` via the GPU pipeline; event-loop only.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 pub fn render_map_rgba(
     state: &SharedState,
     scale: f32,
@@ -125,6 +133,10 @@ mod tests {
     use std::{env, fs};
 
     #[test]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+    )]
     fn image_size_includes_margin_and_scales() {
         let wad = wad::WadData::new(&test_utils::doom1_wad_path());
         let map = editor_core::import_wad_map(&wad, "E1M1").expect("E1M1 imports");
@@ -138,6 +150,10 @@ mod tests {
     }
 
     #[test]
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+    )]
     fn export_renders_decodable_nonblank_png() {
         let Some(mut r) = headless_renderer() else {
             eprintln!("no wgpu adapter; skipping PNG export render test");
@@ -212,7 +228,9 @@ mod tests {
         fs::remove_file(&path).ok();
 
         let non_bg = rgba
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             .filter(|p| p[0] < 250 || p[1] < 250 || p[2] < 250)
             .count();
         assert!(non_bg > (w * h / 20) as usize, "exported map is not blank");

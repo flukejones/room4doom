@@ -47,6 +47,10 @@ pub(crate) struct WallEditDraft {
     session: EditSession,
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "keep related UI setup and event dispatch together in their execution order"
+)]
 pub(crate) fn init(ui: &EditorWindow, shared: &Rc<RefCell<SharedState>>) {
     let weak = ui.as_weak();
     let s = shared.clone();

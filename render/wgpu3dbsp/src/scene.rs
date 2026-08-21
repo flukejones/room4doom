@@ -50,6 +50,10 @@ pub fn sky_bind_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
 }
 
 impl ScenePipeline {
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep related UI setup and event dispatch together in their execution order"
+    )]
     pub fn new(device: &wgpu::Device) -> Self {
         let camera_buf = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("scene_camera"),

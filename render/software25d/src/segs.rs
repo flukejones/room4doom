@@ -93,6 +93,11 @@ pub(crate) struct SegRender {
 }
 
 impl SegRender {
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub fn new(
         screen_width: usize,
         screen_height: usize,
@@ -102,8 +107,8 @@ impl SegRender {
         // OG Doom: xtoviewangle built from integer viewangletox inversion.
         // No float — pure BAM angles.
         let screen_x: Vec<Angle<Bam>> = xtoviewangle
-            .iter()
-            .map(|&bam| Angle::<Bam>::from_bam(bam))
+            .into_iter()
+            .map(Angle::<Bam>::from_bam)
             .collect();
 
         let wide_ratio = FixedT::from_f32(screen_height as f32 / screen_width as f32 * 1.6);
@@ -172,6 +177,11 @@ impl SegRender {
 
     /// Recompute view-height-dependent values (R_ExecuteSetViewSize
     /// equivalent).
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub fn set_view_height(&mut self, view_height: usize) {
         let screen_width = self.screen_x.len() - 1;
         // Screenheightarray (openings[width..2*width])
@@ -196,6 +206,10 @@ impl SegRender {
             FixedT::from((view_height / 2 - if view_height != 200 { 12 } else { 6 }) as i32);
     }
 
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub fn clear(&mut self) {
         let width = self.screen_x.len() - 1;
         self.lastopening = FixedT::from((width * 2) as i32);
@@ -207,6 +221,14 @@ impl SegRender {
     }
 
     /// R_StoreWallRange - r_segs
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep shared rasterization and culling state in one pass without changing hot-loop structure"
+    )]
     pub(crate) fn store_wall_range<P: PixelFmt>(
         &mut self,
         start: FixedT,
@@ -554,6 +576,14 @@ impl SegRender {
     /// - Draws mid/top/bottom wall textures for one-sided and two-sided lines
     /// - Updates portal clip arrays for subsequent rendering passes
     /// - Stores masked texture column indices in the openings array
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep shared rasterization and culling state in one pass without changing hot-loop structure"
+    )]
     fn render_seg_loop<P: PixelFmt>(
         &mut self,
         seg: &Segment,
@@ -789,6 +819,10 @@ impl SegRender {
     /// Rasterize one textured wall column. In sky mode, texel indices are
     /// halved and dc_iscale is caller-supplied.
     #[inline]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     fn draw_wall_column<P: PixelFmt>(
         &self,
         texture_column: &[u16],
@@ -827,6 +861,8 @@ impl SegRender {
             }
             let tc = texture_column[select];
             if (tc as usize) < colourmap.len() {
+                // SAFETY: Texture samples are palette indices and the loaded colourmap contains
+                // all 256 entries; the wall path also checks its index explicitly.
                 let lit = unsafe { *colourmap.get_unchecked(tc as usize) } as u16;
                 pixels.store(pos, lit);
             }
@@ -843,6 +879,10 @@ impl SegRender {
     /// each texel exactly. Texture coordinates are derived from yslope-based
     /// perspective distance scaled by view angle cosine/sine.
     #[inline]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     fn draw_flat_column<P: PixelFmt>(
         &self,
         texture: &FlatPic,
@@ -858,6 +898,20 @@ impl SegRender {
         pic_data: &PicData,
         pixels: &mut PixelTarget<P>,
     ) {
+        #[inline(always)]
+        fn sample_coords(
+            plane_height: FixedT,
+            distscale: FixedT,
+            cos: FixedT,
+            sin: FixedT,
+            view_x: FixedT,
+            neg_view_y: FixedT,
+            y_slope: FixedT,
+        ) -> (FixedT, FixedT) {
+            let length = plane_height * y_slope * distscale;
+            (view_x + cos * length, neg_view_y - sin * length)
+        }
+
         #[cfg(feature = "hprof")]
         profile!("draw_flat_column");
         let dc_x = self.rw_startx.to_i32();
@@ -877,19 +931,6 @@ impl SegRender {
         let total = yslopes.len();
 
         // Compute exact texture coords from a y_slope value
-        #[inline(always)]
-        fn sample_coords(
-            plane_height: FixedT,
-            distscale: FixedT,
-            cos: FixedT,
-            sin: FixedT,
-            view_x: FixedT,
-            neg_view_y: FixedT,
-            y_slope: FixedT,
-        ) -> (FixedT, FixedT) {
-            let length = plane_height * y_slope * distscale;
-            (view_x + cos * length, neg_view_y - sin * length)
-        }
 
         let neg_view_y = -view_y;
         let mut i = 0;
@@ -938,6 +979,8 @@ impl SegRender {
                     let y_step = (yfrac.doom_abs().to_i32() as usize) & tex_len;
 
                     let tc = texture.data[y_step * tex_w + x_step];
+                    // SAFETY: Texture samples are palette indices and the loaded colourmap
+                    // contains all 256 entries; the wall path also checks its index explicitly.
                     let lit = unsafe { *colourmap.get_unchecked(tc as usize) } as u16;
                     pixels.store(pos, lit);
                     pos += pitch;
@@ -967,6 +1010,8 @@ impl SegRender {
                     let y_step = (yfrac.doom_abs().to_i32() as usize) & tex_len;
 
                     let tc = texture.data[y_step * tex_w + x_step];
+                    // SAFETY: Texture samples are palette indices and the loaded colourmap
+                    // contains all 256 entries; the wall path also checks its index explicitly.
                     let lit = unsafe { *colourmap.get_unchecked(tc as usize) } as u16;
                     pixels.store(pos, lit);
                     pos += pitch;

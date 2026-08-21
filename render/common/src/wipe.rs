@@ -79,6 +79,10 @@ impl MeltColumns {
 
     /// Advance the offsets one melt step (no pixel work). Returns true when every
     /// column has fully melted. Same stepping as the CPU [`Wipe::do_melt_pixels`].
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "rendering intentionally quantizes float coordinates and packs pixel channels and bounded buffer indices"
+    )]
     pub fn advance(&mut self) -> bool {
         let should_step = self.take_step();
         let stepping = (self.height as usize / 100).max(1);

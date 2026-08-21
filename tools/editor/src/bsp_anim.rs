@@ -293,7 +293,7 @@ fn extend_to_bounds(a: [f32; 2], b: [f32; 2], span: f32) -> ([f32; 2], [f32; 2])
     }
     let len = (dx * dx + dy * dy).sqrt();
     let (ux, uy) = (dx / len, dy / len);
-    let mid = [(a[0] + b[0]) * 0.5, (a[1] + b[1]) * 0.5];
+    let mid = [f32::midpoint(a[0], b[0]), f32::midpoint(a[1], b[1])];
     (
         [mid[0] - ux * span, mid[1] - uy * span],
         [mid[0] + ux * span, mid[1] + uy * span],
@@ -330,6 +330,10 @@ fn events_world_span(events: &[BuildEvent]) -> f32 {
 }
 
 /// Vary brightness by index to keep adjacent same-side segs distinguishable.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
+)]
 fn shade(base: Color, index: usize) -> Color {
     const FACTORS: [f32; 4] = [1.0, 0.78, 0.6, 0.88];
     let f = FACTORS[index % FACTORS.len()];

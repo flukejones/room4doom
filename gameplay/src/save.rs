@@ -82,6 +82,10 @@ impl From<IoError> for SaveError {
 }
 
 /// Convert a state reference to its index in the global STATES array.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "Doom state and fixed-point conversions deliberately retain their established packed widths and rounding"
+)]
 fn state_to_index(state: &'static StateData) -> u16 {
     let base = ptr::addr_of!(STATES).cast::<StateData>() as usize;
     let ptr = ptr::from_ref(state) as usize;
@@ -286,6 +290,10 @@ struct SaveHeader {
 }
 
 /// Write the fixed-size save file header (magic, version, map info, RNG state).
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "Doom state and fixed-point conversions deliberately retain their established packed widths and rounding"
+)]
 fn write_header(w: &mut SaveWriter, h: &SaveHeader) {
     w.write_bytes(SAVE_MAGIC);
     w.write_u32(SAVE_VERSION);
@@ -349,6 +357,10 @@ fn read_header(r: &mut SaveReader) -> Result<SaveHeader, SaveError> {
 
 /// Serialize sector, linedef, and sidedef state (heights, textures, flags,
 /// specials).
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "Doom state and fixed-point conversions deliberately retain their established packed widths and rounding"
+)]
 fn save_world(w: &mut SaveWriter, level_data: &LevelData) {
     w.write_u32(level_data.sectors.len() as u32);
     for s in level_data.sectors.iter() {
@@ -451,6 +463,10 @@ fn sector_index(s: &MapPtr<Sector>) -> u32 {
 
 /// Serialize a map object's full state, including its player linkage index (-1
 /// if none).
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "Doom state and fixed-point conversions deliberately retain their established packed widths and rounding"
+)]
 fn save_mobj_with_player_index(w: &mut SaveWriter, m: &MapObject, player_idx: i8) {
     w.write_f32(m.x.to_f32());
     w.write_f32(m.y.to_f32());
@@ -607,6 +623,8 @@ fn load_mobj(
 
     if let Some(t) = level.thinkers.push_raw(thinker) {
         let mobj = t.mobj_mut();
+        // SAFETY: The object is in a stable thinker slot with its owning level/subsector
+        // initialized; the game thread sequences spatial-list updates.
         unsafe {
             mobj.set_thing_position();
         }
@@ -695,6 +713,8 @@ fn load_mover(r: &mut SaveReader, level: &mut LevelState) -> Result<(), SaveErro
     let thinker = MoveEffect::create_thinker(ThinkerData::Move(mover), MoveEffect::think);
     if let Some(t) = level.thinkers.push_raw(thinker) {
         let ptr = ptr::from_mut(t).cast::<()>();
+        // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address
+        // and callbacks access it sequentially on the game thread.
         unsafe {
             (*resolve_sector(sector_num, &mut level.level_data)?.as_ptr()).specialdata = Some(ptr);
         };
@@ -740,6 +760,10 @@ fn load_light(r: &mut SaveReader, level: &mut LevelState) -> Result<(), SaveErro
 }
 
 /// Serialize all player state: status, inventory, weapons, psprites, frags.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "Doom state and fixed-point conversions deliberately retain their established packed widths and rounding"
+)]
 fn save_players(w: &mut SaveWriter, players: &[Player], players_in_game: &[bool; MAXPLAYERS]) {
     for i in 0..MAXPLAYERS {
         w.write_bool(players_in_game[i]);
@@ -903,6 +927,10 @@ fn load_players(
 }
 
 /// Serialize active switch/button timers.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "Doom state and fixed-point conversions deliberately retain their established packed widths and rounding"
+)]
 fn save_buttons(w: &mut SaveWriter, level: &LevelState) {
     w.write_u32(level.button_list.len() as u32);
     for b in &level.button_list {
@@ -945,6 +973,10 @@ fn load_buttons(r: &mut SaveReader, level: &mut LevelState) -> Result<(), SaveEr
 }
 
 /// Serialize the thing respawn queue (deathmatch).
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "Doom state and fixed-point conversions deliberately retain their established packed widths and rounding"
+)]
 fn save_respawn_queue(w: &mut SaveWriter, level: &LevelState) {
     w.write_u32(level.respawn_queue.len() as u32);
     for (time, thing) in &level.respawn_queue {
@@ -1005,6 +1037,14 @@ pub fn description_to_bytes(desc: &str) -> [u8; SAVE_DESCRIPTION_SIZE] {
 }
 
 /// Serialize the current game state to bytes.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "Doom state and fixed-point conversions deliberately retain their established packed widths and rounding"
+)]
+#[expect(
+    clippy::too_many_lines,
+    reason = "keep format fields and initialization steps visible in their required order"
+)]
 pub fn save_game_to_bytes(
     level: &LevelState,
     players: &[Player],
@@ -1093,17 +1133,14 @@ pub fn save_game_to_bytes(
             w.write_u8(m.crush_response as u8);
             w.write_u8(m.at_top as u8);
             w.write_u8(m.at_bottom as u8);
-            match m.change {
-                Some(change) => {
-                    w.write_bool(true);
-                    w.write_u32(encode_sector(change.newspecial));
-                    w.write_u32(change.texture as u32);
-                }
-                None => {
-                    w.write_bool(false);
-                    w.write_u32(0);
-                    w.write_u32(0);
-                }
+            if let Some(change) = m.change {
+                w.write_bool(true);
+                w.write_u32(encode_sector(change.newspecial));
+                w.write_u32(change.texture as u32);
+            } else {
+                w.write_bool(false);
+                w.write_u32(0);
+                w.write_u32(0);
             }
             write_sfx(&mut w, m.sounds.start_up);
             write_sfx(&mut w, m.sounds.start_down);
@@ -1232,6 +1269,8 @@ mod tests {
         let start_lift = |level: &mut TestLevel| {
             let player = level.spawn_ptr(1056, -3616, MapObjKind::MT_PLAYER);
             let ld = MapPtr::new(&mut level.level_data_mut().linedefs[195]);
+            // SAFETY: This player link references the game-owned player array (or the live
+            // TestLevel pool); that storage outlives this access.
             activate_line(ld, unsafe { &mut *player }, 0, Activation::Cross);
         };
         let sector = |level: &TestLevel| {

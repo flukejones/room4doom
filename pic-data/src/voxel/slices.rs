@@ -120,6 +120,10 @@ pub(crate) fn is_exposed(model: &VoxelModel, axis: Axis, dir: Dir, d: u32, u: u3
     clippy::too_many_arguments,
     reason = "voxel span builder needs the full model context"
 )]
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "asset coordinates and packed channels deliberately use their established format widths and rounding"
+)]
 fn build_columns(
     model: &VoxelModel,
     axis: Axis,
@@ -216,6 +220,11 @@ fn find_bounds(
 /// Generate all slice quads for one axis pair. Each depth plane produces a
 /// quad with neg and pos face columns. The bounding box is the union of
 /// both sides.
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    reason = "asset coordinates and packed channels deliberately use their established format widths and rounding"
+)]
 fn gen_axis_pair(model: &VoxelModel, axis: Axis) -> Vec<VoxelSliceQuad> {
     let (ds, us, vs) = axis_params(axis, model.xsiz, model.ysiz, model.zsiz);
     let mut quads = Vec::new();

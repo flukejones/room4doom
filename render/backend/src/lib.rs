@@ -427,7 +427,7 @@ impl<P: PixelFmt> RenderStack<P> {
     /// The tracked hands to draw next frame; `None` draws none.
     #[cfg(feature = "wgpu3d")]
     pub fn set_hands(&mut self, hands: Option<HandPose>) {
-        self.world_renderer.set_hands(hands);
+        self.world_renderer.set_hands(hands.as_ref());
     }
 
     /// Whether a melt-wipe is in progress (CPU frame wipe, or the GPU melt). One

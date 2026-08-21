@@ -43,6 +43,8 @@ define_class!(
 
 impl PreferencesTarget {
     fn new(mtm: MainThreadMarker) -> Retained<Self> {
+        // SAFETY: MainThreadMarker authorizes allocation on the main thread, and this NSObject
+        // subclass inherits init with the matching return type.
         unsafe { msg_send![mtm.alloc::<Self>(), init] }
     }
 }
@@ -70,6 +72,8 @@ pub(crate) fn append_preferences_item(ui: &EditorWindow) -> bool {
 
     let target = PreferencesTarget::new(mtm);
     let key = NSString::from_str(",");
+    // SAFETY: The main-thread target implements openPreferences: with the expected signature
+    // and MENU_STATE retains it for the menu lifetime.
     let item = unsafe {
         NSMenuItem::initWithTitle_action_keyEquivalent(
             mtm.alloc(),
@@ -78,6 +82,8 @@ pub(crate) fn append_preferences_item(ui: &EditorWindow) -> bool {
             &key,
         )
     };
+    // SAFETY: The main-thread target implements openPreferences: with the expected signature
+    // and MENU_STATE retains it for the menu lifetime.
     unsafe {
         item.setTarget(Some(&target));
         app_submenu.insertItem_atIndex(&item, 1); // index 0 = app-name item

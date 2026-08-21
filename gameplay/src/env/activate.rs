@@ -64,6 +64,8 @@ pub fn activate_line(
     }
 
     assert!(!thing.level.is_null(), "Thing had a bad level pointer");
+    // SAFETY: Spawn installs the owning level pointer; the level stays at a stable address and
+    // callbacks access it sequentially on the game thread.
     let level: &mut LevelState = unsafe { &mut *thing.level };
     let acted = run(action, trigger, line.clone(), thing, side, level);
     if !acted {
@@ -339,6 +341,8 @@ mod tests {
         let mut ld = MapPtr::new(&mut level.level_data_mut().linedefs[ld_idx]);
         ld.special = decode_line(26);
 
+        // SAFETY: This player link references the game-owned player array (or the live
+        // TestLevel pool); that storage outlives this access.
         let thing = unsafe { &mut *player };
         let used = activate_line(ld.clone(), thing, 0, Activation::Use);
         assert!(used, "vanilla counts a failed key check as used");
@@ -346,6 +350,8 @@ mod tests {
         assert_eq!(level.players()[0].message, Some(PD_BLUEK));
 
         level.parts_mut().1[0].status.cards[Card::Bluecard as usize] = true;
+        // SAFETY: This player link references the game-owned player array (or the live
+        // TestLevel pool); that storage outlives this access.
         let thing = unsafe { &mut *player };
         activate_line(ld.clone(), thing, 0, Activation::Use);
         assert!(
@@ -356,6 +362,8 @@ mod tests {
         // Switch form on ld195 (tag 2): yellow once-only blaze open.
         let mut sw = MapPtr::new(&mut level.level_data_mut().linedefs[195]);
         sw.special = decode_line(137);
+        // SAFETY: This player link references the game-owned player array (or the live
+        // TestLevel pool); that storage outlives this access.
         let thing = unsafe { &mut *player };
         activate_line(sw.clone(), thing, 0, Activation::Use);
         let tagged = |level: &TestLevel| {
@@ -375,6 +383,8 @@ mod tests {
 
         // A skull satisfies a card lock on vanilla key doors.
         level.parts_mut().1[0].status.cards[Card::Yellowskull as usize] = true;
+        // SAFETY: This player link references the game-owned player array (or the live
+        // TestLevel pool); that storage outlives this access.
         let thing = unsafe { &mut *player };
         activate_line(sw.clone(), thing, 0, Activation::Use);
         assert!(
@@ -403,17 +413,23 @@ mod tests {
         // ld195 drives tag 2. As a walk-once lift, a use must not move it.
         let mut ld = MapPtr::new(&mut level.level_data_mut().linedefs[195]);
         ld.special = decode_line(10);
+        // SAFETY: This player link references the game-owned player array (or the live
+        // TestLevel pool); that storage outlives this access.
         let thing = unsafe { &mut *player };
         assert!(!activate_line(ld.clone(), thing, 0, Activation::Use));
         assert!(idle(&level), "walk lift must not answer a use");
 
         // As a switch-once door, crossing it must not open it.
         ld.special = decode_line(103);
+        // SAFETY: This player link references the game-owned player array (or the live
+        // TestLevel pool); that storage outlives this access.
         let thing = unsafe { &mut *player };
         assert!(!activate_line(ld.clone(), thing, 0, Activation::Cross));
         assert!(idle(&level), "switch door must not answer a cross");
 
         // The matching activation does fire, so the line itself is sound.
+        // SAFETY: This player link references the game-owned player array (or the live
+        // TestLevel pool); that storage outlives this access.
         let thing = unsafe { &mut *player };
         assert!(activate_line(ld.clone(), thing, 0, Activation::Use));
         assert!(!idle(&level), "switch door must open on a use");

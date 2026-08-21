@@ -273,6 +273,10 @@ impl Statusbar {
         );
     }
 
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "screen, input and game-state values deliberately retain their established numeric widths and rounding"
+    )]
     fn draw_keys_fullscreen(&self, pixels: &mut impl DrawBuffer) {
         let (sx, sy) = hud_scale(pixels);
         let height = self.keys[3].height as f32 * sy;
@@ -307,6 +311,11 @@ impl Statusbar {
         }
     }
 
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "screen, input and game-state values deliberately retain their established numeric widths and rounding"
+    )]
     fn draw_weapons_fullscreen(&self, pixels: &mut impl DrawBuffer) {
         let (sx, sy) = hud_scale(pixels);
         let y = self.grey_nums[0].height as f32 * sy;
@@ -381,6 +390,11 @@ impl Statusbar {
     // ========================================================================
 
     /// Blit the 320px STBAR centered, fill margins with FLAT5_4.
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "screen, input and game-state values deliberately retain their established numeric widths and rounding"
+    )]
     fn draw_stbar_background(
         &self,
         sx: f32,
@@ -454,6 +468,15 @@ impl Statusbar {
         }
     }
 
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "screen, input and game-state values deliberately retain their established numeric widths and rounding"
+    )]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keep the complete dispatch or geometry pass together without changing its established ordering"
+    )]
     fn draw_bar(&self, buffer: &mut impl DrawBuffer) {
         let (sx, sy) = hud_scale(buffer);
         let layout = buffer.ui_layout();
