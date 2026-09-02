@@ -92,10 +92,10 @@ impl Headset {
         self.frame.is_some()
     }
 
-    /// The current eye's swapchain image, when the runtime handed one out.
-    pub fn eye_colour(&self) -> Option<&wgpu::TextureView> {
+    /// The current eye's region in the swapchain image.
+    pub fn eye_target(&self) -> Option<vr::EyeTarget<'_>> {
         let frame = self.frame.as_ref()?;
-        Some(self.session.eye_target(self.eye, frame)?.colour)
+        self.session.eye_target(self.eye, frame)
     }
 
     /// After presenting the current eye: advance to the next, ending the

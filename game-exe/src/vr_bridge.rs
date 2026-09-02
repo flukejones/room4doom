@@ -4,7 +4,9 @@
 //! menu and a tic command. This is the one place the two are reconciled, so
 //! the loop and the display path stay free of it.
 
-use gameplay::{AimRay, MAX_AIM_SLOPE, PlayerState, TeleportScratch, aim_teleport};
+use gameplay::{
+    AimRay, MAX_AIM_SLOPE, Player, PlayerState, TeleportScratch, aim_teleport, dash_target,
+};
 use gamestate::Game;
 use gamestate::subsystems::GameSubsystem;
 use gamestate_traits::{ConfigKey, GameState, KeyCode, SubsystemTrait};
@@ -13,12 +15,13 @@ use input::{InputState, PadState};
 use math::{Angle, Bam, FixedT};
 use render_backend::{PanelPlacement, RenderStack};
 use render_common::{
-    EyeView, HandJoint, HandPose, HeadFrame, PlaySpace, TeleportView, UNITS_PER_METRE, WeaponHand,
+    EyeView, HandJoint, HandPointer, HandPose, HeadFrame, PlaySpace, TeleportView, UNITS_PER_METRE,
+    WeaponHand,
 };
 use vr::{ControllerState, HandJoints, Pose};
 
 use crate::cheats::Cheats;
-use crate::config::{Locomotion, PanelConfig, UserConfig};
+use crate::config::{DashDistance, Locomotion, PanelConfig, UserConfig, WarpActivation, WarpStyle};
 use crate::d_main::input_responder;
 
 /// Panel distances are config'd in whole centimetres; the display wants metres.
@@ -26,6 +29,95 @@ const CM_PER_METRE: f32 = 100.0;
 
 /// `ConfigKey::VrWeaponScale` is stored ×1000 so a menu slider can step it.
 const WEAPON_SCALE_DIVISOR: f32 = 1000.0;
+
+/// The weapon hand's aim pointer extends two metres.
+const POINTER_LENGTH: f32 = 2.0 * UNITS_PER_METRE;
+const WARP_STICK_PRESS: f32 = 0.65;
+const WARP_STICK_RELEASE: f32 = 0.25;
+
+#[derive(Clone, Copy)]
+enum WarpSignal {
+    Activate,
+    Hold,
+    Release,
+    Cancel,
+}
+
+#[derive(Debug, PartialEq)]
+enum WarpEvent {
+    None,
+    Aim,
+    Commit,
+    Dash,
+}
+
+/// A cancelled gesture must return to rest before it can start another move.
+#[derive(Default)]
+struct WarpGesture {
+    mode: Option<(WarpStyle, WarpActivation)>,
+    armed: bool,
+    aiming: bool,
+}
+
+impl WarpGesture {
+    fn step(&mut self, mode: Option<(WarpStyle, WarpActivation)>, signal: WarpSignal) -> WarpEvent {
+        if self.mode != mode {
+            self.armed = false;
+            self.aiming = false;
+            self.mode = mode;
+        }
+        let Some((style, _)) = mode else {
+            return WarpEvent::None;
+        };
+        match signal {
+            WarpSignal::Cancel => {
+                self.armed = false;
+                self.aiming = false;
+                WarpEvent::None
+            }
+            WarpSignal::Release => {
+                self.armed = true;
+                if std::mem::take(&mut self.aiming) {
+                    WarpEvent::Commit
+                } else {
+                    WarpEvent::None
+                }
+            }
+            WarpSignal::Activate if self.armed => match style {
+                WarpStyle::Aim => {
+                    self.aiming = true;
+                    WarpEvent::Aim
+                }
+                WarpStyle::Dash => {
+                    self.armed = false;
+                    WarpEvent::Dash
+                }
+            },
+            WarpSignal::Hold | WarpSignal::Activate => {
+                if self.aiming {
+                    WarpEvent::Aim
+                } else {
+                    WarpEvent::None
+                }
+            }
+        }
+    }
+}
+
+fn stick_signal([x, y]: [f32; 2], directional: bool) -> WarpSignal {
+    let length = x.hypot(y);
+    if length < WARP_STICK_RELEASE {
+        WarpSignal::Release
+    } else if directional || (y > 0.0 && y >= x.abs()) {
+        if length >= WARP_STICK_PRESS {
+            WarpSignal::Activate
+        } else {
+            WarpSignal::Hold
+        }
+    } else {
+        WarpSignal::Cancel
+    }
+}
 
 impl From<PanelConfig> for PanelPlacement {
     fn from(panel: PanelConfig) -> Self {
@@ -45,9 +137,7 @@ pub(crate) struct VrBridge {
     written_angle: Option<u32>,
     /// Whether a UI plane was showing last frame, for the anchor edge.
     ui_active: bool,
-    /// Whether a teleport arc was being aimed last frame; releasing the stick
-    /// from that state is what commits the move.
-    aiming: bool,
+    warp: WarpGesture,
     /// Reused arc scratch so aiming allocates nothing per frame.
     scratch: TeleportScratch,
 }
@@ -90,24 +180,38 @@ impl VrBridge {
             return HeadFrame::default();
         };
         session.set_ui_active(ui_active);
+
+        // Frame opening refreshes actions, joints, and eyes at the same predicted time.
+        let eyes = screen.begin_frame().unwrap_or_default();
+        let Some(session) = screen.session() else {
+            return HeadFrame::default();
+        };
         self.slave_angle_to_gaze(session, game);
+        let body_yaw = session.playspace_yaw();
         let controls = session.controls();
-        let joints = config.vr.show_hands.then(|| session.hand_joints());
-        let hand = controls.aim.map(|pose| WeaponHand {
+        let joints = if config.vr.show_hands {
+            session.hand_joints()
+        } else {
+            [None, None]
+        };
+        let hand = controls.grip.map(|pose| WeaponHand {
             position: pose.position,
             units_per_pixel: weapon_scale,
         });
 
-        // The runtime paces the display, so the frame opens here and every eye
-        // is located at once.
-        let eyes = screen.begin_frame().unwrap_or_default();
-
-        let hands = joints.and_then(|joints| self.hands_in_world(game, eyes[0].as_ref(), &joints));
+        let hands = self.hands_in_world(game, eyes[0].as_ref(), &joints, [None, controls.aim]);
         screen.set_hands(hands);
         // Must be latched before the tic that reads it.
         game.players[game.consoleplayer].aim = self.shot_ray(game, eyes[0].as_ref(), controls.aim);
-        let teleport = self.drive_teleport(&controls, game, eyes[0].as_ref(), config, ui_active);
-        self.drive_ui(&controls, game, input, menu, machines, cheats);
+        let teleport = self.drive_teleport(
+            &controls,
+            game,
+            eyes[0].as_ref(),
+            body_yaw,
+            config,
+            ui_active,
+        );
+        self.drive_ui(&controls, game, input, menu, machines, cheats, config);
         HeadFrame {
             eyes,
             hand,
@@ -140,26 +244,38 @@ impl VrBridge {
         })
     }
 
-    /// The tracked hands in world map units, or `None` when neither is tracked.
+    /// Hand skeletons and controller/hand aim pointers in world map units.
     fn hands_in_world(
         &self,
         game: &Game,
         eye: Option<&EyeView>,
         joints: &[Option<HandJoints>; 2],
+        aims: [Option<Pose>; 2],
     ) -> Option<HandPose> {
-        if joints.iter().all(Option::is_none) {
+        if joints.iter().all(Option::is_none) && aims.iter().all(Option::is_none) {
             return None;
         }
         let space = self.play_space(game, eye?)?;
         // A radius is a distance, not a position: it scales, it does not fold.
-        Some(joints.map(|hand| {
-            hand.map(|hand| {
-                hand.map(|joint| HandJoint {
-                    position: space.render_point(joint.position),
-                    radius: joint.radius * UNITS_PER_METRE,
+        Some(HandPose {
+            joints: joints.map(|hand| {
+                hand.map(|hand| {
+                    hand.map(|joint| HandJoint {
+                        position: space.render_point(joint.position),
+                        radius: joint.radius * UNITS_PER_METRE,
+                    })
                 })
-            })
-        }))
+            }),
+            pointers: aims.map(|aim| {
+                aim.map(|pose| {
+                    let (origin, dir) = space.render_ray(pose.position, pose.orientation);
+                    HandPointer {
+                        origin,
+                        tip: (Vec3::from(origin) + Vec3::from(dir) * POINTER_LENGTH).into(),
+                    }
+                })
+            }),
+        })
     }
 
     /// Where the player's play space sits in the world this frame.
@@ -173,34 +289,88 @@ impl VrBridge {
         })
     }
 
-    /// The teleport arc to draw, if one is being aimed. Committing the move is
-    /// this function's job too: the arc follows the off hand while its trigger
-    /// is held and fires when the trigger is let go.
+    /// Resolve the configured warp gesture without letting a menu, loss of
+    /// tracking or change of settings turn cancellation into a release.
     fn drive_teleport(
         &mut self,
         controls: &ControllerState,
         game: &mut Game,
         eye: Option<&EyeView>,
+        body_yaw: f32,
         config: &UserConfig,
         ui_active: bool,
     ) -> Option<TeleportView> {
-        if config.vr.locomotion != Locomotion::Teleport {
-            return None;
-        }
-        // An open menu or lost tracking abandons the aim rather than committing
-        // it — neither is the player choosing to go.
-        if ui_active {
-            self.aiming = false;
-            return None;
-        }
-        // Without the posture gate an incidental near pinch would teleport.
-        let (Some(eye), Some(aim), true) = (eye, controls.aim_off, controls.aim_ready) else {
-            self.aiming = false;
-            return None;
+        let mode = (config.vr.locomotion == Locomotion::Teleport)
+            .then_some((config.vr.warp_style, config.vr.warp_activation));
+        let allowed = !ui_active
+            && !controls.ui_menu
+            && !game.paused
+            && game.gamestate == GameState::Level
+            && game.players[game.consoleplayer].player_state == PlayerState::Live
+            && eye.is_some();
+        let aim = match config.vr.warp_activation {
+            WarpActivation::RightStickForward => controls.aim,
+            WarpActivation::LeftTrigger | WarpActivation::LeftStickForward => controls.aim_off,
         };
-        let space = self.play_space(game, eye)?;
+        let signal = if !allowed {
+            WarpSignal::Cancel
+        } else if config.vr.warp_style == WarpStyle::Dash {
+            if controls.move_active {
+                stick_signal(controls.move_axes, true)
+            } else {
+                WarpSignal::Cancel
+            }
+        } else if aim.is_none()
+            || (config.vr.warp_activation != WarpActivation::RightStickForward
+                && !controls.aim_ready)
+        {
+            WarpSignal::Cancel
+        } else {
+            match config.vr.warp_activation {
+                WarpActivation::LeftTrigger if controls.teleport_active => {
+                    if controls.teleport {
+                        WarpSignal::Activate
+                    } else {
+                        WarpSignal::Release
+                    }
+                }
+                WarpActivation::LeftStickForward if controls.move_active => {
+                    stick_signal(controls.move_axes, false)
+                }
+                WarpActivation::RightStickForward if controls.turn_active => {
+                    stick_signal(controls.turn_axes, false)
+                }
+                _ => WarpSignal::Cancel,
+            }
+        };
+        let event = self.warp.step(mode, signal);
+        if event == WarpEvent::None {
+            return None;
+        }
         let level = game.level.as_ref()?;
         let player = game.players[game.consoleplayer].mobj()?;
+        if event == WarpEvent::Dash {
+            let [right, forward] = controls.move_axes;
+            // The player's angle includes headset yaw; dash follows the body.
+            let (sin, cos) = Angle::<Bam>::new(body_yaw).sin_cos();
+            let direction = Vec3::new(
+                forward * cos + right * sin,
+                forward * sin - right * cos,
+                0.0,
+            )
+            .normalize_or_zero();
+            if let Some(target) = dash_target(
+                level,
+                direction,
+                Player::warp_distance(config.vr.dash_distance == DashDistance::Run),
+                player,
+            ) {
+                game.players[game.consoleplayer].start_teleport(target);
+            }
+            return None;
+        }
+        let space = self.play_space(game, eye?)?;
+        let aim = aim?;
         let (origin, dir) = space.render_ray(aim.position, aim.orientation);
         let resolved = aim_teleport(
             level,
@@ -210,15 +380,13 @@ impl VrBridge {
             player,
         );
 
-        if self.aiming && !controls.teleport {
-            self.aiming = false;
+        if event == WarpEvent::Commit {
             if resolved.valid {
                 game.players[game.consoleplayer].start_teleport(resolved.landing);
             }
             return None;
         }
-        self.aiming = controls.teleport;
-        self.aiming.then_some(TeleportView {
+        Some(TeleportView {
             origin,
             dir,
             flight_time: resolved.flight_time,
@@ -252,6 +420,7 @@ impl VrBridge {
         menu: &mut impl SubsystemTrait,
         machines: &mut GameSubsystem<I, S, H, F>,
         cheats: &mut Cheats,
+        config: &UserConfig,
     ) where
         I: SubsystemTrait,
         S: SubsystemTrait,
@@ -265,7 +434,11 @@ impl VrBridge {
             }
         }
         input.events.set_pad(PadState {
-            move_axes: controls.move_axes,
+            move_axes: if config.vr.locomotion == Locomotion::Smooth {
+                controls.move_axes
+            } else {
+                [0.0, 0.0]
+            },
             fire: controls.fire,
             // Vanilla reborns on use alone; the trigger has to reach it too.
             use_: controls.use_ || (dead && controls.fire),
@@ -291,4 +464,66 @@ fn ui_keys(controls: &ControllerState, dead: bool) -> impl Iterator<Item = KeyCo
     ]
     .into_iter()
     .filter_map(|(pressed, key)| pressed.then_some(key))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{WarpEvent, WarpGesture, WarpSignal, stick_signal};
+    use crate::config::{WarpActivation, WarpStyle};
+
+    #[test]
+    fn aim_release_commits_but_cancellation_and_control_changes_do_not() {
+        let mode = Some((WarpStyle::Aim, WarpActivation::LeftTrigger));
+        let mut gesture = WarpGesture::default();
+        // Held across startup or a menu is not a new gesture.
+        assert_eq!(gesture.step(mode, WarpSignal::Activate), WarpEvent::None);
+        gesture.step(mode, WarpSignal::Release);
+        assert_eq!(gesture.step(mode, WarpSignal::Activate), WarpEvent::Aim);
+        assert_eq!(gesture.step(mode, WarpSignal::Release), WarpEvent::Commit);
+
+        gesture.step(mode, WarpSignal::Activate);
+        assert_eq!(gesture.step(mode, WarpSignal::Cancel), WarpEvent::None);
+        assert_eq!(gesture.step(mode, WarpSignal::Release), WarpEvent::None);
+        gesture.step(mode, WarpSignal::Activate);
+        let changed = Some((WarpStyle::Aim, WarpActivation::RightStickForward));
+        assert_eq!(gesture.step(changed, WarpSignal::Release), WarpEvent::None);
+        gesture.step(changed, WarpSignal::Activate);
+        assert_eq!(gesture.step(None, WarpSignal::Release), WarpEvent::None);
+    }
+
+    #[test]
+    fn dash_flick_requires_return_to_rest_and_aim_requires_forward() {
+        let mode = Some((WarpStyle::Dash, WarpActivation::LeftTrigger));
+        let mut gesture = WarpGesture::default();
+        gesture.step(mode, stick_signal([0.0, 0.0], true));
+        assert_eq!(
+            gesture.step(mode, stick_signal([-0.9, 0.0], true)),
+            WarpEvent::Dash
+        );
+        assert_eq!(
+            gesture.step(mode, stick_signal([0.0, -0.9], true)),
+            WarpEvent::None
+        );
+        gesture.step(mode, stick_signal([0.0, 0.0], true));
+        assert_eq!(
+            gesture.step(mode, stick_signal([0.0, -0.9], true)),
+            WarpEvent::Dash
+        );
+
+        let mode = Some((WarpStyle::Aim, WarpActivation::LeftStickForward));
+        gesture.step(mode, stick_signal([0.0, 0.0], false));
+        assert_eq!(
+            gesture.step(mode, stick_signal([0.0, 0.9], false)),
+            WarpEvent::Aim
+        );
+        // Moving sideways cancels; it is not a stick release and must not warp.
+        assert_eq!(
+            gesture.step(mode, stick_signal([0.9, 0.0], false)),
+            WarpEvent::None
+        );
+        assert_eq!(
+            gesture.step(mode, stick_signal([0.0, 0.0], false)),
+            WarpEvent::None
+        );
+    }
 }

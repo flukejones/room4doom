@@ -7205,12 +7205,11 @@ dependencies = [
 name = "vr"
 version = "1.0.0"
 dependencies = [
- "libc",
+ "libloading",
  "log",
  "objc2 0.6.4",
  "objc2-metal 0.3.2",
  "openxr-sys",
- "pollster",
  "wgpu 29.0.3",
  "wgpu-hal 29.0.3",
 ]

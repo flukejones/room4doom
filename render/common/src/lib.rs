@@ -466,8 +466,20 @@ pub struct HandJoint {
     pub radius: f32,
 }
 
-/// Both hands for a frame, left then right. `None` per hand while untracked.
-pub type HandPose = [Option<[HandJoint; HAND_JOINT_COUNT]>; 2];
+/// A hand or controller's aim pointer, in world map units.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct HandPointer {
+    pub origin: [f32; 3],
+    pub tip: [f32; 3],
+}
+
+/// Tracked hands and aim pointers for a frame, left then right.
+/// Skeletons and pointers are independent: controllers provide only pointers.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct HandPose {
+    pub joints: [Option<[HandJoint; HAND_JOINT_COUNT]>; 2],
+    pub pointers: [Option<HandPointer>; 2],
+}
 
 /// One eye of a headset, as plain numbers.
 ///

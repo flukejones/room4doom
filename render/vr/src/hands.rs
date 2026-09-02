@@ -1,11 +1,9 @@
 //! Bare-hand joints through `XR_EXT_hand_tracking`.
 //!
-//! Hands and controllers are alternatives, not additions: a runtime
-//! reports joints while the controllers are down and stops when they are
-//! picked up. Both are offered to the caller so it can draw whichever is
-//! live.
+//! Each hand is available while the runtime reports active tracking, independently
+//! of the selected controller or gesture profile.
 
-use log::warn;
+use log::{debug, info, warn};
 use openxr_sys as sys;
 use openxr_sys::Handle as _;
 
@@ -54,6 +52,7 @@ impl Hands {
                 return Some(Err(e));
             }
         }
+        info!("vr: hand trackers created");
         Some(Ok(Self {
             trackers,
             joints: [None; 2],
@@ -90,7 +89,11 @@ impl Hands {
                 self.joints[i] = None;
                 continue;
             }
-            if locations.is_active != sys::TRUE {
+            let active = locations.is_active == sys::TRUE;
+            if active != self.joints[i].is_some() {
+                debug!("vr: hand {i} tracking active={active}");
+            }
+            if !active {
                 self.joints[i] = None;
                 continue;
             }

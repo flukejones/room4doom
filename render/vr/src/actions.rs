@@ -28,8 +28,6 @@ const STICK_RELEASE: f32 = 0.05;
 const MENU_PRIORITY: u32 = 1;
 
 const TOUCH_PROFILE: &str = "/interaction_profiles/oculus/touch_controller";
-/// Bare hands. A runtime lacking `XR_EXT_hand_interaction` never selects this
-/// profile, so suggesting it costs nothing.
 const HAND_PROFILE: &str = "/interaction_profiles/ext/hand_interaction_ext";
 
 /// How far one snap turn rotates the player. Snap rather than smooth: a
@@ -66,6 +64,11 @@ pub struct ControllerState {
     /// Left stick: +x right, +y forward, relative to where the player is
     /// looking. Analogue, -1..1, so it strafes as well as walks.
     pub move_axes: [f32; 2],
+    /// Whether the left stick currently has an active input source.
+    pub move_active: bool,
+    /// Right stick, including forward deflection used by optional aim-warp.
+    pub turn_axes: [f32; 2],
+    pub turn_active: bool,
     /// Snap-turn step asked for this frame, radians, positive left.
     /// Rotates the play space; emitted once per stick push.
     pub turn_radians: f32,
@@ -79,8 +82,12 @@ pub struct ControllerState {
     pub aim: Option<Pose>,
     /// Where the off hand is pointing, which is what aims a teleport.
     pub aim_off: Option<Pose>,
+    /// Right grip pose for held objects; `None` when its position or orientation is invalid.
+    pub grip: Option<Pose>,
     /// Off-hand trigger, held while a teleport is being aimed.
     pub teleport: bool,
+    /// Distinguishes releasing the trigger from losing its input source.
+    pub teleport_active: bool,
     /// Whether the off hand is in a posture a far-field aim can be read from.
     /// True on a controller, which has no such signal and can always aim.
     pub aim_ready: bool,
@@ -135,10 +142,10 @@ pub struct Actions {
     use_: sys::Action,
     weapon_next: sys::Action,
     weapon_prev: sys::Action,
-    /// Spaces tracking the aim actions, located each frame against the play
-    /// space: shooting hand then off hand.
+    /// Shooting aim, teleport aim, and right grip, located together in play space.
     aim_space: sys::Space,
     aim_off_space: sys::Space,
+    grip_space: sys::Space,
     teleport: sys::Action,
     aim_ready: sys::Action,
     nav: sys::Action,
@@ -196,6 +203,13 @@ impl Actions {
             "Off-hand Aim",
             sys::ActionType::POSE_INPUT,
         )?;
+        let grip = action(
+            instance,
+            gameplay,
+            "grip",
+            "Weapon Grip",
+            sys::ActionType::POSE_INPUT,
+        )?;
         let teleport = action(instance, gameplay, "teleport", "Teleport", boolean)?;
         let aim_ready = action(instance, gameplay, "aim_ready", "Aim Ready", boolean)?;
         let open_menu = action(instance, gameplay, "open_menu", "Open Menu", boolean)?;
@@ -218,6 +232,7 @@ impl Actions {
                 (weapon_prev, "/user/hand/left/input/x/click"),
                 (aim, "/user/hand/right/input/aim/pose"),
                 (aim_off, "/user/hand/left/input/aim/pose"),
+                (grip, "/user/hand/right/input/grip/pose"),
                 (teleport, "/user/hand/left/input/trigger/value"),
                 // `menu/click` is the left controller's alone; the right one's
                 // equivalent is `system/click`, which the runtime keeps.
@@ -231,27 +246,28 @@ impl Actions {
             ],
         )?;
 
-        // Movement, turning and weapon changes have no binding here: the
-        // profile has no thumbstick analogue, so they stay controller-only.
-        suggest(
-            instance,
-            HAND_PROFILE,
-            &[
-                (aim, "/user/hand/right/input/aim/pose"),
-                (aim_off, "/user/hand/left/input/aim/pose"),
-                (fire, "/user/hand/right/input/aim_activate_ext/value"),
-                (use_, "/user/hand/right/input/grasp_ext/value"),
-                (teleport, "/user/hand/left/input/aim_activate_ext/value"),
-                (
-                    aim_ready,
-                    "/user/hand/left/input/aim_activate_ext/ready_ext",
-                ),
-                (open_menu, "/user/hand/left/input/grasp_ext/value"),
-                (accept, "/user/hand/right/input/aim_activate_ext/value"),
-                (back, "/user/hand/right/input/grasp_ext/value"),
-                (close_menu, "/user/hand/left/input/grasp_ext/value"),
-            ],
-        )?;
+        if instance.hand_interaction {
+            suggest(
+                instance,
+                HAND_PROFILE,
+                &[
+                    (aim, "/user/hand/right/input/aim/pose"),
+                    (aim_off, "/user/hand/left/input/aim/pose"),
+                    (grip, "/user/hand/right/input/grip/pose"),
+                    (fire, "/user/hand/right/input/aim_activate_ext/value"),
+                    (use_, "/user/hand/right/input/grasp_ext/value"),
+                    (teleport, "/user/hand/left/input/aim_activate_ext/value"),
+                    (
+                        aim_ready,
+                        "/user/hand/left/input/aim_activate_ext/ready_ext",
+                    ),
+                    (open_menu, "/user/hand/left/input/grasp_ext/value"),
+                    (accept, "/user/hand/right/input/aim_activate_ext/value"),
+                    (back, "/user/hand/right/input/grasp_ext/value"),
+                    (close_menu, "/user/hand/left/input/grasp_ext/value"),
+                ],
+            )?;
+        }
 
         let sets = [gameplay, menu];
         let attach = sys::SessionActionSetsAttachInfo {
@@ -268,6 +284,7 @@ impl Actions {
         // An action space can only be made once the sets are attached.
         let aim_space = pose_space(instance, session, aim)?;
         let aim_off_space = pose_space(instance, session, aim_off)?;
+        let grip_space = pose_space(instance, session, grip)?;
         info!("vr: controllers bound, {}° snap turn", snap.degrees());
 
         Ok(Self {
@@ -281,6 +298,7 @@ impl Actions {
             weapon_prev,
             aim_space,
             aim_off_space,
+            grip_space,
             teleport,
             aim_ready,
             nav,
@@ -338,13 +356,25 @@ impl Actions {
             self.nav_x.hold();
             self.nav_y.hold();
         }
-        let nav = vector2(instance, session, self.nav)?;
+        let nav = vector2(instance, session, self.nav)?.unwrap_or_default();
         let (nav_x, nav_y) = (self.nav_x.step(nav[0]), self.nav_y.step(nav[1]));
+        let movement = vector2(instance, session, self.mv)?;
+        let turning = vector2(instance, session, self.turn)?;
+        let turn_axes = turning.unwrap_or_default();
+        // A forward push used to aim a warp should not also snap the view.
         let turn = self
             .turn_latch
-            .step(vector2(instance, session, self.turn)?[0]);
+            .step(if turn_axes[0].abs() > turn_axes[1].abs() {
+                turn_axes[0]
+            } else {
+                0.0
+            });
+        let teleport = boolean(instance, session, self.teleport)?;
         Ok(ControllerState {
-            move_axes: vector2(instance, session, self.mv)?,
+            move_axes: movement.unwrap_or_default(),
+            move_active: movement.is_some(),
+            turn_axes,
+            turn_active: turning.is_some(),
             // Positive is left, matching the runtime's yaw.
             turn_radians: -f32::from(turn) * self.snap.degrees().to_radians(),
             fire: boolean(instance, session, self.fire)?.held,
@@ -353,7 +383,9 @@ impl Actions {
             weapon_prev: boolean(instance, session, self.weapon_prev)?.pressed,
             aim: None,
             aim_off: None,
-            teleport: boolean(instance, session, self.teleport)?.held,
+            grip: None,
+            teleport: teleport.held,
+            teleport_active: teleport.active,
             aim_ready: boolean_or(instance, session, self.aim_ready, true)?,
             ui_right: nav_x > 0,
             ui_left: nav_x < 0,
@@ -366,20 +398,49 @@ impl Actions {
         })
     }
 
-    /// Where the shooting hand points, in `base`, at the frame's predicted
-    /// display time. `None` while the runtime is not tracking it.
-    pub fn aim_pose(&self, instance: &Instance, base: sys::Space, at: sys::Time) -> Option<Pose> {
-        locate(instance, self.aim_space, base, at)
-    }
-
-    /// Where the off hand points; the teleport aim rides this one.
-    pub fn aim_off_pose(
+    /// Shooting aim, teleport aim, and right grip at the frame's predicted time in `base`.
+    /// Invalid poses are `None`; runtime failures retain the concrete OpenXR result.
+    pub fn poses(
         &self,
         instance: &Instance,
+        session: sys::Session,
         base: sys::Space,
         at: sys::Time,
-    ) -> Option<Pose> {
-        locate(instance, self.aim_off_space, base, at)
+    ) -> Result<[Option<Pose>; 3], XrError> {
+        let spaces = [self.aim_space, self.aim_off_space, self.grip_space];
+        let locate = sys::SpacesLocateInfo {
+            ty: sys::SpacesLocateInfo::TYPE,
+            next: std::ptr::null(),
+            base_space: base,
+            time: at,
+            space_count: 3,
+            spaces: spaces.as_ptr(),
+        };
+        let mut data = [sys::SpaceLocationData {
+            location_flags: sys::SpaceLocationFlags::EMPTY,
+            pose: identity_pose(),
+        }; 3];
+        let mut locations = sys::SpaceLocations {
+            ty: sys::SpaceLocations::TYPE,
+            next: std::ptr::null_mut(),
+            location_count: 3,
+            locations: data.as_mut_ptr(),
+        };
+        // SAFETY: all spaces belong to this session and the fixed arrays remain live for the call.
+        xr::check("xrLocateSpaces", unsafe {
+            (instance.locate_spaces)(session, &locate, &mut locations)
+        })?;
+        Ok(data.map(|location| {
+            let valid = sys::SpaceLocationFlags::POSITION_VALID
+                | sys::SpaceLocationFlags::ORIENTATION_VALID;
+            location.location_flags.contains(valid).then(|| {
+                let (p, q) = (location.pose.position, location.pose.orientation);
+                Pose {
+                    position: [p.x, p.y, p.z],
+                    orientation: [q.x, q.y, q.z, q.w],
+                }
+            })
+        }))
     }
 
     /// Runtime handles only; the session outlives this.
@@ -387,7 +448,7 @@ impl Actions {
     /// # Safety
     /// `instance` must still be live.
     pub unsafe fn destroy(&self, instance: &Instance) {
-        for space in [self.aim_space, self.aim_off_space] {
+        for space in [self.aim_space, self.aim_off_space, self.grip_space] {
             // SAFETY: caller contract; nothing uses the space afterwards.
             let r = unsafe { (instance.destroy_space)(space) };
             if r != sys::Result::SUCCESS {
@@ -435,31 +496,6 @@ fn suggest(
     // SAFETY: the suggestion and its bindings outlive the call.
     xr::check("xrSuggestInteractionProfileBindings", unsafe {
         (instance.suggest_interaction_profile_bindings)(instance.handle, &suggestion)
-    })
-}
-
-/// A tracked pose in `base` at `at`, or `None` while the runtime has none.
-fn locate(instance: &Instance, space: sys::Space, base: sys::Space, at: sys::Time) -> Option<Pose> {
-    let mut location = sys::SpaceLocation {
-        ty: sys::SpaceLocation::TYPE,
-        next: std::ptr::null_mut(),
-        location_flags: sys::SpaceLocationFlags::EMPTY,
-        pose: identity_pose(),
-    };
-    // SAFETY: out struct outlives the call; both spaces are live.
-    let result = unsafe { (instance.locate_space)(space, base, at, &mut location) };
-    if result != sys::Result::SUCCESS {
-        return None;
-    }
-    let tracked =
-        sys::SpaceLocationFlags::POSITION_VALID | sys::SpaceLocationFlags::ORIENTATION_VALID;
-    if !location.location_flags.contains(tracked) {
-        return None;
-    }
-    let (p, q) = (location.pose.position, location.pose.orientation);
-    Some(Pose {
-        position: [p.x, p.y, p.z],
-        orientation: [q.x, q.y, q.z, q.w],
     })
 }
 
@@ -570,6 +606,7 @@ fn get_info(action: sys::Action) -> sys::ActionStateGetInfo {
 struct Button {
     held: bool,
     pressed: bool,
+    active: bool,
 }
 
 fn boolean_state(
@@ -603,6 +640,7 @@ fn boolean(
     Ok(Button {
         held,
         pressed: held && state.changed_since_last_sync == sys::TRUE,
+        active: state.is_active == sys::TRUE,
     })
 }
 
@@ -625,7 +663,7 @@ fn vector2(
     instance: &Instance,
     session: sys::Session,
     action: sys::Action,
-) -> Result<[f32; 2], XrError> {
+) -> Result<Option<[f32; 2]>, XrError> {
     let info = get_info(action);
     let mut state = sys::ActionStateVector2f {
         ty: sys::ActionStateVector2f::TYPE,
@@ -643,7 +681,7 @@ fn vector2(
         (instance.get_action_state_vector2f)(session, &info, &mut state)
     })?;
     if state.is_active != sys::TRUE {
-        return Ok([0.0, 0.0]);
+        return Ok(None);
     }
-    Ok([state.current_state.x, state.current_state.y])
+    Ok(Some([state.current_state.x, state.current_state.y]))
 }

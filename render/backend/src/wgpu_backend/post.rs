@@ -175,9 +175,17 @@ impl PostChain {
             .collect();
     }
 
-    /// Run the chain: each pass draws into the next intermediate; the last into
-    /// `surface`.
-    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, surface: &wgpu::TextureView) {
+    /// Run the chain, placing its final pass in `rect` within `surface`.
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "wgpu viewports use f32 coordinates"
+    )]
+    pub(crate) fn render(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        surface: &wgpu::TextureView,
+        rect: [u32; 4],
+    ) {
         let last = self.passes.len() - 1;
         for (i, pass) in self.passes.iter().enumerate() {
             let target = if i == last {
@@ -192,7 +200,11 @@ impl PostChain {
                     depth_slice: None,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                        load: if i == last {
+                            wgpu::LoadOp::Load
+                        } else {
+                            wgpu::LoadOp::Clear(wgpu::Color::BLACK)
+                        },
                         store: wgpu::StoreOp::Store,
                     },
                 })],
@@ -201,6 +213,17 @@ impl PostChain {
                 occlusion_query_set: None,
                 multiview_mask: None,
             });
+            if i == last {
+                rpass.set_viewport(
+                    rect[0] as f32,
+                    rect[1] as f32,
+                    rect[2] as f32,
+                    rect[3] as f32,
+                    0.0,
+                    1.0,
+                );
+                rpass.set_scissor_rect(rect[0], rect[1], rect[2], rect[3]);
+            }
             rpass.set_pipeline(&pass.pipeline);
             rpass.set_bind_group(0, &pass.bind_group, &[]);
             rpass.draw(0..3, 0..1);

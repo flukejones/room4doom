@@ -19,16 +19,18 @@ install-hooks:
 run *ARGS:
 	cargo run --release -- --iwad data/doom1.wad {{ARGS}}
 
-headgasket := env("HEADGASKET_DIR", home_directory() / "Applications/Headgasket.app")
-xr_loader := env("OPENXR_LOADER", home_directory() / "Projects/OpenXR-SDK-Source/build/src/loader/libopenxr_loader.dylib")
+headgasket_openxr := env("HEADGASKET_OPENXR_DIR", home_directory() / "Library/Application Support/Headgasket VR/OpenXR")
+xr_loader := env("OPENXR_LOADER", headgasket_openxr / "libopenxr_loader.dylib")
+xr_runtime := headgasket_openxr / "headgasket.json"
 
-# Run in VR against the Headgasket runtime. The daemon must be running
-# (`just daemon` in macos-vr); headset vs window is the game config's
-# `display` field. Extra args pass through.
+# Activate the runtime in Headgasket's Settings and start Link/Dash first.
+# Override HEADGASKET_OPENXR_DIR to select another installation directory.
 vr *ARGS:
-	OPENXR_LOADER={{xr_loader}} \
-	XR_RUNTIME_JSON={{headgasket}}/dist/Headgasket.app/Contents/Resources/headgasket.json \
-	cargo run --release --features vr -- --iwad data/doom1.wad {{ARGS}}
+	@test -f {{quote(xr_loader)}} || { echo {{quote("OpenXR loader missing: " + xr_loader + ". Activate the runtime in Headgasket Settings.")}} >&2; exit 1; }
+	@test -f {{quote(xr_runtime)}} || { echo {{quote("OpenXR manifest missing: " + xr_runtime + ". Activate the runtime in Headgasket Settings.")}} >&2; exit 1; }
+	OPENXR_LOADER={{quote(xr_loader)}} \
+	XR_RUNTIME_JSON={{quote(xr_runtime)}} \
+	cargo run --release --features vr -- --vr --iwad data/doom1.wad {{ARGS}}
 
 # Build the VR binary without running it.
 build-vr:

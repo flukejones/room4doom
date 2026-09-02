@@ -17,7 +17,7 @@ use crate::player_sprite::{PspDef, WEAPONBOTTOM};
 use crate::teleport_aim::{self, TELEPORT_TICS, TeleportDash};
 use crate::thing::enemy::noise_alert;
 use crate::thing::{BONUSADD, MapObjFlag, MapObject};
-use game_config::tic_cmd::{TIC_CMD_BUTTONS, TicCmd};
+use game_config::tic_cmd::{FORWARDMOVE, TIC_CMD_BUTTONS, TicCmd};
 use game_config::{GameMode, Skill, WeaponType};
 use math::{Angle, fixed_to_float, p_random, r_point_to_angle};
 use pic_data::INVERSECOLORMAP;
@@ -29,6 +29,8 @@ const MAX_PITCH_BAM: i32 = i32::MAX / 2;
 const MAX_BOB: i32 = 0x100000;
 /// OG Doom: ANG5 = 0x00E38E39 (5 degrees in BAM)
 const ANG5_BAM: u32 = 0x00E3_8E39;
+/// The command-to-momentum conversion used by normal walking and warp distance.
+const MOVE_THRUST: i32 = 2048;
 
 /// Snapshot of player visual state for rendering interpolation.
 #[derive(Clone, Copy, Default)]
@@ -484,12 +486,12 @@ impl Player {
 
             if self.cmd.forwardmove != 0 && self.onground {
                 let angle = mobj.angle;
-                self.thrust(angle, self.cmd.forwardmove as i32 * 2048);
+                self.thrust(angle, self.cmd.forwardmove as i32 * MOVE_THRUST);
             }
 
             if self.cmd.sidemove != 0 && self.onground {
                 let bam = mobj.angle.to_bam().wrapping_sub(ANG90);
-                self.thrust(Angle::from_bam(bam), self.cmd.sidemove as i32 * 2048);
+                self.thrust(Angle::from_bam(bam), self.cmd.sidemove as i32 * MOVE_THRUST);
             }
 
             if (self.cmd.forwardmove != 0 || self.cmd.sidemove != 0)
@@ -957,6 +959,24 @@ impl Player {
         })
     }
 
+    /// Half the ground distance covered from rest by one second of full
+    /// walking/running input, using normal acceleration, speed limit and friction.
+    pub fn warp_distance(run: bool) -> f32 {
+        use crate::thing::{FRICTION, MAXMOVE};
+
+        let thrust = FixedT::from_fixed(FORWARDMOVE[usize::from(run)] * MOVE_THRUST);
+        let max = FixedT::from_fixed(MAXMOVE);
+        let friction = FixedT::from_fixed(FRICTION);
+        let mut momentum = FixedT::ZERO;
+        let mut distance = FixedT::ZERO;
+        for _ in 0..crate::TICRATE {
+            momentum = (momentum + thrust).min(max);
+            distance += momentum;
+            momentum = momentum.fixed_mul(friction);
+        }
+        distance.to_f32() * 0.5
+    }
+
     /// Send the player to `target` over [`TELEPORT_TICS`]. The aim that
     /// produced `target` already proved the path clear.
     pub fn start_teleport(&mut self, target: Vec3) {
@@ -968,7 +988,7 @@ impl Player {
 
     /// True while a dash owns the player's motion, so normal movement is
     /// skipped for the tic.
-    fn step_teleport(&mut self, level: &mut LevelState) -> bool {
+    fn step_teleport(&mut self) -> bool {
         let Some(dash) = self.teleport_dash.as_mut() else {
             return false;
         };
@@ -978,7 +998,7 @@ impl Player {
             self.teleport_dash = None;
             return false;
         };
-        if teleport_aim::step_dash(target, tics, mobj, level) {
+        if teleport_aim::step_dash(target, tics, mobj) {
             self.teleport_dash = None;
         }
         true
@@ -1009,7 +1029,7 @@ impl Player {
         }
 
         // TODO: not feature complete with P_PlayerThink
-        if !self.step_teleport(level)
+        if !self.step_teleport()
             && let Some(mobj) = self.mobj_mut()
         {
             if mobj.reactiontime > 0 {

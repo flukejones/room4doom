@@ -11,6 +11,7 @@ use crate::doom_def::{FLOATSPEED, USERANGE, VIEWHEIGHT};
 use crate::env::specials::cross_special_line;
 use crate::env::switch::p_use_special_line;
 use crate::info::{STATES, StateData, StateNum};
+use crate::level::LevelState;
 use crate::maputl::{
     BestSlide, Intercept, PortalZ, box_on_line_side, path_traverse_blockmap, point_on_line_side,
 };
@@ -69,6 +70,21 @@ impl Default for SubSectorMinMax {
             sky_line: None,
             spec_hits: Vec::new(),
         }
+    }
+}
+
+impl SubSectorMinMax {
+    pub(crate) fn permits_step_from(&self, z: FixedT, height: FixedT, flags: MapObjFlag) -> bool {
+        (flags.contains(MapObjFlag::Teleport)
+            || (self.max_ceil_z - z >= height && self.min_floor_z - z <= 24))
+            && (flags.intersects(MapObjFlag::Dropoff | MapObjFlag::Float)
+                || self.min_floor_z - self.max_dropoff <= 24)
+    }
+
+    fn include_portal(&mut self, portal: &PortalZ) {
+        self.max_ceil_z = self.max_ceil_z.min(portal.top_z);
+        self.min_floor_z = self.min_floor_z.max(portal.bottom_z);
+        self.max_dropoff = self.max_dropoff.min(portal.lowest_z);
     }
 }
 
@@ -333,20 +349,7 @@ impl MapObject {
             }
             ctrl.floatok = true;
 
-            if !self.flags.contains(MapObjFlag::Teleport) && ctrl.max_ceil_z - self.z < self.height
-            {
-                return false;
-            }
-
-            if !self.flags.contains(MapObjFlag::Teleport) && ctrl.min_floor_z - self.z > 24 {
-                return false;
-            }
-
-            if !self
-                .flags
-                .intersects(MapObjFlag::Dropoff | MapObjFlag::Float)
-                && ctrl.min_floor_z - ctrl.max_dropoff > 24
-            {
+            if !ctrl.permits_step_from(self.z, self.height, self.flags) {
                 return false;
             }
         }
@@ -483,6 +486,94 @@ impl MapObject {
         true
     }
 
+    /// Read-only movement clearance for previews. Unlike `p_check_position`,
+    /// this does not pick up items, damage things or mark linedefs visited.
+    pub(crate) fn position_clearance(
+        &self,
+        level: &LevelState,
+        x: FixedT,
+        y: FixedT,
+    ) -> Option<SubSectorMinMax> {
+        self.segment_clearance(level, (x, y), (x, y))
+    }
+
+    /// Conservatively test the whole XY box swept between two positions.
+    /// Endpoint checks alone can miss a shallow graze of a wall corner.
+    pub(crate) fn segment_clearance(
+        &self,
+        level: &LevelState,
+        from: (FixedT, FixedT),
+        to: (FixedT, FixedT),
+    ) -> Option<SubSectorMinMax> {
+        let (x, y) = to;
+        let bsp = level.level_data.bsp_3d();
+        let sector = &bsp.get_leaf(bsp.point_in_leaf(x, y))?.sector;
+        let floor = sector.floor_z(x, y);
+        let mut ctrl = SubSectorMinMax {
+            min_floor_z: floor,
+            max_dropoff: floor,
+            max_ceil_z: sector.ceil_z(x, y),
+            ..SubSectorMinMax::default()
+        };
+        let bm = level.level_data.blockmap();
+        let (x, y, radius) = (
+            x.to_fixed_raw(),
+            y.to_fixed_raw(),
+            self.radius.to_fixed_raw(),
+        );
+        let (from_x, from_y) = (from.0.to_fixed_raw(), from.1.to_fixed_raw());
+        let bbox = [
+            y.max(from_y) + radius,
+            y.min(from_y) - radius,
+            x.min(from_x) - radius,
+            x.max(from_x) + radius,
+        ];
+        let xl = (bbox[BOXLEFT] - bm.x_origin - MAXRADIUS_FIXED) >> MAPBLOCKSHIFT;
+        let xh = (bbox[BOXRIGHT] - bm.x_origin + MAXRADIUS_FIXED) >> MAPBLOCKSHIFT;
+        let yl = (bbox[BOXBOTTOM] - bm.y_origin - MAXRADIUS_FIXED) >> MAPBLOCKSHIFT;
+        let yh = (bbox[BOXTOP] - bm.y_origin + MAXRADIUS_FIXED) >> MAPBLOCKSHIFT;
+        for by in yl.max(0)..=yh.min(bm.rows - 1) {
+            for bx in xl.max(0)..=xh.min(bm.columns - 1) {
+                let mut link = level.blocklinks[(by * bm.columns + bx) as usize];
+                while let Some(ptr) = link {
+                    // SAFETY: blocklinks refer to stable live thinker slots;
+                    // previewing only reads them on the game thread.
+                    let thing = unsafe { &*ptr };
+                    link = thing.b_next;
+                    let (thing_x, thing_y, thing_radius) = (
+                        thing.x.to_fixed_raw(),
+                        thing.y.to_fixed_raw(),
+                        thing.radius.to_fixed_raw(),
+                    );
+                    if !ptr::eq(self, thing)
+                        && thing.flags.contains(MapObjFlag::Solid)
+                        && thing_x + thing_radius > bbox[BOXLEFT]
+                        && thing_x - thing_radius < bbox[BOXRIGHT]
+                        && thing_y + thing_radius > bbox[BOXBOTTOM]
+                        && thing_y - thing_radius < bbox[BOXTOP]
+                    {
+                        return None;
+                    }
+                }
+            }
+        }
+        let xl = (bbox[BOXLEFT] - bm.x_origin) >> MAPBLOCKSHIFT;
+        let xh = (bbox[BOXRIGHT] - bm.x_origin) >> MAPBLOCKSHIFT;
+        let yl = (bbox[BOXBOTTOM] - bm.y_origin) >> MAPBLOCKSHIFT;
+        let yh = (bbox[BOXTOP] - bm.y_origin) >> MAPBLOCKSHIFT;
+        for by in yl.max(0)..=yh.min(bm.rows - 1) {
+            for bx in xl.max(0)..=xh.min(bm.columns - 1) {
+                let block = (by * bm.columns + bx) as usize;
+                for line in &bm.block_lines[bm.block_offsets[block]..bm.block_offsets[block + 1]] {
+                    if let Some(portal) = self.line_opening(&bbox, line).ok()? {
+                        ctrl.include_portal(&portal);
+                    }
+                }
+            }
+        }
+        (ctrl.max_ceil_z - ctrl.min_floor_z >= self.height).then_some(ctrl)
+    }
+
     /// OG `PIT_CheckThing` — collision response between `self` and `thing`.
     /// Returns false to block movement.
     fn pit_check_thing(
@@ -594,54 +685,53 @@ impl MapObject {
         ctrl: &mut SubSectorMinMax,
         ld: &mut LineDef,
     ) -> bool {
+        let portal = match self.line_opening(tmbbox, ld) {
+            Ok(Some(portal)) => portal,
+            Ok(None) => return true,
+            Err(()) => return false,
+        };
+        if portal.top_z < ctrl.max_ceil_z {
+            ctrl.sky_line = Some(MapPtr::new(ld));
+        }
+        ctrl.include_portal(&portal);
+        if ld.special != 0 {
+            ctrl.spec_hits.push(MapPtr::new(ld));
+        }
+        true
+    }
+
+    /// Shared box/line collision and portal opening calculation. `None` means
+    /// the box does not contact this line; an error means it blocks movement.
+    fn line_opening(&self, tmbbox: &[i32; 4], ld: &LineDef) -> Result<Option<PortalZ>, ()> {
         if tmbbox[BOXRIGHT] <= ld.bbox_int[BOXLEFT]
             || tmbbox[BOXLEFT] >= ld.bbox_int[BOXRIGHT]
             || tmbbox[BOXTOP] <= ld.bbox_int[BOXBOTTOM]
             || tmbbox[BOXBOTTOM] >= ld.bbox_int[BOXTOP]
         {
-            return true;
+            return Ok(None);
         }
 
         let bols = box_on_line_side(tmbbox, ld);
         if bols != -1 {
-            return true;
+            return Ok(None);
         }
 
         if ld.backsector.is_none() {
             // one-sided line
-            return false;
+            return Err(());
         }
 
         if !self.flags.contains(MapObjFlag::Missile) {
             if ld.flags.contains(LineDefFlags::Blocking) {
-                return false; // explicitly blocking everything
+                return Err(()); // explicitly blocking everything
             }
 
             if self.player.is_none() && ld.flags.contains(LineDefFlags::BlockMonsters) {
-                return false; // block monsters only
+                return Err(()); // block monsters only
             }
         }
 
-        // Find the smallest/largest etc if group of line hits
-        let portal = PortalZ::new(ld);
-        if portal.top_z < ctrl.max_ceil_z {
-            ctrl.max_ceil_z = portal.top_z;
-            ctrl.sky_line = Some(MapPtr::new(ld));
-        }
-        // Find the highest floor point (for steps etc)
-        if portal.bottom_z > ctrl.min_floor_z {
-            ctrl.min_floor_z = portal.bottom_z;
-        }
-        // Find the lowest possible point in subsectors contacted
-        if portal.lowest_z < ctrl.max_dropoff {
-            ctrl.max_dropoff = portal.lowest_z;
-        }
-
-        if ld.special != 0 {
-            ctrl.spec_hits.push(MapPtr::new(ld));
-        }
-
-        true
+        Ok(Some(PortalZ::new(ld)))
     }
 
     /// Loop until get a good move or stopped

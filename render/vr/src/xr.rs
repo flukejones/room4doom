@@ -1,14 +1,17 @@
 //! The raw OpenXR calls, kept behind a small safe surface.
 //!
-//! `openxr-sys` is used directly rather than the `openxr` wrapper crate: the
-//! wrapper's Metal path is unproven, while the generated Metal structs
-//! (`GraphicsBindingMetalKHR`, `SwapchainImageMetalKHR`,
-//! `GraphicsRequirementsMetalKHR`) are present and correct.
+//! Loads the standard OpenXR loader and resolves calls through
+//! `xrGetInstanceProcAddr`; `XR_RUNTIME_JSON` selects the runtime.
 
+use std::env::var_os;
 use std::ffi::{CStr, CString, c_char, c_void};
 use std::fmt;
-use std::sync::OnceLock;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, OnceLock};
 
+use libloading::Library;
+use libloading::os::unix::{Library as UnixLibrary, RTLD_LOCAL, RTLD_NOW};
+use log::{info, warn};
 use openxr_sys as sys;
 use openxr_sys::Handle as _;
 
@@ -27,14 +30,14 @@ pub struct HandTracking {
     pub locate: sys::pfn::LocateHandJointsEXT,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub enum XrError {
     /// A runtime call returned a failure code.
     Call { what: &'static str, result: i32 },
     /// The runtime does not advertise `XR_KHR_metal_enable`.
     NoMetalExtension,
-    /// `libopenxr_loader` could not be opened.
-    NoLoader,
+    /// Each attempted loader path and its native library/symbol error.
+    NoLoader(Vec<(PathBuf, Arc<libloading::Error>)>),
     /// A function the Metal path needs is not exported.
     MissingFunction(&'static str),
 }
@@ -45,14 +48,21 @@ impl fmt::Display for XrError {
             Self::Call {
                 what,
                 result,
-            } => write!(f, "{what} failed: {result}"),
+            } => write!(
+                f,
+                "{what} failed: {:?} ({result})",
+                sys::Result::from_raw(*result)
+            ),
             Self::NoMetalExtension => {
                 write!(f, "runtime does not support {METAL_EXTENSION}")
             }
-            Self::NoLoader => write!(
-                f,
-                "libopenxr_loader not found (set {LOADER_PATH_VAR} or DYLD_FALLBACK_LIBRARY_PATH)"
-            ),
+            Self::NoLoader(attempts) => {
+                write!(f, "could not load OpenXR (override with {LOADER_PATH_VAR})")?;
+                for (path, error) in attempts {
+                    write!(f, "; {}: {error}", path.display())?;
+                }
+                Ok(())
+            }
             Self::MissingFunction(name) => write!(f, "runtime does not export {name}"),
         }
     }
@@ -60,7 +70,7 @@ impl fmt::Display for XrError {
 
 /// Turns a runtime result code into an error naming the call that failed.
 pub fn check(what: &'static str, result: sys::Result) -> Result<(), XrError> {
-    if result == sys::Result::SUCCESS {
+    if result.into_raw() >= 0 {
         Ok(())
     } else {
         Err(XrError::Call {
@@ -127,57 +137,57 @@ pub fn supported_extensions() -> Result<Vec<String>, XrError> {
         .collect())
 }
 
-/// The loader, opened at runtime.
-///
-/// Linking it would pin the build to a loader present at compile time;
-/// OpenXR's own contract is `dlopen` + `xrGetInstanceProcAddr`, which also
-/// lets `XR_RUNTIME_JSON` select a runtime per run. Override the library
-/// path with `OPENXR_LOADER` when it is not on the dynamic search path.
+/// Keeps the loader alive for every resolved function pointer.
 struct Loader {
-    /// Kept for the process lifetime; every resolved pointer borrows it.
-    _handle: *mut c_void,
+    _library: Library,
     get_instance_proc_addr: sys::pfn::GetInstanceProcAddr,
 }
-
-// SAFETY: the loader is opened once and only read afterwards.
-unsafe impl Send for Loader {}
-unsafe impl Sync for Loader {}
 
 const LOADER_PATH_VAR: &str = "OPENXR_LOADER";
 const LOADER_NAMES: [&str; 2] = ["libopenxr_loader.dylib", "libopenxr_loader.1.dylib"];
 
-static LOADER: OnceLock<Option<Loader>> = OnceLock::new();
+static LOADER: OnceLock<Result<Loader, XrError>> = OnceLock::new();
+
+fn open_loader(path: &Path) -> Result<Loader, libloading::Error> {
+    // SAFETY: the selected library must implement the OpenXR loader ABI.
+    let library: Library = unsafe { UnixLibrary::open(Some(path), RTLD_NOW | RTLD_LOCAL) }?.into();
+    // SAFETY: this exported OpenXR symbol has the declared C ABI signature.
+    let get_instance_proc_addr =
+        unsafe { *library.get::<sys::pfn::GetInstanceProcAddr>(b"xrGetInstanceProcAddr\0")? };
+    Ok(Loader {
+        _library: library,
+        get_instance_proc_addr,
+    })
+}
 
 fn loader() -> Result<&'static Loader, XrError> {
     LOADER
         .get_or_init(|| {
-            let mut candidates: Vec<String> = std::env::var(LOADER_PATH_VAR).into_iter().collect();
-            candidates.extend(LOADER_NAMES.iter().map(|s| (*s).to_owned()));
-            candidates.iter().find_map(|name| {
-                let cname = CString::new(name.as_str()).ok()?;
-                // SAFETY: plain dlopen of a caller-named library.
-                let handle = unsafe { libc::dlopen(cname.as_ptr(), libc::RTLD_NOW) };
-                if handle.is_null() {
-                    return None;
+            let candidates = if let Some(path) = var_os(LOADER_PATH_VAR) {
+                vec![PathBuf::from(path)]
+            } else {
+                let mut paths: Vec<PathBuf> = LOADER_NAMES.iter().map(PathBuf::from).collect();
+                if let Some(home) = var_os("HOME") {
+                    paths.push(PathBuf::from(home).join(
+                        "Library/Application Support/Headgasket VR/OpenXR/libopenxr_loader.dylib",
+                    ));
                 }
-                let sym = CString::new("xrGetInstanceProcAddr").expect("literal is ASCII");
-                // SAFETY: the loader exports this symbol by ABI contract.
-                let addr = unsafe { libc::dlsym(handle, sym.as_ptr()) };
-                if addr.is_null() {
-                    return None;
+                paths
+            };
+            let mut failures = Vec::new();
+            for path in candidates {
+                match open_loader(&path) {
+                    Ok(loader) => {
+                        info!("vr: OpenXR loader {}", path.display());
+                        return Ok(loader);
+                    }
+                    Err(error) => failures.push((path, Arc::new(error))),
                 }
-                // SAFETY: the symbol has the ABI its name declares.
-                let get_instance_proc_addr = unsafe {
-                    std::mem::transmute::<*mut c_void, sys::pfn::GetInstanceProcAddr>(addr)
-                };
-                Some(Loader {
-                    _handle: handle,
-                    get_instance_proc_addr,
-                })
-            })
+            }
+            Err(XrError::NoLoader(failures))
         })
         .as_ref()
-        .ok_or(XrError::NoLoader)
+        .map_err(Clone::clone)
 }
 
 /// Resolves a global (instance-less) entry point through the loader.
@@ -203,9 +213,7 @@ unsafe fn proc_addr_via<F>(
     let mut f: Option<sys::pfn::VoidFunction> = None;
     // SAFETY: caller contract; out-param written on success.
     let result = unsafe { gipa(instance, cname.as_ptr(), &mut f) };
-    if result != sys::Result::SUCCESS {
-        return Err(XrError::MissingFunction(name));
-    }
+    check(name, result)?;
     let f = f.ok_or(XrError::MissingFunction(name))?;
     // SAFETY: the loader returns a pointer whose signature matches the name
     // it was looked up by.
@@ -233,6 +241,8 @@ pub struct Instance {
     pub poll_event: sys::pfn::PollEvent,
     /// `XR_EXT_hand_tracking`; `None` when the runtime lacks it.
     pub hand_tracking: Option<HandTracking>,
+    /// Whether `XR_EXT_hand_interaction` was enabled; required before suggesting its profile.
+    pub hand_interaction: bool,
     pub string_to_path: sys::pfn::StringToPath,
     pub create_action_set: sys::pfn::CreateActionSet,
     pub create_action: sys::pfn::CreateAction,
@@ -242,7 +252,8 @@ pub struct Instance {
     pub get_action_state_boolean: sys::pfn::GetActionStateBoolean,
     pub get_action_state_vector2f: sys::pfn::GetActionStateVector2f,
     pub create_action_space: sys::pfn::CreateActionSpace,
-    pub locate_space: sys::pfn::LocateSpace,
+    /// Core OpenXR 1.1 batch location; all input spaces must belong to the supplied session.
+    pub locate_spaces: sys::pfn::LocateSpaces,
     pub destroy_action_set: sys::pfn::DestroyActionSet,
     pub end_session: sys::pfn::EndSession,
     pub destroy_session: sys::pfn::DestroySession,
@@ -262,19 +273,66 @@ unsafe fn proc_addr<F>(instance: sys::Instance, name: &'static str) -> Result<F,
 }
 
 impl Instance {
+    /// Logs the selected hand profiles after an interaction-profile change event.
+    /// The session must belong to this instance; queries retain concrete runtime errors.
+    pub fn log_interaction_profiles(&self, session: sys::Session) -> Result<(), XrError> {
+        // SAFETY: the names and signatures identify core calls on this live instance.
+        let (get_profile, path_to_string) = unsafe {
+            (
+                proc_addr::<sys::pfn::GetCurrentInteractionProfile>(
+                    self.handle,
+                    "xrGetCurrentInteractionProfile",
+                )?,
+                proc_addr::<sys::pfn::PathToString>(self.handle, "xrPathToString")?,
+            )
+        };
+        for user in ["/user/hand/left", "/user/hand/right"] {
+            // SAFETY: this instance remains live throughout the query.
+            let path = unsafe { intern_path(self, user)? };
+            let mut state = sys::InteractionProfileState {
+                ty: sys::InteractionProfileState::TYPE,
+                next: std::ptr::null_mut(),
+                interaction_profile: sys::Path::NULL,
+            };
+            // SAFETY: the session, path and output belong to this live instance.
+            check("xrGetCurrentInteractionProfile", unsafe {
+                get_profile(session, path, &mut state)
+            })?;
+            if state.interaction_profile == sys::Path::NULL {
+                info!("vr: {user} profile unavailable");
+                continue;
+            }
+            let mut name = [0; sys::MAX_PATH_LENGTH];
+            let mut length = 0;
+            // SAFETY: the buffer has the capacity supplied and the profile is a runtime path.
+            check("xrPathToString", unsafe {
+                path_to_string(
+                    self.handle,
+                    state.interaction_profile,
+                    name.len() as u32,
+                    &mut length,
+                    name.as_mut_ptr(),
+                )
+            })?;
+            // SAFETY: successful xrPathToString writes a NUL-terminated string.
+            let name = unsafe { CStr::from_ptr(name.as_ptr()) };
+            info!("vr: {user} profile {}", name.to_string_lossy());
+        }
+        Ok(())
+    }
+
     /// Creates an instance with the Metal extension enabled.
     pub fn new(app_name: &str) -> Result<Self, XrError> {
         let available = supported_extensions()?;
         if !available.iter().any(|e| e == METAL_EXTENSION) {
             return Err(XrError::NoMetalExtension);
         }
-        // The hand extensions are a bonus: enable each when offered, carry on
-        // if not. Without them a runtime just never reports bare hands.
         let offered = |ext: &str| available.iter().any(|e| e == ext);
         let hands_offered = offered(HAND_TRACKING_EXTENSION);
+        let hand_interaction = offered(HAND_INTERACTION_EXTENSION);
         let names: Vec<CString> = std::iter::once(METAL_EXTENSION)
             .chain(hands_offered.then_some(HAND_TRACKING_EXTENSION))
-            .chain(offered(HAND_INTERACTION_EXTENSION).then_some(HAND_INTERACTION_EXTENSION))
+            .chain(hand_interaction.then_some(HAND_INTERACTION_EXTENSION))
             .map(|e| CString::new(e).expect("literal is ASCII"))
             .collect();
         let ext_ptrs: Vec<*const c_char> = names.iter().map(|n| n.as_ptr()).collect();
@@ -307,59 +365,73 @@ impl Instance {
             create_instance(&info, &mut handle)
         })?;
 
-        // SAFETY: instance is live; each name matches the stored signature.
-        unsafe {
-            Ok(Self {
-                handle,
-                get_metal_requirements: proc_addr(handle, "xrGetMetalGraphicsRequirementsKHR")?,
-                get_system: proc_addr(handle, "xrGetSystem")?,
-                enumerate_view_configuration_views: proc_addr(
+        // SAFETY: the live instance supports this core entry point.
+        let destroy_instance =
+            unsafe { proc_addr::<sys::pfn::DestroyInstance>(handle, "xrDestroyInstance")? };
+        let resolved = (|| {
+            // SAFETY: instance is live; each name matches the stored signature.
+            unsafe {
+                Ok(Self {
                     handle,
-                    "xrEnumerateViewConfigurationViews",
-                )?,
-                create_session: proc_addr(handle, "xrCreateSession")?,
-                begin_session: proc_addr(handle, "xrBeginSession")?,
-                create_reference_space: proc_addr(handle, "xrCreateReferenceSpace")?,
-                create_swapchain: proc_addr(handle, "xrCreateSwapchain")?,
-                enumerate_swapchain_images: proc_addr(handle, "xrEnumerateSwapchainImages")?,
-                acquire_swapchain_image: proc_addr(handle, "xrAcquireSwapchainImage")?,
-                wait_swapchain_image: proc_addr(handle, "xrWaitSwapchainImage")?,
-                release_swapchain_image: proc_addr(handle, "xrReleaseSwapchainImage")?,
-                wait_frame: proc_addr(handle, "xrWaitFrame")?,
-                begin_frame: proc_addr(handle, "xrBeginFrame")?,
-                end_frame: proc_addr(handle, "xrEndFrame")?,
-                locate_views: proc_addr(handle, "xrLocateViews")?,
-                poll_event: proc_addr(handle, "xrPollEvent")?,
-                hand_tracking: hands_offered
-                    .then(|| {
+                    get_metal_requirements: proc_addr(handle, "xrGetMetalGraphicsRequirementsKHR")?,
+                    get_system: proc_addr(handle, "xrGetSystem")?,
+                    enumerate_view_configuration_views: proc_addr(
+                        handle,
+                        "xrEnumerateViewConfigurationViews",
+                    )?,
+                    create_session: proc_addr(handle, "xrCreateSession")?,
+                    begin_session: proc_addr(handle, "xrBeginSession")?,
+                    create_reference_space: proc_addr(handle, "xrCreateReferenceSpace")?,
+                    create_swapchain: proc_addr(handle, "xrCreateSwapchain")?,
+                    enumerate_swapchain_images: proc_addr(handle, "xrEnumerateSwapchainImages")?,
+                    acquire_swapchain_image: proc_addr(handle, "xrAcquireSwapchainImage")?,
+                    wait_swapchain_image: proc_addr(handle, "xrWaitSwapchainImage")?,
+                    release_swapchain_image: proc_addr(handle, "xrReleaseSwapchainImage")?,
+                    wait_frame: proc_addr(handle, "xrWaitFrame")?,
+                    begin_frame: proc_addr(handle, "xrBeginFrame")?,
+                    end_frame: proc_addr(handle, "xrEndFrame")?,
+                    locate_views: proc_addr(handle, "xrLocateViews")?,
+                    poll_event: proc_addr(handle, "xrPollEvent")?,
+                    hand_tracking: if hands_offered {
                         Some(HandTracking {
-                            create: proc_addr(handle, "xrCreateHandTrackerEXT").ok()?,
-                            destroy: proc_addr(handle, "xrDestroyHandTrackerEXT").ok()?,
-                            locate: proc_addr(handle, "xrLocateHandJointsEXT").ok()?,
+                            create: proc_addr(handle, "xrCreateHandTrackerEXT")?,
+                            destroy: proc_addr(handle, "xrDestroyHandTrackerEXT")?,
+                            locate: proc_addr(handle, "xrLocateHandJointsEXT")?,
                         })
-                    })
-                    .flatten(),
-                string_to_path: proc_addr(handle, "xrStringToPath")?,
-                create_action_set: proc_addr(handle, "xrCreateActionSet")?,
-                create_action: proc_addr(handle, "xrCreateAction")?,
-                suggest_interaction_profile_bindings: proc_addr(
-                    handle,
-                    "xrSuggestInteractionProfileBindings",
-                )?,
-                attach_session_action_sets: proc_addr(handle, "xrAttachSessionActionSets")?,
-                sync_actions: proc_addr(handle, "xrSyncActions")?,
-                get_action_state_boolean: proc_addr(handle, "xrGetActionStateBoolean")?,
-                get_action_state_vector2f: proc_addr(handle, "xrGetActionStateVector2f")?,
-                create_action_space: proc_addr(handle, "xrCreateActionSpace")?,
-                locate_space: proc_addr(handle, "xrLocateSpace")?,
-                destroy_action_set: proc_addr(handle, "xrDestroyActionSet")?,
-                end_session: proc_addr(handle, "xrEndSession")?,
-                destroy_session: proc_addr(handle, "xrDestroySession")?,
-                destroy_space: proc_addr(handle, "xrDestroySpace")?,
-                destroy_swapchain: proc_addr(handle, "xrDestroySwapchain")?,
-                destroy_instance: proc_addr(handle, "xrDestroyInstance")?,
-            })
+                    } else {
+                        None
+                    },
+                    hand_interaction,
+                    string_to_path: proc_addr(handle, "xrStringToPath")?,
+                    create_action_set: proc_addr(handle, "xrCreateActionSet")?,
+                    create_action: proc_addr(handle, "xrCreateAction")?,
+                    suggest_interaction_profile_bindings: proc_addr(
+                        handle,
+                        "xrSuggestInteractionProfileBindings",
+                    )?,
+                    attach_session_action_sets: proc_addr(handle, "xrAttachSessionActionSets")?,
+                    sync_actions: proc_addr(handle, "xrSyncActions")?,
+                    get_action_state_boolean: proc_addr(handle, "xrGetActionStateBoolean")?,
+                    get_action_state_vector2f: proc_addr(handle, "xrGetActionStateVector2f")?,
+                    create_action_space: proc_addr(handle, "xrCreateActionSpace")?,
+                    locate_spaces: proc_addr(handle, "xrLocateSpaces")?,
+                    destroy_action_set: proc_addr(handle, "xrDestroyActionSet")?,
+                    end_session: proc_addr(handle, "xrEndSession")?,
+                    destroy_session: proc_addr(handle, "xrDestroySession")?,
+                    destroy_space: proc_addr(handle, "xrDestroySpace")?,
+                    destroy_swapchain: proc_addr(handle, "xrDestroySwapchain")?,
+                    destroy_instance,
+                })
+            }
+        })();
+        if resolved.is_err() {
+            // SAFETY: failed function resolution has not transferred this instance to an owner.
+            let result = unsafe { destroy_instance(handle) };
+            if result != sys::Result::SUCCESS {
+                warn!("vr: xrDestroyInstance after failed initialization: {result:?}");
+            }
         }
+        resolved
     }
 
     /// The `MTLDevice` the runtime requires the app to render on.
@@ -436,5 +508,35 @@ impl Instance {
             first.recommended_image_rect_width,
             first.recommended_image_rect_height,
         ))
+    }
+}
+
+impl Drop for Instance {
+    fn drop(&mut self) {
+        // SAFETY: the owning session destroys its child handles before dropping the instance.
+        let result = unsafe { (self.destroy_instance)(self.handle) };
+        if result != sys::Result::SUCCESS {
+            warn!("vr: xrDestroyInstance failed: {result:?}");
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[ignore = "requires an installed Metal OpenXR runtime selected by XR_RUNTIME_JSON"]
+    fn installed_runtime_resolves_calls_and_releases_instances() -> Result<(), XrError> {
+        for _ in 0..2 {
+            let instance = Instance::new("room4doom-loader-test")?;
+            // SAFETY: the instance is live; unsupported names must return no function pointer.
+            let result = unsafe {
+                proc_addr::<sys::pfn::VoidFunction>(instance.handle, "xrRoom4DoomUnsupported")
+            };
+            assert!(matches!(result, Err(XrError::Call { result, .. })
+                if result == sys::Result::ERROR_FUNCTION_UNSUPPORTED.into_raw()));
+        }
+        Ok(())
     }
 }

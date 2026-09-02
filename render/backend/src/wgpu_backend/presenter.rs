@@ -397,7 +397,7 @@ impl GpuPresenter {
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("frame_encoder"),
             });
-        self.chains[0].render(&mut encoder, &view);
+        self.chains[0].render(&mut encoder, &view, [0, 0, win_w, win_h]);
         self.queue.submit(Some(encoder.finish()));
         surface_tex.present();
     }
@@ -724,7 +724,7 @@ impl GpuPresenter {
             let view = surface_tex
                 .texture
                 .create_view(&wgpu::TextureViewDescriptor::default());
-            self.chains[cur].render(&mut encoder, &view);
+            self.chains[cur].render(&mut encoder, &view, [0, 0, win_w, win_h]);
             self.queue.submit(Some(encoder.finish()));
             surface_tex.present();
         }
@@ -745,8 +745,8 @@ impl GpuPresenter {
             return false;
         }
         let eye = headset.eye();
-        if let Some(target) = headset.eye_colour() {
-            self.chains[eye].render(encoder, target);
+        if let Some(target) = headset.eye_target() {
+            self.chains[eye].render(encoder, target.colour, target.rect);
         }
 
         // Left-eye mirror into the window: same chain, second target.
@@ -759,7 +759,11 @@ impl GpuPresenter {
             let view = surface_tex
                 .texture
                 .create_view(&wgpu::TextureViewDescriptor::default());
-            self.chains[eye].render(encoder, &view);
+            self.chains[eye].render(
+                encoder,
+                &view,
+                [0, 0, self.config.width, self.config.height],
+            );
         }
 
         let done = std::mem::replace(

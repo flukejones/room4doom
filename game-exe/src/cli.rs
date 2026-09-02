@@ -93,6 +93,10 @@ pub struct CLIOptions {
     /// rendering type <software, software3d, wgpu3d, wgpu3dbsp>
     #[argh(option, short = 'r')]
     pub rendering: Option<config::RenderType>,
+    /// use the OpenXR headset instead of the window (requires Link/Dash)
+    #[cfg(feature = "vr")]
+    #[argh(switch)]
+    pub vr: bool,
     /// scene pixel format <indexed(default), 888, 565>
     #[argh(option)]
     pub pixels: Option<config::PixelMode>,

@@ -1,4 +1,4 @@
-//! Tracked hand skeletons drawn in the world.
+//! Tracked hand skeletons and hand/controller aim pointers drawn in the world.
 //!
 //! Depth-tested but never depth-writing, like the teleport aim: the hands sit
 //! over the world without occluding anything behind them.
@@ -14,6 +14,9 @@ use crate::sprites::SpriteCam;
 
 const HANDS: usize = 2;
 const JOINT_SLOTS: usize = HAND_JOINT_COUNT * HANDS;
+const POINTER_SLOTS: usize = 2 * HANDS;
+/// The ribbon uses 45% of this radius, matching the hand bones.
+const POINTER_RADIUS: f32 = 0.25;
 /// Bones per hand: every joint above the palm and wrist has a parent.
 const BONES: u32 = 24;
 const QUAD_VERTS: u32 = 4;
@@ -22,19 +25,26 @@ const QUAD_VERTS: u32 = 4;
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 struct JointsUniform {
-    joint: [[f32; 4]; JOINT_SLOTS],
+    joint: [[f32; 4]; JOINT_SLOTS + POINTER_SLOTS],
 }
 
 impl From<&HandPose> for JointsUniform {
     fn from(pose: &HandPose) -> Self {
-        let mut joint = [[0.0, 0.0, 0.0, -1.0]; JOINT_SLOTS];
-        for (hand, tracked) in pose.iter().enumerate() {
+        let mut joint = [[0.0, 0.0, 0.0, -1.0]; JOINT_SLOTS + POINTER_SLOTS];
+        for (hand, tracked) in pose.joints.iter().enumerate() {
             let Some(tracked) = tracked else {
                 continue;
             };
             for (i, j) in tracked.iter().enumerate() {
                 let [x, y, z] = j.position;
                 joint[hand * HAND_JOINT_COUNT + i] = [x, y, z, j.radius];
+            }
+        }
+        for (hand, pointer) in pose.pointers.iter().enumerate() {
+            if let Some(pointer) = pointer {
+                for (end, [x, y, z]) in [pointer.origin, pointer.tip].into_iter().enumerate() {
+                    joint[JOINT_SLOTS + hand * 2 + end] = [x, y, z, POINTER_RADIUS];
+                }
             }
         }
         Self {
@@ -47,6 +57,7 @@ impl From<&HandPose> for JointsUniform {
 pub struct HandsPipeline {
     joints_pipeline: wgpu::RenderPipeline,
     bones_pipeline: wgpu::RenderPipeline,
+    pointers_pipeline: wgpu::RenderPipeline,
     cam_buf: wgpu::Buffer,
     cam_bind: wgpu::BindGroup,
     joints_buf: wgpu::Buffer,
@@ -86,6 +97,14 @@ impl HandsPipeline {
                 "fs_bone",
                 "hands_bones",
             ),
+            pointers_pipeline: build(
+                device,
+                &layout,
+                &shader,
+                "vs_pointer",
+                "fs_bone",
+                "hands_pointers",
+            ),
             cam_buf,
             cam_bind,
             joints_buf,
@@ -100,10 +119,12 @@ impl HandsPipeline {
         queue.write_buffer(&self.joints_buf, 0, cast_slice(slice::from_ref(&joints)));
     }
 
-    /// Bones then joints, into an open world pass.
+    /// Pointers, bones, then joints, into an open world pass.
     pub fn record(&self, rpass: &mut wgpu::RenderPass<'_>) {
         rpass.set_bind_group(0, &self.cam_bind, &[]);
         rpass.set_bind_group(1, &self.joints_bind, &[]);
+        rpass.set_pipeline(&self.pointers_pipeline);
+        rpass.draw(0..QUAD_VERTS, 0..HANDS as u32);
         rpass.set_pipeline(&self.bones_pipeline);
         rpass.draw(0..QUAD_VERTS, 0..BONES * HANDS as u32);
         rpass.set_pipeline(&self.joints_pipeline);

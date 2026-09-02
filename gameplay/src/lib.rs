@@ -45,7 +45,7 @@ pub use player::{
 };
 pub use player_sprite::PspDef;
 pub use sector_ext::SectorExt;
-pub use teleport_aim::{TELEPORT_TICS, TeleportAim, TeleportScratch, aim_teleport};
+pub use teleport_aim::{TELEPORT_TICS, TeleportAim, TeleportScratch, aim_teleport, dash_target};
 pub use thing::{MapObjFlag, MapObject};
 
 /// Normalise an angle in radians into `[0, TAU)`, handling any magnitude.

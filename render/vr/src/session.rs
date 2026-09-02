@@ -1,4 +1,4 @@
-//! Session lifetime, swapchains, and the per-frame loop.
+//! Session lifetime, swapchain, and the per-frame loop.
 
 use std::ffi::c_void;
 use std::fmt;
@@ -16,9 +16,8 @@ use crate::device::{build_wgpu, wrap_texture};
 use crate::hands::{HandJoints, Hands};
 use crate::xr::{self, Instance, XrError};
 
-/// Raw `MTLPixelFormat` for BGRA8Unorm — the format the runtime advertises
-/// and [`SWAPCHAIN_FORMAT`] mirrors.
-const MTL_BGRA8_UNORM: i64 = 80;
+/// Runtime-declared sRGB format; the renderer writes encoded pixels through an UNORM view.
+const MTL_BGRA8_UNORM_SRGB: i64 = 81;
 /// How long startup waits for the runtime to report a field of view.
 const FOV_PRIME_DEADLINE: std::time::Duration = std::time::Duration::from_secs(2);
 const FOV_PRIME_POLL: std::time::Duration = std::time::Duration::from_millis(5);
@@ -28,6 +27,19 @@ pub enum VrError {
     Xr(XrError),
     /// The runtime named a device Metal would not hand back.
     NoMetalDevice,
+    /// The runtime returned a null image from `xrEnumerateSwapchainImages`.
+    MissingSwapchainImage,
+    /// A runtime image has a native format other than the requested BGRA8 sRGB.
+    UnexpectedSwapchainImageFormat(usize),
+    /// Metal could not create the compatible UNORM view used for encoded renderer output.
+    SwapchainImageView {
+        /// Native source pixel format rejected by `newTextureViewWithPixelFormat`.
+        format: usize,
+    },
+    /// No wgpu Metal adapter matches the runtime-selected device's registry ID.
+    NoMetalAdapter(u64),
+    /// The native Metal adapter could not be opened.
+    MetalAdapter(wgpu_hal::DeviceError),
     /// wgpu refused the device built from the runtime's `MTLDevice`.
     Device(wgpu::RequestDeviceError),
     /// The runtime asked the session to stop; no more frames may begin.
@@ -39,6 +51,24 @@ impl fmt::Display for VrError {
         match self {
             Self::Xr(e) => write!(f, "{e}"),
             Self::NoMetalDevice => write!(f, "runtime returned no MTLDevice"),
+            Self::MissingSwapchainImage => {
+                write!(
+                    f,
+                    "xrEnumerateSwapchainImages returned a null Metal texture"
+                )
+            }
+            Self::UnexpectedSwapchainImageFormat(format) => write!(
+                f,
+                "runtime Metal image format is {format}, expected BGRA8Unorm_sRGB (81)"
+            ),
+            Self::SwapchainImageView {
+                format,
+            } => write!(
+                f,
+                "MTLTexture::newTextureViewWithPixelFormat(BGRA8Unorm): source format {format}"
+            ),
+            Self::NoMetalAdapter(id) => write!(f, "no wgpu Metal adapter for runtime device {id}"),
+            Self::MetalAdapter(e) => write!(f, "opening Metal adapter: {e}"),
             Self::Device(e) => write!(f, "wgpu device from runtime MTLDevice: {e}"),
             Self::Stopped => write!(f, "session stopped by the runtime"),
         }
@@ -69,10 +99,13 @@ pub struct EyeCamera {
     pub fov: [f32; 4],
 }
 
-/// One eye's render target for this frame: the swapchain image the runtime
-/// handed out, wrapped as a wgpu view.
+/// One eye's region in the combined swapchain image.
 pub struct EyeTarget<'a> {
+    /// Combined stereo image shared by both eyes.
     pub colour: &'a wgpu::TextureView,
+    /// Eye region as x, y, width, and height.
+    pub rect: [u32; 4],
+    /// Eye pose and field of view for this frame.
     pub camera: EyeCamera,
 }
 
@@ -84,13 +117,13 @@ struct Swapchain {
     acquired: Option<u32>,
 }
 
-/// A live VR session: instance, swapchains, and the wgpu device the
+/// A live VR session: instance, swapchain, and the wgpu device the
 /// renderer must use.
 pub struct Session {
     instance: Instance,
     handle: sys::Session,
     space: sys::Space,
-    swapchains: Vec<Swapchain>,
+    swapchain: Swapchain,
     device: wgpu::Device,
     queue: wgpu::Queue,
     /// The instance the device came from. A surface must be created from
@@ -202,7 +235,7 @@ impl Session {
     }
 
     /// Bare-hand joints located this frame, left then right. `None` per
-    /// hand while the controllers are in use or the hand is out of view.
+    /// hand while the runtime reports inactive tracking.
     pub fn hand_joints(&self) -> [Option<HandJoints>; 2] {
         self.hands.as_ref().map_or([None; 2], |h| *h.joints())
     }
@@ -222,7 +255,7 @@ impl Session {
     }
 
     /// Opens the runtime, builds the wgpu device on its `MTLDevice`, and
-    /// creates one swapchain per eye.
+    /// creates one combined stereo swapchain.
     pub fn new(app_name: &str, snap_turn: SnapTurn) -> Result<Self, VrError> {
         let instance = Instance::new(app_name)?;
         let system = instance.system()?;
@@ -235,7 +268,7 @@ impl Session {
             unsafe { Retained::retain(raw_device.cast()) }.ok_or(VrError::NoMetalDevice)?;
         let mtl_queue = mtl_device.newCommandQueue().ok_or(VrError::NoMetalDevice)?;
 
-        let (wgpu_instance, device, queue) = build_wgpu(&mtl_device, &mtl_queue)?;
+        let (wgpu_instance, device, queue) = build_wgpu(&mtl_queue)?;
 
         let binding = sys::GraphicsBindingMetalKHR {
             ty: sys::GraphicsBindingMetalKHR::TYPE,
@@ -266,17 +299,15 @@ impl Session {
             (instance.create_reference_space)(handle, &space_info, &mut space)
         })?;
 
-        let mut swapchains = Vec::with_capacity(EYE_COUNT);
-        for _ in 0..EYE_COUNT {
-            swapchains.push(make_swapchain(&instance, handle, &device, width, height)?);
-        }
+        let swapchain =
+            make_swapchain(&instance, handle, &device, width * EYE_COUNT as u32, height)?;
 
         info!("vr: session up, {width}x{height} per eye");
         let mut session = Self {
             instance,
             handle,
             space,
-            swapchains,
+            swapchain,
             device,
             queue,
             wgpu_instance,
@@ -357,6 +388,12 @@ impl Session {
                 return Ok(self.running);
             }
             xr::check("xrPollEvent", result)?;
+            if buf.ty == sys::EventDataInteractionProfileChanged::TYPE {
+                if let Err(error) = self.instance.log_interaction_profiles(self.handle) {
+                    warn!("vr: reading interaction profiles: {error}");
+                }
+                continue;
+            }
             if buf.ty != sys::EventDataSessionStateChanged::TYPE {
                 continue;
             }
@@ -398,10 +435,11 @@ impl Session {
         }
     }
 
-    /// Waits for the runtime's frame slot, acquires both eye images, and
+    /// Waits for the runtime's frame slot, acquires the stereo image, and
     /// returns the per-eye targets to render into. Drains runtime events
     /// first — a session asked to stop refuses the frame.
     pub fn begin_frame(&mut self) -> Result<FrameContext, VrError> {
+        self.controls = ControllerState::default();
         if !self.poll()? {
             return Err(VrError::Stopped);
         }
@@ -412,13 +450,21 @@ impl Session {
             predicted_display_period: sys::Duration::from_nanos(0),
             should_render: sys::FALSE,
         };
+        let wait = sys::FrameWaitInfo {
+            ty: sys::FrameWaitInfo::TYPE,
+            next: std::ptr::null(),
+        };
         // SAFETY: out struct is initialised; the runtime paces this call.
         xr::check("xrWaitFrame", unsafe {
-            (self.instance.wait_frame)(self.handle, std::ptr::null(), &mut state)
+            (self.instance.wait_frame)(self.handle, &wait, &mut state)
         })?;
+        let begin = sys::FrameBeginInfo {
+            ty: sys::FrameBeginInfo::TYPE,
+            next: std::ptr::null(),
+        };
         // SAFETY: session is live.
         xr::check("xrBeginFrame", unsafe {
-            (self.instance.begin_frame)(self.handle, std::ptr::null())
+            (self.instance.begin_frame)(self.handle, &begin)
         })?;
 
         // One sync per frame, before anything reads the controllers.
@@ -430,11 +476,19 @@ impl Session {
                     self.controls = ControllerState::default();
                 }
             }
-            self.controls.aim =
-                actions.aim_pose(&self.instance, self.space, state.predicted_display_time);
-            self.controls.aim_off =
-                actions.aim_off_pose(&self.instance, self.space, state.predicted_display_time);
-            self.playspace_yaw = wrap_pi(self.playspace_yaw + self.controls.turn_radians);
+            match actions.poses(
+                &self.instance,
+                self.handle,
+                self.space,
+                state.predicted_display_time,
+            ) {
+                Ok([aim, aim_off, grip]) => {
+                    self.controls.aim = aim;
+                    self.controls.aim_off = aim_off;
+                    self.controls.grip = grip;
+                }
+                Err(error) => warn!("vr: action poses failed: {error}"),
+            }
         }
 
         if let Some(hands) = self.hands.as_mut() {
@@ -447,12 +501,37 @@ impl Session {
         // Invalid poses (tracking not settled, or lost) carry undefined
         // fields; hold the last valid views rather than render from them.
         let views = if valid {
+            self.playspace_yaw = wrap_pi(self.playspace_yaw + self.controls.turn_radians);
             self.last_views = Some(views);
             views
         } else {
+            // A held view is only a rendering fallback. It must not turn lost
+            // head tracking into a trigger release or a movement command.
+            self.controls = ControllerState::default();
             self.last_views.unwrap_or(views)
         };
-        self.acquire_images()?;
+        let mut index = 0;
+        // SAFETY: the swapchain is live and the output is written on success.
+        xr::check("xrAcquireSwapchainImage", unsafe {
+            (self.instance.acquire_swapchain_image)(
+                self.swapchain.handle,
+                std::ptr::null(),
+                &mut index,
+            )
+        })?;
+        self.swapchain.acquired = Some(index);
+        let wait = sys::SwapchainImageWaitInfo {
+            ty: sys::SwapchainImageWaitInfo::TYPE,
+            next: std::ptr::null(),
+            timeout: sys::Duration::INFINITE,
+        };
+        // SAFETY: the wait info outlives the call.
+        if let Err(error) = xr::check("xrWaitSwapchainImage", unsafe {
+            (self.instance.wait_swapchain_image)(self.swapchain.handle, &wait)
+        }) {
+            self.release_acquired();
+            return Err(error.into());
+        }
 
         // The field of view is fixed by the optics, so the first frame that
         // reports one settles the render aspect for the session.
@@ -473,54 +552,14 @@ impl Session {
         })
     }
 
-    /// Acquires and waits both eye images. On any failure, images already
-    /// acquired are released again — a half-acquired frame would wedge
-    /// every later acquire.
-    fn acquire_images(&mut self) -> Result<(), VrError> {
-        for eye in 0..self.swapchains.len() {
-            if let Err(e) = self.acquire_one(eye) {
-                self.release_acquired();
-                return Err(e);
-            }
-        }
-        Ok(())
-    }
-
-    /// Acquires and waits one eye's image, flagging it acquired before the
-    /// wait so a failed wait still releases it.
-    fn acquire_one(&mut self, eye: usize) -> Result<(), VrError> {
-        let chain = &mut self.swapchains[eye];
-        let mut index = 0;
-        // SAFETY: swapchain is live; out-param written on success.
-        xr::check("xrAcquireSwapchainImage", unsafe {
-            (self.instance.acquire_swapchain_image)(chain.handle, std::ptr::null(), &mut index)
-        })?;
-        chain.acquired = Some(index);
-        let wait = sys::SwapchainImageWaitInfo {
-            ty: sys::SwapchainImageWaitInfo::TYPE,
-            next: std::ptr::null(),
-            timeout: sys::Duration::INFINITE,
-        };
-        // SAFETY: info outlives the call.
-        xr::check("xrWaitSwapchainImage", unsafe {
-            (self.instance.wait_swapchain_image)(chain.handle, &wait)
-        })?;
-        Ok(())
-    }
-
-    /// Best-effort release of every acquired image. Failures are logged and
-    /// the local flags cleared either way, so the next frame re-acquires
-    /// from a known state instead of wedging.
     fn release_acquired(&mut self) {
-        for chain in &mut self.swapchains {
-            if chain.acquired.take().is_some() {
-                // SAFETY: swapchain is live and its image was acquired.
-                let released = xr::check("xrReleaseSwapchainImage", unsafe {
-                    (self.instance.release_swapchain_image)(chain.handle, std::ptr::null())
-                });
-                if let Err(e) = released {
-                    warn!("vr: {e}");
-                }
+        if self.swapchain.acquired.take().is_some() {
+            // SAFETY: the swapchain is live and its image was acquired.
+            let released = xr::check("xrReleaseSwapchainImage", unsafe {
+                (self.instance.release_swapchain_image)(self.swapchain.handle, std::ptr::null())
+            });
+            if let Err(error) = released {
+                warn!("vr: {error}");
             }
         }
     }
@@ -528,13 +567,16 @@ impl Session {
     /// The render target for one eye during a frame opened by
     /// [`Self::begin_frame`].
     pub fn eye_target(&self, eye: usize, frame: &FrameContext) -> Option<EyeTarget<'_>> {
-        let chain = self.swapchains.get(eye)?;
-        let index = chain.acquired? as usize;
+        if eye >= EYE_COUNT {
+            return None;
+        }
+        let index = self.swapchain.acquired? as usize;
         let view = frame.views.get(eye)?;
         let p = view.pose.position;
         let q = view.pose.orientation;
         Some(EyeTarget {
-            colour: chain.views.get(index)?,
+            colour: self.swapchain.views.get(index)?,
+            rect: [eye as u32 * self.width, 0, self.width, self.height],
             camera: EyeCamera {
                 playspace_yaw: self.playspace_yaw,
                 position: [p.x, p.y, p.z],
@@ -549,24 +591,12 @@ impl Session {
         })
     }
 
-    /// Releases both images and submits the projection layer. The submit
+    /// Releases the image and submits the projection layer. The submit
     /// still runs when a release fails — xrBeginFrame must always be
     /// answered by xrEndFrame or the frame loop jams.
     pub fn end_frame(&mut self, frame: &FrameContext) -> Result<(), VrError> {
         self.release_acquired();
 
-        let rect = sys::Rect2Di {
-            offset: sys::Offset2Di {
-                x: 0,
-                y: 0,
-            },
-            extent: sys::Extent2Di {
-                width: self.width as i32,
-                height: self.height as i32,
-            },
-        };
-        // An array, not a Vec: this runs every frame and the eye count is
-        // fixed.
         let projection_views: [sys::CompositionLayerProjectionView; EYE_COUNT] =
             std::array::from_fn(|i| sys::CompositionLayerProjectionView {
                 ty: sys::CompositionLayerProjectionView::TYPE,
@@ -574,8 +604,17 @@ impl Session {
                 pose: frame.views[i].pose,
                 fov: frame.views[i].fov,
                 sub_image: sys::SwapchainSubImage {
-                    swapchain: self.swapchains[i].handle,
-                    image_rect: rect,
+                    swapchain: self.swapchain.handle,
+                    image_rect: sys::Rect2Di {
+                        offset: sys::Offset2Di {
+                            x: i as i32 * self.width as i32,
+                            y: 0,
+                        },
+                        extent: sys::Extent2Di {
+                            width: self.width as i32,
+                            height: self.height as i32,
+                        },
+                    },
                     image_array_index: 0,
                 },
             });
@@ -660,20 +699,14 @@ impl Drop for Session {
             if let Some(actions) = &self.actions {
                 actions.destroy(&self.instance);
             }
-            for chain in &self.swapchains {
-                destroyed(
-                    "xrDestroySwapchain",
-                    (self.instance.destroy_swapchain)(chain.handle),
-                );
-            }
+            destroyed(
+                "xrDestroySwapchain",
+                (self.instance.destroy_swapchain)(self.swapchain.handle),
+            );
             destroyed("xrDestroySpace", (self.instance.destroy_space)(self.space));
             destroyed(
                 "xrDestroySession",
                 (self.instance.destroy_session)(self.handle),
-            );
-            destroyed(
-                "xrDestroyInstance",
-                (self.instance.destroy_instance)(self.instance.handle),
             );
         }
     }
@@ -724,7 +757,7 @@ fn make_swapchain(
         next: std::ptr::null(),
         create_flags: sys::SwapchainCreateFlags::EMPTY,
         usage_flags: sys::SwapchainUsageFlags::COLOR_ATTACHMENT | sys::SwapchainUsageFlags::SAMPLED,
-        format: MTL_BGRA8_UNORM,
+        format: MTL_BGRA8_UNORM_SRGB,
         sample_count: 1,
         width,
         height,
@@ -759,12 +792,77 @@ fn make_swapchain(
     let views = images
         .iter()
         .map(|image| wrap_texture(device, image.texture, width, height))
-        .collect::<Option<Vec<_>>>()
-        .ok_or(VrError::NoMetalDevice)?;
+        .collect::<Result<Vec<_>, _>>();
+    let views = match views {
+        Ok(views) => views,
+        Err(error) => {
+            // SAFETY: this call created the handle and no image is acquired.
+            destroyed("xrDestroySwapchain", unsafe {
+                (instance.destroy_swapchain)(handle)
+            });
+            return Err(error);
+        }
+    };
 
     Ok(Swapchain {
         handle,
         views,
         acquired: None,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use std::thread;
+    use std::time::{Duration, Instant};
+
+    use super::{EYE_COUNT, Session, SnapTurn, VrError};
+
+    #[test]
+    #[ignore = "requires an installed Metal OpenXR runtime and a Streaming headset"]
+    fn installed_runtime_renders_stereo_frames() -> Result<(), VrError> {
+        let mut session = Session::new("room4doom-session-test", SnapTurn::Deg30)?;
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let mut rendered = 0;
+        while rendered < 3 && Instant::now() < deadline {
+            if !session.poll()? {
+                thread::sleep(Duration::from_millis(5));
+                continue;
+            }
+            let frame = session.begin_frame()?;
+            if frame.should_render {
+                let mut encoder =
+                    session
+                        .device()
+                        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                            label: Some("OpenXR smoke frame"),
+                        });
+                for eye in 0..EYE_COUNT {
+                    let target = session
+                        .eye_target(eye, &frame)
+                        .expect("a renderable frame supplies both acquired eye targets");
+                    let _pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                        color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                            view: target.colour,
+                            depth_slice: None,
+                            resolve_target: None,
+                            ops: wgpu::Operations {
+                                load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                                store: wgpu::StoreOp::Store,
+                            },
+                        })],
+                        ..Default::default()
+                    });
+                }
+                session.queue().submit([encoder.finish()]);
+                rendered += 1;
+            }
+            session.end_frame(&frame)?;
+        }
+        assert_eq!(
+            rendered, 3,
+            "runtime did not admit stereo rendering within five seconds"
+        );
+        Ok(())
+    }
 }

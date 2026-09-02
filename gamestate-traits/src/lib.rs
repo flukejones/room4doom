@@ -69,6 +69,9 @@ pub enum ConfigKey {
     // weapon scale is map units per sprite pixel ×1000.
     VrDisplay,
     VrLocomotion,
+    VrWarpStyle,
+    VrWarpActivation,
+    VrDashDistance,
     VrSnapTurn,
     VrHideHud,
     VrShowHands,

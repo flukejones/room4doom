@@ -350,12 +350,33 @@ pub enum SnapTurn {
 /// How the player moves around the map in a headset.
 #[derive(Debug, Default, Clone, Copy, PartialEq, DeRon, SerRon)]
 pub enum Locomotion {
-    /// Aim a ballistic arc and dash to where it lands. Nothing moves under the
-    /// player while their head is still, which is why it is the default.
+    /// Move by aiming a warp or flicking the stick for a short dash.
     #[default]
     Teleport,
     /// Walk on the stick, as a monitor does.
     Smooth,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, DeRon, SerRon)]
+pub enum WarpStyle {
+    #[default]
+    Aim,
+    Dash,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, DeRon, SerRon)]
+pub enum WarpActivation {
+    #[default]
+    LeftTrigger,
+    LeftStickForward,
+    RightStickForward,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, DeRon, SerRon)]
+pub enum DashDistance {
+    Walk,
+    #[default]
+    Run,
 }
 
 /// Where finished frames go. Orthogonal to [`RenderType`], which is how
@@ -389,6 +410,12 @@ pub struct PanelConfig {
 pub struct VrConfig {
     #[nserde(default)]
     pub locomotion: Locomotion,
+    #[nserde(default)]
+    pub warp_style: WarpStyle,
+    #[nserde(default)]
+    pub warp_activation: WarpActivation,
+    #[nserde(default)]
+    pub dash_distance: DashDistance,
     pub snap_turn: SnapTurn,
     /// Leave the statusbar and messages undrawn. Not the weapon — that is a
     /// world object on the player's hand.
@@ -431,6 +458,9 @@ impl Default for VrConfig {
     fn default() -> Self {
         Self {
             locomotion: Locomotion::default(),
+            warp_style: WarpStyle::default(),
+            warp_activation: WarpActivation::default(),
+            dash_distance: DashDistance::default(),
             snap_turn: SnapTurn::default(),
             hide_hud: false,
             show_hands: true,
@@ -619,6 +649,19 @@ impl UserConfig {
             Locomotion::Teleport => 0,
             Locomotion::Smooth => 1,
         };
+        a[ConfigKey::VrWarpStyle as usize] = match self.vr.warp_style {
+            WarpStyle::Aim => 0,
+            WarpStyle::Dash => 1,
+        };
+        a[ConfigKey::VrWarpActivation as usize] = match self.vr.warp_activation {
+            WarpActivation::LeftTrigger => 0,
+            WarpActivation::LeftStickForward => 1,
+            WarpActivation::RightStickForward => 2,
+        };
+        a[ConfigKey::VrDashDistance as usize] = match self.vr.dash_distance {
+            DashDistance::Walk => 0,
+            DashDistance::Run => 1,
+        };
         a[ConfigKey::VrSnapTurn as usize] = match self.vr.snap_turn {
             SnapTurn::Deg30 => 0,
             SnapTurn::Deg45 => 1,
@@ -690,6 +733,19 @@ impl UserConfig {
             1 => Locomotion::Smooth,
             _ => Locomotion::Teleport,
         };
+        self.vr.warp_style = match vals[ConfigKey::VrWarpStyle as usize] {
+            1 => WarpStyle::Dash,
+            _ => WarpStyle::Aim,
+        };
+        self.vr.warp_activation = match vals[ConfigKey::VrWarpActivation as usize] {
+            1 => WarpActivation::LeftStickForward,
+            2 => WarpActivation::RightStickForward,
+            _ => WarpActivation::LeftTrigger,
+        };
+        self.vr.dash_distance = match vals[ConfigKey::VrDashDistance as usize] {
+            0 => DashDistance::Walk,
+            _ => DashDistance::Run,
+        };
         self.vr.snap_turn = match vals[ConfigKey::VrSnapTurn as usize] {
             1 => SnapTurn::Deg45,
             _ => SnapTurn::Deg30,
@@ -707,6 +763,11 @@ impl UserConfig {
     /// Sync the CLI options and UserOptions with each other
     pub fn sync_cli(&mut self, cli: &mut CLIOptions) {
         info!("Checking CLI options");
+
+        #[cfg(feature = "vr")]
+        if cli.vr {
+            self.display = Display::Headset;
+        }
 
         if !cli.iwad.is_empty() && cli.iwad != self.iwad {
             cli.iwad.clone_into(&mut self.iwad);
@@ -812,5 +873,40 @@ impl UserConfig {
                 cli.voxels = Some(resolved);
             }
         }
+    }
+}
+
+
+#[cfg(test)]
+mod vr_tests {
+    use super::{DashDistance, Locomotion, UserConfig, WarpActivation, WarpStyle};
+    use nanoserde::{DeRon as _, SerRon as _};
+
+    #[test]
+    fn warp_settings_round_trip_and_legacy_configs_preserve_preferences() {
+        let mut config = UserConfig::default();
+        config.vr.locomotion = Locomotion::Smooth;
+        let legacy = config
+            .serialize_ron()
+            .replace("warp_style:Aim,", "")
+            .replace("warp_activation:LeftTrigger,", "")
+            .replace("dash_distance:Run,", "");
+        assert!(!legacy.contains("warp_style"));
+        assert!(!legacy.contains("warp_activation"));
+        assert!(!legacy.contains("dash_distance"));
+        let loaded = UserConfig::deserialize_ron(&legacy).expect("older config loads");
+        assert_eq!(loaded.vr.locomotion, Locomotion::Smooth);
+        assert_eq!(loaded.vr.warp_style, WarpStyle::Aim);
+        assert_eq!(loaded.vr.warp_activation, WarpActivation::LeftTrigger);
+        assert_eq!(loaded.vr.dash_distance, DashDistance::Run);
+        config.vr.warp_style = WarpStyle::Dash;
+        config.vr.warp_activation = WarpActivation::RightStickForward;
+        config.vr.dash_distance = DashDistance::Walk;
+        let mut restored =
+            UserConfig::deserialize_ron(&config.serialize_ron()).expect("warp settings round trip");
+        assert_eq!(restored.vr, config.vr);
+        restored.vr = super::VrConfig::default();
+        restored.apply_config_array(&config.to_config_array());
+        assert_eq!(restored.vr, config.vr);
     }
 }

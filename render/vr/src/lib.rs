@@ -25,8 +25,8 @@ pub use actions::{ControllerState, Pose, SnapTurn};
 pub use hands::{HandJoints, JOINT_COUNT, Joint};
 pub use session::{EyeCamera, EyeTarget, FrameContext, Session, VrError};
 
-/// Per-eye texture format the swapchain is created with, matching the
-/// renderer's scene format expectation.
+/// Renderer view format for already sRGB-encoded pixels. The runtime's sRGB image
+/// shares this view's storage, so the renderer must not apply another transfer function.
 pub const SWAPCHAIN_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8Unorm;
 
 /// Views per frame. Fixed by the primary-stereo view configuration.

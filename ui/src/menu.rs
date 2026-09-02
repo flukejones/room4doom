@@ -66,6 +66,8 @@ enum MenuAction {
     OpenOptInput,
     #[cfg(feature = "vr")]
     OpenOptVr,
+    #[cfg(feature = "vr")]
+    OpenOptVrMovement,
     StartGame,
     LoadSlot,
     SaveSlot,
@@ -241,6 +243,8 @@ enum MenuIndex {
     OptInput,
     #[cfg(feature = "vr")]
     OptVr,
+    #[cfg(feature = "vr")]
+    OptVrMovement,
 }
 
 pub struct MenuState {
@@ -565,6 +569,8 @@ impl GameMenu {
             ),
             #[cfg(feature = "vr")]
             vr_page::menu_set(),
+            #[cfg(feature = "vr")]
+            vr_page::movement_menu_set(),
         ];
 
         let mut patches = HashMap::new();
@@ -820,6 +826,11 @@ impl GameMenu {
             MenuAction::OpenOptVr => {
                 self.refresh_options_cache(MenuIndex::OptVr, game);
                 self.current_menu = MenuIndex::OptVr;
+            }
+            #[cfg(feature = "vr")]
+            MenuAction::OpenOptVrMovement => {
+                self.refresh_options_cache(MenuIndex::OptVrMovement, game);
+                self.current_menu = MenuIndex::OptVrMovement;
             }
             MenuAction::StartGame => {
                 self.exit_menu(game);

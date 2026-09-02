@@ -6,11 +6,18 @@
 use gameplay::english as lang;
 use gamestate_traits::ConfigKey;
 
-use super::{MenuIndex, MenuItem, MenuSet};
+use super::{MenuAction, MenuIndex, MenuItem, MenuSet};
 
 const SNAP_TURN: &[&str] = &[lang::OPT_VR_SNAP_30, lang::OPT_VR_SNAP_45];
 const DISPLAY: &[&str] = &[lang::OPT_VR_DISPLAY_WINDOW, lang::OPT_VR_DISPLAY_HEADSET];
 const LOCOMOTION: &[&str] = &[lang::OPT_VR_LOCO_TELEPORT, lang::OPT_VR_LOCO_SMOOTH];
+const WARP_STYLE: &[&str] = &[lang::OPT_VR_WARP_AIM, lang::OPT_VR_WARP_DASH];
+const WARP_ACTIVATION: &[&str] = &[
+    lang::OPT_VR_WARP_LEFT_TRIGGER,
+    lang::OPT_VR_WARP_LEFT_STICK,
+    lang::OPT_VR_WARP_RIGHT_STICK,
+];
+const DASH_DISTANCE: &[&str] = &[lang::OPT_VR_DASH_WALK, lang::OPT_VR_DASH_RUN];
 
 pub(super) fn menu_set() -> MenuSet {
     MenuSet::new(
@@ -21,7 +28,7 @@ pub(super) fn menu_set() -> MenuSet {
         40,
         vec![
             MenuItem::cycle(lang::OPT_VR_DISPLAY, ConfigKey::VrDisplay, DISPLAY),
-            MenuItem::cycle(lang::OPT_VR_LOCOMOTION, ConfigKey::VrLocomotion, LOCOMOTION),
+            MenuItem::label(lang::OPT_VR_MOVEMENT, MenuAction::OpenOptVrMovement, 'M'),
             MenuItem::cycle(lang::OPT_VR_SNAP_TURN, ConfigKey::VrSnapTurn, SNAP_TURN),
             MenuItem::toggle(lang::OPT_VR_HIDE_HUD, ConfigKey::VrHideHud),
             MenuItem::toggle(lang::OPT_VR_SHOW_HANDS, ConfigKey::VrShowHands),
@@ -40,6 +47,30 @@ pub(super) fn menu_set() -> MenuSet {
                 65,
                 85,
                 5,
+            ),
+        ],
+    )
+}
+
+pub(super) fn movement_menu_set() -> MenuSet {
+    MenuSet::new(
+        MenuIndex::OptVrMovement,
+        MenuIndex::OptVr,
+        vec![],
+        32,
+        40,
+        vec![
+            MenuItem::cycle(lang::OPT_VR_LOCOMOTION, ConfigKey::VrLocomotion, LOCOMOTION),
+            MenuItem::cycle(lang::OPT_VR_WARP_STYLE, ConfigKey::VrWarpStyle, WARP_STYLE),
+            MenuItem::cycle(
+                lang::OPT_VR_WARP_ACTIVATION,
+                ConfigKey::VrWarpActivation,
+                WARP_ACTIVATION,
+            ),
+            MenuItem::cycle(
+                lang::OPT_VR_DASH_DISTANCE,
+                ConfigKey::VrDashDistance,
+                DASH_DISTANCE,
             ),
         ],
     )

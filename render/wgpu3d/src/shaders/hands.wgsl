@@ -1,4 +1,4 @@
-// Tracked hand skeletons: a camera-facing disc per joint and a ribbon per bone.
+// Tracked hand skeletons and aim pointers: camera-facing discs and ribbons.
 //
 // Positions are submitted relative to the camera, matching every other world
 // pass, because the view matrix is eye-at-origin.
@@ -13,7 +13,8 @@ struct Camera {
 
 // xyz position, w radius. A negative radius marks an untracked hand's slot.
 struct Joints {
-    joint: array<vec4<f32>, 52>,
+    // Two skeletons, then two endpoints per hand/controller aim pointer.
+    joint: array<vec4<f32>, 56>,
 };
 
 @group(0) @binding(0) var<uniform> cam: Camera;
@@ -85,6 +86,16 @@ fn vs_bone(@builtin(vertex_index) vi: u32, @builtin(instance_index) id: u32) -> 
 
     let a = hands.joint[parent];
     let b = hands.joint[child];
+    return ribbon(a, b, vi);
+}
+
+@vertex
+fn vs_pointer(@builtin(vertex_index) vi: u32, @builtin(instance_index) hand: u32) -> VsOut {
+    let origin = 2u * JOINTS_PER_HAND + 2u * hand;
+    return ribbon(hands.joint[origin], hands.joint[origin + 1u], vi);
+}
+
+fn ribbon(a: vec4<f32>, b: vec4<f32>, vi: u32) -> VsOut {
     if a.w <= 0.0 || b.w <= 0.0 {
         return VsOut(vec4<f32>(0.0, 0.0, 2.0, 1.0), vec2<f32>(0.0, 0.0), 0.0);
     }
