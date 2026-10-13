@@ -51,7 +51,7 @@ impl Intermission {
         pixels: &mut impl DrawBuffer,
     ) {
         let half = x_offset + 160.0 * sx;
-        let mut y = TITLE_Y * sy;
+        let mut y = pixels.ui_layout().origin[1] + TITLE_Y * sy;
         draw_patch(
             &self.patches.finish,
             half - self.patches.finish.width as f32 * sx / 2.0,
@@ -127,9 +127,9 @@ impl Intermission {
     ) {
         let bg_width = 320.0 * sx;
         let stats_x = SP_STATSX * sx;
-        let stats_y = SP_STATSY * sy;
+        let stats_y = buffer.ui_layout().origin[1] + SP_STATSY * sy;
         let time_x = SP_TIMEX * sx;
-        let time_y = SP_TIMEY * sy;
+        let time_y = buffer.ui_layout().origin[1] + SP_TIMEY * sy;
 
         // Background (fullscreen scale, centered)
         self.draw_bg(x_ofs, sx, sy, buffer);

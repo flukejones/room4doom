@@ -50,6 +50,8 @@ pub enum ConfigKey {
     VSync,
     Renderer,
     HiRes,
+    NativeUi,
+    NativeWorld,
     FrameInterpolation,
     DynamicSky,
     Voxels,

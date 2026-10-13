@@ -8,7 +8,7 @@
 
 use pic_data::{ByteOrder, PalLit, PixelFmt};
 use render_common::wipe::Wipe;
-use render_common::{BufferSize, DrawBuffer, PixelTarget};
+use render_common::{BufferSize, DrawBuffer, PixelTarget, UiLayout};
 
 /// A single CPU pixel plane that UI draws into.
 pub struct UiSurface<P: PixelFmt> {
@@ -17,6 +17,7 @@ pub struct UiSurface<P: PixelFmt> {
     h: u32,
     /// Cached dimensions for the `DrawBuffer::size` borrow; kept in sync with w/h.
     size: BufferSize,
+    layout: UiLayout,
     /// Byte order the surface consumes; `set_pixel` converts `0xAARRGGBB` to it.
     order: ByteOrder,
     /// A clean plane costs nothing: no clear, no upload, no draw.
@@ -32,6 +33,7 @@ impl<P: PixelFmt> UiSurface<P> {
             w,
             h,
             size: BufferSize::new(w as usize, h as usize),
+            layout: UiLayout::from_sizes((w, h), (w, h)),
             order,
             dirty: true,
         }
@@ -47,6 +49,26 @@ impl<P: PixelFmt> UiSurface<P> {
         self.w = w;
         self.h = h;
         self.size = BufferSize::new(w as usize, h as usize);
+        self.set_display_size((w, h));
+        self.dirty = true;
+    }
+
+    /// Set the final displayed rectangle so UI accounts for presentation stretch.
+    pub fn set_display_size(&mut self, display: (u32, u32)) {
+        self.layout = UiLayout::from_sizes((self.w, self.h), display);
+    }
+
+    /// Scale a finished software scene into this presentation surface.
+    #[cfg(any(feature = "cpu-render", test))]
+    pub(crate) fn copy_scaled(&mut self, source: &Self) {
+        let (w, h) = (self.w as usize, self.h as usize);
+        let (sw, sh) = (source.w as usize, source.h as usize);
+        for y in 0..h {
+            let row = &source.buf[(y * sh / h) * sw..][..sw];
+            for (x, pixel) in self.buf[y * w..][..w].iter_mut().enumerate() {
+                *pixel = row[x * sw / w];
+            }
+        }
         self.dirty = true;
     }
 
@@ -103,6 +125,10 @@ impl<P: PixelFmt> DrawBuffer for UiSurface<P> {
     #[inline]
     fn size(&self) -> &BufferSize {
         &self.size
+    }
+
+    fn ui_layout(&self) -> UiLayout {
+        self.layout
     }
 
     #[inline]
@@ -176,6 +202,11 @@ impl<P: PixelFmt> Frame<P> {
         &self.front
     }
 
+    pub(crate) fn set_display_size(&mut self, display: (u32, u32)) {
+        self.front.set_display_size(display);
+        self.back.set_display_size(display);
+    }
+
     /// Resize to `w`×`h` (reallocates + re-seeds the wipe geometry).
     pub fn resize(&mut self, w: u32, h: u32) {
         if (self.front.width(), self.front.height()) != (w, h) {
@@ -239,5 +270,79 @@ impl<P: PixelFmt> Frame<P> {
 
     pub fn height(&self) -> u32 {
         self.front.height()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use hud_util::draw_patch;
+    use render_common::DrawBuffer;
+    use test_utils::doom1_wad_path;
+    use wad::WadData;
+    use wad::types::{WadPalette, WadPatch};
+
+    use super::{ByteOrder, PixelFmt, UiSurface};
+
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "test bounds are pixel coordinates inside the surface"
+    )]
+    fn check_title<P: PixelFmt + PartialEq>() {
+        let wad = WadData::new(&doom1_wad_path());
+        let patch = WadPatch::from_lump(wad.get_lump("TITLEPIC").expect("shareware title"));
+        let palette = wad
+            .lump_iter::<WadPalette>("PLAYPAL")
+            .next()
+            .expect("shareware palette");
+        let sentinel = P::from_argb(0xFFFF_00FF, ByteOrder::Argb);
+        for (w, h, display) in [
+            (320, 200, (640, 480)),
+            (640, 480, (640, 480)),
+            (1920, 1080, (1920, 1080)),
+            (480, 640, (480, 640)),
+        ] {
+            let mut surface = UiSurface::<P>::new(w, h, ByteOrder::Argb);
+            surface.set_display_size(display);
+            surface.buf_mut().fill(sentinel);
+            let borrowed = &mut surface;
+            let layout = DrawBuffer::ui_layout(&borrowed);
+            draw_patch(
+                &patch,
+                layout.origin[0],
+                layout.origin[1],
+                layout.scale[0],
+                layout.scale[1],
+                &palette,
+                borrowed,
+            );
+            let left = layout.origin[0].round() as usize;
+            let top = layout.origin[1].round() as usize;
+            let right = (layout.origin[0] + layout.width()).round() as usize;
+            let bottom = (layout.origin[1] + layout.height()).round() as usize;
+            for y in 0..h as usize {
+                for x in 0..w as usize {
+                    let inside = (left..right).contains(&x) && (top..bottom).contains(&y);
+                    assert_eq!(
+                        surface.pixels()[y * w as usize + x] != sentinel,
+                        inside,
+                        "title coverage at {x},{y} in {w}×{h}"
+                    );
+                }
+            }
+            let mut world = UiSurface::<P>::new(2, 2, ByteOrder::Argb);
+            world
+                .buf_mut()
+                .copy_from_slice(&[sentinel, P::default(), P::default(), sentinel]);
+            surface.copy_scaled(&world);
+            assert!(surface.pixels()[0] == sentinel);
+            assert!(surface.pixels()[w as usize - 1] == P::default());
+            assert!(surface.pixels()[(w * h - 1) as usize] == sentinel);
+        }
+    }
+
+    #[test]
+    fn generic_title_drawing_preserves_crt_aspect_and_pixel_formats() {
+        check_title::<u32>();
+        check_title::<u16>();
     }
 }

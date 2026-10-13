@@ -3,7 +3,7 @@ mod text;
 use game_config::GameMode;
 use gameplay::TICRATE;
 use gamestate_traits::{ConfigTraits, GameTraits, KeyCode, SubsystemTrait};
-use hud_util::{HUD_STRING, HUDString, hud_scale, load_char_patches};
+use hud_util::{HUD_STRING, HUDString, draw_flat, hud_scale, load_char_patches};
 use render_common::DrawBuffer;
 use sound_common::MusTrack;
 use text::*;
@@ -12,8 +12,6 @@ use wad::types::{WadFlat, WadPalette};
 
 pub struct Finale {
     palette: WadPalette,
-    screen_width: i32,
-    screen_height: i32,
     text: HUDString,
     bg_flat: WadFlat,
     count: i32,
@@ -33,33 +31,18 @@ impl Finale {
 
         Self {
             palette,
-            screen_width: 0,
-            screen_height: 0,
             text: HUD_STRING,
             bg_flat,
             count: 0,
         }
     }
 
-    fn draw_pixels(&mut self, pixels: &mut impl DrawBuffer) {
+    fn draw_pixels(&self, pixels: &mut impl DrawBuffer) {
         let (sx, sy) = hud_scale(pixels);
-        self.screen_width = pixels.size().width();
-        self.screen_height = pixels.size().height();
-
-        let pal = &self.palette;
-        for tile_x in (0..self.screen_width).step_by(64) {
-            for tile_y in (0..self.screen_height).step_by(64) {
-                for (y, col) in self.bg_flat.data.chunks(64).enumerate() {
-                    for (x, c) in col.iter().enumerate() {
-                        let c = pal.0[*c as usize];
-                        pixels.set_pixel(tile_x as usize + x, tile_y as usize + y, c);
-                    }
-                }
-            }
-        }
-        let x_ofs = (pixels.size().width_f32() - 320.0 * sx) / 2.0;
+        draw_flat(&self.bg_flat, &self.palette, pixels);
+        let [x_ofs, y_ofs] = pixels.ui_layout().origin;
         self.text
-            .draw_pixels(x_ofs + 6.0 * sx, 6.0 * sy, &self.palette, pixels);
+            .draw_pixels(x_ofs + 6.0 * sx, y_ofs + 6.0 * sy, &self.palette, pixels);
     }
 }
 

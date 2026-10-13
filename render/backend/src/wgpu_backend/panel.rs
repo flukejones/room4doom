@@ -122,7 +122,7 @@ pub(crate) struct PanelPipeline {
 }
 
 impl PanelPipeline {
-    pub fn new(device: &wgpu::Device) -> Self {
+    pub fn new(device: &wgpu::Device, projected: bool) -> Self {
         let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("ui_panel_bgl"),
             entries: &[tex_entry(0), bind_sampler_entry(1), placement_entry(2)],
@@ -164,12 +164,15 @@ impl PanelPipeline {
             multiview_mask: None,
             cache: None,
         });
-        // Linear so a projected panel does not shimmer. At identity the texture
-        // and target match, so samples land on texel centres and nothing blurs.
+        let filter = if projected {
+            wgpu::FilterMode::Linear
+        } else {
+            wgpu::FilterMode::Nearest
+        };
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("ui_panel_sampler"),
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
+            mag_filter: filter,
+            min_filter: filter,
             ..Default::default()
         });
         Self {

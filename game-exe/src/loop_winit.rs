@@ -14,8 +14,11 @@ use gamestate::subsystems::GameSubsystem;
 use gamestate_traits::{ConfigTraits as _, SubsystemTrait as _};
 use input::InputState;
 use log::{info, warn};
-use render_backend::{ActiveBackend, PostEffect, RenderStack};
+#[cfg(feature = "display-wgpu")]
+use render_backend::PostEffect;
+use render_backend::{ActiveBackend, RenderStack};
 
+#[cfg(feature = "display-wgpu")]
 use crate::config::PostEffect as ConfigPostEffect;
 
 /// The display backend for the winit loop (always `u32` surface).
@@ -110,6 +113,32 @@ pub struct DoomApp {
 }
 
 impl DoomApp {
+    fn refresh_render_target(&mut self) {
+        let rt = self
+            .render_backend
+            .as_mut()
+            .expect("render target initialized");
+        if !rt.reconfigure(
+            self.user_config.resolution_options(),
+            self.user_config.renderer.into(),
+        ) {
+            return;
+        }
+        rt.set_statusbar_height(if self.user_config.hud_size == 1 {
+            STBAR_HEIGHT
+        } else {
+            0
+        });
+        if self.user_config.voxels
+            && let Some(manager) = &self.voxel_manager
+        {
+            rt.set_voxel_manager(manager.clone());
+        }
+        if let Some(menu) = self.menu.as_mut() {
+            menu.set_render_context(rt.is_hardware_renderer(), rt.eye_count() > 1);
+        }
+    }
+
     /// Create the app with game state ready. Window is created on `resumed`.
     pub fn new(
         game: Game,
@@ -302,12 +331,14 @@ impl ApplicationHandler for DoomApp {
             window.clone(),
             self.options.vsync.unwrap_or(true),
             &self.post,
+            #[cfg(feature = "display-wgpu")]
             self.user_config.display,
+            #[cfg(feature = "display-wgpu")]
             self.user_config.vr,
         );
 
         let mut render_backend = RenderStack::new(
-            self.options.hi_res.unwrap_or(true),
+            self.user_config.resolution_options(),
             backend,
             self.user_config.renderer.into(),
         );
@@ -321,10 +352,10 @@ impl ApplicationHandler for DoomApp {
         if let Some(vm) = &self.voxel_manager {
             render_backend.set_voxel_manager(vm.clone());
         }
-        let mut menu = GameMenu::new(
-            self.game.game_type.mode,
-            &self.game.wad_data,
-            render_backend.buffer_size().width(),
+        let mut menu = GameMenu::new(self.game.game_type.mode, &self.game.wad_data);
+        menu.set_render_context(
+            render_backend.is_hardware_renderer(),
+            render_backend.eye_count() > 1,
         );
         menu.init(&self.game);
 
@@ -392,67 +423,9 @@ impl ApplicationHandler for DoomApp {
                     }
                 }
             }
-            WindowEvent::Resized(new_size) => {
-                // The backend syncs the live window size every present, so a resize
-                // needs a Screen rebuild ONLY when the engine BUFFER size changes
-                // (buffer width tracks the window aspect for the CRT stretch).
-                // macOS also emits a burst of Resized events at startup that flap
-                // the size; rebuilding then is wasteful and resets per-frame state
-                // like the melt-wipe — so skip when the buffer size is unchanged,
-                // and defer a genuine change while a wipe is in progress.
-                let buf_h = if self.user_config.hi_res {
-                    400u32
-                } else {
-                    200u32
-                };
-                let (nw, nh) = (new_size.width.max(1), new_size.height.max(1));
-                let new_buf_w = ((nw as f32 * buf_h as f32 * (240.0 / 200.0) / nh as f32).round()
-                    as u32)
-                    .max(buf_h);
-                let skip = self.render_backend.as_ref().is_some_and(|s| {
-                    let bs = s.buffer_size();
-                    let unchanged = bs.width() as u32 == new_buf_w && bs.height() as u32 == buf_h;
-                    // A headset's buffer size comes from the runtime, so a
-                    // window resize is not a reason to rebuild — and doing
-                    // so would try to open a second XrInstance.
-                    unchanged || s.is_wiping() || s.eye_count() > 1
-                });
-                if skip {
-                    return;
-                }
+            WindowEvent::Resized(_) => {
                 if let Some(window) = &self.window {
-                    let backend = new_backend(
-                        window.clone(),
-                        self.user_config.vsync,
-                        &self.post,
-                        self.user_config.display,
-                        self.user_config.vr,
-                    );
-                    let prev_state = self.menu.as_ref().map(|m| m.save_state());
-                    let mut rt = RenderStack::new(
-                        self.user_config.hi_res,
-                        backend,
-                        self.user_config.renderer.into(),
-                    );
-                    if self.user_config.hud_size == 1 {
-                        rt.set_statusbar_height(STBAR_HEIGHT);
-                    }
-                    if self.user_config.voxels
-                        && let Some(vm) = &self.voxel_manager
-                    {
-                        rt.set_voxel_manager(vm.clone());
-                    }
-                    let mut menu = GameMenu::new(
-                        self.game.game_type.mode,
-                        &self.game.wad_data,
-                        rt.buffer_size().width(),
-                    );
-                    menu.init(&self.game);
-                    if let Some(state) = prev_state {
-                        menu.restore_state(state);
-                    }
-                    self.render_backend = Some(rt);
-                    self.menu = Some(menu);
+                    window.request_redraw();
                 }
             }
             WindowEvent::RedrawRequested => {
@@ -461,6 +434,7 @@ impl ApplicationHandler for DoomApp {
                     return;
                 }
 
+                self.refresh_render_target();
                 {
                     let rt = self
                         .render_backend
@@ -594,34 +568,6 @@ impl ApplicationHandler for DoomApp {
                         if let Some(rt) = self.render_backend.as_mut() {
                             rt.set_statusbar_height(bar_h);
                         }
-                    }
-
-                    if old.renderer != self.user_config.renderer
-                        || old.hi_res != self.user_config.hi_res
-                    {
-                        let prev_state = self.menu.as_ref().map(|m| m.save_state());
-                        let old_rt = self.render_backend.take().unwrap();
-                        let mut new_rt = old_rt
-                            .resize(self.user_config.hi_res, self.user_config.renderer.into());
-                        if self.user_config.hud_size == 1 {
-                            new_rt.set_statusbar_height(STBAR_HEIGHT);
-                        }
-                        if self.user_config.voxels
-                            && let Some(vm) = &self.voxel_manager
-                        {
-                            new_rt.set_voxel_manager(vm.clone());
-                        }
-                        self.render_backend = Some(new_rt);
-                        let mut new_menu = GameMenu::new(
-                            self.game.game_type.mode,
-                            &self.game.wad_data,
-                            self.render_backend.as_ref().unwrap().buffer_size().width(),
-                        );
-                        new_menu.init(&self.game);
-                        if let Some(state) = prev_state {
-                            new_menu.restore_state(state);
-                        }
-                        self.menu = Some(new_menu);
                     }
                 }
 

@@ -80,10 +80,10 @@ impl Messages {
         let x_ofs = if self.widescreen {
             0.0
         } else {
-            (buffer.size().width_f32() - 320.0 * sx) / 2.0
+            buffer.ui_layout().origin[0]
         };
-        let x = x_ofs + 10.0;
-        let mut y = 2.0;
+        let x = x_ofs + 10.0 * sx;
+        let mut y = buffer.ui_layout().origin[1] + 2.0 * sy;
         let mut pos = self.start;
         loop {
             if pos >= self.lines.len() {
@@ -98,7 +98,7 @@ impl Messages {
             }
 
             self.lines[pos].draw(x, y, &self.palette, buffer);
-            y += self.lines[pos].line_height() as f32 * sy + 1.0;
+            y += (self.lines[pos].line_height() as f32 + 1.0) * sy;
 
             if pos == self.current {
                 break;

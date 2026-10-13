@@ -223,7 +223,15 @@ impl Intermission {
     pub(crate) fn draw_bg(&self, x_offset: f32, sx: f32, sy: f32, buffer: &mut impl DrawBuffer) {
         let black = PixelFmt::from_argb(BLACK, ByteOrder::Argb);
         buffer.buf_mut().fill(black);
-        draw_patch(self.get_bg(), x_offset, 0.0, sx, sy, &self.palette, buffer);
+        draw_patch(
+            self.get_bg(),
+            x_offset,
+            buffer.ui_layout().origin[1],
+            sx,
+            sy,
+            &self.palette,
+            buffer,
+        );
     }
 
     pub(crate) fn get_bg(&self) -> &WadPatch {
@@ -353,7 +361,7 @@ impl Intermission {
                 draw_patch(
                     &anim.patches[anim.counter as usize],
                     x_offset + anim.location.0 as f32 * sx,
-                    anim.location.1 as f32 * sy,
+                    pixels.ui_layout().origin[1] + anim.location.1 as f32 * sy,
                     sx,
                     sy,
                     &self.palette,
@@ -473,7 +481,7 @@ impl SubsystemTrait for Intermission {
 
     fn draw(&mut self, buffer: &mut impl DrawBuffer) {
         let (sx, sy) = fullscreen_scale(buffer);
-        let x_ofs = ((buffer.size().width_f32() - 320.0 * sx) / 2.0).floor();
+        let x_ofs = buffer.ui_layout().origin[0];
 
         match self.state {
             State::StatCount => {

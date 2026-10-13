@@ -1,5 +1,6 @@
 pub mod light;
 pub mod scene_target;
+mod ui_layout;
 pub mod voxel_transform;
 pub mod wipe;
 
@@ -8,15 +9,17 @@ pub use pic_data::{ByteOrder, PalLit, PixelFmt};
 use math::{Angle, Bam, FixedT, m_random};
 
 pub use scene_target::PixelTarget;
+pub use ui_layout::UiLayout;
 pub use voxel_transform::{VoxelTransform, VoxelTransformIn, voxel_transform};
 
 /// OG Doom's original resolution.
 const OG_WIDTH: f32 = 320.0;
 const OG_HEIGHT: f32 = 200.0;
+const CRT_HEIGHT: f32 = 240.0;
 
 /// The 1.2× pixel aspect OG Doom presents at — its pixels are taller than
 /// they are wide, which is why the classic look is vertically stretched.
-pub const CRT_STRETCH: f32 = 240.0 / 200.0;
+pub const CRT_STRETCH: f32 = CRT_HEIGHT / OG_HEIGHT;
 
 /// OG STBAR height in native 200px space.
 pub const STBAR_HEIGHT: i32 = 32;
@@ -318,6 +321,11 @@ pub trait DrawBuffer {
     type Pixel: PixelFmt;
 
     fn size(&self) -> &BufferSize;
+    /// Doom's CRT-correct layout in this buffer's pixel coordinates.
+    fn ui_layout(&self) -> UiLayout {
+        let size = [self.size().width_f32(), self.size().height_f32()];
+        UiLayout::new(size, size)
+    }
     /// Row stride in elements (the buffer width; the display surface may be
     /// padded wider, hidden behind the pixel accessors).
     fn pitch(&self) -> usize;
@@ -337,6 +345,9 @@ impl<T: DrawBuffer + ?Sized> DrawBuffer for &mut T {
     #[inline]
     fn size(&self) -> &BufferSize {
         (**self).size()
+    }
+    fn ui_layout(&self) -> UiLayout {
+        (**self).ui_layout()
     }
     #[inline]
     fn pitch(&self) -> usize {

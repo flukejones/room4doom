@@ -32,8 +32,10 @@ use winit::window::{Fullscreen, Window};
 
 #[cfg(all(feature = "vr", not(feature = "display-sdl2")))]
 use crate::backend::PanelPlacement;
+#[cfg(all(not(feature = "display-sdl2"), feature = "cpu-render"))]
+use crate::backend::SoftwarePresent;
 #[cfg(not(feature = "display-sdl2"))]
-use crate::backend::{Backend, RenderKind, SoftwarePresent};
+use crate::backend::{Backend, RenderKind};
 #[cfg(all(feature = "wgpu3d", not(feature = "display-sdl2")))]
 use crate::backend::{HardwarePresent, ScreenEffects, UiPlanes};
 
@@ -44,8 +46,8 @@ const FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8Unorm;
 
 /// Bytes per framebuffer pixel (`u32`). Used by the software-present upload (the
 /// winit wgpu backend; sdl2's hardware mode uses only the GPU present path).
-#[cfg(not(feature = "display-sdl2"))]
-const PIXEL_BYTES: u32 = size_of::<u32>() as u32;
+#[cfg(all(not(feature = "display-sdl2"), feature = "cpu-render"))]
+const PIXEL_BYTES: u32 = u32::BITS / u8::BITS;
 
 /// Reinterpret a `&[u32]` as a byte slice for upload (no copy).
 #[inline]
@@ -128,17 +130,30 @@ impl<P: PixelFmt> WgpuBackend<P> {
 
 #[cfg(not(feature = "display-sdl2"))]
 impl<P: PixelFmt> Backend for WgpuBackend<P> {
-    /// The display's proportions, which is what the engine buffer is sized
-    /// against. In VR that is the headset's field of view, not the window
-    /// and not the eye's pixel count: the image has to fill what the lens
-    /// shows.
+    /// Physical window pixels, independent of the headset's target and field of view.
     fn window_size(&self) -> (u32, u32) {
+        self.window_inner()
+    }
+
+    fn display_size(&self) -> (u32, u32) {
+        #[cfg(feature = "vr")]
+        if let Some(size) = self.presenter.vr_target_size() {
+            return size;
+        }
+        self.window_inner()
+    }
+
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "physical target sizes are converted to rendering coordinates"
+    )]
+    fn render_aspect(&self) -> f32 {
         #[cfg(feature = "vr")]
         if let Some((w, h)) = self.presenter.vr_display_size() {
-            return (w, h);
+            return w as f32 / h as f32;
         }
-        let size = self.window.inner_size();
-        (size.width, size.height)
+        let (w, h) = self.window_inner();
+        w as f32 / h as f32
     }
 
     fn set_fullscreen(&mut self, mode: u8) {
@@ -163,7 +178,7 @@ impl<P: PixelFmt> Backend for WgpuBackend<P> {
     }
 }
 
-#[cfg(not(feature = "display-sdl2"))]
+#[cfg(all(not(feature = "display-sdl2"), feature = "cpu-render"))]
 impl<P: PixelFmt> SoftwarePresent<P> for WgpuBackend<P> {
     fn present(&mut self, front: &[P], w: u32, h: u32) {
         let (win_w, win_h) = self.window_inner();
@@ -185,9 +200,9 @@ impl<P: PixelFmt> HardwarePresent for WgpuBackend<P> {
         self.presenter.is_wiping()
     }
 
-    fn begin_scene(&mut self, w: u32, h: u32) -> GpuHandle<'_> {
+    fn begin_scene(&mut self, w: u32, h: u32, output: (u32, u32)) -> GpuHandle<'_> {
         let (win_w, win_h) = self.window_inner();
-        self.presenter.begin_scene(w, h, win_w, win_h)
+        self.presenter.begin_scene(w, h, win_w, win_h, output)
     }
 
     fn eye_count(&self) -> usize {
@@ -222,10 +237,10 @@ impl<P: PixelFmt> HardwarePresent for WgpuBackend<P> {
         self.presenter.upload_ui(planes);
     }
 
-    fn finish_frame(&mut self, scene_w: u32, scene_h: u32, wiping: bool) {
+    fn finish_frame(&mut self, scene_w: u32, scene_h: u32, output: (u32, u32), wiping: bool) {
         let (win_w, win_h) = self.window_inner();
         self.presenter
-            .finish_frame(scene_w, scene_h, win_w, win_h, wiping);
+            .finish_frame(scene_w, scene_h, win_w, win_h, output, wiping);
     }
 
     fn reset_health_bleed(&mut self) {

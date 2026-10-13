@@ -67,14 +67,6 @@ use loop_winit::DoomApp;
 ))]
 use winit::event_loop::EventLoop;
 
-/// Virtual screen width the headless menu lays out against; nothing is drawn,
-/// but the menu still sizes itself from it.
-#[cfg(all(
-    any(feature = "display-softbuffer", feature = "display-wgpu"),
-    not(feature = "display-sdl2")
-))]
-const HEADLESS_WIDTH: i32 = 320;
-
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 
@@ -220,7 +212,7 @@ fn run_headless(mut game: Game, mut input: input::InputState, options: CLIOption
         hud_msgs: Messages::new(&game.wad_data),
         finale: Finale::new(&game.wad_data),
     };
-    let mut menu = GameMenu::new(game.game_type.mode, &game.wad_data, HEADLESS_WIDTH);
+    let mut menu = GameMenu::new(game.game_type.mode, &game.wad_data);
     menu.init(&game);
 
     if let Some(name) = options.demo.clone() {

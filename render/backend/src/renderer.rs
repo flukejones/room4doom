@@ -8,16 +8,16 @@
 use std::sync::Arc;
 
 use level::LevelData;
-use pic_data::{PicData, PixelFmt, VoxelManager};
-use render_common::{PixelTarget, RenderView};
+#[cfg(feature = "cpu-render")]
+use pic_data::PixelFmt;
+use pic_data::{PicData, VoxelManager};
+#[cfg(feature = "cpu-render")]
+use render_common::PixelTarget;
+use render_common::RenderView;
 
 #[cfg(feature = "wgpu3d")]
 use render_common::HandPose;
 
-#[cfg(feature = "software3d")]
-use hud_util::{draw_text_line, hud_scale, measure_text_line};
-#[cfg(feature = "software3d")]
-use render_common::DrawBuffer as _;
 #[cfg(feature = "software3d")]
 use software3d::Software3D;
 #[cfg(feature = "software25d")]
@@ -85,6 +85,8 @@ impl WorldRenderer {
     /// frustum; `None` restores the flat projection. Only the GPU
     /// renderer can do this — the others are fixed-projection.
     pub(crate) fn set_eye_fov(&mut self, fov: Option<[f32; 4]>) {
+        #[cfg(not(feature = "wgpu3d"))]
+        let _ = fov;
         match self {
             #[cfg(feature = "software25d")]
             Self::Software(_) => {}
@@ -99,6 +101,8 @@ impl WorldRenderer {
 
     /// Push a new view height (statusbar toggle) to the renderer.
     pub(crate) fn set_view_height(&mut self, vh: i32) {
+        #[cfg(not(feature = "cpu-render"))]
+        let _ = vh;
         match self {
             #[cfg(feature = "software25d")]
             Self::Software(r) => r.set_view_height(vh),
@@ -190,26 +194,24 @@ impl WorldRenderer {
     /// debug text line, drawn after the scene. No-op on every other renderer.
     #[cfg(feature = "cpu-render")]
     #[cfg_attr(not(feature = "software3d"), allow(unused_variables))]
-    pub(crate) fn draw_debug_overlays<P: PixelFmt>(
-        &mut self,
-        pic_data: &PicData,
-        buf: &mut PixelTarget<P>,
-    ) {
+    pub(crate) fn draw_debug_overlays<P: PixelFmt>(&mut self, buf: &mut PixelTarget<P>) {
         match self {
             #[cfg(feature = "software3d")]
             Self::Software3D(r) => {
-                let text = r.take_debug_line();
                 r.draw_debug_overlays(buf);
-                if !text.is_empty() {
-                    let (sx, sy) = hud_scale(buf);
-                    let palette = pic_data.wad_palette();
-                    let width = measure_text_line(&text, sx);
-                    let x = buf.size().width_f32() - width - 4.0 * sx;
-                    draw_text_line(&text, x, 2.0, sx, sy, palette, buf);
-                }
             }
             #[allow(unreachable_patterns)]
             _ => {}
+        }
+    }
+
+    #[cfg(feature = "cpu-render")]
+    pub(crate) fn debug_line(&mut self) -> String {
+        match self {
+            #[cfg(feature = "software3d")]
+            Self::Software3D(renderer) => renderer.take_debug_line(),
+            #[allow(unreachable_patterns)]
+            _ => String::new(),
         }
     }
 

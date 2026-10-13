@@ -286,9 +286,9 @@ fn page_drawer(game: &Game, draw_buf: &mut impl DrawBuffer) {
     let black = PixelFmt::from_argb(BLACK, ByteOrder::Argb);
     draw_buf.buf_mut().fill(black);
     let (sx, sy) = fullscreen_scale(draw_buf);
-    let x = (draw_buf.size().width_f32() - 320.0 * sx) / 2.0;
+    let [x, y] = draw_buf.ui_layout().origin;
     let palette = game.pic_data.wad_palette();
-    draw_patch(&game.page.cache, x, 0.0, sx, sy, palette, draw_buf);
+    draw_patch(&game.page.cache, x, y, sx, sy, palette, draw_buf);
 }
 
 /// D_Display — drive one frame's rendering, and only that. One entry for every
@@ -342,7 +342,7 @@ pub(crate) fn d_display<P: PixelFmt>(
         screen.present(wipe);
     }
 
-    // Advance the wipe (CPU melts the previous frame; GPU steps the melt offsets).
+    // Finish the wipe step after presentation; GPU advances its melt offsets here.
     // The melt runs over several frames; advance the wipe state only once it has
     // fully completed. `build_tic_cmd` resumes when gamestate == wipe_game_state.
     if wipe && screen.do_wipe() {
@@ -371,15 +371,15 @@ fn draw_ui<P: PixelFmt>(
     match game.gamestate {
         GameState::Level => {
             if !hide_hud {
-                machines.statusbar.draw(&mut screen.hud_frame());
-                machines.hud_msgs.draw(&mut screen.hud_frame());
+                machines.statusbar.draw(screen.hud_frame());
+                machines.hud_msgs.draw(screen.hud_frame());
             }
         }
-        GameState::Intermission => machines.intermission.draw(&mut screen.screen_frame()),
-        GameState::Finale => machines.finale.draw(&mut screen.screen_frame()),
+        GameState::Intermission => machines.intermission.draw(screen.screen_frame()),
+        GameState::Finale => machines.finale.draw(screen.screen_frame()),
         GameState::DemoScreen => {
             refresh_title_page(game);
-            page_drawer(game, &mut screen.screen_frame());
+            page_drawer(game, screen.screen_frame());
         }
         GameState::ForceWipe => {}
     }
@@ -389,9 +389,17 @@ fn draw_ui<P: PixelFmt>(
         let ui = screen.hud_frame();
         let (sx, sy) = hud_scale(ui);
         let x = ui.size().width_f32() - measure_text_line(fps, sx) - 4.0 * sx;
-        draw_text_line(fps, x, 2.0, sx, sy, palette, ui);
+        draw_text_line(
+            fps,
+            x,
+            ui.ui_layout().origin[1] + 2.0 * sy,
+            sx,
+            sy,
+            palette,
+            ui,
+        );
     }
-    menu.draw(&mut screen.screen_frame());
+    menu.draw(screen.screen_frame());
 }
 
 /// Render the world for one view: once for a monitor, twice for a headset.

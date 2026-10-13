@@ -211,7 +211,7 @@ impl<P: PixelFmt> SoftwarePresent<P> for Sdl2Backend<P> {
 }
 
 #[cfg(feature = "wgpu3d")]
-impl<P: PixelFmt> crate::backend::HardwarePresent<P> for Sdl2Backend<P> {
+impl<P: PixelFmt> crate::backend::HardwarePresent for Sdl2Backend<P> {
     fn set_screen_effects(&mut self, effects: crate::backend::ScreenEffects, w: u32, h: u32) {
         self.hardware_presenter().set_effects(effects, w, h);
     }
@@ -230,22 +230,26 @@ impl<P: PixelFmt> crate::backend::HardwarePresent<P> for Sdl2Backend<P> {
         }
     }
 
-    fn begin_scene(&mut self, w: u32, h: u32) -> ::wgpu3d::GpuHandle<'_> {
+    fn begin_scene(&mut self, w: u32, h: u32, output: (u32, u32)) -> ::wgpu3d::GpuHandle<'_> {
         let (win_w, win_h) = self.window().size();
         let (win_w, win_h) = (win_w.max(1), win_h.max(1));
-        self.hardware_presenter().begin_scene(w, h, win_w, win_h)
+        self.hardware_presenter()
+            .begin_scene(w, h, win_w, win_h, output)
     }
 
     fn advance_wipe(&mut self) -> bool {
         self.hardware_presenter().advance_wipe()
     }
 
-    fn finish_frame(&mut self, front: &[P], w: u32, h: u32, wiping: bool) {
+    fn upload_ui(&mut self, planes: crate::backend::UiPlanes<'_>) {
+        self.hardware_presenter().upload_ui(planes);
+    }
+
+    fn finish_frame(&mut self, w: u32, h: u32, output: (u32, u32), wiping: bool) {
         let (win_w, win_h) = self.window().size();
         let (win_w, win_h) = (win_w.max(1), win_h.max(1));
-        let ui = crate::wgpu_backend::as_u32_slice(front);
         self.hardware_presenter()
-            .finish_frame(ui, w, h, win_w, win_h, wiping);
+            .finish_frame(w, h, win_w, win_h, output, wiping);
     }
 
     fn reset_health_bleed(&mut self) {

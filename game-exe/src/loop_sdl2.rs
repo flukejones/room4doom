@@ -121,10 +121,10 @@ pub fn d_doom_loop_sdl2<P>(
     }
     info!("Started title sequence");
 
-    let mut render_type: RenderType = options.rendering.unwrap_or_default().into();
+    let mut render_type: RenderType = options.rendering.unwrap_or(user_config.renderer).into();
     let backend = build_sdl2_backend::<P>(&video, &options, render_type);
     let mut render_backend =
-        RenderStack::<P>::new(options.hi_res.unwrap_or(true), backend, render_type);
+        RenderStack::<P>::new(user_config.resolution_options(), backend, render_type);
     // softbuffer can't host hardware; sdl2 can when wgpu3d is compiled. If the
     // configured kind isn't supported, fall back to the software default.
     if !render_backend.supports(render_type.kind()) {
@@ -134,7 +134,7 @@ pub fn d_doom_loop_sdl2<P>(
         render_type = RenderType::default();
         let backend = build_sdl2_backend::<P>(&video, &options, render_type);
         render_backend =
-            RenderStack::<P>::new(options.hi_res.unwrap_or(true), backend, render_type);
+            RenderStack::<P>::new(user_config.resolution_options(), backend, render_type);
     }
     if user_config.hud_size == 1 {
         render_backend.set_statusbar_height(STBAR_HEIGHT);
@@ -153,11 +153,8 @@ pub fn d_doom_loop_sdl2<P>(
     if let Some(vm) = &voxel_manager {
         render_backend.set_voxel_manager(vm.clone());
     }
-    let mut menu = GameMenu::new(
-        game.game_type.mode,
-        &game.wad_data,
-        render_backend.buffer_size().width(),
-    );
+    let mut menu = GameMenu::new(game.game_type.mode, &game.wad_data);
+    menu.set_render_context(render_backend.is_hardware_renderer(), false);
     menu.init(&game);
 
     loop {
@@ -166,16 +163,27 @@ pub fn d_doom_loop_sdl2<P>(
         }
 
         // Poll SDL2 events
-        if let Some(WindowAction::Resized) = try_run_tics_sdl2(
+        try_run_tics_sdl2(
             &mut game,
             &mut input,
             &mut menu,
             &mut machines,
             &mut cheats,
             &mut timestep,
-        ) {
-            let prev_menu_state = menu.save_state();
-            render_backend = render_backend.resize(user_config.hi_res, user_config.renderer.into());
+        );
+        let new_type: RenderType = user_config.renderer.into();
+        let kind_changed = new_type.kind() != render_backend.render_type().kind();
+        let changed = if render_backend.is_wiping() {
+            false
+        } else if kind_changed {
+            let backend = build_sdl2_backend::<P>(&video, &options, new_type);
+            render_backend =
+                RenderStack::<P>::new(user_config.resolution_options(), backend, new_type);
+            true
+        } else {
+            render_backend.reconfigure(user_config.resolution_options(), new_type)
+        };
+        if changed {
             if user_config.hud_size == 1 {
                 render_backend.set_statusbar_height(STBAR_HEIGHT);
             }
@@ -184,14 +192,8 @@ pub fn d_doom_loop_sdl2<P>(
             {
                 render_backend.set_voxel_manager(vm.clone());
             }
-            menu = GameMenu::new(
-                game.game_type.mode,
-                &game.wad_data,
-                render_backend.buffer_size().width(),
-            );
-            menu.init(&game);
-            menu.restore_state(prev_menu_state);
-            info!("Resized game window");
+            menu.set_render_context(render_backend.is_hardware_renderer(), false);
+            info!("Updated render targets");
         }
 
         let frac = if user_config.frame_interpolation {
@@ -290,35 +292,6 @@ pub fn d_doom_loop_sdl2<P>(
                     0
                 };
                 render_backend.set_statusbar_height(bar_h);
-            }
-
-            if old.renderer != user_config.renderer || old.hi_res != user_config.hi_res {
-                let prev_menu_state = menu.save_state();
-                let new_type: RenderType = user_config.renderer.into();
-                if new_type.kind() != render_backend.render_type().kind() {
-                    // Render kind changed (software <-> hardware): the sdl2 backend
-                    // itself differs (canvas vs bare-window+wgpu), so rebuild it
-                    // with a fresh window rather than reusing the old backend.
-                    let backend = build_sdl2_backend::<P>(&video, &options, new_type);
-                    render_backend = RenderStack::<P>::new(user_config.hi_res, backend, new_type);
-                } else {
-                    render_backend = render_backend.resize(user_config.hi_res, new_type);
-                }
-                if user_config.hud_size == 1 {
-                    render_backend.set_statusbar_height(STBAR_HEIGHT);
-                }
-                if user_config.voxels
-                    && let Some(vm) = &voxel_manager
-                {
-                    render_backend.set_voxel_manager(vm.clone());
-                }
-                menu = GameMenu::new(
-                    game.game_type.mode,
-                    &game.wad_data,
-                    render_backend.buffer_size().width(),
-                );
-                menu.init(&game);
-                menu.restore_state(prev_menu_state);
             }
         }
 

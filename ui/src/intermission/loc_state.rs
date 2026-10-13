@@ -36,7 +36,7 @@ impl Intermission {
         let point = MAP_POINTS[ep][lv];
 
         let x = x_offset + point.0 as f32 * sx;
-        let y = point.1 as f32 * sy - patch.top_offset as f32 * sy;
+        let y = pixels.ui_layout().origin[1] + point.1 as f32 * sy - patch.top_offset as f32 * sy;
 
         draw_patch(patch, x, y, sx, sy, &self.palette, pixels);
     }
@@ -49,7 +49,7 @@ impl Intermission {
         buffer: &mut impl DrawBuffer,
     ) {
         let half = x_offset + 160.0 * sx;
-        let mut y = TITLE_Y * sy;
+        let mut y = buffer.ui_layout().origin[1] + TITLE_Y * sy;
         draw_patch(
             &self.patches.enter,
             half - self.patches.enter.width as f32 * sx / 2.0,

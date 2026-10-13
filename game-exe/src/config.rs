@@ -480,6 +480,10 @@ pub struct UserConfig {
     pub vsync: bool,
     pub refresh_rate: u32,
     pub hi_res: bool,
+    #[nserde(default)]
+    pub native_ui: bool,
+    #[nserde(default)]
+    pub native_world: bool,
     pub renderer: RenderType,
     pub sfx_vol: i32,
     pub mus_vol: i32,
@@ -516,6 +520,14 @@ pub struct UserConfig {
 }
 
 impl UserConfig {
+    pub fn resolution_options(&self) -> render_backend::ResolutionOptions {
+        render_backend::ResolutionOptions {
+            hi_res: self.hi_res,
+            native_ui: self.native_ui,
+            native_world: self.native_world,
+        }
+    }
+
     /// Load config from the default path. Missing file returns defaults; parse
     /// errors panic.
     pub fn load() -> Self {
@@ -619,6 +631,8 @@ impl UserConfig {
         a[ConfigKey::VSync as usize] = self.vsync as i32;
         a[ConfigKey::Renderer as usize] = self.renderer as u8 as i32;
         a[ConfigKey::HiRes as usize] = self.hi_res as i32;
+        a[ConfigKey::NativeUi as usize] = i32::from(self.native_ui);
+        a[ConfigKey::NativeWorld as usize] = i32::from(self.native_world);
         a[ConfigKey::FrameInterpolation as usize] = self.frame_interpolation as i32;
         a[ConfigKey::DynamicSky as usize] = self.dynamic_sky as i32;
         a[ConfigKey::Voxels as usize] = self.voxels as i32;
@@ -703,6 +717,8 @@ impl UserConfig {
             _ => RenderType::default(),
         };
         self.hi_res = vals[ConfigKey::HiRes as usize] != 0;
+        self.native_ui = vals[ConfigKey::NativeUi as usize] != 0;
+        self.native_world = vals[ConfigKey::NativeWorld as usize] != 0;
         self.frame_interpolation = vals[ConfigKey::FrameInterpolation as usize] != 0;
         self.dynamic_sky = vals[ConfigKey::DynamicSky as usize] != 0;
         self.voxels = vals[ConfigKey::Voxels as usize] != 0;
@@ -876,6 +892,34 @@ impl UserConfig {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::UserConfig;
+    use nanoserde::{DeRon as _, SerRon as _};
+
+    #[test]
+    fn native_resolution_settings_round_trip_and_old_configs_default_off() {
+        let mut config = UserConfig::default();
+        let original = config.serialize_ron();
+        let legacy = original
+            .replace("native_ui:false,", "")
+            .replace("native_world:false,", "");
+        assert!(!legacy.contains("native_ui"));
+        assert!(!legacy.contains("native_world"));
+        let loaded =
+            UserConfig::deserialize_ron(&legacy).expect("pre-native-resolution config loads");
+        assert!(!loaded.native_ui && !loaded.native_world);
+        config.native_ui = true;
+        config.native_world = true;
+        let mut restored =
+            UserConfig::deserialize_ron(&config.serialize_ron()).expect("settings round trip");
+        assert!(restored.native_ui && restored.native_world);
+        restored.native_ui = false;
+        restored.native_world = false;
+        restored.apply_config_array(&config.to_config_array());
+        assert!(restored.native_ui && restored.native_world);
+    }
+}
 
 #[cfg(test)]
 mod vr_tests {

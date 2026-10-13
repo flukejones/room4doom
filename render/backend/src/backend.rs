@@ -58,6 +58,17 @@ pub enum RenderKind {
 /// Every backend: window queries plus a capability check.
 pub(crate) trait Backend {
     fn window_size(&self) -> (u32, u32);
+    fn display_size(&self) -> (u32, u32) {
+        self.window_size()
+    }
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "physical target sizes are converted to rendering coordinates"
+    )]
+    fn render_aspect(&self) -> f32 {
+        let (w, h) = self.display_size();
+        w.max(1) as f32 / h.max(1) as f32
+    }
     /// 0=windowed, 1=borderless, 2=exclusive.
     fn set_fullscreen(&mut self, mode: u8);
     fn supports(&self, kind: RenderKind) -> bool;
@@ -65,6 +76,7 @@ pub(crate) trait Backend {
 
 /// Show the engine's CPU `[P]` frame. The [`Frame`](crate::Frame) is owned by
 /// [`RenderStack`](crate::RenderStack); the backend only shows `front`.
+#[cfg(feature = "cpu-render")]
 pub(crate) trait SoftwarePresent<P: PixelFmt>: Backend {
     /// Present the `w`×`h` front buffer (tight pitch `w`).
     fn present(&mut self, front: &[P], w: u32, h: u32);
@@ -83,7 +95,7 @@ pub(crate) trait HardwarePresent: Backend {
     fn start_wipe(&mut self, w: u32, h: u32);
     fn is_wiping(&self) -> bool;
     /// Begin recording the scene; the returned handle borrows the held encoder.
-    fn begin_scene(&mut self, w: u32, h: u32) -> GpuHandle<'_>;
+    fn begin_scene(&mut self, w: u32, h: u32, output: (u32, u32)) -> GpuHandle<'_>;
     /// Views this backend needs per frame: 1 for a window, 2 for a headset.
     fn eye_count(&self) -> usize {
         1
@@ -110,7 +122,7 @@ pub(crate) trait HardwarePresent: Backend {
     fn upload_ui(&mut self, planes: UiPlanes<'_>);
     /// Consume the encoder for one eye: scene effects, UI panels over the
     /// result, melt at the current offsets when `wiping`, post-chain, present.
-    fn finish_frame(&mut self, scene_w: u32, scene_h: u32, wiping: bool);
+    fn finish_frame(&mut self, scene_w: u32, scene_h: u32, output: (u32, u32), wiping: bool);
     fn reset_health_bleed(&mut self);
 }
 

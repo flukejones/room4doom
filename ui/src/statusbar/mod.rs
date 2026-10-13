@@ -176,14 +176,14 @@ impl Statusbar {
         let mut y = nums[0].height as f32 * sy;
         let mut x = nums[0].width as f32 * sx;
         if !big {
-            y = y * 2.0 + 2.0;
+            y = y * 2.0 + 2.0 * sy;
             x *= 5.0;
         } else {
-            y = y + self.lil_nums[0].height as f32 * sy + 1.0;
+            y += (self.lil_nums[0].height as f32 + 1.0) * sy;
             x *= 4.0;
         }
         if face {
-            x += self.faces.get_face().width as f32 * sx + 1.0;
+            x += (self.faces.get_face().width as f32 + 1.0) * sx;
         }
 
         let h = if self.status.health < 0 {
@@ -192,15 +192,15 @@ impl Statusbar {
             self.status.health as u32
         };
         if h < 100 {
-            x -= nums[0].width as f32;
+            x -= nums[0].width as f32 * sx;
         }
         if h < 10 {
-            x -= nums[0].width as f32;
+            x -= nums[0].width as f32 * sx;
         }
         draw_num(
             h,
             self.x_ofs + x,
-            self.screen_height - 2.0 - y,
+            self.screen_height - 2.0 * sy - y,
             0,
             nums,
             sx,
@@ -217,23 +217,23 @@ impl Statusbar {
         let (sx, sy) = hud_scale(pixels);
         let nums = &self.lil_nums;
 
-        let y = nums[0].height as f32 * sy + 1.0;
+        let y = (nums[0].height as f32 + 1.0) * sy;
         let mut x = nums[0].width as f32 * sx * 5.0;
         if face {
-            x += self.faces.get_face().width as f32 * sx + 1.0;
+            x += (self.faces.get_face().width as f32 + 1.0) * sx;
         }
 
         let h = self.status.armorpoints as u32;
         if h < 100 {
-            x -= nums[0].width as f32;
+            x -= nums[0].width as f32 * sx;
         }
         if h < 10 {
-            x -= nums[0].width as f32;
+            x -= nums[0].width as f32 * sx;
         }
         draw_num(
             h,
             self.x_ofs + x,
-            self.screen_height - 2.0 - y,
+            self.screen_height - 2.0 * sy - y,
             0,
             nums,
             sx,
@@ -258,12 +258,12 @@ impl Statusbar {
         let (sx, sy) = hud_scale(pixels);
 
         let height = self.big_nums[0].height as f32 * sy;
-        let start_x = self.big_nums[0].width as f32 * sx + self.keys[0].width as f32 * sx + 2.0;
+        let start_x = (self.big_nums[0].width as f32 + self.keys[0].width as f32 + 2.0) * sx;
         let ammo = self.status.ammo[ammo as usize];
         draw_num(
             ammo,
             self.screen_width - start_x,
-            self.screen_height - 2.0 - height - self.grey_nums[0].height as f32 * sy,
+            self.screen_height - (2.0 + self.grey_nums[0].height as f32) * sy - height,
             0,
             &self.big_nums,
             sx,
@@ -278,9 +278,9 @@ impl Statusbar {
         let height = self.keys[3].height as f32 * sy;
         let width = self.keys[0].width as f32 * sx;
 
-        let skull_x = self.screen_width - width - 4.0;
-        let mut x = skull_x - width - 2.0;
-        let start_y = self.screen_height - height - 2.0;
+        let skull_x = self.screen_width - width - 4.0 * sx;
+        let mut x = skull_x - width - 2.0 * sx;
+        let start_y = self.screen_height - height - 2.0 * sy;
 
         for (mut i, owned) in self.status.cards.iter().enumerate() {
             if !*owned {
@@ -293,12 +293,12 @@ impl Statusbar {
                 i -= 3;
                 x = skull_x;
             } else {
-                pad = -3.0;
+                pad = -3.0 * sy;
             }
             draw_patch(
                 patch,
                 x,
-                start_y - pad - height * i as f32 - i as f32,
+                start_y - pad - height * i as f32 - i as f32 * sy,
                 sx,
                 sy,
                 &self.palette,
@@ -320,8 +320,8 @@ impl Statusbar {
             - self.grey_nums[0].width as f32 * sx * mult
             - self.big_nums[0].width as f32 * sx
             - self.keys[0].width as f32 * sx
-            - 2.0;
-        let start_y = self.screen_height - y - 2.0;
+            - 2.0 * sx;
+        let start_y = self.screen_height - y - 2.0 * sy;
 
         for (i, owned) in self.status.weaponowned.iter().enumerate() {
             if self.mode != GameMode::Commercial && i == 8 || !*owned {
@@ -334,7 +334,7 @@ impl Statusbar {
             };
             draw_num(
                 i as u32 + 1,
-                start_x + x * i as f32 + i as f32,
+                start_x + (x + sx) * i as f32,
                 start_y,
                 0,
                 nums,
@@ -365,7 +365,7 @@ impl Statusbar {
         if upper || big {
             x = f32::midpoint(self.x_ofs, self.screen_width) - patch.width as f32 * sx / 2.0;
             y = if upper {
-                FACE_UPPER_Y * sy
+                pixels.ui_layout().origin[1] + FACE_UPPER_Y * sy
             } else {
                 self.screen_height - patch.height as f32 * sy
             };
@@ -408,7 +408,7 @@ impl Statusbar {
 
                     // Left margin
                     for dst_x in 0..bar_left.max(0) as usize {
-                        let flat_x = dst_x % FLAT_SIZE;
+                        let flat_x = (dst_x as f32 / sx).floor() as usize % FLAT_SIZE;
                         let pixel = self.margin_flat[flat_y * FLAT_SIZE + flat_x];
                         if pixel != 0 {
                             buffer.set_pixel(dst_x, dst_y as usize, pixel);
@@ -417,7 +417,8 @@ impl Statusbar {
 
                     // Right margin (180° rotation = flip x and y)
                     for dst_x in bar_right..buf_w {
-                        let flat_x = (FLAT_SIZE - 1) - ((dst_x - bar_right) % FLAT_SIZE);
+                        let flat_x = (FLAT_SIZE - 1)
+                            - (((dst_x - bar_right) as f32 / sx).floor() as usize % FLAT_SIZE);
                         let flat_y_r = (FLAT_SIZE - 1) - flat_y;
                         let pixel = self.margin_flat[flat_y_r * FLAT_SIZE + flat_x];
                         if pixel != 0 {
@@ -455,9 +456,11 @@ impl Statusbar {
 
     fn draw_bar(&self, buffer: &mut impl DrawBuffer) {
         let (sx, sy) = hud_scale(buffer);
-        let bar_y = buffer.size().view_height_f32();
+        let layout = buffer.ui_layout();
+        let y = layout.origin[1];
+        let bar_y = y + layout.height() - STBAR_HEIGHT as f32 * sy;
         // STBAR is always centered, regardless of widescreen HUD setting
-        let x = (buffer.size().width_f32() - 320.0 * sx) / 2.0;
+        let x = layout.origin[0];
 
         self.draw_stbar_background(sx, sy, bar_y, x, buffer);
 
@@ -468,7 +471,7 @@ impl Statusbar {
             draw_patch(
                 patch,
                 x + ST_ARMSBGX * sx,
-                ST_ARMSBGY * sy,
+                y + ST_ARMSBGY * sy,
                 sx,
                 sy,
                 &self.palette,
@@ -481,7 +484,7 @@ impl Statusbar {
         draw_patch(
             face,
             x + ST_FACESX * sx,
-            ST_FACESY * sy,
+            y + ST_FACESY * sy,
             sx,
             sy,
             &self.palette,
@@ -498,7 +501,7 @@ impl Statusbar {
                 draw_num(
                     self.status.ammo[ammo_type as usize],
                     x + ST_AMMOX * sx,
-                    ST_AMMOY * sy,
+                    y + ST_AMMOY * sy,
                     0,
                     &self.big_nums,
                     sx,
@@ -518,7 +521,7 @@ impl Statusbar {
         draw_num(
             h,
             x + ST_HEALTHX * sx,
-            ST_HEALTHY * sy,
+            y + ST_HEALTHY * sy,
             0,
             &self.big_nums,
             sx,
@@ -536,7 +539,7 @@ impl Statusbar {
         draw_num(
             a,
             x + ST_ARMORX * sx,
-            ST_ARMORY * sy,
+            y + ST_ARMORY * sy,
             0,
             &self.big_nums,
             sx,
@@ -561,7 +564,7 @@ impl Statusbar {
                 draw_num(
                     i as u32 + 2,
                     x + (ST_ARMSX + col * ST_ARMSXSPACE) * sx,
-                    (ST_ARMSY + row * ST_ARMSYSPACE) * sy,
+                    y + (ST_ARMSY + row * ST_ARMSYSPACE) * sy,
                     0,
                     nums,
                     sx,
@@ -582,7 +585,7 @@ impl Statusbar {
             draw_patch(
                 &self.keys[i],
                 x + ST_KEY0X * sx,
-                key_ys[row] * sy,
+                y + key_ys[row] * sy,
                 sx,
                 sy,
                 &self.palette,
@@ -597,7 +600,7 @@ impl Statusbar {
             draw_num(
                 self.status.ammo[i],
                 x + ST_AMMO0X * sx,
-                ammo_ys[i] * sy,
+                y + ammo_ys[i] * sy,
                 0,
                 &self.yell_nums,
                 sx,
@@ -608,7 +611,7 @@ impl Statusbar {
             draw_num(
                 self.status.maxammo[i],
                 x + ST_MAXAMMO0X * sx,
-                max_ys[i] * sy,
+                y + max_ys[i] * sy,
                 0,
                 &self.yell_nums,
                 sx,
@@ -641,10 +644,10 @@ impl SubsystemTrait for Statusbar {
             self.x_ofs = 0.0;
             self.screen_width = buffer.size().width_f32();
         } else {
-            self.x_ofs = (buffer.size().width_f32() - 320.0 * sx) / 2.0;
+            self.x_ofs = buffer.ui_layout().origin[0];
             self.screen_width = self.x_ofs + 320.0 * sx;
         }
-        self.screen_height = buffer.size().height_f32();
+        self.screen_height = buffer.ui_layout().origin[1] + buffer.ui_layout().height();
 
         if self.bar_mode {
             self.draw_bar(buffer);
@@ -678,4 +681,27 @@ fn decode_patch_to_rgba(patch: &WadPatch, palette: &WadPalette) -> Vec<u32> {
         }
     }
     buf
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use test_utils::doom1_wad_path;
+
+    #[test]
+    fn classic_statusbar_uses_shared_layout_on_native_targets() {
+        let wad = WadData::new(&doom1_wad_path());
+        let mut statusbar = Statusbar::new(GameMode::Shareware, &wad);
+        statusbar.bar_mode = true;
+        for (w, h, display) in [
+            (320, 200, (640, 480)),
+            (1280, 720, (1280, 720)),
+            (721, 541, (721, 541)),
+            (480, 640, (480, 640)),
+        ] {
+            let mut surface = crate::tests::Surface::new(w, h, display);
+            statusbar.draw(&mut surface);
+            surface.capture(&format!("statusbar-{w}x{h}"));
+        }
+    }
 }

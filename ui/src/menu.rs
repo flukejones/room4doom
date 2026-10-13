@@ -253,6 +253,7 @@ pub struct MenuState {
     restart_needed: bool,
     video_snapshot: Option<Vec<(ConfigKey, i32)>>,
     last_on: Vec<usize>,
+    graphics_selection: Option<ConfigKey>,
 }
 
 const MUSIC_TYPE_OPTIONS: &[&str] = &[lang::OPT_MUS_OPL2, lang::OPT_MUS_OPL3, lang::OPT_MUS_GUS];
@@ -284,6 +285,8 @@ const HUD_MSG_MODE_OPTIONS: &[&str] = &[
 type Patches = HashMap<String, WadPatch>;
 
 pub struct GameMenu {
+    hardware_renderer: bool,
+    vr_active: bool,
     /// Is the menu active?
     active: bool,
     /// A specific helper for pressing F1
@@ -322,7 +325,7 @@ impl GameMenu {
     /// - Creates all menu pages (top-level, episodes, skill, options, etc.)
     /// - Pre-caches title/item/skull patches from the WAD
     /// - Adjusts episode count based on available WAD lumps
-    pub fn new(mode: GameMode, wad: &WadData, buf_width: i32) -> Self {
+    pub fn new(mode: GameMode, wad: &WadData) -> Self {
         let x_pos = |original_x: i32| -> i32 { original_x };
 
         let save_slot_items = |action: MenuAction| -> Vec<MenuItem> {
@@ -408,7 +411,7 @@ impl GameMenu {
                 MenuIndex::ReadThis1,
                 MenuIndex::TopLevel,
                 vec![],
-                buf_width / 2 - 160,
+                0,
                 0,
                 #[allow(
                     clippy::match_same_arms,
@@ -439,7 +442,7 @@ impl GameMenu {
                 MenuIndex::ReadThis2,
                 MenuIndex::ReadThis1,
                 vec![],
-                buf_width / 2 - 160,
+                0,
                 0,
                 match mode {
                     GameMode::Commercial | GameMode::Retail => vec![MenuItem::new(
@@ -527,6 +530,7 @@ impl GameMenu {
                         ConfigKey::HiRes,
                         &[lang::OPT_DETAIL_LOW, lang::OPT_DETAIL_HIGH],
                     ),
+                    MenuItem::toggle(lang::OPT_NATIVE_UI, ConfigKey::NativeUi),
                     MenuItem::toggle(lang::OPT_FRAME_INTERP, ConfigKey::FrameInterpolation),
                     MenuItem::toggle(lang::OPT_HEALTH_BLEED, ConfigKey::HealthBleed),
                     MenuItem::toggle(lang::OPT_VOXELS, ConfigKey::Voxels),
@@ -615,6 +619,8 @@ impl GameMenu {
             active: false,
             in_help: false,
             save_enter: false,
+            hardware_renderer: false,
+            vr_active: false,
             save_slot: 0,
             save_old: String::new(),
             save_char_idx: 0,
@@ -631,6 +637,38 @@ impl GameMenu {
             dim_background: true,
             video_snapshot: None,
         }
+    }
+
+    /// Reflect the active renderer and display without changing saved preferences.
+    pub fn set_render_context(&mut self, hardware: bool, vr: bool) {
+        let page = &mut self.menus[MenuIndex::OptGraphics as usize];
+        let selected = page.items[page.last_on].config_key;
+        if hardware != self.hardware_renderer {
+            if hardware {
+                let index = page
+                    .items
+                    .iter()
+                    .position(|i| i.config_key == Some(ConfigKey::NativeUi))
+                    .expect("graphics page has native UI")
+                    + 1;
+                page.items.insert(
+                    index,
+                    MenuItem::toggle(lang::OPT_NATIVE_WORLD, ConfigKey::NativeWorld),
+                );
+            } else {
+                page.items
+                    .retain(|i| i.config_key != Some(ConfigKey::NativeWorld));
+            }
+            page.last_on = page
+                .items
+                .iter()
+                .position(|i| i.config_key == selected)
+                .unwrap_or(0);
+        }
+        let item_count = i32::try_from(page.items.len()).expect("menu item count fits i32");
+        page.y = ((200 - item_count * LINEHEIGHT) / 2).max(8);
+        self.hardware_renderer = hardware;
+        self.vr_active = vr;
     }
 
     /// Sets menu state for entering
@@ -721,7 +759,7 @@ impl GameMenu {
 
     /// Apply a left/right adjustment to a slider, toggle, or cycle menu item.
     /// Returns true if the value changed.
-    fn adjust_option_item<T: GameTraits + ConfigTraits>(
+    fn adjust_option_item<T: ConfigTraits>(
         &mut self,
         menu_idx: usize,
         item_idx: usize,
@@ -732,6 +770,9 @@ impl GameMenu {
         let Some(key) = item.config_key else {
             return false;
         };
+        if self.vr_active && key == ConfigKey::NativeUi {
+            return false;
+        }
         let val = game.config_value(key);
         let new_val = match &item.kind {
             ItemKind::Slider {
@@ -902,6 +943,10 @@ impl GameMenu {
             restart_needed: self.restart_needed,
             video_snapshot: self.video_snapshot.clone(),
             last_on: self.menus.iter().map(|m| m.last_on).collect(),
+            graphics_selection: {
+                let page = &self.menus[MenuIndex::OptGraphics as usize];
+                page.items[page.last_on].config_key
+            },
         }
     }
 
@@ -915,6 +960,12 @@ impl GameMenu {
                 self.menus[i].last_on = pos;
             }
         }
+        let page = &mut self.menus[MenuIndex::OptGraphics as usize];
+        page.last_on = page
+            .items
+            .iter()
+            .position(|i| i.config_key == state.graphics_selection)
+            .unwrap_or(0);
     }
 
     /// A page whose rows are labelled settings rather than patches. Derived
@@ -1034,14 +1085,14 @@ impl GameMenu {
             };
 
             // Horizontal centering offset: menus are designed for 320-wide space.
-            let x_ofs = (pixels.size().width_f32() - 320.0 * draw_sx) / 2.0;
+            let [x_ofs, y_ofs] = pixels.ui_layout().origin;
 
             // Titles
             for item in &active.titles {
                 draw_patch(
                     self.get_patch(&item.patch),
                     x_ofs + item.x as f32 * draw_sx,
-                    item.y as f32 * draw_sy,
+                    y_ofs + item.y as f32 * draw_sy,
                     draw_sx,
                     draw_sy,
                     &self.palette,
@@ -1055,7 +1106,7 @@ impl GameMenu {
             } else {
                 x_ofs + active.x as f32 * draw_sx
             };
-            let mut y = active.y as f32 * draw_sy;
+            let mut y = y_ofs + active.y as f32 * draw_sy;
 
             if is_save_load {
                 for i in 0..active.items.len() {
@@ -1071,7 +1122,7 @@ impl GameMenu {
                     );
                     if self.save_enter && i == self.save_slot {
                         let cursor_x = x + measure_text_line(&self.save_strings[i], draw_sx);
-                        let y = y + LINEHEIGHT as f32 * 0.33;
+                        let y = y + LINEHEIGHT as f32 * 0.33 * draw_sy;
                         draw_text_line("_", cursor_x, y, draw_sx, draw_sy, &self.palette, pixels);
                     }
                     y += LINEHEIGHT as f32 * draw_sy;
@@ -1115,11 +1166,14 @@ impl GameMenu {
                             self.draw_thermo(therm_x, y, therm_w, dot, draw_sx, draw_sy, pixels);
                         }
                         ItemKind::Toggle => {
-                            let text = if item.cached_value != 0 {
-                                lang::OPT_ON
-                            } else {
-                                lang::OPT_OFF
-                            };
+                            let text =
+                                if self.vr_active && item.config_key == Some(ConfigKey::NativeUi) {
+                                    lang::OPT_ON_VR
+                                } else if item.cached_value != 0 {
+                                    lang::OPT_ON
+                                } else {
+                                    lang::OPT_OFF
+                                };
                             draw_text_line_tinted(
                                 text,
                                 center_x + gap,
@@ -1152,7 +1206,7 @@ impl GameMenu {
                     y += LINEHEIGHT as f32 * draw_sy;
                 }
                 if self.restart_needed && self.in_options_submenu() {
-                    let note_y = pixels.size().height_f32() - 16.0 * draw_sy;
+                    let note_y = y_ofs + pixels.ui_layout().height() - 16.0 * draw_sy;
                     draw_text_line(
                         lang::OPT_RESTART,
                         x_ofs + 32.0 * draw_sx,
@@ -1182,7 +1236,8 @@ impl GameMenu {
 
             if !is_fullscreen && !is_options {
                 // SKULL cursor
-                let y = active.y as f32 * sy - 5.0 + active.last_on as f32 * LINEHEIGHT as f32 * sy;
+                let y = y_ofs
+                    + (active.y as f32 - 5.0 + active.last_on as f32 * LINEHEIGHT as f32) * sy;
                 draw_patch(
                     self.get_patch(SKULLS[self.which_skull]),
                     x - 32.0 * sx,
@@ -1408,6 +1463,11 @@ impl SubsystemTrait for GameMenu {
                 KeyCode::Left | KeyCode::Right => {
                     let idx = self.current_menu as usize;
                     let last_on = self.menus[idx].last_on;
+                    if self.vr_active
+                        && !matches!(self.menus[idx].items[last_on].kind, ItemKind::Slider { .. })
+                    {
+                        return true;
+                    }
                     let dir = if sc == KeyCode::Right { 1 } else { -1 };
                     if self.adjust_option_item(idx, last_on, dir, game) {
                         game.start_sound(SfxName::Pstop);
@@ -1455,5 +1515,107 @@ impl SubsystemTrait for GameMenu {
 
     fn draw(&mut self, buffer: &mut impl DrawBuffer) {
         self.draw_pixels(buffer);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use test_utils::doom1_wad_path;
+
+    struct Config {
+        values: [i32; ConfigKey::KeyCount as usize],
+        dirty: bool,
+    }
+
+    impl ConfigTraits for Config {
+        fn config_value(&self, key: ConfigKey) -> i32 {
+            self.values[key as usize]
+        }
+        fn set_config_value(&mut self, key: ConfigKey, value: i32) {
+            self.values[key as usize] = value;
+        }
+        fn mark_config_changed(&mut self) {
+            self.dirty = true;
+        }
+        fn is_config_dirty(&self) -> bool {
+            self.dirty
+        }
+        fn clear_config_dirty(&mut self) {
+            self.dirty = false;
+        }
+        fn config_snapshot(&self) -> [i32; ConfigKey::KeyCount as usize] {
+            self.values
+        }
+    }
+
+    #[test]
+    fn graphics_rows_follow_renderer_and_vr_preserves_desktop_preference() {
+        let wad = WadData::new(&doom1_wad_path());
+        hud_util::load_char_patches(&wad);
+        let mut menu = GameMenu::new(GameMode::Shareware, &wad);
+        let page = MenuIndex::OptGraphics as usize;
+        assert!(
+            menu.menus[page]
+                .items
+                .iter()
+                .any(|i| i.config_key == Some(ConfigKey::NativeUi))
+        );
+        assert!(
+            !menu.menus[page]
+                .items
+                .iter()
+                .any(|i| i.config_key == Some(ConfigKey::NativeWorld))
+        );
+        menu.set_render_context(true, false);
+        let world = menu.menus[page]
+            .items
+            .iter()
+            .position(|i| i.config_key == Some(ConfigKey::NativeWorld))
+            .expect("hardware world option");
+        menu.menus[page].last_on = world;
+        let state = menu.save_state();
+        menu.set_render_context(false, false);
+        menu.restore_state(state);
+        assert_eq!(menu.menus[page].last_on, 0);
+        assert!(
+            !menu.menus[page]
+                .items
+                .iter()
+                .any(|i| i.config_key == Some(ConfigKey::NativeWorld))
+        );
+        menu.set_render_context(true, true);
+        let ui = menu.menus[page]
+            .items
+            .iter()
+            .position(|i| i.config_key == Some(ConfigKey::NativeUi))
+            .expect("UI option");
+        let mut config = Config {
+            values: [0; ConfigKey::KeyCount as usize],
+            dirty: false,
+        };
+        assert!(!menu.adjust_option_item(page, ui, 1, &mut config));
+        assert_eq!(config.config_value(ConfigKey::NativeUi), 0);
+        assert!(!config.dirty);
+        menu.set_render_context(true, false);
+        assert!(menu.adjust_option_item(page, ui, 1, &mut config));
+        assert_eq!(config.config_value(ConfigKey::NativeUi), 1);
+        let graphics = &menu.menus[page];
+        assert!(
+            graphics.y + i32::try_from(graphics.items.len()).expect("menu row count") * LINEHEIGHT
+                <= 200
+        );
+        menu.active = true;
+        menu.current_menu = MenuIndex::OptGraphics;
+        for (w, h, display) in [
+            (320, 200, (640, 480)),
+            (960, 720, (960, 720)),
+            (721, 541, (721, 541)),
+            (480, 640, (480, 640)),
+        ] {
+            let mut surface = crate::tests::Surface::new(w, h, display);
+            menu.draw(&mut surface);
+            surface.capture(&format!("graphics-{w}x{h}"));
+        }
     }
 }

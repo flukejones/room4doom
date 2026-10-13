@@ -113,6 +113,9 @@ pub const OPT_MENU_DIM: &str = "DIM MENU BG";
 pub const OPT_END_GAME: &str = "END GAME";
 pub const OPT_MESSAGES: &str = "MESSAGES";
 pub const OPT_DETAIL: &str = "GRAPHIC DETAIL";
+pub const OPT_NATIVE_UI: &str = "NATIVE UI";
+pub const OPT_NATIVE_WORLD: &str = "NATIVE WORLD";
+pub const OPT_ON_VR: &str = "ON (VR)";
 pub const OPT_DETAIL_HIGH: &str = "HIGH";
 pub const OPT_DETAIL_LOW: &str = "LOW";
 

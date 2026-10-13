@@ -8,6 +8,7 @@
 
 #[cfg(feature = "hprof")]
 use coarse_prof::profile;
+#[cfg(all(not(feature = "display-sdl2"), feature = "cpu-render"))]
 use pic_data::PixelFmt;
 use wgpu::CurrentSurfaceTexture::{Suboptimal, Success};
 #[cfg(feature = "wgpu3d")]
@@ -23,6 +24,7 @@ use render_common::{EYE_COUNT, EyeView};
 use crate::backend::PanelPlacement;
 #[cfg(feature = "wgpu3d")]
 use crate::backend::{ScreenEffects, UiPlanes};
+use crate::wgpu_backend::FORMAT;
 #[cfg(feature = "vr")]
 use crate::wgpu_backend::headset::Headset;
 #[cfg(feature = "vr")]
@@ -32,7 +34,8 @@ use crate::wgpu_backend::panel::{self, PanelPipeline};
 use crate::wgpu_backend::post::{PostChain, PostEffect};
 #[cfg(feature = "wgpu3d")]
 use crate::wgpu_backend::scene::{self, GpuTargets, Melt};
-use crate::wgpu_backend::{FORMAT, PIXEL_BYTES, as_u32_slice, bytemuck_cast};
+#[cfg(all(not(feature = "display-sdl2"), feature = "cpu-render"))]
+use crate::wgpu_backend::{PIXEL_BYTES, as_u32_slice, bytemuck_cast};
 
 /// The engine framebuffer texture and its dimensions. The software-present path
 /// uploads an externally-owned `[u32]` front buffer into it each frame.
@@ -75,7 +78,7 @@ impl FrameTexture {
     }
 
     /// Upload `pixels` (tight `w*h`) into the GPU texture (software present path).
-    #[cfg(not(feature = "display-sdl2"))]
+    #[cfg(all(not(feature = "display-sdl2"), feature = "cpu-render"))]
     fn upload(&self, queue: &wgpu::Queue, pixels: &[u32]) {
         let bytes: &[u8] = bytemuck_cast(pixels);
         queue.write_texture(
@@ -372,7 +375,7 @@ impl GpuPresenter {
     /// Upload the `buf_w`×`buf_h` front buffer (tight pitch `buf_w`) and run the
     /// post-chain to the window (`win_w`×`win_h`). u32-only (`Bgra8Unorm`): `P`
     /// must be `u32` (asserted), reinterpreted as `[u32]` for upload.
-    #[cfg(not(feature = "display-sdl2"))]
+    #[cfg(all(not(feature = "display-sdl2"), feature = "cpu-render"))]
     pub(crate) fn present_software<P: PixelFmt>(
         &mut self,
         front: &[P],
@@ -424,14 +427,28 @@ impl GpuPresenter {
             self.surface_size = win;
         }
         if frame_changed || surface_changed {
+            #[cfg(feature = "vr")]
+            let post_size = self
+                .headset
+                .as_ref()
+                .map_or(self.surface_size, |h| h.session.view_size());
+            #[cfg(not(feature = "vr"))]
+            let post_size = self.surface_size;
             for (chain, frame) in self.chains.iter_mut().zip(&self.frames) {
-                chain.resize(&self.device, &frame.view, self.surface_size);
+                chain.resize(&self.device, &frame.view, post_size);
             }
         }
     }
 
     /// Index into `frames`/`chains` for the view being rendered: the
     /// current eye in VR, the single window frame otherwise.
+    #[cfg_attr(
+        not(feature = "vr"),
+        expect(
+            clippy::unused_self,
+            reason = "the VR build reads the current eye from this presenter"
+        )
+    )]
     fn cur_view(&self) -> usize {
         #[cfg(feature = "vr")]
         {
@@ -521,8 +538,9 @@ impl GpuPresenter {
         buf_h: u32,
         win_w: u32,
         win_h: u32,
+        output: (u32, u32),
     ) -> GpuHandle<'_> {
-        self.ensure_frame(buf_w, buf_h, win_w, win_h);
+        self.ensure_frame(buf_w, buf_h, win_w, win_h, output);
         self.scene_recorded = true;
         let gpu = self.gpu.targets.as_mut().expect("gpu targets built above");
         GpuHandle {
@@ -548,10 +566,14 @@ impl GpuPresenter {
     /// it. A `None` plane received nothing this frame and is neither uploaded
     /// nor drawn.
     pub(crate) fn upload_ui(&mut self, planes: UiPlanes<'_>) {
+        #[cfg(feature = "vr")]
+        let projected = self.headset.is_some();
+        #[cfg(not(feature = "vr"))]
+        let projected = false;
         let pipeline = self
             .gpu
             .panels
-            .get_or_insert_with(|| PanelPipeline::new(&self.device));
+            .get_or_insert_with(|| PanelPipeline::new(&self.device, projected));
         for (slot, live, plane) in [
             (&mut self.gpu.hud, &mut self.gpu.hud_live, planes.hud),
             (
@@ -648,13 +670,14 @@ impl GpuPresenter {
         buf_h: u32,
         win_w: u32,
         win_h: u32,
+        output: (u32, u32),
         wiping: bool,
     ) {
         #[cfg(feature = "hprof")]
         profile!("wgpu_gpu_frame");
 
         // A UI-only frame (no player view) still needs targets/encoder.
-        self.ensure_frame(buf_w, buf_h, win_w, win_h);
+        self.ensure_frame(buf_w, buf_h, win_w, win_h, output);
         let scene_recorded = self.scene_recorded;
         let cur = self.cur_view();
         let mut encoder = self.encoder.take().expect("encoder built above");
@@ -727,6 +750,8 @@ impl GpuPresenter {
             self.chains[cur].render(&mut encoder, &view, [0, 0, win_w, win_h]);
             self.queue.submit(Some(encoder.finish()));
             surface_tex.present();
+        } else if !presented_to_eye {
+            self.queue.submit(Some(encoder.finish()));
         }
 
         self.frame_effects = SceneEffects::default();
@@ -783,6 +808,14 @@ impl GpuPresenter {
     }
 
     /// Views needed per frame: both eyes in VR, one otherwise.
+    #[cfg_attr(
+        not(feature = "vr"),
+        expect(
+            clippy::unused_self,
+            reason = "the VR build queries this presenter's headset"
+        )
+    )]
+    #[cfg(not(feature = "display-sdl2"))]
     pub(crate) fn eye_count(&self) -> usize {
         #[cfg(feature = "vr")]
         if self.headset.is_some() {
@@ -793,8 +826,8 @@ impl GpuPresenter {
 
     /// Ensure targets, composite, melt (when wiping), and a live encoder exist,
     /// snapshotting the previous frame on a wipe's first frame. Idempotent.
-    fn ensure_frame(&mut self, buf_w: u32, buf_h: u32, win_w: u32, win_h: u32) {
-        self.sync_sizes(win_w, win_h, buf_w, buf_h);
+    fn ensure_frame(&mut self, buf_w: u32, buf_h: u32, win_w: u32, win_h: u32, output: (u32, u32)) {
+        self.sync_sizes(win_w, win_h, output.0, output.1);
         if self
             .gpu
             .targets
@@ -815,12 +848,14 @@ impl GpuPresenter {
                 .gpu
                 .melts
                 .first()
-                .is_some_and(|m| m.w != buf_w || m.h != buf_h)
+                .is_some_and(|m| m.w != output.0 || m.h != output.1)
             {
                 self.gpu.melts.clear();
             }
             while self.gpu.melts.len() < self.frames.len() {
-                self.gpu.melts.push(Melt::new(&self.device, buf_w, buf_h));
+                self.gpu
+                    .melts
+                    .push(Melt::new(&self.device, output.0, output.1));
             }
         }
         if self.encoder.is_none() {
@@ -849,6 +884,10 @@ impl GpuPresenter {
     /// [`Headset::begin_frame`].
     pub(crate) fn vr_begin_frame(&mut self) -> Option<[Option<EyeView>; EYE_COUNT]> {
         self.headset.as_mut()?.begin_frame()
+    }
+
+    pub(crate) fn vr_target_size(&self) -> Option<(u32, u32)> {
+        self.headset.as_ref().map(|h| h.session.view_size())
     }
 
     /// Aim the next scene and present at `eye` of the frame already begun.
@@ -884,5 +923,134 @@ impl GpuPresenter {
     /// The live VR session, for callers that need more than a frame.
     pub(crate) fn vr_session_mut(&mut self) -> Option<&mut vr::Session> {
         self.headset.as_mut().map(|h| &mut h.session)
+    }
+}
+
+#[cfg(all(test, feature = "wgpu3d"))]
+mod tests {
+    use super::*;
+    use crate::backend::UiPixels;
+
+    #[test]
+    fn native_ui_detail_survives_low_resolution_scene_and_post_chain() {
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
+        let Ok(adapter) =
+            pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions::default()))
+        else {
+            eprintln!("native UI GPU test skipped: no adapter");
+            return;
+        };
+        let (device, queue) =
+            pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default()))
+                .expect("test device");
+        let mut presenter = GpuPresenter::new(
+            None,
+            device,
+            queue,
+            surface_config(64, 48, false),
+            vec![PostEffect::Stretch, PostEffect::Stretch],
+            64,
+            48,
+        );
+        for (scene, ui_size) in [
+            ((4, 3), (64, 48)),
+            ((64, 48), (32, 24)),
+            ((64, 48), (64, 48)),
+        ] {
+            let pixels: Vec<u32> = (0u32..ui_size.0 * ui_size.1)
+                .map(|i| {
+                    if (i % ui_size.0).is_multiple_of(2) {
+                        0xFFFF_FFFF
+                    } else {
+                        0xFF00_0000
+                    }
+                })
+                .collect();
+            presenter.upload_ui(UiPlanes {
+                hud: Some(UiPixels {
+                    pixels: &pixels,
+                    w: ui_size.0,
+                    h: ui_size.1,
+                }),
+                screen: None,
+            });
+            presenter.finish_frame(scene.0, scene.1, 64, 48, (64, 48), false);
+            let targets = presenter.gpu.targets.as_ref().expect("scene targets");
+            assert_eq!((targets.w, targets.h), scene);
+            assert_eq!((presenter.frames[0].w, presenter.frames[0].h), (64, 48));
+            let post = FrameTexture::new(&presenter.device, 64, 48);
+            let mut encoder = presenter
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
+            presenter.chains[0].render(&mut encoder, &post.view, [0, 0, 64, 48]);
+            presenter.queue.submit([encoder.finish()]);
+            let bytes = readback(&presenter, &post.texture);
+            for row in bytes.as_chunks::<256>().0 {
+                for (x, pixel) in row.as_chunks::<4>().0.iter().enumerate() {
+                    let expected = if (x * ui_size.0 as usize / 64).is_multiple_of(2) {
+                        255
+                    } else {
+                        0
+                    };
+                    assert_eq!(
+                        *pixel,
+                        [expected, expected, expected, 255],
+                        "UI texels at output column {x}"
+                    );
+                }
+            }
+        }
+        presenter.upload_ui(UiPlanes {
+            hud: None,
+            screen: None,
+        });
+        presenter.finish_frame(4, 3, 64, 48, (64, 48), false);
+        let bytes = readback(&presenter, &presenter.frames[0].texture);
+        assert!(
+            bytes
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .all(|p| *p == [0, 0, 0, 255]),
+            "stale UI cleared"
+        );
+    }
+
+    fn readback(presenter: &GpuPresenter, texture: &wgpu::Texture) -> Vec<u8> {
+        let buffer = presenter.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("native-ui-readback"),
+            size: 256 * 48,
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+            mapped_at_creation: false,
+        });
+        let mut encoder = presenter
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
+        encoder.copy_texture_to_buffer(
+            texture.as_image_copy(),
+            wgpu::TexelCopyBufferInfo {
+                buffer: &buffer,
+                layout: wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(256),
+                    rows_per_image: Some(48),
+                },
+            },
+            wgpu::Extent3d {
+                width: 64,
+                height: 48,
+                depth_or_array_layers: 1,
+            },
+        );
+        presenter.queue.submit([encoder.finish()]);
+        let slice = buffer.slice(..);
+        slice.map_async(wgpu::MapMode::Read, |result| result.expect("readback map"));
+        presenter
+            .device
+            .poll(wgpu::PollType::wait_indefinitely())
+            .expect("readback poll");
+        let bytes = slice.get_mapped_range().to_vec();
+        buffer.unmap();
+        bytes
     }
 }

@@ -54,16 +54,23 @@
 
 use std::sync::Arc;
 
+#[cfg(feature = "cpu-render")]
+use hud_util::{draw_text_line, hud_scale, measure_text_line};
 use level::LevelData;
 #[cfg(feature = "cpu-render")]
-use pic_data::{ByteOrder, PalLitCache};
-use pic_data::{PicData, PixelFmt, VoxelManager};
+use pic_data::PalLitCache;
+use pic_data::{ByteOrder, PicData, PixelFmt, VoxelManager};
+#[cfg(feature = "cpu-render")]
+use render_common::DrawBuffer as _;
 #[cfg(feature = "wgpu3d")]
 use render_common::HandPose;
-use render_common::{BufferSize, EYE_COUNT, EyeView, RenderView};
+use render_common::{BufferSize, EYE_COUNT, EyeView, RenderView, UiLayout};
 
 mod frame;
 pub use frame::{Frame, UiSurface};
+mod resolution;
+use resolution::Resolution;
+pub use resolution::ResolutionOptions;
 
 mod backend;
 use backend::Backend as _;
@@ -106,11 +113,6 @@ mod softbuffer_backend;
 mod wgpu_backend;
 #[cfg(feature = "display-wgpu")]
 pub use wgpu_backend::PostEffect;
-
-/// The 1.2× pixel aspect OG Doom presents at; on a monitor the buffer width is
-/// chosen so the compositor's buffer→window scale reproduces it.
-#[cfg(feature = "software25d")]
-use render_common::CRT_STRETCH;
 
 /// The active renderer kind. A bare selector — the live renderer lives in
 /// [`WorldRenderer`]; this is the user/config-facing choice.
@@ -176,12 +178,6 @@ fn byte_order() -> ByteOrder {
 const HUD_PLANE: usize = 0;
 const SCREEN_PLANE: usize = 1;
 
-/// Doom's virtual UI screen. Every subsystem lays out in 320×200 and centres
-/// itself with `(plane_width - 320 * plane_height / 200) / 2`, so a plane
-/// narrower than this aspect gives a negative offset and clips both edges.
-const UI_VIRTUAL_WIDTH: u32 = 320;
-const UI_VIRTUAL_HEIGHT: u32 = 200;
-
 /// The consumer-facing render target: a backend + an active renderer + the shared
 /// CPU [`Frame`] + the engine UI-layout state ([`Self::set_statusbar_height`]).
 ///
@@ -192,6 +188,9 @@ pub struct RenderStack<P: PixelFmt> {
     /// The shared CPU framebuffer + melt-wipe. The software present path draws
     /// scene and UI here; on the hardware path its surface is the hud plane.
     frame: Frame<P>,
+    #[cfg(feature = "cpu-render")]
+    scene: Option<UiSurface<P>>,
+    resolution: Resolution,
     /// Dedicated UI planes, on a display that wants more than one. `None` on a
     /// flat display, where the UI is the frame's own surface and the menu simply
     /// draws over the statusbar. Indexed by [`HUD_PLANE`]/[`SCREEN_PLANE`].
@@ -215,45 +214,50 @@ pub struct RenderStack<P: PixelFmt> {
 }
 
 impl<P: PixelFmt> RenderStack<P> {
-    /// Build a screen for `render_type` over `backend`. `double` selects the
-    /// 400px hi-res buffer.
-    ///
-    /// software25d draws OG tall pixels, so its buffer is 1.2× wider than
-    /// the display and the fill blit stretches it back — the CRT look.
-    /// The full-3D renderers draw square pixels at the display's aspect.
-    pub fn new(double: bool, backend: ActiveBackend<P>, render_type: RenderType) -> Self {
-        let (win_w, win_h) = backend.window_size();
-        let buf_height = if double { 400u32 } else { 200u32 };
-        #[cfg(feature = "software25d")]
-        let pixel_aspect = if render_type == RenderType::Software {
-            CRT_STRETCH
-        } else {
-            1.0
-        };
-        #[cfg(not(feature = "software25d"))]
-        let pixel_aspect = 1.0;
-        let buf_width = ((win_w as f32 * buf_height as f32 * pixel_aspect / win_h as f32).round()
-            as u32)
-            .max(buf_height);
-        let (w, h) = (buf_width as usize, buf_height as usize);
-        let world_renderer = WorldRenderer::new(render_type, buf_width as f32, buf_height as f32);
-        // More than one viewpoint means the UI planes are placed independently
-        // in space, so each needs its own surface.
-        let mut panes = None;
+    /// Build independent world and UI targets, reusing the display's presentation path.
+    pub fn new(
+        options: impl Into<ResolutionOptions>,
+        backend: ActiveBackend<P>,
+        render_type: RenderType,
+    ) -> Self {
         #[cfg(feature = "wgpu3d")]
-        if world_renderer.is_wgpu3d() && HardwarePresent::eye_count(&backend) > 1 {
-            let plane_w = buf_height * UI_VIRTUAL_WIDTH / UI_VIRTUAL_HEIGHT;
-            panes = Some([
-                UiSurface::new(plane_w, buf_height, byte_order()),
-                UiSurface::new(plane_w, buf_height, byte_order()),
-            ]);
-        }
+        let stereo =
+            render_type.kind() == RenderKind::Hardware && HardwarePresent::eye_count(&backend) > 1;
+        #[cfg(not(feature = "wgpu3d"))]
+        let stereo = false;
+        let resolution = Resolution::new(
+            options.into(),
+            render_type,
+            backend.display_size(),
+            backend.render_aspect(),
+            stereo,
+        );
+        let (w, h) = resolution.world;
+        let (ui_w, ui_h) = resolution.ui;
+        let size = BufferSize::new(w as usize, h as usize);
+        let world_renderer = WorldRenderer::new(render_type, size.width_f32(), size.height_f32());
+        let (frame_w, frame_h) = if stereo { (1, 1) } else { resolution.ui };
+        let mut frame = Frame::new(frame_w, frame_h, byte_order());
+        frame.set_display_size(resolution.display);
+        let panes = if stereo {
+            Some([
+                UiSurface::new(ui_w, ui_h, byte_order()),
+                UiSurface::new(ui_w, ui_h, byte_order()),
+            ])
+        } else {
+            None
+        };
         Self {
             backend,
             world_renderer,
-            frame: Frame::new(buf_width, buf_height, byte_order()),
+            frame,
+            #[cfg(feature = "cpu-render")]
+            scene: (render_type.kind() == RenderKind::Software
+                && resolution.world != resolution.ui)
+                .then(|| UiSurface::new(w, h, byte_order())),
+            resolution,
             panes,
-            size: BufferSize::new(w, h),
+            size,
             render_type,
             #[cfg(feature = "cpu-render")]
             pal_lit: PalLitCache::new(),
@@ -273,8 +277,71 @@ impl<P: PixelFmt> RenderStack<P> {
     }
 
     /// Rebuild for a new buffer mode / renderer, reusing the backend.
-    pub fn resize(self, double: bool, render_type: RenderType) -> Self {
-        Self::new(double, self.backend, render_type)
+    pub fn resize(
+        mut self,
+        options: impl Into<ResolutionOptions>,
+        render_type: RenderType,
+    ) -> Self {
+        self.reconfigure(options.into(), render_type);
+        self
+    }
+
+    /// Update dimensions in place, deferring changes until a wipe finishes.
+    pub fn reconfigure(&mut self, options: ResolutionOptions, render_type: RenderType) -> bool {
+        if self.is_wiping() {
+            return false;
+        }
+        #[cfg(feature = "wgpu3d")]
+        let stereo = render_type.kind() == RenderKind::Hardware
+            && HardwarePresent::eye_count(&self.backend) > 1;
+        #[cfg(not(feature = "wgpu3d"))]
+        let stereo = false;
+        let resolution = Resolution::new(
+            options,
+            render_type,
+            self.backend.display_size(),
+            self.backend.render_aspect(),
+            stereo,
+        );
+        if self.resolution == resolution && self.render_type == render_type {
+            return false;
+        }
+        let (w, h) = resolution.world;
+        if self.resolution.world != resolution.world || self.render_type != render_type {
+            self.size = BufferSize::new(w as usize, h as usize);
+            self.world_renderer =
+                WorldRenderer::new(render_type, self.size.width_f32(), self.size.height_f32());
+        }
+        let (ui_w, ui_h) = resolution.ui;
+        let (frame_w, frame_h) = if stereo { (1, 1) } else { resolution.ui };
+        self.frame.resize(frame_w, frame_h);
+        self.frame.set_display_size(resolution.display);
+        if stereo {
+            let panes = self.panes.get_or_insert_with(|| {
+                [
+                    UiSurface::new(ui_w, ui_h, byte_order()),
+                    UiSurface::new(ui_w, ui_h, byte_order()),
+                ]
+            });
+            for pane in panes {
+                pane.resize(ui_w, ui_h);
+            }
+        } else {
+            self.panes = None;
+        }
+        #[cfg(feature = "cpu-render")]
+        {
+            if render_type.kind() == RenderKind::Software && resolution.world != resolution.ui {
+                self.scene
+                    .get_or_insert_with(|| UiSurface::new(w, h, byte_order()))
+                    .resize(w, h);
+            } else {
+                self.scene = None;
+            }
+        }
+        self.render_type = render_type;
+        self.resolution = resolution;
+        true
     }
 
     /// The active renderer kind.
@@ -292,7 +359,7 @@ impl<P: PixelFmt> RenderStack<P> {
         self.backend.supports(kind)
     }
 
-    /// Buffer dimensions (the renderer's draw resolution, = the present size).
+    /// World-rendering dimensions, independent of UI and presentation resolution.
     pub fn buffer_size(&self) -> &BufferSize {
         &self.size
     }
@@ -313,10 +380,26 @@ impl<P: PixelFmt> RenderStack<P> {
     /// Ignored where the UI has planes of its own: the statusbar is then a
     /// panel floating in front of the player rather than a strip cut out of the
     /// screen, so the world fills the whole view.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "statusbar boundaries quantize UI rows"
+    )]
     pub fn set_statusbar_height(&mut self, og_height: i32) {
-        let og_height = if self.panes.is_some() { 0 } else { og_height };
-        let scale = self.size.height() / 200;
-        self.size.set_statusbar_height(og_height * scale);
+        let og_height = if self.panes.is_some() {
+            0
+        } else {
+            og_height.clamp(0, 200)
+        };
+        let og_height = u16::try_from(og_height).expect("clamped statusbar height");
+        let layout = UiLayout::from_sizes(self.resolution.world, self.resolution.display);
+        let height = if og_height == 0 {
+            0
+        } else {
+            (self.size.height_f32()
+                - (layout.origin[1] + layout.height() - f32::from(og_height) * layout.scale[1]))
+                .round() as i32
+        };
+        self.size.set_statusbar_height(height);
         self.world_renderer.set_view_height(self.size.view_height());
     }
 
@@ -368,7 +451,7 @@ impl<P: PixelFmt> RenderStack<P> {
     pub fn start_wipe(&mut self) {
         #[cfg(feature = "wgpu3d")]
         if self.is_hardware_renderer() {
-            let (w, h) = (self.size.width() as u32, self.size.height() as u32);
+            let (w, h) = self.resolution.output;
             HardwarePresent::start_wipe(&mut self.backend, w, h);
             return;
         }
@@ -406,7 +489,8 @@ impl<P: PixelFmt> RenderStack<P> {
         if self.is_hardware_renderer() {
             let (w, h) = (self.size.width() as u32, self.size.height() as u32);
             let light_gamma = self.light_gamma;
-            let mut handle = HardwarePresent::begin_scene(&mut self.backend, w, h);
+            let mut handle =
+                HardwarePresent::begin_scene(&mut self.backend, w, h, self.resolution.output);
             self.world_renderer
                 .draw_view_gpu(view, level_data, pic_data, light_gamma, &mut handle);
             return;
@@ -419,10 +503,36 @@ impl<P: PixelFmt> RenderStack<P> {
                 ByteOrder::Argb,
             );
             let tint = pic_data.use_palette();
-            let mut buf = self.frame.pixel_target(pal_lit, tint);
+            let target = self
+                .scene
+                .as_mut()
+                .unwrap_or_else(|| self.frame.surface_mut());
+            if self.size.statusbar_height() > 0 {
+                let start = self.size.view_height_usize() * self.size.width_usize();
+                target.buf_mut()[start..].fill(P::from_argb(0xFF00_0000, ByteOrder::Argb));
+            }
+            let mut buf = target.pixel_target(pal_lit, tint);
             self.world_renderer
                 .draw_view(view, level_data, pic_data, &mut buf);
-            self.world_renderer.draw_debug_overlays(pic_data, &mut buf);
+            self.world_renderer.draw_debug_overlays(&mut buf);
+            if let Some(scene) = &self.scene {
+                self.frame.surface_mut().copy_scaled(scene);
+            }
+            let text = self.world_renderer.debug_line();
+            if !text.is_empty() {
+                let ui = self.frame.surface_mut();
+                let (sx, sy) = hud_scale(ui);
+                let x = ui.size().width_f32() - measure_text_line(&text, sx) - 4.0 * sx;
+                draw_text_line(
+                    &text,
+                    x,
+                    ui.ui_layout().origin[1] + 2.0 * sy,
+                    sx,
+                    sy,
+                    pic_data.wad_palette(),
+                    ui,
+                );
+            }
         }
     }
 
@@ -456,8 +566,6 @@ impl<P: PixelFmt> RenderStack<P> {
     pub fn upload_ui(&mut self) {
         #[cfg(feature = "wgpu3d")]
         if self.is_hardware_renderer() {
-            // Clears here too, or a frame nothing drew keeps the last one's UI.
-            self.gpu_open_frame();
             fn pixels_of<P: PixelFmt>(s: &UiSurface<P>) -> UiPixels<'_> {
                 UiPixels {
                     pixels: as_u32_slice(s.pixels()),
@@ -465,6 +573,8 @@ impl<P: PixelFmt> RenderStack<P> {
                     h: s.height(),
                 }
             }
+            // Clears here too, or a frame nothing drew keeps the last one's UI.
+            self.gpu_open_frame();
             let hud = match &self.panes {
                 Some(panes) => &panes[HUD_PLANE],
                 None => self.frame.surface(),
@@ -510,9 +620,7 @@ impl<P: PixelFmt> RenderStack<P> {
         self.backend.session()
     }
 
-    /// Advance the melt-wipe one step. CPU melts the previous frame over the
-    /// just-rendered front; GPU advances the melt-shader offsets (the pixel melt
-    /// runs at [`Self::present`]). Returns `true` once the melt completes.
+    /// Finish the presented wipe step; GPU offsets advance here, CPU melt runs in `present`.
     pub fn do_wipe(&mut self) -> bool {
         #[cfg(feature = "wgpu3d")]
         if self.is_hardware_renderer() {
@@ -520,7 +628,7 @@ impl<P: PixelFmt> RenderStack<P> {
         }
         #[cfg(feature = "cpu-render")]
         {
-            return self.frame.do_wipe();
+            return !self.frame.is_wiping();
         }
         #[allow(unreachable_code)]
         false
@@ -566,16 +674,19 @@ impl<P: PixelFmt> RenderStack<P> {
         #[cfg(feature = "wgpu3d")]
         if self.is_hardware_renderer() {
             let (w, h) = (self.size.width() as u32, self.size.height() as u32);
-            HardwarePresent::finish_frame(&mut self.backend, w, h, wiping);
+            HardwarePresent::finish_frame(&mut self.backend, w, h, self.resolution.output, wiping);
             return;
         }
         #[cfg(feature = "cpu-render")]
         {
-            if !wiping {
-                self.frame.flip();
+            if wiping {
+                self.frame.do_wipe();
             }
             let (w, h) = (self.frame.width(), self.frame.height());
             SoftwarePresent::present(&mut self.backend, self.frame.front(), w, h);
+            if !wiping {
+                self.frame.flip();
+            }
         }
     }
 

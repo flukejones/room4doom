@@ -4,11 +4,12 @@ use std::sync::OnceLock;
 use log::warn;
 use render_common::DrawBuffer;
 use wad::WadData;
-use wad::types::{COLUMN_END, WAD_PATCH, WadPalette, WadPatch};
+use wad::types::{COLUMN_END, WAD_PATCH, WadFlat, WadPalette, WadPatch};
 
 const FONT_START: u8 = b'!';
 const FONT_END: u8 = b'_';
 const FONT_COUNT: u8 = FONT_END - FONT_START + 1;
+const FLAT_SIZE: usize = 64;
 
 static CHARS: OnceLock<Vec<WadPatch>> = OnceLock::new();
 
@@ -66,12 +67,9 @@ fn get_patch_for_char(c: char) -> Option<&'static WadPatch> {
     chars.get((c as u8 - FONT_START) as usize)
 }
 
-/// Returns (scale_x, scale_y) as floats.
-/// Buffer height is always 200 (or 400 hi-res), so s = 1.0 (or 2.0).
-/// CRT pixel aspect (1.2× taller than wide) is handled by the blit layer.
+/// CRT-correct scales shared by every UI subsystem.
 pub fn hud_scale(pixels: &impl DrawBuffer) -> (f32, f32) {
-    let s = pixels.size().height_f32() / 200.0;
-    (s, s)
+    pixels.ui_layout().scale.into()
 }
 
 /// Returns (scale_x, scale_y) for full-screen 320x200 patches.
@@ -79,6 +77,28 @@ pub fn hud_scale(pixels: &impl DrawBuffer) -> (f32, f32) {
 /// distinct entry point for full-screen patch call sites.
 pub fn fullscreen_scale(pixels: &impl DrawBuffer) -> (f32, f32) {
     hud_scale(pixels)
+}
+
+/// Tile a UI flat with the same CRT-correct scale as patches and text.
+#[expect(
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    reason = "UI flat coordinates are quantized to texels"
+)]
+pub fn draw_flat(flat: &WadFlat, palette: &WadPalette, pixels: &mut impl DrawBuffer) {
+    let layout = pixels.ui_layout();
+    let (w, h) = (pixels.size().width_usize(), pixels.size().height_usize());
+    for y in 0..h {
+        let row = ((y as f32 - layout.origin[1]) / layout.scale[1])
+            .floor()
+            .rem_euclid(FLAT_SIZE as f32) as usize;
+        for x in 0..w {
+            let col = ((x as f32 - layout.origin[0]) / layout.scale[0])
+                .floor()
+                .rem_euclid(FLAT_SIZE as f32) as usize;
+            pixels.set_pixel(x, y, palette.0[flat.data[row * FLAT_SIZE + col] as usize]);
+        }
+    }
 }
 
 /// Draw a WadPatch at (x, y) with separate X and Y pixel duplication scales.
@@ -377,11 +397,11 @@ impl HUDString {
                     }
                 }
 
-                if x + len * self.space_width as f32 + self.space_width as f32 >= width {
+                if x + (len + 1.0) * self.space_width as f32 * sx >= width {
                     x = start_x;
                     y += self.line_height as f32 * sy;
                 } else {
-                    x += self.space_width as f32;
+                    x += self.space_width as f32 * sx;
                 }
                 continue;
             }

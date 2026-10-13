@@ -5,6 +5,7 @@ use pic_data::PixelFmt;
 
 /// Duration between wipe steps (~60Hz).
 const STEP_INTERVAL_MS: u128 = 16;
+const MELT_HEIGHT: i32 = 200;
 
 /// Per-column melt offset state shared by the CPU [`Wipe`] and the GPU melt pass.
 ///
@@ -13,6 +14,7 @@ const STEP_INTERVAL_MS: u128 = 16;
 /// same `m_random` sequence (demo determinism).
 pub struct MeltColumns {
     y: Vec<i32>,
+    progress: Vec<i32>,
     width: i32,
     height: i32,
     /// Time of the last wipe step, used to gate advancement.
@@ -21,8 +23,11 @@ pub struct MeltColumns {
 
 impl MeltColumns {
     pub fn new(width: i32, height: i32) -> Self {
+        let width = width.max(1);
+        let height = height.max(1);
         Self {
-            y: Self::init_offsets(width),
+            y: vec![-1; width as usize],
+            progress: Self::init_offsets(width),
             width,
             height,
             last_step: Instant::now(),
@@ -48,7 +53,8 @@ impl MeltColumns {
 
     /// Re-seed the column offsets and reset the step clock.
     pub fn reset(&mut self) {
-        self.y = Self::init_offsets(self.width);
+        self.progress = Self::init_offsets(self.width);
+        self.y.fill(-1);
         self.last_step = Instant::now();
     }
 
@@ -75,33 +81,31 @@ impl MeltColumns {
     /// column has fully melted. Same stepping as the CPU [`Wipe::do_melt_pixels`].
     pub fn advance(&mut self) -> bool {
         let should_step = self.take_step();
-        let stepping = self.height as usize / 100;
-        let f = self.height / 200;
+        let stepping = (self.height as usize / 100).max(1);
         let mut done = true;
-        for x in (0..self.width as usize - stepping).step_by(stepping) {
-            if self.y[x] < 0 {
-                if should_step {
-                    self.y[x] += stepping as i32 / 2;
-                }
+        for x in (0..self.width as usize).step_by(stepping) {
+            let end = (x + stepping).min(self.y.len());
+            let mut progress = self.progress[x];
+            if progress < MELT_HEIGHT {
                 done = false;
-            } else if self.y[x] < self.height {
                 if should_step {
-                    let mut dy = if self.y[x] < (16 * f) {
-                        self.y[x] + stepping as i32
+                    progress += if progress < 0 {
+                        1
+                    } else if progress < 16 {
+                        progress + 2
                     } else {
-                        8 * f
+                        8
                     };
-                    if self.y[x] + dy >= self.height {
-                        dy = self.height - self.y[x];
-                    }
-                    for col in x..x + stepping {
-                        if col < self.y.len() {
-                            self.y[col] += dy;
-                        }
-                    }
+                    progress = progress.min(MELT_HEIGHT);
                 }
-                done = false;
             }
+            self.progress[x..end].fill(progress);
+            let offset = if progress < 0 {
+                -1
+            } else {
+                (i64::from(progress) * i64::from(self.height) / i64::from(MELT_HEIGHT)) as i32
+            };
+            self.y[x..end].fill(offset);
         }
         done
     }
@@ -111,20 +115,20 @@ impl MeltColumns {
 /// surface provider's back buffer) shifted down over the freshly rendered frame.
 ///
 /// Holds no pixel buffer — the old frame lives in the provider's spare surface.
-/// `width`/`height` track the geometry the column offsets were seeded for.
+/// `height` tracks the geometry the column offsets were seeded for.
 pub struct Wipe {
     melt: MeltColumns,
     height: i32,
-    width: i32,
     active: bool,
 }
 
 impl Wipe {
     pub fn new(width: i32, height: i32) -> Self {
+        let width = width.max(1);
+        let height = height.max(1);
         Self {
             melt: MeltColumns::new(width, height),
             height,
-            width,
             active: false,
         }
     }
@@ -155,24 +159,13 @@ impl Wipe {
         old: &[P],
         old_pitch: usize,
     ) -> bool {
-        let stepping = self.height as usize / 100;
         let offsets = self.melt.offsets();
 
-        for x in (0..self.width as usize - stepping).step_by(stepping) {
-            if offsets[x] < 0 {
-                // Column hasn't started melting — overdraw the whole column.
-                for col in x..x + stepping {
-                    for row in 0..self.height as usize {
-                        new[row * new_pitch + col] = old[row * old_pitch + col];
-                    }
-                }
-            } else if offsets[x] < self.height {
-                let melt_y = offsets[x] as usize;
-                for col in x..x + stepping {
-                    for src_y in 0..(self.height as usize - melt_y) {
-                        let dst_y = src_y + melt_y;
-                        new[dst_y * new_pitch + col] = old[src_y * old_pitch + col];
-                    }
+        for (x, &offset) in offsets.iter().enumerate() {
+            if offset < self.height {
+                let melt_y = offset.max(0) as usize;
+                for src_y in 0..(self.height as usize - melt_y) {
+                    new[(src_y + melt_y) * new_pitch + x] = old[src_y * old_pitch + x];
                 }
             }
             // else: column fully melted, new scene shows through
@@ -182,5 +175,35 @@ impl Wipe {
             self.active = false;
         }
         done
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Wipe;
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn melts_every_column_at_small_and_fractional_sizes() {
+        for (w, h) in [(1, 1), (7, 53), (267, 200), (721, 541)] {
+            let mut wipe = Wipe::new(w, h);
+            let pitch = w as usize + 3;
+            let old = vec![0xFFFF_0000u32; pitch * h as usize];
+            let mut new = vec![0u32; old.len()];
+            wipe.start();
+            wipe.do_melt_pixels(&mut new, pitch, &old, pitch);
+            assert_eq!(new[(h as usize - 1) * pitch + w as usize - 1], old[0]);
+            let mut steps = 0;
+            while wipe.is_wiping() && steps < 64 {
+                wipe.melt.last_step = Instant::now()
+                    .checked_sub(Duration::from_millis(17))
+                    .expect("test step fits the monotonic clock");
+                new.fill(0);
+                wipe.do_melt_pixels(&mut new, pitch, &old, pitch);
+                steps += 1;
+            }
+            assert!(!wipe.is_wiping(), "wipe did not finish at {w}×{h}");
+            assert!(new.iter().all(|&pixel| pixel == 0));
+        }
     }
 }
