@@ -4,15 +4,9 @@ use log::info;
 use render_common::DrawBuffer;
 
 impl Intermission {
-    pub(super) fn draw_no_state(
-        &mut self,
-        x_ofs: f32,
-        sx: f32,
-        sy: f32,
-        pixels: &mut impl DrawBuffer,
-    ) {
+    pub(super) fn draw_no_state(&mut self, pixels: &mut impl DrawBuffer) {
         self.pointer_on = true;
-        self.draw_next_loc_pixels(x_ofs, sx, sy, pixels);
+        self.draw_next_loc_pixels(pixels);
     }
 
     pub(super) fn init_no_state(&mut self) {

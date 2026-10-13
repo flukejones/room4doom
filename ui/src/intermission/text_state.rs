@@ -1,6 +1,6 @@
 use game_config::GameMode;
-use hud_util::{draw_flat, hud_scale};
 use render_common::DrawBuffer;
+use ui_draw::{UiCanvas, draw_flat};
 
 use super::Intermission;
 
@@ -10,14 +10,12 @@ impl Intermission {
     }
 
     pub(crate) fn draw_inter_text(&self, buffer: &mut impl DrawBuffer) {
-        let (sx, sy) = hud_scale(buffer);
         if let Some(flat) = &self.inter_text_bg {
             draw_flat(flat, &self.palette, buffer);
         }
 
-        let [x_ofs, y_ofs] = buffer.ui_layout().origin;
-        self.inter_text
-            .draw_pixels(x_ofs + 6.0 * sx, y_ofs + 6.0 * sy, &self.palette, buffer);
+        let viewport = buffer.ui_layout().centered();
+        UiCanvas::new(buffer, &self.palette, viewport).wrapped_text(&self.inter_text, [6.0, 6.0]);
     }
 
     pub(crate) fn skip_inter_text(&mut self) {

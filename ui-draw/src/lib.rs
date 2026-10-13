@@ -1,7 +1,9 @@
+//! Generic Doom bitmap drawing in buffer or original artwork coordinates.
+
 use std::sync::OnceLock;
 
 use log::warn;
-use render_common::DrawBuffer;
+use render_common::{DrawBuffer, UiViewport};
 use wad::WadData;
 use wad::types::{COLUMN_END, WAD_PATCH, WadFlat, WadPalette, WadPatch};
 
@@ -57,16 +59,53 @@ fn get_patch_for_char(c: char) -> Option<&'static WadPatch> {
     chars.get((c as u8 - FONT_START) as usize)
 }
 
-/// CRT-correct scales shared by every UI subsystem.
-pub fn hud_scale(pixels: &impl DrawBuffer) -> (f32, f32) {
-    pixels.ui_layout().scale.into()
+/// Draw bitmap assets in original artwork coordinates through any pixel buffer.
+/// The viewport chooses placement and text-flow bounds, without adding a clip.
+pub struct UiCanvas<'a, B: DrawBuffer> {
+    pixels: &'a mut B,
+    palette: &'a WadPalette,
+    viewport: UiViewport,
 }
 
-/// Returns (scale_x, scale_y) for full-screen 320x200 patches.
-/// Identical scaling to [`hud_scale`] (buffer height / 200); kept as a
-/// distinct entry point for full-screen patch call sites.
-pub fn fullscreen_scale(pixels: &impl DrawBuffer) -> (f32, f32) {
-    hud_scale(pixels)
+impl<'a, B: DrawBuffer> UiCanvas<'a, B> {
+    pub fn new(pixels: &'a mut B, palette: &'a WadPalette, viewport: UiViewport) -> Self {
+        Self {
+            pixels,
+            palette,
+            viewport,
+        }
+    }
+
+    pub fn patch(&mut self, patch: &WadPatch, at: [f32; 2]) {
+        let [x, y] = self.viewport.point(at[0], at[1]);
+        let [sx, sy] = self.viewport.scale;
+        draw_patch(patch, x, y, sx, sy, self.palette, self.pixels);
+    }
+
+    /// Draw right-aligned digits and return their left edge in artwork coordinates.
+    pub fn number(&mut self, value: u32, at: [f32; 2], pad: usize, digits: &[WadPatch]) -> f32 {
+        let [x, y] = self.viewport.point(at[0], at[1]);
+        let [sx, sy] = self.viewport.scale;
+        let left = draw_num(value, x, y, pad, digits, sx, sy, self.palette, self.pixels);
+        (left - self.viewport.origin[0]) / sx
+    }
+
+    pub fn text(&mut self, text: &str, at: [f32; 2]) {
+        let [x, y] = self.viewport.point(at[0], at[1]);
+        let [sx, sy] = self.viewport.scale;
+        draw_text_line(text, x, y, sx, sy, self.palette, self.pixels);
+    }
+
+    pub fn tinted_text(&mut self, text: &str, at: [f32; 2], tint: u32) {
+        let [x, y] = self.viewport.point(at[0], at[1]);
+        let [sx, sy] = self.viewport.scale;
+        draw_text_line_tinted(text, x, y, sx, sy, self.palette, tint, self.pixels);
+    }
+
+    pub fn wrapped_text(&mut self, text: &HUDString, at: [f32; 2]) -> Option<()> {
+        let [x, y] = self.viewport.point(at[0], at[1]);
+        text.draw_in(x, y, self.viewport, self.palette, self.pixels)
+    }
 }
 
 /// Tile a UI flat with the same CRT-correct scale as patches and text.
@@ -370,38 +409,47 @@ impl HUDString {
         self.data.clear();
     }
 
-    #[expect(
-        clippy::cast_precision_loss,
-        reason = "screen, input and game-state values deliberately retain their established numeric widths and rounding"
-    )]
     pub fn draw_pixels(
         &self,
-        mut x: f32,
-        mut y: f32,
+        x: f32,
+        y: f32,
         palette: &WadPalette,
         pixels: &mut impl DrawBuffer,
     ) -> Option<()> {
-        let (sx, sy) = hud_scale(pixels);
-        let width = pixels.size().width_f32();
-        let height = pixels.size().height_f32();
+        self.draw_in(x, y, pixels.ui_layout().screen(), palette, pixels)
+    }
+
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "font dimensions enter scaled drawing coordinates"
+    )]
+    fn draw_in(
+        &self,
+        mut x: f32,
+        mut y: f32,
+        viewport: UiViewport,
+        palette: &WadPalette,
+        pixels: &mut impl DrawBuffer,
+    ) -> Option<()> {
+        let [sx, sy] = viewport.scale;
+        let width = viewport.right();
+        let height = viewport.bottom();
         let start_x = x;
 
-        for (i, ch) in self.data.chars().enumerate() {
+        for (i, ch) in self.data.char_indices() {
             if i > self.current_char {
                 break;
             }
 
             // Word len check
             if ch == ' ' {
-                let mut len = 0.0;
-                for c in self.data[i + 1..].chars() {
-                    len += 1.0;
-                    if c == ' ' {
-                        break;
-                    }
-                }
-
-                if x + (len + 1.0) * self.space_width as f32 * sx >= width {
+                let next_word = self.data[i + 1..].split_whitespace().next().unwrap_or("");
+                let word_width: f32 = next_word
+                    .chars()
+                    .filter_map(get_patch_for_char)
+                    .map(|p| p.width as f32 * sx)
+                    .sum();
+                if x + self.space_width as f32 * sx + word_width > width {
                     x = start_x;
                     y += self.line_height as f32 * sy;
                 } else {
@@ -417,6 +465,10 @@ impl HUDString {
             }
 
             let patch = get_patch_for_char(ch).unwrap_or_else(|| panic!("Did not find {ch}"));
+            if x > start_x && x + patch.width as f32 * sx > width {
+                x = start_x;
+                y += self.line_height as f32 * sy;
+            }
             if y + self.line_height as f32 * sy >= height {
                 warn!("HUD String to long for screen size");
                 return None;
@@ -443,8 +495,7 @@ impl HUDString {
         palette: &WadPalette,
         pixels: &mut impl DrawBuffer,
     ) -> Option<()> {
-        self.draw_pixels(x, y, palette, pixels);
-        Some(())
+        self.draw_pixels(x, y, palette, pixels)
     }
 }
 

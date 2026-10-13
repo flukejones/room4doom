@@ -21,7 +21,7 @@ pub(crate) mod tests {
     use super::{Finale, Intermission, Messages, Statusbar};
 
     pub(crate) struct Surface {
-        pixels: Vec<u32>,
+        pub(crate) pixels: Vec<u32>,
         size: BufferSize,
         layout: UiLayout,
     }
@@ -96,8 +96,10 @@ pub(crate) mod tests {
             hud.draw(&mut surface);
             messages.draw(&mut surface);
             surface.capture(&format!("hud-{w}x{h}"));
+            let mut surface = Surface::new(w, h, display);
             intermission.draw(&mut surface);
             surface.capture(&format!("intermission-{w}x{h}"));
+            let mut surface = Surface::new(w, h, display);
             finale.draw(&mut surface);
             surface.capture(&format!("finale-{w}x{h}"));
         }

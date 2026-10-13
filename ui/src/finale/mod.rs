@@ -3,10 +3,10 @@ mod text;
 use game_config::GameMode;
 use gameplay::TICRATE;
 use gamestate_traits::{ConfigTraits, GameTraits, KeyCode, SubsystemTrait};
-use hud_util::{HUD_STRING, HUDString, draw_flat, hud_scale, load_char_patches};
 use render_common::DrawBuffer;
 use sound_common::MusTrack;
 use text::{C1TEXT, C2TEXT, C3TEXT, C4TEXT, C5TEXT, C6TEXT, E1TEXT, E2TEXT, E3TEXT, E4TEXT};
+use ui_draw::{HUD_STRING, HUDString, UiCanvas, draw_flat, load_char_patches};
 use wad::WadData;
 use wad::types::{WadFlat, WadPalette};
 
@@ -38,11 +38,9 @@ impl Finale {
     }
 
     fn draw_pixels(&self, pixels: &mut impl DrawBuffer) {
-        let (sx, sy) = hud_scale(pixels);
         draw_flat(&self.bg_flat, &self.palette, pixels);
-        let [x_ofs, y_ofs] = pixels.ui_layout().origin;
-        self.text
-            .draw_pixels(x_ofs + 6.0 * sx, y_ofs + 6.0 * sy, &self.palette, pixels);
+        let viewport = pixels.ui_layout().centered();
+        UiCanvas::new(pixels, &self.palette, viewport).wrapped_text(&self.text, [6.0, 6.0]);
     }
 }
 

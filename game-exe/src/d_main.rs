@@ -24,7 +24,6 @@ use gameplay::{MapObjFlag, Player};
 use gamestate::Game;
 use gamestate::subsystems::GameSubsystem;
 use gamestate_traits::{ConfigKey, GameState, KeyCode, SubsystemTrait};
-use hud_util::{draw_patch, draw_text_line, fullscreen_scale, hud_scale, measure_text_line};
 use input::InputState;
 use log::error;
 use math::{Angle, Bam, FixedT, lookdir_to_radian};
@@ -39,6 +38,7 @@ use render_common::{
 use sound_common::SoundAction;
 use std::path::Path;
 use std::sync::Arc;
+use ui_draw::{UiCanvas, draw_text_line, measure_text_line};
 use wad::types::{BLACK, WadPalette, WadPatch};
 
 use crate::CLIOptions;
@@ -294,10 +294,9 @@ pub(crate) fn update_sound(game: &Game) {
 fn page_drawer(game: &Game, draw_buf: &mut impl DrawBuffer) {
     let black = PixelFmt::from_argb(BLACK, ByteOrder::Argb);
     draw_buf.buf_mut().fill(black);
-    let (sx, sy) = fullscreen_scale(draw_buf);
-    let [x, y] = draw_buf.ui_layout().origin;
+    let viewport = draw_buf.ui_layout().centered();
     let palette = game.pic_data.wad_palette();
-    draw_patch(&game.page.cache, x, y, sx, sy, palette, draw_buf);
+    UiCanvas::new(draw_buf, palette, viewport).patch(&game.page.cache, [0.0, 0.0]);
 }
 
 /// D_Display — drive one frame's rendering, and only that. One entry for every
@@ -396,17 +395,9 @@ fn draw_ui<P: PixelFmt>(
     if !fps.is_empty() {
         let palette = game.pic_data.wad_palette();
         let ui = screen.hud_frame();
-        let (sx, sy) = hud_scale(ui);
+        let [sx, sy] = ui.ui_layout().scale;
         let x = ui.size().width_f32() - measure_text_line(fps, sx) - 4.0 * sx;
-        draw_text_line(
-            fps,
-            x,
-            ui.ui_layout().origin[1] + 2.0 * sy,
-            sx,
-            sy,
-            palette,
-            ui,
-        );
+        draw_text_line(fps, x, 2.0 * sy, sx, sy, palette, ui);
     }
     menu.draw(screen.screen_frame());
 }

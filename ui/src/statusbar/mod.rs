@@ -8,9 +8,9 @@ use faces::DoomguyFace;
 use game_config::{GameMode, WeaponType};
 use gameplay::{AmmoType, PlayerStatus, WEAPON_INFO};
 use gamestate_traits::{ConfigKey, ConfigTraits, GameTraits, KeyCode, SubsystemTrait};
-use hud_util::{draw_num, draw_patch, hud_scale, load_key_sprites, load_num_sprites};
 use render_common::{DrawBuffer, STBAR_HEIGHT};
 use std::collections::HashMap;
+use ui_draw::{UiCanvas, draw_num, draw_patch, load_key_sprites, load_num_sprites};
 use wad::WadData;
 use wad::types::{COLUMN_END, WadPalette, WadPatch};
 
@@ -74,10 +74,6 @@ const ST_MAXAMMO2Y: f32 = 191.0;
 const ST_MAXAMMO3Y: f32 = 185.0;
 
 pub struct Statusbar {
-    screen_width: f32,
-    screen_height: f32,
-    /// Left edge of the centered 320-wide game zone in buffer pixels.
-    x_ofs: f32,
     mode: GameMode,
     palette: WadPalette,
     patches: HashMap<&'static str, WadPatch>,
@@ -127,9 +123,6 @@ impl Statusbar {
         };
 
         Self {
-            screen_width: 0.0,
-            screen_height: 0.0,
-            x_ofs: 0.0,
             mode,
             palette,
             patches,
@@ -170,7 +163,8 @@ impl Statusbar {
     }
 
     fn draw_health_fullscreen(&self, big: bool, face: bool, pixels: &mut impl DrawBuffer) {
-        let (sx, sy) = hud_scale(pixels);
+        let bounds = pixels.ui_layout().hud(self.widescreen);
+        let [sx, sy] = bounds.scale;
         let nums = if big { &self.big_nums } else { &self.lil_nums };
 
         let mut y = nums[0].height as f32 * sy;
@@ -199,8 +193,8 @@ impl Statusbar {
         }
         draw_num(
             h,
-            self.x_ofs + x,
-            self.screen_height - 2.0 * sy - y,
+            bounds.origin[0] + x,
+            bounds.bottom() - 2.0 * sy - y,
             0,
             nums,
             sx,
@@ -214,7 +208,8 @@ impl Statusbar {
         if self.status.armorpoints <= 0 {
             return;
         }
-        let (sx, sy) = hud_scale(pixels);
+        let bounds = pixels.ui_layout().hud(self.widescreen);
+        let [sx, sy] = bounds.scale;
         let nums = &self.lil_nums;
 
         let y = (nums[0].height as f32 + 1.0) * sy;
@@ -232,8 +227,8 @@ impl Statusbar {
         }
         draw_num(
             h,
-            self.x_ofs + x,
-            self.screen_height - 2.0 * sy - y,
+            bounds.origin[0] + x,
+            bounds.bottom() - 2.0 * sy - y,
             0,
             nums,
             sx,
@@ -255,15 +250,16 @@ impl Statusbar {
         if ammo == AmmoType::NoAmmo {
             return;
         }
-        let (sx, sy) = hud_scale(pixels);
+        let bounds = pixels.ui_layout().hud(self.widescreen);
+        let [sx, sy] = bounds.scale;
 
         let height = self.big_nums[0].height as f32 * sy;
         let start_x = (self.big_nums[0].width as f32 + self.keys[0].width as f32 + 2.0) * sx;
         let ammo = self.status.ammo[ammo as usize];
         draw_num(
             ammo,
-            self.screen_width - start_x,
-            self.screen_height - (2.0 + self.grey_nums[0].height as f32) * sy - height,
+            bounds.right() - start_x,
+            bounds.bottom() - (2.0 + self.grey_nums[0].height as f32) * sy - height,
             0,
             &self.big_nums,
             sx,
@@ -278,13 +274,14 @@ impl Statusbar {
         reason = "screen, input and game-state values deliberately retain their established numeric widths and rounding"
     )]
     fn draw_keys_fullscreen(&self, pixels: &mut impl DrawBuffer) {
-        let (sx, sy) = hud_scale(pixels);
+        let bounds = pixels.ui_layout().hud(self.widescreen);
+        let [sx, sy] = bounds.scale;
         let height = self.keys[3].height as f32 * sy;
         let width = self.keys[0].width as f32 * sx;
 
-        let skull_x = self.screen_width - width - 4.0 * sx;
+        let skull_x = bounds.right() - width - 4.0 * sx;
         let mut x = skull_x - width - 2.0 * sx;
-        let start_y = self.screen_height - height - 2.0 * sy;
+        let start_y = bounds.bottom() - height - 2.0 * sy;
 
         for (mut i, owned) in self.status.cards.iter().enumerate() {
             if !*owned {
@@ -317,7 +314,8 @@ impl Statusbar {
         reason = "screen, input and game-state values deliberately retain their established numeric widths and rounding"
     )]
     fn draw_weapons_fullscreen(&self, pixels: &mut impl DrawBuffer) {
-        let (sx, sy) = hud_scale(pixels);
+        let bounds = pixels.ui_layout().hud(self.widescreen);
+        let [sx, sy] = bounds.scale;
         let y = self.grey_nums[0].height as f32 * sy;
         let x = self.grey_nums[0].width as f32 * sx;
         let mult: f32 = if self.mode == GameMode::Commercial {
@@ -325,12 +323,12 @@ impl Statusbar {
         } else {
             9.0
         };
-        let start_x = self.screen_width
+        let start_x = bounds.right()
             - self.grey_nums[0].width as f32 * sx * mult
             - self.big_nums[0].width as f32 * sx
             - self.keys[0].width as f32 * sx
             - 2.0 * sx;
-        let start_y = self.screen_height - y - 2.0 * sy;
+        let start_y = bounds.bottom() - y - 2.0 * sy;
 
         for (i, owned) in self.status.weaponowned.iter().enumerate() {
             if self.mode != GameMode::Commercial && i == 8 || !*owned {
@@ -356,7 +354,8 @@ impl Statusbar {
     }
 
     fn draw_face_fullscreen(&self, mut big: bool, upper: bool, pixels: &mut impl DrawBuffer) {
-        let (sx, sy) = hud_scale(pixels);
+        let bounds = pixels.ui_layout().hud(self.widescreen);
+        let [sx, sy] = bounds.scale;
         if upper {
             big = true;
         }
@@ -365,22 +364,22 @@ impl Statusbar {
         let mut y: f32;
         if big && !upper {
             let patch = self.get_patch("STFB1");
-            y = self.screen_height - patch.height as f32 * sy;
-            x = f32::midpoint(self.x_ofs, self.screen_width) - patch.width as f32 * sx / 2.0;
+            y = bounds.bottom() - patch.height as f32 * sy;
+            x = f32::midpoint(bounds.origin[0], bounds.right()) - patch.width as f32 * sx / 2.0;
             draw_patch(patch, x, y, sx, sy, &self.palette, pixels);
         }
 
         let patch = self.faces.get_face();
         if upper || big {
-            x = f32::midpoint(self.x_ofs, self.screen_width) - patch.width as f32 * sx / 2.0;
+            x = f32::midpoint(bounds.origin[0], bounds.right()) - patch.width as f32 * sx / 2.0;
             y = if upper {
-                pixels.ui_layout().origin[1] + FACE_UPPER_Y * sy
+                bounds.point(0.0, FACE_UPPER_Y)[1]
             } else {
-                self.screen_height - patch.height as f32 * sy
+                bounds.bottom() - patch.height as f32 * sy
             };
         } else {
-            x = self.x_ofs + (patch.width as f32 / 2.0 + FACE_X_OFFSET) * sx;
-            y = self.screen_height - (patch.height as f32 + FACE_Y_OFFSET) * sy;
+            x = bounds.origin[0] + (patch.width as f32 / 2.0 + FACE_X_OFFSET) * sx;
+            y = bounds.bottom() - (patch.height as f32 + FACE_Y_OFFSET) * sy;
         }
         draw_patch(patch, x, y, sx, sy, &self.palette, pixels);
     }
@@ -473,46 +472,23 @@ impl Statusbar {
         clippy::cast_precision_loss,
         reason = "screen, input and game-state values deliberately retain their established numeric widths and rounding"
     )]
-    #[expect(
-        clippy::too_many_lines,
-        reason = "keep the complete dispatch or geometry pass together without changing its established ordering"
-    )]
     fn draw_bar(&self, buffer: &mut impl DrawBuffer) {
-        let (sx, sy) = hud_scale(buffer);
-        let layout = buffer.ui_layout();
-        let y = layout.origin[1];
-        let bar_y = y + layout.height() - STBAR_HEIGHT as f32 * sy;
-        // STBAR is always centered, regardless of widescreen HUD setting
-        let x = layout.origin[0];
-
-        self.draw_stbar_background(sx, sy, bar_y, x, buffer);
+        let viewport = buffer.ui_layout().statusbar();
+        let [sx, sy] = viewport.scale;
+        let bar_y = viewport.bottom() - STBAR_HEIGHT as f32 * sy;
+        self.draw_stbar_background(sx, sy, bar_y, viewport.origin[0], buffer);
+        let mut canvas = UiCanvas::new(buffer, &self.palette, viewport);
 
         // ARMS background patch
         if self.mode != GameMode::Commercial
             && let Some(patch) = self.patches.get("STARMS")
         {
-            draw_patch(
-                patch,
-                x + ST_ARMSBGX * sx,
-                y + ST_ARMSBGY * sy,
-                sx,
-                sy,
-                &self.palette,
-                buffer,
-            );
+            canvas.patch(patch, [ST_ARMSBGX, ST_ARMSBGY]);
         }
 
         // Face
         let face = self.faces.get_face();
-        draw_patch(
-            face,
-            x + ST_FACESX * sx,
-            y + ST_FACESY * sy,
-            sx,
-            sy,
-            &self.palette,
-            buffer,
-        );
+        canvas.patch(face, [ST_FACESX, ST_FACESY]);
 
         // Ready ammo
         if !matches!(self.status.readyweapon, WeaponType::NoChange)
@@ -521,16 +497,11 @@ impl Statusbar {
         {
             let ammo_type = WEAPON_INFO[self.status.readyweapon as usize].ammo;
             if ammo_type != AmmoType::NoAmmo {
-                draw_num(
+                canvas.number(
                     self.status.ammo[ammo_type as usize],
-                    x + ST_AMMOX * sx,
-                    y + ST_AMMOY * sy,
+                    [ST_AMMOX, ST_AMMOY],
                     0,
                     &self.big_nums,
-                    sx,
-                    sy,
-                    &self.palette,
-                    buffer,
                 );
             }
         }
@@ -541,17 +512,7 @@ impl Statusbar {
         } else {
             self.status.health as u32
         };
-        draw_num(
-            h,
-            x + ST_HEALTHX * sx,
-            y + ST_HEALTHY * sy,
-            0,
-            &self.big_nums,
-            sx,
-            sy,
-            &self.palette,
-            buffer,
-        );
+        canvas.number(h, [ST_HEALTHX, ST_HEALTHY], 0, &self.big_nums);
 
         // Armor
         let a = if self.status.armorpoints < 0 {
@@ -559,17 +520,7 @@ impl Statusbar {
         } else {
             self.status.armorpoints as u32
         };
-        draw_num(
-            a,
-            x + ST_ARMORX * sx,
-            y + ST_ARMORY * sy,
-            0,
-            &self.big_nums,
-            sx,
-            sy,
-            &self.palette,
-            buffer,
-        );
+        canvas.number(a, [ST_ARMORX, ST_ARMORY], 0, &self.big_nums);
 
         // Arms (2 rows × 3 cols)
         if self.mode != GameMode::Commercial {
@@ -584,16 +535,14 @@ impl Statusbar {
                 };
                 let col = (i % 3) as f32;
                 let row = (i / 3) as f32;
-                draw_num(
+                canvas.number(
                     i as u32 + 2,
-                    x + (ST_ARMSX + col * ST_ARMSXSPACE) * sx,
-                    y + (ST_ARMSY + row * ST_ARMSYSPACE) * sy,
+                    [
+                        (ST_ARMSX + col * ST_ARMSXSPACE),
+                        (ST_ARMSY + row * ST_ARMSYSPACE),
+                    ],
                     0,
                     nums,
-                    sx,
-                    sy,
-                    &self.palette,
-                    buffer,
                 );
             }
         }
@@ -605,42 +554,24 @@ impl Statusbar {
                 continue;
             }
             let row = i % 3;
-            draw_patch(
-                &self.keys[i],
-                x + ST_KEY0X * sx,
-                y + key_ys[row] * sy,
-                sx,
-                sy,
-                &self.palette,
-                buffer,
-            );
+            canvas.patch(&self.keys[i], [ST_KEY0X, key_ys[row]]);
         }
 
         // Ammo counts (yellow small nums, 4 rows)
         let ammo_ys = [ST_AMMO0Y, ST_AMMO1Y, ST_AMMO3Y, ST_AMMO2Y];
         let max_ys = [ST_MAXAMMO0Y, ST_MAXAMMO1Y, ST_MAXAMMO3Y, ST_MAXAMMO2Y];
         for i in 0..4 {
-            draw_num(
+            canvas.number(
                 self.status.ammo[i],
-                x + ST_AMMO0X * sx,
-                y + ammo_ys[i] * sy,
+                [ST_AMMO0X, ammo_ys[i]],
                 0,
                 &self.yell_nums,
-                sx,
-                sy,
-                &self.palette,
-                buffer,
             );
-            draw_num(
+            canvas.number(
                 self.status.maxammo[i],
-                x + ST_MAXAMMO0X * sx,
-                y + max_ys[i] * sy,
+                [ST_MAXAMMO0X, max_ys[i]],
                 0,
                 &self.yell_nums,
-                sx,
-                sy,
-                &self.palette,
-                buffer,
             );
         }
     }
@@ -662,16 +593,6 @@ impl SubsystemTrait for Statusbar {
     }
 
     fn draw(&mut self, buffer: &mut impl DrawBuffer) {
-        let (sx, _) = hud_scale(buffer);
-        if self.widescreen {
-            self.x_ofs = 0.0;
-            self.screen_width = buffer.size().width_f32();
-        } else {
-            self.x_ofs = buffer.ui_layout().origin[0];
-            self.screen_width = self.x_ofs + 320.0 * sx;
-        }
-        self.screen_height = buffer.ui_layout().origin[1] + buffer.ui_layout().height();
-
         if self.bar_mode {
             self.draw_bar(buffer);
         } else {
@@ -724,6 +645,12 @@ mod tests {
         ] {
             let mut surface = crate::tests::Surface::new(w, h, display);
             statusbar.draw(&mut surface);
+            assert!(
+                surface.pixels[((h - 1) * w) as usize..]
+                    .iter()
+                    .any(|&p| p != 0xFF01_0203),
+                "statusbar reaches the actual screen bottom"
+            );
             surface.capture(&format!("statusbar-{w}x{h}"));
         }
     }

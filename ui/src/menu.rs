@@ -10,13 +10,10 @@ mod vr_page;
 use game_config::{GameMode, Skill};
 use gameplay::english as lang;
 use gamestate_traits::{ConfigKey, ConfigTraits, GameState, GameTraits, KeyCode, SubsystemTrait};
-use hud_util::{
-    draw_patch, draw_text_line, draw_text_line_tinted, fullscreen_scale, hud_scale,
-    measure_text_line,
-};
 use render_common::{ByteOrder, DrawBuffer, PixelFmt};
 use sound_common::SfxName;
 use std::collections::HashMap;
+use ui_draw::{UiCanvas, measure_text_line};
 use wad::WadData;
 use wad::types::{BLACK, WadPalette, WadPatch};
 
@@ -737,35 +734,26 @@ impl GameMenu {
         y: f32,
         width: usize,
         dot: usize,
-        sx: f32,
-        sy: f32,
-        pixels: &mut impl DrawBuffer,
+        canvas: &mut UiCanvas<'_, impl DrawBuffer>,
     ) {
         let seg_w = 8.0;
-        let bg_h = 13.0;
-        let bg_y = y - ((LINEHEIGHT as f32 - bg_h) / 2.0 + 1.0) * sy;
-        let dot_y = bg_y + 1.0 * sy;
+        let bg_y = y - ((LINEHEIGHT as f32 - 13.0) / 2.0 + 1.0);
         let mut xx = x;
-        // Left cap
         if let Some(p) = self.patches.get("M_THERML") {
-            draw_patch(p, xx, bg_y, sx, sy, &self.palette, pixels);
-            xx += seg_w * sx;
+            canvas.patch(p, [xx, bg_y]);
+            xx += seg_w;
         }
-        // Middle segments
         if let Some(p) = self.patches.get("M_THERMM") {
             for _ in 0..width {
-                draw_patch(p, xx, bg_y, sx, sy, &self.palette, pixels);
-                xx += seg_w * sx;
+                canvas.patch(p, [xx, bg_y]);
+                xx += seg_w;
             }
         }
-        // Right cap
         if let Some(p) = self.patches.get("M_THERMR") {
-            draw_patch(p, xx, bg_y, sx, sy, &self.palette, pixels);
+            canvas.patch(p, [xx, bg_y]);
         }
-        // Dot (1px down from background)
         if let Some(p) = self.patches.get("M_THERMO") {
-            let dot_x = x + (seg_w + dot as f32 * seg_w) * sx;
-            draw_patch(p, dot_x, dot_y, sx, sy, &self.palette, pixels);
+            canvas.patch(p, [x + seg_w + dot as f32 * seg_w, bg_y + 1.0]);
         }
     }
 
@@ -1059,23 +1047,82 @@ impl GameMenu {
         clippy::cast_precision_loss,
         reason = "screen, input and game-state values deliberately retain their established numeric widths and rounding"
     )]
-    fn draw_save_border(&self, x: f32, y: f32, sx: f32, sy: f32, pixels: &mut impl DrawBuffer) {
-        let left = self.get_patch("M_LSLEFT");
-        let center = self.get_patch("M_LSCNTR");
-        let right = self.get_patch("M_LSRGHT");
+    fn draw_save_border(&self, x: f32, y: f32, canvas: &mut UiCanvas<'_, impl DrawBuffer>) {
         let border_y = y - LINEHEIGHT as f32 * 0.25;
-        draw_patch(left, x - 8.0 * sx, border_y, sx, sy, &self.palette, pixels);
+        canvas.patch(self.get_patch("M_LSLEFT"), [x - 8.0, border_y]);
         let mut bx = x;
         for _ in 0..SAVE_BORDER_TILES {
-            draw_patch(center, bx, border_y, sx, sy, &self.palette, pixels);
-            bx += 8.0 * sx;
+            canvas.patch(self.get_patch("M_LSCNTR"), [bx, border_y]);
+            bx += 8.0;
         }
-        draw_patch(right, bx, border_y, sx, sy, &self.palette, pixels);
+        canvas.patch(self.get_patch("M_LSRGHT"), [bx, border_y]);
     }
 
     /// Returns true if the current menu is the save or load game menu.
     fn is_save_load_menu(&self) -> bool {
         matches!(self.current_menu, MenuIndex::LoadGame | MenuIndex::SaveGame)
+    }
+
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "menu values and indices enter slider drawing coordinates"
+    )]
+    fn draw_options(
+        &self,
+        active: &MenuSet,
+        mut y: f32,
+        canvas: &mut UiCanvas<'_, impl DrawBuffer>,
+    ) {
+        let center_x = 160.0;
+        let gap = 4.0;
+        for (item_i, item) in active.items.iter().enumerate() {
+            let tint = if item_i == active.last_on {
+                TINT_SELECTED
+            } else {
+                TINT_NORMAL
+            };
+            let label_w = measure_text_line(item.label, 1.0);
+            canvas.tinted_text(item.label, [center_x - gap - label_w, y], tint);
+            match &item.kind {
+                ItemKind::Slider {
+                    min,
+                    max,
+                    ..
+                } => {
+                    let therm_w = 10usize;
+                    let range = (max - min) as f32;
+                    let dot = if range > 0.0 {
+                        ((item.cached_value - min) as f32 / range * therm_w as f32) as usize
+                    } else {
+                        0
+                    }
+                    .min(therm_w);
+                    self.draw_thermo(center_x + gap, y, therm_w, dot, canvas);
+                }
+                ItemKind::Toggle => {
+                    let text = if self.vr_active && item.config_key == Some(ConfigKey::NativeUi) {
+                        lang::OPT_ON_VR
+                    } else if item.cached_value != 0 {
+                        lang::OPT_ON
+                    } else {
+                        lang::OPT_OFF
+                    };
+                    canvas.tinted_text(text, [center_x + gap, y], TINT_VALUE);
+                }
+                ItemKind::Cycle {
+                    options,
+                } => {
+                    let index = (item.cached_value as usize).min(options.len().saturating_sub(1));
+                    canvas.tinted_text(options[index], [center_x + gap, y], TINT_VALUE);
+                }
+                ItemKind::Label | ItemKind::Patch => {}
+            }
+            y += LINEHEIGHT as f32;
+        }
+        if self.restart_needed && self.in_options_submenu() {
+            canvas.text(lang::OPT_RESTART, [32.0, 184.0]);
+        }
     }
 
     /// Render the active menu page to the draw buffer.
@@ -1085,202 +1132,62 @@ impl GameMenu {
     /// - Handles save/load slot rendering with text cursor
     /// - Draws options submenus with sliders, toggles, and cycle values
     #[expect(
-        clippy::cast_possible_truncation,
         clippy::cast_precision_loss,
         reason = "screen, input and game-state values deliberately retain their established numeric widths and rounding"
     )]
-    #[expect(
-        clippy::too_many_lines,
-        reason = "keep the complete dispatch or geometry pass together without changing its established ordering"
-    )]
     fn draw_pixels(&self, pixels: &mut impl DrawBuffer) {
-        let (sx, sy) = hud_scale(pixels);
-
-        if self.active || self.in_help {
-            if self.dim_background {
-                for pixel in pixels.buf_mut().iter_mut() {
-                    *pixel = pixel.darken();
-                }
+        if !self.active && !self.in_help {
+            return;
+        }
+        if self.dim_background {
+            for pixel in pixels.buf_mut() {
+                *pixel = pixel.darken();
             }
-
-            let active = &self.menus[self.current_menu as usize];
-            let is_fullscreen = active.titles.is_empty() && active.y == 0;
-            let is_save_load = self.is_save_load_menu();
-            let is_options = self.is_options_menu();
-
-            // Full-screen readthis/help pages: use CRT-correct aspect
-            let (draw_sx, draw_sy) = if is_fullscreen {
-                let black = PixelFmt::from_argb(BLACK, ByteOrder::Argb);
-                pixels.buf_mut().fill(black);
-                fullscreen_scale(pixels)
-            } else {
-                (sx, sy)
-            };
-
-            // Horizontal centering offset: menus are designed for 320-wide space.
-            let [x_ofs, y_ofs] = pixels.ui_layout().origin;
-
-            // Titles
-            for item in &active.titles {
-                draw_patch(
-                    self.get_patch(&item.patch),
-                    x_ofs + item.x as f32 * draw_sx,
-                    y_ofs + item.y as f32 * draw_sy,
-                    draw_sx,
-                    draw_sy,
-                    &self.palette,
-                    pixels,
-                );
+        }
+        let active = &self.menus[self.current_menu as usize];
+        let is_fullscreen = active.titles.is_empty() && active.y == 0;
+        let is_save_load = self.is_save_load_menu();
+        let is_options = self.is_options_menu();
+        if is_fullscreen {
+            pixels
+                .buf_mut()
+                .fill(PixelFmt::from_argb(BLACK, ByteOrder::Argb));
+        }
+        let viewport = pixels.ui_layout().centered();
+        let mut canvas = UiCanvas::new(pixels, &self.palette, viewport);
+        for item in &active.titles {
+            canvas.patch(self.get_patch(&item.patch), [item.x as f32, item.y as f32]);
+        }
+        let x = if is_fullscreen { 0.0 } else { active.x as f32 };
+        let mut y = active.y as f32;
+        if is_save_load {
+            for i in 0..active.items.len() {
+                self.draw_save_border(x, y, &mut canvas);
+                canvas.text(&self.save_strings[i], [x, y]);
+                if self.save_enter && i == self.save_slot {
+                    let cursor_x = x + measure_text_line(&self.save_strings[i], 1.0);
+                    canvas.text("_", [cursor_x, y + LINEHEIGHT as f32 * 0.33]);
+                }
+                y += LINEHEIGHT as f32;
             }
-
-            // Sub-items
-            let x = if is_fullscreen {
-                x_ofs
-            } else {
-                x_ofs + active.x as f32 * draw_sx
-            };
-            let mut y = y_ofs + active.y as f32 * draw_sy;
-
-            if is_save_load {
-                for i in 0..active.items.len() {
-                    self.draw_save_border(x, y, draw_sx, draw_sy, pixels);
-                    draw_text_line(
-                        &self.save_strings[i],
-                        x,
-                        y,
-                        draw_sx,
-                        draw_sy,
-                        &self.palette,
-                        pixels,
-                    );
-                    if self.save_enter && i == self.save_slot {
-                        let cursor_x = x + measure_text_line(&self.save_strings[i], draw_sx);
-                        let y = y + LINEHEIGHT as f32 * 0.33 * draw_sy;
-                        draw_text_line("_", cursor_x, y, draw_sx, draw_sy, &self.palette, pixels);
-                    }
-                    y += LINEHEIGHT as f32 * draw_sy;
+        } else if is_options {
+            self.draw_options(active, y, &mut canvas);
+        } else {
+            for item in &active.items {
+                if !item.patch.is_empty() {
+                    canvas.patch(self.get_patch(&item.patch), [x, y]);
                 }
-            } else if is_options {
-                let center_x = x_ofs + 160.0 * draw_sx;
-                let gap = 4.0 * draw_sx;
-                let sel_idx = active.last_on;
-                for (item_i, item) in active.items.iter().enumerate() {
-                    let label_tint = if item_i == sel_idx {
-                        TINT_SELECTED
-                    } else {
-                        TINT_NORMAL
-                    };
-                    let label_w = measure_text_line(item.label, draw_sx);
-                    draw_text_line_tinted(
-                        item.label,
-                        center_x - gap - label_w,
-                        y,
-                        draw_sx,
-                        draw_sy,
-                        &self.palette,
-                        label_tint,
-                        pixels,
-                    );
-                    match &item.kind {
-                        ItemKind::Slider {
-                            min,
-                            max,
-                            ..
-                        } => {
-                            let therm_x = center_x + gap;
-                            let therm_w = 10usize; // number of middle segments
-                            let range = (max - min) as f32;
-                            let dot = if range > 0.0 {
-                                ((item.cached_value - min) as f32 / range * therm_w as f32) as usize
-                            } else {
-                                0
-                            }
-                            .min(therm_w);
-                            self.draw_thermo(therm_x, y, therm_w, dot, draw_sx, draw_sy, pixels);
-                        }
-                        ItemKind::Toggle => {
-                            let text =
-                                if self.vr_active && item.config_key == Some(ConfigKey::NativeUi) {
-                                    lang::OPT_ON_VR
-                                } else if item.cached_value != 0 {
-                                    lang::OPT_ON
-                                } else {
-                                    lang::OPT_OFF
-                                };
-                            draw_text_line_tinted(
-                                text,
-                                center_x + gap,
-                                y,
-                                draw_sx,
-                                draw_sy,
-                                &self.palette,
-                                TINT_VALUE,
-                                pixels,
-                            );
-                        }
-                        ItemKind::Cycle {
-                            options,
-                        } => {
-                            let idx =
-                                (item.cached_value as usize).min(options.len().saturating_sub(1));
-                            draw_text_line_tinted(
-                                options[idx],
-                                center_x + gap,
-                                y,
-                                draw_sx,
-                                draw_sy,
-                                &self.palette,
-                                TINT_VALUE,
-                                pixels,
-                            );
-                        }
-                        ItemKind::Label | ItemKind::Patch => {}
-                    }
-                    y += LINEHEIGHT as f32 * draw_sy;
-                }
-                if self.restart_needed && self.in_options_submenu() {
-                    let note_y = y_ofs + pixels.ui_layout().height() - 16.0 * draw_sy;
-                    draw_text_line(
-                        lang::OPT_RESTART,
-                        x_ofs + 32.0 * draw_sx,
-                        note_y,
-                        draw_sx,
-                        draw_sy,
-                        &self.palette,
-                        pixels,
-                    );
-                }
-            } else {
-                for item in &active.items {
-                    if !item.patch.is_empty() {
-                        draw_patch(
-                            self.get_patch(&item.patch),
-                            x,
-                            y,
-                            draw_sx,
-                            draw_sy,
-                            &self.palette,
-                            pixels,
-                        );
-                    }
-                    y += LINEHEIGHT as f32 * draw_sy;
-                }
+                y += LINEHEIGHT as f32;
             }
-
-            if !is_fullscreen && !is_options {
-                // SKULL cursor
-                let y = y_ofs
-                    + (active.y as f32 - 5.0 + active.last_on as f32 * LINEHEIGHT as f32) * sy;
-                draw_patch(
-                    self.get_patch(SKULLS[self.which_skull]),
-                    x - 32.0 * sx,
-                    y,
-                    sx,
-                    sy,
-                    &self.palette,
-                    pixels,
-                );
-            }
+        }
+        if !is_fullscreen && !is_options {
+            canvas.patch(
+                self.get_patch(SKULLS[self.which_skull]),
+                [
+                    x - 32.0,
+                    active.y as f32 - 5.0 + active.last_on as f32 * LINEHEIGHT as f32,
+                ],
+            );
         }
     }
 }
@@ -1589,7 +1496,7 @@ mod tests {
     #[test]
     fn graphics_rows_follow_renderer_and_vr_preserves_desktop_preference() {
         let wad = WadData::new(&doom1_wad_path());
-        hud_util::load_char_patches(&wad);
+        ui_draw::load_char_patches(&wad);
         let mut menu = GameMenu::new(GameMode::Shareware, &wad);
         let page = MenuIndex::OptGraphics as usize;
         assert!(

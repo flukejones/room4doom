@@ -1,7 +1,7 @@
 use super::{Intermission, MAP_POINTS, SHOW_NEXT_LOC_DELAY, State, TICRATE, TITLE_Y};
 use game_config::GameMode;
-use hud_util::draw_patch;
 use render_common::DrawBuffer;
+use ui_draw::{UiCanvas, draw_patch};
 use wad::types::WadPatch;
 
 impl Intermission {
@@ -27,33 +27,21 @@ impl Intermission {
         clippy::cast_precision_loss,
         reason = "screen, input and game-state values deliberately retain their established numeric widths and rounding"
     )]
-    pub(super) fn draw_on_lnode(
-        &self,
-        lv: usize,
-        patch: &WadPatch,
-        x_offset: f32,
-        sx: f32,
-        sy: f32,
-        pixels: &mut impl DrawBuffer,
-    ) {
+    pub(super) fn draw_on_lnode(&self, lv: usize, patch: &WadPatch, pixels: &mut impl DrawBuffer) {
         let ep = self.level_info.episode;
         let point = MAP_POINTS[ep][lv];
 
-        let x = x_offset + point.0 as f32 * sx;
-        let y = pixels.ui_layout().origin[1] + point.1 as f32 * sy - patch.top_offset as f32 * sy;
-
-        draw_patch(patch, x, y, sx, sy, &self.palette, pixels);
+        let viewport = pixels.ui_layout().centered();
+        UiCanvas::new(pixels, &self.palette, viewport).patch(
+            patch,
+            [point.0 as f32, point.1 as f32 - patch.top_offset as f32],
+        );
     }
 
-    pub(super) fn draw_enter_level_pixels(
-        &self,
-        x_offset: f32,
-        sx: f32,
-        sy: f32,
-        buffer: &mut impl DrawBuffer,
-    ) {
-        let half = x_offset + 160.0 * sx;
-        let mut y = buffer.ui_layout().origin[1] + TITLE_Y * sy;
+    pub(super) fn draw_enter_level_pixels(&self, buffer: &mut impl DrawBuffer) {
+        let viewport = buffer.ui_layout().centered();
+        let [sx, sy] = viewport.scale;
+        let [half, mut y] = viewport.point(160.0, TITLE_Y);
         draw_patch(
             &self.patches.enter,
             half - self.patches.enter.width as f32 * sx / 2.0,
@@ -68,16 +56,10 @@ impl Intermission {
             .draw_centered(half, y, sx, sy, &self.palette, buffer);
     }
 
-    pub(super) fn draw_next_loc_pixels(
-        &self,
-        x_ofs: f32,
-        sx: f32,
-        sy: f32,
-        buffer: &mut impl DrawBuffer,
-    ) {
+    pub(super) fn draw_next_loc_pixels(&self, buffer: &mut impl DrawBuffer) {
         // Background (fullscreen scale, centered)
-        self.draw_bg(x_ofs, sx, sy, buffer);
-        self.draw_animated_bg_pixels(x_ofs, sx, sy, buffer);
+        self.draw_bg(buffer);
+        self.draw_animated_bg_pixels(buffer);
 
         // Location stuff only for episodes 1-3
         if self.mode != GameMode::Commercial && self.level_info.episode <= 2 {
@@ -88,28 +70,21 @@ impl Intermission {
             };
 
             for i in 0..last {
-                self.draw_on_lnode(i, &self.yah_patches[2], x_ofs, sx, sy, buffer);
+                self.draw_on_lnode(i, &self.yah_patches[2], buffer);
             }
 
             if self.level_info.didsecret {
-                self.draw_on_lnode(8, &self.yah_patches[2], x_ofs, sx, sy, buffer);
+                self.draw_on_lnode(8, &self.yah_patches[2], buffer);
             }
 
             if self.pointer_on {
                 let next_level = self.level_info.next;
-                self.draw_on_lnode(
-                    next_level,
-                    &self.yah_patches[self.yah_idx],
-                    x_ofs,
-                    sx,
-                    sy,
-                    buffer,
-                );
+                self.draw_on_lnode(next_level, &self.yah_patches[self.yah_idx], buffer);
             }
         }
 
         if self.mode != GameMode::Commercial || self.level_info.next != 30 {
-            self.draw_enter_level_pixels(x_ofs, sx, sy, buffer);
+            self.draw_enter_level_pixels(buffer);
         }
     }
 }

@@ -22,7 +22,7 @@ gameplay.workspace = true
 render-common.workspace = true
 sound-common.workspace = true
 math.workspace = true
-hud-util.workspace = true
+ui-draw.workspace = true
 log.workspace = true
 
 [dev-dependencies]

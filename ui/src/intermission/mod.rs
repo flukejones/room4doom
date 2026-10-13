@@ -4,14 +4,12 @@ use defs::{AnimType, Animation, MAP_POINTS, Patches, SHOW_NEXT_LOC_DELAY, State,
 use game_config::GameMode;
 use gameplay::{TICRATE, WorldEndPlayerInfo};
 use gamestate_traits::{ConfigTraits, GameTraits, KeyCode, SubsystemTrait, WorldInfo};
-use hud_util::{
-    HUD_STRING, HUDString, draw_patch, draw_text_line, fullscreen_scale, measure_text_line,
-};
 use log::warn;
 use math::m_random;
 use render_common::{ByteOrder, DrawBuffer, PixelFmt};
 use sound_common::MusTrack;
 use std::collections::HashMap;
+use ui_draw::{HUD_STRING, HUDString, UiCanvas, draw_patch, draw_text_line, measure_text_line};
 use wad::WadData;
 use wad::types::{BLACK, WadFlat, WadPalette, WadPatch};
 use wad::umapinfo::UMapInfo;
@@ -224,18 +222,11 @@ impl Intermission {
 
     /// Draw the fullscreen background patch, clearing the buffer first and
     /// centering.
-    pub(crate) fn draw_bg(&self, x_offset: f32, sx: f32, sy: f32, buffer: &mut impl DrawBuffer) {
+    pub(crate) fn draw_bg(&self, buffer: &mut impl DrawBuffer) {
         let black = PixelFmt::from_argb(BLACK, ByteOrder::Argb);
         buffer.buf_mut().fill(black);
-        draw_patch(
-            self.get_bg(),
-            x_offset,
-            buffer.ui_layout().origin[1],
-            sx,
-            sy,
-            &self.palette,
-            buffer,
-        );
+        let viewport = buffer.ui_layout().centered();
+        UiCanvas::new(buffer, &self.palette, viewport).patch(self.get_bg(), [0.0, 0.0]);
     }
 
     pub(crate) fn get_bg(&self) -> &WadPatch {
@@ -353,27 +344,18 @@ impl Intermission {
         clippy::cast_precision_loss,
         reason = "screen, input and game-state values deliberately retain their established numeric widths and rounding"
     )]
-    fn draw_animated_bg_pixels(
-        &self,
-        x_offset: f32,
-        sx: f32,
-        sy: f32,
-        pixels: &mut impl DrawBuffer,
-    ) {
+    fn draw_animated_bg_pixels(&self, pixels: &mut impl DrawBuffer) {
         if self.mode == GameMode::Commercial || self.level_info.episode > 2 {
             return;
         }
 
+        let viewport = pixels.ui_layout().centered();
+        let mut canvas = UiCanvas::new(pixels, &self.palette, viewport);
         for anim in &self.animations[self.level_info.episode] {
             if anim.counter >= 0 {
-                draw_patch(
+                canvas.patch(
                     &anim.patches[anim.counter as usize],
-                    x_offset + anim.location.0 as f32 * sx,
-                    pixels.ui_layout().origin[1] + anim.location.1 as f32 * sy,
-                    sx,
-                    sy,
-                    &self.palette,
-                    pixels,
+                    [anim.location.0 as f32, anim.location.1 as f32],
                 );
             }
         }
@@ -488,21 +470,18 @@ impl SubsystemTrait for Intermission {
     }
 
     fn draw(&mut self, buffer: &mut impl DrawBuffer) {
-        let (sx, sy) = fullscreen_scale(buffer);
-        let x_ofs = buffer.ui_layout().origin[0];
-
         match self.state {
             State::StatCount => {
-                self.draw_stats_pixels(x_ofs, sx, sy, buffer);
+                self.draw_stats_pixels(buffer);
             }
             State::InterText => {
                 self.draw_inter_text(buffer);
             }
             State::NextLoc => {
-                self.draw_next_loc_pixels(x_ofs, sx, sy, buffer);
+                self.draw_next_loc_pixels(buffer);
             }
             State::None => {
-                self.draw_no_state(x_ofs, sx, sy, buffer);
+                self.draw_no_state(buffer);
             }
         }
     }

@@ -159,7 +159,7 @@ impl<P: PixelFmt> DrawBuffer for UiSurface<P> {
     }
 }
 
-/// Double-buffered CPU framebuffer + melt-wipe. One per [`crate::RenderStack`].
+/// Double-buffered CPU framebuffer + melt-wipe for software presentation.
 ///
 /// ```no_run
 /// use pic_data::ByteOrder;
@@ -204,6 +204,7 @@ impl<P: PixelFmt> Frame<P> {
         &self.front
     }
 
+    #[cfg(feature = "cpu-render")]
     pub(crate) fn set_display_size(&mut self, display: (u32, u32)) {
         self.front.set_display_size(display);
         self.back.set_display_size(display);
@@ -277,9 +278,9 @@ impl<P: PixelFmt> Frame<P> {
 
 #[cfg(test)]
 mod tests {
-    use hud_util::draw_patch;
     use render_common::DrawBuffer;
     use test_utils::doom1_wad_path;
+    use ui_draw::{HUDString, UiCanvas};
     use wad::WadData;
     use wad::types::{WadPalette, WadPatch};
 
@@ -308,15 +309,7 @@ mod tests {
             surface.buf_mut().fill(sentinel);
             let borrowed = &mut surface;
             let layout = DrawBuffer::ui_layout(&borrowed);
-            draw_patch(
-                &patch,
-                layout.origin[0],
-                layout.origin[1],
-                layout.scale[0],
-                layout.scale[1],
-                &palette,
-                borrowed,
-            );
+            UiCanvas::new(borrowed, &palette, layout.centered()).patch(&patch, [0.0, 0.0]);
             let left = layout.origin[0].round() as usize;
             let top = layout.origin[1].round() as usize;
             let right = (layout.origin[0] + layout.width()).round() as usize;
@@ -340,6 +333,44 @@ mod tests {
             assert!(surface.pixels()[w as usize - 1] == P::default());
             assert!(surface.pixels()[(w * h - 1) as usize] == sentinel);
         }
+
+        let mut text = HUDString::new(&wad);
+        text.replace("WRAPPED FINALE TEXT AND FULL WIDTH HUD MESSAGES ".repeat(100));
+        text.set_draw_all();
+        for (w, h) in [(1920, 1080), (480, 640)] {
+            for wide in [false, true] {
+                let mut surface = UiSurface::<P>::new(w, h, ByteOrder::Argb);
+                surface.buf_mut().fill(sentinel);
+                let layout = surface.ui_layout();
+                let viewport = if wide {
+                    layout.hud(true)
+                } else {
+                    layout.centered()
+                };
+                UiCanvas::new(&mut surface, &palette, viewport).wrapped_text(&text, [6.0, 6.0]);
+                let mut reached_margin = false;
+                for (index, _) in surface
+                    .pixels()
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, p)| **p != sentinel)
+                {
+                    let (x, y) = (index % w as usize, index / w as usize);
+                    assert!(x < viewport.right() as usize && y < viewport.bottom() as usize);
+                    reached_margin |= x >= layout.centered().right() as usize
+                        || y >= layout.centered().bottom() as usize;
+                }
+                assert_eq!(reached_margin, wide, "text uses the chosen flow bounds");
+            }
+        }
+        let mut surface = UiSurface::<P>::new(1920, 1080, ByteOrder::Argb);
+        surface.buf_mut().fill(sentinel);
+        let viewport = surface.ui_layout().centered();
+        UiCanvas::new(&mut surface, &palette, viewport).patch(&patch, [325.0, 0.0]);
+        assert!(
+            surface.pixels()[1800] != sentinel,
+            "graphics can extend beyond the centered rectangle"
+        );
     }
 
     #[test]

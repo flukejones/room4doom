@@ -1,6 +1,6 @@
 use gameplay::{MAXPLAYERS, TICRATE};
-use hud_util::load_num_sprites;
 use std::mem::MaybeUninit;
+use ui_draw::load_num_sprites;
 use wad::WadData;
 use wad::types::WadPatch;
 

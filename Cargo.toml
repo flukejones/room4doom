@@ -29,7 +29,7 @@ members = [
   "tools/doomed-parser",
   "tools/editor-core",
   "tools/editor",
-  "ui-util",
+  "ui-draw",
   "game-config",
   "pic-data",
 ]
@@ -54,7 +54,7 @@ pic-data = { path = "./pic-data" }
 gamestate = { path = "./gamestate" }
 gamestate-traits = { path = "./gamestate-traits" }
 doom-ui = { path = "./ui" }
-hud-util = { path = "./ui-util" }
+ui-draw = { path = "./ui-draw" }
 
 sound-common = { path = "./sound/common" }
 sound-rodio = { path = "./sound/rodio" }

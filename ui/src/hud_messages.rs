@@ -1,14 +1,12 @@
 use gameplay::TICRATE;
 use gamestate_traits::{ConfigKey, ConfigTraits, GameTraits, KeyCode, SubsystemTrait};
-use hud_util::{HUD_STRING, HUDString, hud_scale, load_char_patches};
 use render_common::DrawBuffer;
+use ui_draw::{HUD_STRING, HUDString, UiCanvas, load_char_patches};
 use wad::WadData;
 use wad::types::WadPalette;
 
 pub struct Messages {
     palette: WadPalette,
-    screen_width: i32,
-    screen_height: i32,
     lines: [HUDString; 4],
     start: usize,
     current: usize,
@@ -26,8 +24,6 @@ impl Messages {
 
         Self {
             palette,
-            screen_width: 0,
-            screen_height: 0,
             lines: [HUD_STRING; 4],
             start: 0,
             current: 0,
@@ -79,15 +75,9 @@ impl Messages {
         reason = "screen, input and game-state values deliberately retain their established numeric widths and rounding"
     )]
     pub fn draw_wrapped(&self, buffer: &mut impl DrawBuffer) {
-        let (sx, sy) = hud_scale(buffer);
-
-        let x_ofs = if self.widescreen {
-            0.0
-        } else {
-            buffer.ui_layout().origin[0]
-        };
-        let x = x_ofs + 10.0 * sx;
-        let mut y = buffer.ui_layout().origin[1] + 2.0 * sy;
+        let viewport = buffer.ui_layout().hud(self.widescreen);
+        let mut canvas = UiCanvas::new(buffer, &self.palette, viewport);
+        let mut y = 2.0;
         let mut pos = self.start;
         loop {
             if pos >= self.lines.len() {
@@ -101,8 +91,8 @@ impl Messages {
                 continue;
             }
 
-            self.lines[pos].draw(x, y, &self.palette, buffer);
-            y += (self.lines[pos].line_height() as f32 + 1.0) * sy;
+            canvas.wrapped_text(&self.lines[pos], [10.0, y]);
+            y += self.lines[pos].line_height() as f32 + 1.0;
 
             if pos == self.current {
                 break;
@@ -152,8 +142,6 @@ impl SubsystemTrait for Messages {
     }
 
     fn draw(&mut self, buffer: &mut impl DrawBuffer) {
-        self.screen_width = buffer.size().width();
-        self.screen_height = buffer.size().height();
         self.draw_wrapped(buffer);
     }
 }

@@ -28,6 +28,7 @@ pub(crate) struct Resolution {
     pub ui: (u32, u32),
     pub output: (u32, u32),
     pub display: (u32, u32),
+    pub stereo: bool,
 }
 
 impl Resolution {
@@ -84,6 +85,7 @@ impl Resolution {
             ui,
             output,
             display,
+            stereo,
         }
     }
 }

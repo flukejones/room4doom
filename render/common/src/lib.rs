@@ -9,7 +9,7 @@ pub use pic_data::{ByteOrder, PalLit, PixelFmt};
 use math::{Angle, Bam, FixedT, m_random};
 
 pub use scene_target::PixelTarget;
-pub use ui_layout::UiLayout;
+pub use ui_layout::{UiLayout, UiViewport};
 pub use voxel_transform::{VoxelTransform, VoxelTransformIn, voxel_transform};
 
 /// OG Doom's original resolution.

@@ -57,7 +57,7 @@ math.workspace = true
 gamestate-traits.workspace = true
 log.workspace = true
 
-hud-util.workspace = true
+ui-draw.workspace = true
 
 sound-common.workspace = true
 sound-rodio.workspace = true

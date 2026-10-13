@@ -1,5 +1,5 @@
 [package]
-name = "hud-util"
+name = "ui-draw"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true

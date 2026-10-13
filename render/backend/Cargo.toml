@@ -33,7 +33,7 @@ software3d = { workspace = true, optional = true }
 wgpu3d = { workspace = true, optional = true }
 wgpu3dbsp = { workspace = true, optional = true }
 vr = { workspace = true, optional = true }
-hud-util.workspace = true
+ui-draw.workspace = true
 coarse-prof.workspace = true
 glam.workspace = true
 log.workspace = true

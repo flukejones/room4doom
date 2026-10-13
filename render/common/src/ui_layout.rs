@@ -1,10 +1,37 @@
 use crate::{CRT_HEIGHT, OG_HEIGHT, OG_WIDTH};
 
-/// A centered 320×200 UI, displayed with Doom's 320×240 CRT aspect.
+/// Artwork scales with Doom's vertical CRT correction, independent of placement.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct UiLayout {
     pub scale: [f32; 2],
     pub origin: [f32; 2],
+    screen: [f32; 2],
+}
+
+/// A placement rectangle in buffer pixels. It supplies anchors and text-flow
+/// bounds; drawing is clipped only by the actual buffer.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct UiViewport {
+    pub origin: [f32; 2],
+    pub size: [f32; 2],
+    pub scale: [f32; 2],
+}
+
+impl UiViewport {
+    pub fn point(self, x: f32, y: f32) -> [f32; 2] {
+        [
+            self.origin[0] + x * self.scale[0],
+            self.origin[1] + y * self.scale[1],
+        ]
+    }
+
+    pub fn right(self) -> f32 {
+        self.origin[0] + self.size[0]
+    }
+
+    pub fn bottom(self) -> f32 {
+        self.origin[1] + self.size[1]
+    }
 }
 
 impl UiLayout {
@@ -32,6 +59,7 @@ impl UiLayout {
         let scale = [content[0] / OG_WIDTH, content[1] / OG_HEIGHT];
         Self {
             scale,
+            screen: buffer,
             origin: [
                 (buffer[0] - content[0]) * 0.5,
                 (buffer[1] - content[1]) * 0.5,
@@ -45,6 +73,41 @@ impl UiLayout {
 
     pub fn height(self) -> f32 {
         OG_HEIGHT * self.scale[1]
+    }
+
+    /// Classic artwork and menu coordinates, centered in the display.
+    pub fn centered(self) -> UiViewport {
+        UiViewport {
+            origin: self.origin,
+            size: [self.width(), self.height()],
+            scale: self.scale,
+        }
+    }
+
+    /// Full-buffer placement with the same corrected artwork scales.
+    pub fn screen(self) -> UiViewport {
+        UiViewport {
+            origin: [0.0; 2],
+            size: self.screen,
+            scale: self.scale,
+        }
+    }
+
+    /// HUDs use the screen's top/bottom and either classic or full-width anchors.
+    pub fn hud(self, widescreen: bool) -> UiViewport {
+        let mut viewport = self.screen();
+        if !widescreen {
+            viewport.origin[0] = self.origin[0];
+            viewport.size[0] = self.width();
+        }
+        viewport
+    }
+
+    /// The classic statusbar's artwork remains centered and sits at screen bottom.
+    pub fn statusbar(self) -> UiViewport {
+        let mut viewport = self.centered();
+        viewport.origin[1] = self.screen[1] - viewport.size[1];
+        viewport
     }
 }
 

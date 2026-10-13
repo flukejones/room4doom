@@ -1629,12 +1629,12 @@ dependencies = [
  "game-config",
  "gameplay",
  "gamestate-traits",
- "hud-util",
  "log",
  "math",
  "render-common",
  "sound-common",
  "test-utils",
+ "ui-draw",
  "wad",
 ]
 
@@ -2731,16 +2731,6 @@ name = "httparse"
 version = "1.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6dbf3de79e51f3d586ab4cb9d5c3e2c14aa28ed23d180cf89b4df0454a69cc87"
-
-[[package]]
-name = "hud-util"
-version = "1.0.0"
-dependencies = [
- "log",
- "render-common",
- "test-utils",
- "wad",
-]
 
 [[package]]
 name = "i-slint-backend-android-activity"
@@ -5636,7 +5626,6 @@ version = "1.0.0"
 dependencies = [
  "coarse-prof",
  "glam",
- "hud-util",
  "level",
  "log",
  "naga 29.0.3",
@@ -5648,6 +5637,7 @@ dependencies = [
  "software25d",
  "software3d",
  "test-utils",
+ "ui-draw",
  "vr",
  "wad",
  "wgpu 29.0.3",
@@ -5756,7 +5746,6 @@ dependencies = [
  "gamestate",
  "gamestate-traits",
  "glam",
- "hud-util",
  "input 1.0.0",
  "level",
  "log",
@@ -5771,6 +5760,7 @@ dependencies = [
  "software3d",
  "sound-common",
  "sound-rodio",
+ "ui-draw",
  "vr",
  "wad",
  "winit",
@@ -7017,6 +7007,16 @@ dependencies = [
  "memoffset",
  "tempfile",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "ui-draw"
+version = "1.0.0"
+dependencies = [
+ "log",
+ "render-common",
+ "test-utils",
+ "wad",
 ]
 
 [[package]]
