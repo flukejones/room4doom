@@ -1,18 +1,24 @@
-//! BOOM generalized + engine-extended linedef dispatch.
+//! The one entry point for touching a special line.
 //!
-//! All mover specials are normalised to generalized form at load (see
-//! [`level::special_encode`]); these entry points decode them to the exact
-//! room4doom mover kind and build the [`crate::env::effects::MoveEffect`]
-//! preset for it.
+//! `P_CrossSpecialLine`, `P_UseSpecialLine` and `P_ShootSpecialLine` are the
+//! same dispatch under three [`Activation`]s: gate the thing, check the
+//! decoded trigger fires for that activation, run the action, then apply the
+//! consume/switch-texture rules.
 
+use log::{debug, warn};
 use sound_common::SfxName;
 
 use crate::doom_def::Card;
+use crate::env::effects::light_presets::{
+    ev_start_light_strobing, ev_turn_light_on, ev_turn_tag_lights_off,
+};
 use crate::env::effects::mover_presets::{
     ev_build_stairs, ev_do_ceiling, ev_do_donut, ev_do_door, ev_do_floor, ev_do_platform,
-    ev_vertical_door,
+    ev_stop_platform, ev_vertical_door,
 };
 use crate::env::switch::change_switch_texture;
+use crate::env::teleport::teleport;
+use crate::info::MapObjKind;
 use crate::lang::english::{
     PD_ALL3, PD_ALL6, PD_ANY, PD_BLUEC, PD_BLUEK, PD_BLUEO, PD_BLUES, PD_REDC, PD_REDK, PD_REDO,
     PD_REDS, PD_YELLOWC, PD_YELLOWK, PD_YELLOWO, PD_YELLOWS,
@@ -20,126 +26,162 @@ use crate::lang::english::{
 use crate::level::LevelState;
 use crate::thing::MapObject;
 use level::MapPtr;
+use level::flags::LineDefFlags;
 use level::map_defs::LineDef;
 use level::special_encode::{
-    self, CeilKind, DecodedSpecial, DoorLock, FloorKind, LockKind, MoverKind, Trigger,
+    Activation, CeilKind, DoorLock, FloorKind, LineAction, LineSpecial, LockKind, MoverKind,
+    MoverSpec, Trigger,
 };
 
-pub fn is_generalized(special: u32) -> bool {
-    special_encode::is_generalized(special)
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum TriggerClass {
-    Walk,
-    Switch,
-    Gun,
-    Push,
-}
-
-fn trigger_class(t: Trigger) -> TriggerClass {
-    match t {
-        Trigger::WalkOnce | Trigger::WalkMany => TriggerClass::Walk,
-        Trigger::SwitchOnce | Trigger::SwitchMany => TriggerClass::Switch,
-        Trigger::GunOnce | Trigger::GunMany => TriggerClass::Gun,
-        Trigger::PushOnce | Trigger::PushMany => TriggerClass::Push,
-    }
-}
-
-/// Entry point for walk-triggered generalized linedefs
-pub fn handle_generalized_cross(
+/// Touch a line: cross it, use it, or shoot it. Returns whether the line was
+/// acted on — the "used" answer a monster's `P_Move` consumes.
+pub fn activate_line(
     mut line: MapPtr<LineDef>,
     thing: &mut MapObject,
-    level: &mut LevelState,
-    is_monster: bool,
+    side: usize,
+    activation: Activation,
 ) -> bool {
-    let Some(spec) = special_encode::decode(line.special) else {
+    let Some(special) = line.special else {
         return false;
     };
-    if trigger_class(spec.trigger) != TriggerClass::Walk {
+    let LineSpecial::Triggered {
+        trigger,
+        action,
+    } = special
+    else {
+        // A standing effect or an unhandled number: still a special line, so a
+        // use lands on it rather than passing through to what is behind.
+        if let LineSpecial::Unimplemented(n) = special {
+            warn!("Unimplemented line special {n}");
+        }
+        return activation == Activation::Use;
+    };
+    if trigger.activation() != activation {
         return false;
     }
-    if is_monster && !spec.monster {
+    if !can_touch(thing, &line, action, activation) {
         return false;
     }
 
-    let result = dispatch(spec, line.clone(), thing, level);
-
-    if result && !spec.trigger.is_repeatable() {
-        line.special = 0;
+    assert!(!thing.level.is_null(), "Thing had a bad level pointer");
+    let level: &mut LevelState = unsafe { &mut *thing.level };
+    let acted = run(action, trigger, line.clone(), thing, side, level);
+    if !acted {
+        return false;
     }
 
-    result
+    match activation {
+        // A walk trigger clears itself; a switch or gun trigger is cleared by
+        // the texture flip, which manual doors never get.
+        Activation::Cross => {
+            if !trigger.is_repeatable() && action.consumed_when_once() {
+                line.special = None;
+            }
+        }
+        Activation::Use | Activation::Shoot => {
+            if !matches!(action, LineAction::Mover(m) if m.manual) {
+                change_switch_texture(
+                    line,
+                    trigger.is_repeatable(),
+                    &level.switch_list,
+                    &mut level.button_list,
+                    &level.snd_command,
+                    &mut level.level_data.bsp_3d,
+                );
+            }
+        }
+    }
+    true
 }
 
-/// Entry point for switch/push-triggered generalized linedefs
-pub fn handle_generalized_use(
+/// The pre-dispatch gates OG applies to the thing rather than the special.
+fn can_touch(
+    thing: &MapObject,
+    line: &LineDef,
+    action: LineAction,
+    activation: Activation,
+) -> bool {
+    let monster_teleport = action
+        == LineAction::Teleport {
+            monsters_only: true,
+        };
+    if monster_teleport && thing.player().is_some() {
+        return false;
+    }
+    if thing.player().is_some() {
+        return true;
+    }
+    let reaches = match activation {
+        // Projectiles cross lines without firing anything.
+        Activation::Cross => !matches!(
+            thing.kind,
+            MapObjKind::MT_ROCKET
+                | MapObjKind::MT_PLASMA
+                | MapObjKind::MT_BFG
+                | MapObjKind::MT_TROOPSHOT
+                | MapObjKind::MT_HEADSHOT
+                | MapObjKind::MT_BRUISERSHOT
+        ),
+        // A monster cannot work out a secret door.
+        Activation::Use => !line.flags.contains(LineDefFlags::Secret),
+        Activation::Shoot => true,
+    };
+    reaches && action.allows_monster()
+}
+
+/// Run the action, returning whether it did anything.
+fn run(
+    action: LineAction,
+    trigger: Trigger,
     line: MapPtr<LineDef>,
     thing: &mut MapObject,
+    side: usize,
     level: &mut LevelState,
 ) -> bool {
-    let Some(spec) = special_encode::decode(line.special) else {
-        return false;
-    };
-    let class = trigger_class(spec.trigger);
-    if class != TriggerClass::Switch && class != TriggerClass::Push {
-        return false;
+    match action {
+        LineAction::Mover(spec) => move_sectors(spec, trigger, line, thing, level),
+        LineAction::Exit {
+            secret: false,
+        } => {
+            level.do_exit_level();
+            true
+        }
+        LineAction::Exit {
+            secret: true,
+        } => {
+            level.do_secret_exit_level();
+            true
+        }
+        LineAction::Teleport {
+            ..
+        } => {
+            teleport(line, side, thing, level);
+            true
+        }
+        LineAction::LightTurnOn(level_to) => {
+            debug!("line-special: turn light to {level_to}");
+            ev_turn_light_on(line, usize::from(level_to), level);
+            true
+        }
+        LineAction::LightsOffTag => {
+            ev_turn_tag_lights_off(line, level);
+            true
+        }
+        LineAction::StartStrobing => {
+            ev_start_light_strobing(line, level);
+            true
+        }
+        LineAction::StopPlat => {
+            ev_stop_platform(line, level);
+            true
+        }
     }
-    if thing.player().is_none() && !spec.monster {
-        return false;
-    }
-
-    let result = dispatch(spec, line.clone(), thing, level);
-
-    // Manual doors are not switches: vanilla never changes their texture.
-    if result && !spec.manual {
-        change_switch_texture(
-            line,
-            spec.trigger.is_repeatable(),
-            &level.switch_list,
-            &mut level.button_list,
-            &level.snd_command,
-            &mut level.level_data.bsp_3d,
-        );
-    }
-
-    result
 }
 
-/// Entry point for gun-triggered generalized linedefs
-pub fn handle_generalized_shoot(
-    line: MapPtr<LineDef>,
-    thing: &mut MapObject,
-    level: &mut LevelState,
-) -> bool {
-    let Some(spec) = special_encode::decode(line.special) else {
-        return false;
-    };
-    if trigger_class(spec.trigger) != TriggerClass::Gun {
-        return false;
-    }
-    if thing.player().is_none() && !spec.monster {
-        return false;
-    }
-
-    let result = dispatch(spec, line.clone(), thing, level);
-
-    if result {
-        change_switch_texture(
-            line,
-            spec.trigger.is_repeatable(),
-            &level.switch_list,
-            &mut level.button_list,
-            &level.snd_command,
-            &mut level.level_data.bsp_3d,
-        );
-    }
-
-    result
-}
-
-fn dispatch(
-    spec: DecodedSpecial,
+/// Build the mover(s) a special names.
+fn move_sectors(
+    spec: MoverSpec,
+    trigger: Trigger,
     line: MapPtr<LineDef>,
     thing: &mut MapObject,
     level: &mut LevelState,
@@ -161,7 +203,7 @@ fn dispatch(
                 None => true,
             };
             if unlocked {
-                ev_vertical_door(line, thing, kind, spec.trigger.is_repeatable(), level);
+                ev_vertical_door(line, thing, kind, trigger.is_repeatable(), level);
             }
             true
         }
@@ -273,9 +315,8 @@ fn can_unlock(thing: &mut MapObject, lock: DoorLock, manual: bool) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::env::switch::p_use_special_line;
     use crate::test_support::{TestLevel, rng_guard};
-    use level::special_encode::encode_vanilla;
+    use level::special_encode::decode_line;
 
     /// Locked doors refuse without the key and open with it, in both the
     /// manual (26, PD_BLUEK) and key switch (137, PD_YELLOWO with a skull
@@ -287,8 +328,8 @@ mod tests {
         let mut level = TestLevel::load("E1M1");
         let player = level.spawn_player(1056, -3616);
 
-        // Any manual door line will do (found by its pre-normalisation
-        // special); relock it blue.
+        // Any manual door line will do (found by its authored special);
+        // relock it blue.
         let ld_idx = level
             .level_data()
             .linedefs
@@ -296,15 +337,17 @@ mod tests {
             .position(|l| l.default_special == 1)
             .expect("E1M1 has a manual door");
         let mut ld = MapPtr::new(&mut level.level_data_mut().linedefs[ld_idx]);
-        ld.special = encode_vanilla(26).unwrap();
+        ld.special = decode_line(26);
 
-        let used = p_use_special_line(0, ld.clone(), unsafe { &mut *player });
+        let thing = unsafe { &mut *player };
+        let used = activate_line(ld.clone(), thing, 0, Activation::Use);
         assert!(used, "vanilla counts a failed key check as used");
         assert!(ld.backsector.as_ref().unwrap().specialdata.is_none());
         assert_eq!(level.players()[0].message, Some(PD_BLUEK));
 
         level.parts_mut().1[0].status.cards[Card::Bluecard as usize] = true;
-        p_use_special_line(0, ld.clone(), unsafe { &mut *player });
+        let thing = unsafe { &mut *player };
+        activate_line(ld.clone(), thing, 0, Activation::Use);
         assert!(
             ld.backsector.as_ref().unwrap().specialdata.is_some(),
             "manual door must open with the blue card"
@@ -312,8 +355,9 @@ mod tests {
 
         // Switch form on ld195 (tag 2): yellow once-only blaze open.
         let mut sw = MapPtr::new(&mut level.level_data_mut().linedefs[195]);
-        sw.special = encode_vanilla(137).unwrap();
-        p_use_special_line(0, sw.clone(), unsafe { &mut *player });
+        sw.special = decode_line(137);
+        let thing = unsafe { &mut *player };
+        activate_line(sw.clone(), thing, 0, Activation::Use);
         let tagged = |level: &TestLevel| {
             level
                 .level_data()
@@ -331,10 +375,47 @@ mod tests {
 
         // A skull satisfies a card lock on vanilla key doors.
         level.parts_mut().1[0].status.cards[Card::Yellowskull as usize] = true;
-        p_use_special_line(0, sw.clone(), unsafe { &mut *player });
+        let thing = unsafe { &mut *player };
+        activate_line(sw.clone(), thing, 0, Activation::Use);
         assert!(
             tagged(&level).iter().all(|d| *d),
             "yellow skull must open the yellow card switch-door"
         );
+    }
+
+    /// A line only fires for the way of touching it that its trigger names.
+    /// Walking into a switch, or pressing a walk-over line, must do nothing —
+    /// vanilla reaches each number from one dispatch table only.
+    #[test]
+    fn wrong_activation_does_nothing() {
+        let _g = rng_guard();
+        let mut level = TestLevel::load("E1M1");
+        let player = level.spawn_player(1056, -3616);
+        let idle = |level: &TestLevel| {
+            level
+                .level_data()
+                .sectors
+                .iter()
+                .filter(|s| s.tag == 2)
+                .all(|s| s.specialdata.is_none())
+        };
+
+        // ld195 drives tag 2. As a walk-once lift, a use must not move it.
+        let mut ld = MapPtr::new(&mut level.level_data_mut().linedefs[195]);
+        ld.special = decode_line(10);
+        let thing = unsafe { &mut *player };
+        assert!(!activate_line(ld.clone(), thing, 0, Activation::Use));
+        assert!(idle(&level), "walk lift must not answer a use");
+
+        // As a switch-once door, crossing it must not open it.
+        ld.special = decode_line(103);
+        let thing = unsafe { &mut *player };
+        assert!(!activate_line(ld.clone(), thing, 0, Activation::Cross));
+        assert!(idle(&level), "switch door must not answer a cross");
+
+        // The matching activation does fire, so the line itself is sound.
+        let thing = unsafe { &mut *player };
+        assert!(activate_line(ld.clone(), thing, 0, Activation::Use));
+        assert!(!idle(&level), "switch door must open on a use");
     }
 }

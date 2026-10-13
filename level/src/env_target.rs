@@ -9,7 +9,7 @@ use crate::env_query::{
 use crate::flags::LineDefFlags;
 use crate::level_data::LevelData;
 use crate::map_defs::{Sector, SectorHeight};
-use crate::special_encode::{self, CeilKind, DoorKind, FloorKind, MoverKind, PlatKind};
+use crate::special_encode::{CeilKind, DoorKind, FloorKind, MoverKind, MoverSpec, PlatKind};
 use crate::{MapPtr, MovementType};
 
 /// Floor mover destination height. `tex_min` is the shortest surrounding lower
@@ -128,26 +128,26 @@ pub struct MoverTarget {
     pub height: f32,
 }
 
-/// Find the linedef that triggers movement of `sector_id`: a tag-matched mover
-/// line, or a manual-door line whose back sector is this sector.
-fn trigger_special(level: &LevelData, sector_id: usize) -> Option<u32> {
+/// Find the mover that moves `sector_id`: a tag-matched mover line, or a
+/// manual-door line whose back sector is this sector.
+fn trigger_mover(level: &LevelData, sector_id: usize) -> Option<MoverSpec> {
     let tag = level.sectors[sector_id].tag;
-    if tag != 0 {
-        for line in level.linedefs.iter() {
-            if line.tag == tag && special_encode::decode(line.special).is_some() {
-                return Some(line.special);
-            }
-        }
+    if tag != 0
+        && let Some(spec) = level
+            .linedefs
+            .iter()
+            .filter(|line| line.tag == tag)
+            .find_map(|line| line.special?.mover())
+    {
+        return Some(spec);
     }
-    for line in level.linedefs.iter() {
-        if let Some(back) = line.backsector.as_ref()
-            && back.num as usize == sector_id
-            && special_encode::decode(line.special).is_some_and(|s| s.manual)
-        {
-            return Some(line.special);
+    level.linedefs.iter().find_map(|line| {
+        let back = line.backsector.as_ref()?;
+        if back.num as usize != sector_id {
+            return None;
         }
-    }
-    None
+        line.special?.mover().filter(|s| s.manual)
+    })
 }
 
 /// Shortest surrounding lower-texture height for `RaiseToTexture`.
@@ -184,10 +184,7 @@ pub fn mover_targets_for_sector(
     level: &mut LevelData,
     tex_height: &dyn Fn(usize) -> i32,
 ) -> Vec<MoverTarget> {
-    let Some(special) = trigger_special(level, sector_id) else {
-        return Vec::new();
-    };
-    let Some(spec) = special_encode::decode(special) else {
+    let Some(spec) = trigger_mover(level, sector_id) else {
         return Vec::new();
     };
 

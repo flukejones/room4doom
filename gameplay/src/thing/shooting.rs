@@ -10,13 +10,14 @@ use math::{
 use sound_common::SfxName;
 
 use crate::doom_def::{MAXPLAYERS, MAXRADIUS, MELEERANGE};
-use crate::env::specials::shoot_special_line;
+use crate::env::activate::activate_line;
 use crate::info::{MOBJINFO, StateNum};
 use crate::maputl::{Intercept, PortalZ, p_divline_side_raw, path_traverse_blockmap};
 use crate::player::AimRay;
 use crate::{MapObjKind, MapObject};
 use level::Sector;
 use level::map_defs::LineDef;
+use level::special_encode::Activation;
 use level::{LevelData, LineDefFlags, MapPtr, is_leaf, leaf_index};
 use math::Angle;
 
@@ -767,8 +768,8 @@ impl ShootTraverse {
             return false;
         }
         if let Some(line) = intercept.line.as_mut() {
-            if line.special != 0 {
-                shoot_special_line(line.clone(), shooter);
+            if line.special.is_some() {
+                activate_line(line.clone(), shooter, 0, Activation::Shoot);
             }
 
             if !line.flags.contains(LineDefFlags::TwoSided) {

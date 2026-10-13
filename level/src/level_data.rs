@@ -10,16 +10,21 @@ use glam::Vec2;
 use log::{debug, info, warn};
 use math::{Angle, FixedT};
 use rbsp::LineDefAccess as _;
-use rbsp::bsp3d::{Bsp3dBuilder, Bsp3dInput, Bsp3dLump};
+use rbsp::bsp3d::{BUILDER_REVISION, Bsp3dBuilder, Bsp3dInput, Bsp3dLump};
+use rbsp::rbsp_lump::{read_rbsp_lump, write_rbsp_lump};
+use rbsp::udmf_input::UdmfInput;
 use std::collections::BTreeMap;
 use std::collections::hash_map::DefaultHasher;
+use std::env;
 use std::hash::Hasher as _;
 use std::path::{Path, PathBuf};
+use std::str;
 use std::time::Instant;
 use std::{fs, process};
 
 const CELL_SIZE: f32 = 128.0;
 use wad::types::*;
+use wad::udmf::{UdmfLineDef, UdmfThing, parse_textmap};
 use wad::{MapLump, WadData};
 
 /// The smallest vector and the largest vertex, combined make up a
@@ -273,9 +278,9 @@ impl LevelData {
                     delta: Vec2::new(dx, dy),
                     delta_fp,
                     flags: LineDefFlags::from_bits_truncate(l.flags as u32),
-                    special: l.special as u32,
+                    special: special_encode::decode_line(l.special as u32),
                     tag: l.sector_tag,
-                    default_special: l.special,
+                    default_special: l.special as u32,
                     default_tag: l.sector_tag,
                     bbox: BBox::new(v1.pos, v2.pos),
                     bbox_int: [y1.max(y2), y1.min(y2), x1.min(x2), x1.max(x2)],
@@ -307,14 +312,6 @@ impl LevelData {
         sky_num: Option<usize>,
         tex_order: &[WadTexture],
     ) {
-        // Normalise vanilla mover specials to generalized form so the engine
-        // has one decode path. `default_special` keeps the original number.
-        for line in self.linedefs.iter_mut() {
-            if let Some(generalized) = special_encode::encode_vanilla(line.special) {
-                line.special = generalized;
-            }
-        }
-
         // Map sectors to lines
         for line in self.linedefs.iter_mut() {
             let mut sector = line.frontsector.clone();
@@ -455,8 +452,8 @@ impl LevelData {
         sky_num: Option<usize>,
         sky_pic: Option<usize>,
     ) {
-        let text = std::str::from_utf8(textmap).expect("TEXTMAP is not valid UTF-8");
-        let map = wad::udmf::parse_textmap(text).expect("TEXTMAP parse failed");
+        let text = str::from_utf8(textmap).expect("TEXTMAP is not valid UTF-8");
+        let map = parse_textmap(text).expect("TEXTMAP parse failed");
         info!("{map_name}: UDMF map, namespace {}", map.namespace);
 
         self.things = map.things.iter().map(udmf_thing_to_wad).collect();
@@ -504,7 +501,7 @@ impl LevelData {
             .collect();
         info!("{}: Loaded {} sidedefs", map_name, self.sidedefs.len());
 
-        let udmf_input = rbsp::udmf_input::UdmfInput::from_map(&map);
+        let udmf_input = UdmfInput::from_map(&map);
         let bsp_input = udmf_input.into_bsp_input();
         let (bsp, bsp3d_lump) = build_bsp_from_input(map_name, &bsp_input, sky_num, sky_pic);
 
@@ -551,7 +548,7 @@ impl LevelData {
                 };
 
                 let tag = i16::try_from(l.id).unwrap_or(0);
-                let special = i16::try_from(l.special).unwrap_or(0);
+                let special = u32::try_from(l.special).unwrap_or(0);
                 let sides = [
                     l.sidefront as u16,
                     l.sideback.map_or(u16::MAX, |i| i as u16),
@@ -564,7 +561,7 @@ impl LevelData {
                     delta: Vec2::new(dx, dy),
                     delta_fp,
                     flags: LineDefFlags::from_bits_truncate(udmf_linedef_flags(l)),
-                    special: special as u32,
+                    special: special_encode::decode_line(special),
                     tag,
                     default_special: special,
                     default_tag: tag,
@@ -961,7 +958,7 @@ fn load_or_build_bsp(
     sky_pic: Option<usize>,
 ) -> (rbsp::BspOutput, Bsp3dLump) {
     if let Some(data) = find_map_lump(wad, map_name, "RBSP") {
-        if let Some(found) = rbsp::rbsp_lump::read_rbsp_lump(&data) {
+        if let Some(found) = read_rbsp_lump(&data) {
             info!("{map_name}: Loaded RBSP lump from WAD");
             return found;
         }
@@ -972,7 +969,7 @@ fn load_or_build_bsp(
     if let Some(path) = &cache_path
         && let Ok(bytes) = fs::read(path)
     {
-        if let Some(found) = rbsp::rbsp_lump::read_rbsp_lump(&bytes) {
+        if let Some(found) = read_rbsp_lump(&bytes) {
             info!("{}: Loaded RBSP cache {}", map_name, path.display());
             return found;
         }
@@ -1038,7 +1035,7 @@ where
 
 /// Convert a UDMF thing to the classic `WadThing` the spawn path consumes.
 /// UDMF positive booleans map to the classic THINGS flag bits.
-fn udmf_thing_to_wad(t: &wad::udmf::UdmfThing) -> WadThing {
+fn udmf_thing_to_wad(t: &UdmfThing) -> WadThing {
     let mut flags = 0i16;
     if t.skill1 || t.skill2 {
         flags |= 1; // skill 1 & 2
@@ -1066,7 +1063,7 @@ fn udmf_thing_to_wad(t: &wad::udmf::UdmfThing) -> WadThing {
 
 /// Classic linedef flag bits from a UDMF linedef's boolean fields (the bit
 /// layout matches `LineDefFlags` 1:1 for the v1.1 standard flags).
-fn udmf_linedef_flags(l: &wad::udmf::UdmfLineDef) -> u32 {
+fn udmf_linedef_flags(l: &UdmfLineDef) -> u32 {
     let mut f = 0u32;
     if l.blocking {
         f |= 1;
@@ -1113,7 +1110,7 @@ fn rbsp_cache_path(
     has_sky: bool,
     sky_fillers: bool,
 ) -> Option<PathBuf> {
-    let dir = match std::env::var_os("ROOM4DOOM_CACHE_DIR") {
+    let dir = match env::var_os("ROOM4DOOM_CACHE_DIR") {
         Some(d) => PathBuf::from(d),
         None => dirs::cache_dir()?.join("room4doom"),
     }
@@ -1124,7 +1121,7 @@ fn rbsp_cache_path(
     }
     hasher.write_u8(has_sky as u8);
     hasher.write_u8(sky_fillers as u8);
-    hasher.write_u32(rbsp::bsp3d::BUILDER_REVISION);
+    hasher.write_u32(BUILDER_REVISION);
     Some(dir.join(format!("{map_name}-{:016x}.rbsp", hasher.finish())))
 }
 
@@ -1138,7 +1135,7 @@ fn write_rbsp_cache(path: &Path, output: &rbsp::BspOutput, lump3d: &Bsp3dLump) {
         warn!("rbsp cache: creating {} failed: {e}", parent.display());
         return;
     }
-    let bytes = rbsp::rbsp_lump::write_rbsp_lump(output, lump3d, false);
+    let bytes = write_rbsp_lump(output, lump3d, false);
     let tmp = path.with_extension(format!("tmp{}", process::id()));
     if let Err(e) = fs::write(&tmp, &bytes) {
         warn!("rbsp cache: writing {} failed: {e}", tmp.display());

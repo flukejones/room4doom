@@ -3,6 +3,7 @@ use crate::flags::LineDefFlags;
 use glam::Vec2;
 use math::{Angle, FixedT, p_aprox_distance, r_point_on_side_raw};
 use rbsp::SlopePlane;
+use rbsp::special_encode::{LineSpecial, SectorSpecial, decode_sector};
 
 /// Sector floor/ceiling height type: fixed-point for deterministic gameplay.
 pub type SectorHeight = FixedT;
@@ -66,7 +67,7 @@ pub struct Sector {
     /// Is a tag or index to patch
     pub ceilingpic: usize,
     pub lightlevel: usize,
-    pub special: u32,
+    pub special: SectorSpecial,
     pub tag: i16,
     /// Saved special for reference
     pub default_special: i16,
@@ -142,7 +143,7 @@ impl Sector {
             floorpic,
             ceilingpic,
             lightlevel,
-            special: special as u32,
+            special: decode_sector(special as u32),
             tag,
             default_special: special,
             default_tag: tag,
@@ -236,11 +237,13 @@ pub struct LineDef {
     pub delta_fp: [i32; 2],
     // Animation related.
     pub flags: LineDefFlags,
-    pub special: u32,
+    /// `None` once a once-only trigger has consumed it.
+    pub special: Option<LineSpecial>,
     pub tag: i16,
 
-    /// Saved special for reference
-    pub default_special: i16,
+    /// The special number as authored: the wire form for the save file, and
+    /// what tooling reports.
+    pub default_special: u32,
     /// Saved tag for reference
     pub default_tag: i16,
 

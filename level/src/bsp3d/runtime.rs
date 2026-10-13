@@ -12,6 +12,7 @@ use crate::map_defs::{LineDef, Sector, SideDef};
 use glam::{Vec2, Vec3};
 use math::{FixedT, r_point_on_side_raw};
 use rbsp::bsp3d::{NO_INDEX, PolyFlags};
+use rbsp::special_encode::{LineEffect, LineSpecial};
 use std::f32::consts::FRAC_PI_2;
 use std::ops::Range;
 
@@ -509,7 +510,7 @@ impl BSP3D {
             if slot == WallSlot::Middle && back_sidedef.is_some() {
                 flags |= PolyFlags::MASKED_MIDDLE;
             }
-            if linedef.special == 260 {
+            if linedef.special == Some(LineSpecial::Effect(LineEffect::Translucent)) {
                 flags |= PolyFlags::TRANSLUCENT;
             }
 

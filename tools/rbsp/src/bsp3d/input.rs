@@ -5,7 +5,6 @@
 //! stream the engine's loader builds — so the emitted lump is identical
 //! whichever side runs the builder.
 
-use crate::special_encode;
 use crate::types::{BspOutput, LineDefAccess, SectorAccess, Side, SideDefAccess, SlopePlane};
 use glam::Vec2;
 use std::collections::BTreeMap;
@@ -139,19 +138,16 @@ impl Bsp3dInput {
 
         let in_linedefs: Vec<InputLineDef> = linedefs
             .iter()
-            .map(|ld| {
-                let raw = ld.special_u32();
-                InputLineDef {
-                    v1: verts[ld.start_vertex_idx()],
-                    v2: verts[ld.end_vertex_idx()],
-                    special: special_encode::encode_vanilla(raw).unwrap_or(raw),
-                    tag: ld.tag_i16(),
-                    sides: [
-                        ld.front_sidedef_idx().map_or(NO_REF, |i| i as u32),
-                        ld.back_sidedef_idx().map_or(NO_REF, |i| i as u32),
-                    ],
-                    two_sided: ld.flags_u32() & TWO_SIDED_FLAG != 0,
-                }
+            .map(|ld| InputLineDef {
+                v1: verts[ld.start_vertex_idx()],
+                v2: verts[ld.end_vertex_idx()],
+                special: ld.special_u32(),
+                tag: ld.tag_i16(),
+                sides: [
+                    ld.front_sidedef_idx().map_or(NO_REF, |i| i as u32),
+                    ld.back_sidedef_idx().map_or(NO_REF, |i| i as u32),
+                ],
+                two_sided: ld.flags_u32() & TWO_SIDED_FLAG != 0,
             })
             .collect();
 

@@ -12,6 +12,7 @@ use crate::lang::english::*;
 use crate::player::{PlayerCheat, PlayerState};
 use crate::thing::MapObjFlag;
 use game_config::{Skill, WeaponType};
+use level::special_encode::SectorKind;
 use math::{ANG180, FixedT, p_random, r_point_to_angle};
 
 pub const BONUSADD: i32 = 6;
@@ -100,14 +101,14 @@ impl MapObject {
             }
         }
 
-        let special = self.subsector.sector.special;
+        let special = self.subsector.sector.special.kind;
         let mobj_health = self.health;
         let self_x = self.x;
         let self_y = self.y;
         let self_ang = self.angle;
         if let Some(player) = self.player_mut() {
             // end of game-exe hell hack
-            if special == 11 && damage >= mobj_health {
+            if special == Some(SectorKind::DamageEnd) && damage >= mobj_health {
                 damage = mobj_health - 1;
             }
             // Below certain threshold, ignore damage in GOD mode, or with INVUL power.

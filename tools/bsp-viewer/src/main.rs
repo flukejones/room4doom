@@ -2,6 +2,7 @@ mod viewer;
 
 use argh::FromArgs;
 use level::LevelData;
+use level::special_encode::encode_sector;
 use log::info;
 use math::FixedT;
 use serde::Serialize;
@@ -148,7 +149,7 @@ fn cmd_sectors(args: &Args) {
             ceiling_height: s.ceilingheight.to_f32(),
             light_level: s.lightlevel,
             tag: s.tag,
-            kind: s.special,
+            kind: encode_sector(s.special),
         })
         .collect();
     println!("{}", serde_json::to_string_pretty(&sectors).unwrap());
@@ -370,7 +371,7 @@ fn cmd_dump(args: &Args, cmd: &DumpCmd) {
                 ceiling_height: s.ceilingheight.to_f32(),
                 light_level: s.lightlevel,
                 tag: s.tag,
-                special: s.special,
+                special: encode_sector(s.special),
             })
             .collect(),
         subsectors: level_data
@@ -396,7 +397,7 @@ fn cmd_dump(args: &Args, cmd: &DumpCmd) {
                     v1: v1_idx,
                     v2: v2_idx,
                     flags: ld.flags.bits(),
-                    special: ld.special,
+                    special: ld.default_special,
                     tag: ld.tag,
                     front_sector: ld.frontsector.num as usize,
                     back_sector: ld.backsector.as_ref().map(|s| s.num as usize),

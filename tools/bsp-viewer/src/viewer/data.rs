@@ -1,5 +1,6 @@
 use egui::Color32;
 use glam::Vec2;
+use level::special_encode::encode_sector;
 use level::{BSP3D, LevelData, Node3D, is_leaf, leaf_index};
 use wad::WadData;
 use wad::types::WadPalette;
@@ -95,7 +96,7 @@ pub fn extract_viewer_data(map_name: &str, level_data: &LevelData, wad: &WadData
             is_two_sided: ld.backsector.is_some(),
             front_sector_id: ld.frontsector.num as usize,
             back_sector_id: ld.backsector.as_ref().map(|bs| bs.num as usize),
-            special: ld.special,
+            special: ld.default_special,
             tag: ld.tag,
         })
         .collect();
@@ -122,7 +123,7 @@ pub fn extract_viewer_data(map_name: &str, level_data: &LevelData, wad: &WadData
             floor_height: s.floorheight.to_f32(),
             ceiling_height: s.ceilingheight.to_f32(),
             light_level: s.lightlevel,
-            special: s.special,
+            special: encode_sector(s.special),
             tag: s.tag,
         })
         .collect();

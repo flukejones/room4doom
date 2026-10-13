@@ -1,12 +1,15 @@
-//! Canonical mover encoding: at level load, rewrite every vanilla (Doom 1-141)
-//! mover linedef special into a generalized form so the engine has one decode
-//! path for movers.
+//! The linedef and sector special vocabulary, and the only place a raw special
+//! number is read.
 //!
-//! Two target forms, both decoded by the same generalized handler:
+//! [`decode_line`] turns any number — vanilla (Doom 1-141), standard BOOM or
+//! engine-extended — into a [`LineSpecial`]; nothing downstream of a WAD read,
+//! a level load or a save load sees the number again.
+//!
+//! Movers reach their kind through a generalized intermediate, in two forms:
 //!
 //! - **Standard BOOM** (`0x2F80..=0x7FFF`): when a vanilla special's behaviour
 //!   is exactly expressible in BOOM's generalized bitfields (speed/model/
-//!   target/direction/change/crush/delay/key), it is rewritten to the real BOOM
+//!   target/direction/change/crush/delay/key), it maps to the real BOOM
 //!   special. Hand-authored BOOM maps already use this range and decode
 //!   identically. Each value is built from the field constants below, never
 //!   hand-typed, so the bit packing is correct by construction.
@@ -17,15 +20,15 @@
 //!   cannot express). The extended form carries the exact mover identity in
 //!   explicit fields.
 //!
-//! This module is also the home of the mover kind vocabulary itself: the
+//! This module is also the home of the kind vocabulary itself: the
 //! [`FloorKind`]/[`CeilKind`]/[`DoorKind`]/[`PlatKind`]/[`StairKind`] enums
 //! whose discriminants are the encoding's `kind` field, wrapped per category
-//! into [`MoverKind`] by [`decode`].
+//! into [`MoverKind`], plus [`SectorKind`] for sector specials.
 //!
 //! Behaviour is verified against OG Doom C (the demo-safety oracle) cross-
-//! checked with BOOM 2.02 P_GENLIN.C / P_SPEC.H. `encode_vanilla` is idempotent
-//! and only rewrites vanilla numbers in `1..=141`.
+//! checked with BOOM 2.02 P_GENLIN.C / P_SPEC.H.
 
+use self::LineAction::{Exit, LightTurnOn, LightsOffTag, StartStrobing, StopPlat, Teleport};
 use self::Trigger::{
     GunMany, GunOnce, PushMany, PushOnce, SwitchMany, SwitchOnce, WalkMany, WalkOnce,
 };
@@ -159,6 +162,87 @@ pub struct DoorLock {
     pub skulls_are_cards: bool,
 }
 
+byte_enum! {
+    /// Vanilla sector-special types (bits 0-4 of the sector special). Damage
+    /// types act during play; the rest spawn something at level load.
+    pub enum SectorKind {
+        Flicker = 1,
+        StrobeFast = 2,
+        StrobeSlow = 3,
+        StrobeFastDamage = 4,
+        Damage10 = 5,
+        Damage5 = 7,
+        Glow = 8,
+        Secret = 9,
+        DoorCloseIn30 = 10,
+        DamageEnd = 11,
+        StrobeSlowSync = 12,
+        StrobeFastSync = 13,
+        DoorRaiseIn5Mins = 14,
+        Damage20 = 16,
+        FireFlicker = 17,
+    }
+}
+
+byte_enum! {
+    /// BOOM generalized damage tier (sector special bits 5-6), applied on top
+    /// of the vanilla type.
+    #[derive(Default)]
+    pub enum SectorDamage {
+        #[default]
+        Zero = 0,
+        Five = 1,
+        Ten = 2,
+        Twenty = 3,
+    }
+}
+
+impl SectorDamage {
+    /// Hit points per damage tic.
+    pub const fn amount(self) -> i32 {
+        match self {
+            Self::Zero => 0,
+            Self::Five => 5,
+            Self::Ten => 10,
+            Self::Twenty => 20,
+        }
+    }
+}
+
+/// A decoded sector special.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct SectorSpecial {
+    /// `None` once consumed, or for a type this engine has no behaviour for.
+    pub kind: Option<SectorKind>,
+    pub damage: SectorDamage,
+    pub secret: bool,
+}
+
+impl SectorSpecial {
+    /// Nothing left to act on: no type, no damage, not a secret.
+    pub const fn is_inert(self) -> bool {
+        self.kind.is_none() && matches!(self.damage, SectorDamage::Zero) && !self.secret
+    }
+}
+
+/// Decode a raw sector special: vanilla type in bits 0-4, BOOM damage in bits
+/// 5-6, BOOM secret in bit 7.
+pub fn decode_sector(special: u32) -> SectorSpecial {
+    SectorSpecial {
+        kind: SectorKind::try_from((special & 0x1F) as u8).ok(),
+        damage: SectorDamage::try_from(((special >> 5) & 0x3) as u8).expect("2-bit damage field"),
+        secret: special & 0x80 != 0,
+    }
+}
+
+/// The wire form of a sector special, for the save file. A type the engine
+/// does not implement is not preserved — nothing acts on it either way.
+pub fn encode_sector(special: SectorSpecial) -> u32 {
+    special.kind.map_or(0, |k| k as u32)
+        | ((special.damage as u32) << 5)
+        | (u32::from(special.secret) << 7)
+}
+
 /// Lowest standard BOOM generalized special.
 pub const GEN_MIN: u32 = 0x2F80;
 /// Highest standard BOOM generalized special (16-bit positive max).
@@ -166,6 +250,10 @@ pub const GEN_MAX: u32 = 0x7FFF;
 /// Base of the engine-extended namespace: above all 16-bit specials AND above
 /// every extended payload bit (payload occupies bits 0-19).
 pub const EXT_BASE: u32 = 0x0100_0000;
+/// Vanilla left-scrolling wall.
+const VANILLA_SCROLL: u32 = 48;
+/// BOOM translucent middle texture.
+const BOOM_TRANSLUCENT: u32 = 260;
 
 // --- Standard BOOM category bases (Boom 2.02 P_SPEC.H) ------------------
 pub const GEN_CRUSHER_BASE: u32 = 0x2F80;
@@ -261,6 +349,26 @@ impl Trigger {
             Self::WalkMany | Self::SwitchMany | Self::GunMany | Self::PushMany
         )
     }
+
+    /// Which way of touching a line fires this trigger. Push and switch lines
+    /// are both "used"; only the switch texture-change differs.
+    pub fn activation(self) -> Activation {
+        match self {
+            Self::WalkOnce | Self::WalkMany => Activation::Cross,
+            Self::SwitchOnce | Self::SwitchMany | Self::PushOnce | Self::PushMany => {
+                Activation::Use
+            }
+            Self::GunOnce | Self::GunMany => Activation::Shoot,
+        }
+    }
+}
+
+/// How a thing touched a linedef.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Activation {
+    Cross,
+    Use,
+    Shoot,
 }
 
 /// Mover category: which mover family the special drives.
@@ -345,10 +453,9 @@ fn trigger_from_bits(v: u32) -> Trigger {
     }
 }
 
-/// Decoded identity of a generalized mover special.
+/// The mover a generalized special drives.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct DecodedSpecial {
-    pub trigger: Trigger,
+pub struct MoverSpec {
     pub kind: MoverKind,
     /// Platform RaiseAndChange height (0, 24 or 32).
     pub amount: i32,
@@ -362,14 +469,83 @@ pub struct DecodedSpecial {
     pub monster: bool,
 }
 
-/// True if `special` is an engine-extended mover special.
-pub fn is_extended(special: u32) -> bool {
-    special >= EXT_BASE
+/// What a triggered linedef does.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LineAction {
+    Mover(MoverSpec),
+    Exit {
+        secret: bool,
+    },
+    /// `monsters_only` lines refuse players outright (vanilla 125/126).
+    Teleport {
+        monsters_only: bool,
+    },
+    /// Target light level, or the brightest neighbouring sector when 0.
+    LightTurnOn(u8),
+    LightsOffTag,
+    StartStrobing,
+    StopPlat,
 }
 
-/// True if `special` is any generalized mover (standard BOOM or extended).
-pub fn is_generalized(special: u32) -> bool {
-    (GEN_MIN..=GEN_MAX).contains(&special) || special >= EXT_BASE
+impl LineAction {
+    /// Whether a once-only trigger clears the special after acting. Vanilla
+    /// leaves the exit lines set (OG p_spec.c `case 52`/`case 124`).
+    pub const fn consumed_when_once(self) -> bool {
+        !matches!(self, Self::Exit { .. })
+    }
+
+    /// Monsters may only fire mover lines carrying the monster bit, and any
+    /// teleporter (the non-player set OG P_CrossSpecialLine permits).
+    pub const fn allows_monster(self) -> bool {
+        match self {
+            Self::Mover(m) => m.monster,
+            Self::Teleport {
+                ..
+            } => true,
+            _ => false,
+        }
+    }
+}
+
+/// A property a line carries for the whole level rather than an action it
+/// fires: nothing activates these.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LineEffect {
+    /// Left-scrolling wall texture, stepped every tic.
+    Scroll,
+    /// BOOM translucent middle texture.
+    Translucent,
+}
+
+/// A decoded linedef special.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LineSpecial {
+    Triggered {
+        trigger: Trigger,
+        action: LineAction,
+    },
+    Effect(LineEffect),
+    /// A special number this engine has no behaviour for. Kept so the line
+    /// still blocks a "use" the way any special line does.
+    Unimplemented(u32),
+}
+
+impl LineSpecial {
+    /// The mover this line drives, if it drives one.
+    pub const fn mover(self) -> Option<MoverSpec> {
+        match self {
+            Self::Triggered {
+                action: LineAction::Mover(m),
+                ..
+            } => Some(m),
+            _ => None,
+        }
+    }
+}
+
+/// True if `special` is an engine-extended mover special.
+fn is_extended(special: u32) -> bool {
+    special >= EXT_BASE
 }
 
 const fn ext(trig: Trigger, kind: MoverKind) -> u32 {
@@ -398,7 +574,7 @@ const fn with_monster(s: u32) -> u32 {
 }
 
 /// Decode an extended special. `None` for standard BOOM and vanilla specials.
-fn decode_ext(special: u32) -> Option<DecodedSpecial> {
+fn decode_ext(special: u32) -> Option<(Trigger, MoverSpec)> {
     if !is_extended(special) {
         return None;
     }
@@ -427,15 +603,17 @@ fn decode_ext(special: u32) -> Option<DecodedSpecial> {
             skulls_are_cards: v & EXT_SAC_BIT != 0,
         })
     };
-    Some(DecodedSpecial {
+    Some((
         trigger,
-        kind,
-        amount,
-        manual: (v & EXT_MANUAL_BIT) != 0,
-        composite: (v & EXT_COMPOSITE_BIT) != 0,
-        lock,
-        monster: (v & EXT_MONSTER_BIT) != 0,
-    })
+        MoverSpec {
+            kind,
+            amount,
+            manual: (v & EXT_MANUAL_BIT) != 0,
+            composite: (v & EXT_COMPOSITE_BIT) != 0,
+            lock,
+            monster: (v & EXT_MONSTER_BIT) != 0,
+        },
+    ))
 }
 
 /// Resolve a standard BOOM special to its category by base address.
@@ -464,10 +642,9 @@ fn boom_category(special: u32) -> Option<Category> {
 /// `None` for non-generalized specials.
 ///
 /// For standard BOOM, the bitfields are mapped to the EXACT room4doom kind
-/// (the inverse of `encode_vanilla`), so decoding an engine-rewritten vanilla
-/// special reproduces OG behaviour. Hand-authored BOOM specials decode the same
-/// way.
-pub fn decode(special: u32) -> Option<DecodedSpecial> {
+/// (the inverse of `encode_table`), so decoding a rewritten vanilla special
+/// reproduces OG behaviour. Hand-authored BOOM specials decode the same way.
+fn decode_generalized(special: u32) -> Option<(Trigger, MoverSpec)> {
     if is_extended(special) {
         return decode_ext(special);
     }
@@ -538,14 +715,122 @@ pub fn decode(special: u32) -> Option<DecodedSpecial> {
             )
         }
     };
-    Some(DecodedSpecial {
+    Some((
         trigger,
-        kind,
-        amount: 0,
-        manual: false,
-        composite: false,
-        lock,
-        monster,
+        MoverSpec {
+            kind,
+            amount: 0,
+            manual: false,
+            composite: false,
+            lock,
+            monster,
+        },
+    ))
+}
+
+/// Decode a raw linedef special number — vanilla, standard BOOM or extended —
+/// into what the engine acts on. `None` only for 0.
+///
+/// This is the sole decode path: nothing downstream of level load, save load
+/// or a build tool's WAD read looks at the number again.
+pub fn decode_line(special: u32) -> Option<LineSpecial> {
+    if special == 0 {
+        return None;
+    }
+    if let Some(effect) = line_effect(special) {
+        return Some(LineSpecial::Effect(effect));
+    }
+    let mover = decode_generalized(special)
+        .or_else(|| decode_generalized(encode_table(special)?))
+        .map(|(trigger, m)| LineSpecial::Triggered {
+            trigger,
+            action: LineAction::Mover(m),
+        });
+    Some(
+        mover
+            .or_else(|| vanilla_non_mover(special))
+            .unwrap_or(LineSpecial::Unimplemented(special)),
+    )
+}
+
+/// The specials that are a standing line property rather than a trigger.
+const fn line_effect(special: u32) -> Option<LineEffect> {
+    match special {
+        VANILLA_SCROLL => Some(LineEffect::Scroll),
+        BOOM_TRANSLUCENT => Some(LineEffect::Translucent),
+        _ => None,
+    }
+}
+
+/// The vanilla non-mover specials, with the trigger class each is dispatched
+/// under in OG p_spec.c `P_CrossSpecialLine` and p_switch.c `P_UseSpecialLine`.
+fn vanilla_non_mover(special: u32) -> Option<LineSpecial> {
+    let (trigger, action) = match special {
+        52 => (
+            WalkOnce,
+            Exit {
+                secret: false,
+            },
+        ),
+        124 => (
+            WalkOnce,
+            Exit {
+                secret: true,
+            },
+        ),
+        11 => (
+            SwitchOnce,
+            Exit {
+                secret: false,
+            },
+        ),
+        51 => (
+            SwitchOnce,
+            Exit {
+                secret: true,
+            },
+        ),
+        12 => (WalkOnce, LightTurnOn(0)),
+        13 => (WalkOnce, LightTurnOn(255)),
+        35 => (WalkOnce, LightTurnOn(35)),
+        79 => (WalkMany, LightTurnOn(35)),
+        80 => (WalkMany, LightTurnOn(0)),
+        81 => (WalkMany, LightTurnOn(255)),
+        138 => (SwitchMany, LightTurnOn(255)),
+        139 => (SwitchMany, LightTurnOn(35)),
+        17 => (WalkOnce, StartStrobing),
+        104 => (WalkOnce, LightsOffTag),
+        54 => (WalkOnce, StopPlat),
+        89 => (WalkMany, StopPlat),
+        39 => (
+            WalkOnce,
+            Teleport {
+                monsters_only: false,
+            },
+        ),
+        97 => (
+            WalkMany,
+            Teleport {
+                monsters_only: false,
+            },
+        ),
+        125 => (
+            WalkOnce,
+            Teleport {
+                monsters_only: true,
+            },
+        ),
+        126 => (
+            WalkMany,
+            Teleport {
+                monsters_only: true,
+            },
+        ),
+        _ => return None,
+    };
+    Some(LineSpecial::Triggered {
+        trigger,
+        action,
     })
 }
 
@@ -720,15 +1005,8 @@ const fn boom_crusher(base: u32, trig: Trigger, speed: u32, silent: u32) -> u32 
     base | trig.bits() | (speed << CRUSHER_SPEED_SHIFT) | (silent << CRUSHER_SILENT_SHIFT)
 }
 
-/// Rewrite a vanilla mover special (1-141) into its generalized form.
-/// `None` for non-mover specials and any already-generalized special.
-pub fn encode_vanilla(special: u32) -> Option<u32> {
-    if special >= GEN_MIN {
-        return None;
-    }
-    encode_table(special)
-}
-
+/// The generalized form of a vanilla mover special (1-141). `None` for every
+/// other number, including already-generalized ones.
 #[rustfmt::skip]
 fn encode_table(special: u32) -> Option<u32> {
     let f = GEN_FLOOR_BASE;
@@ -936,27 +1214,28 @@ mod tests {
         7, 8, 100, 127,
     ];
 
-    #[test]
-    fn every_mover_encodes() {
-        for &n in ALL_MOVERS {
-            assert!(encode_vanilla(n).is_some(), "special {n} did not encode");
+    /// The mover a vanilla or generalized number decodes to.
+    fn mover(n: u32) -> MoverSpec {
+        decode_line(n)
+            .and_then(LineSpecial::mover)
+            .unwrap_or_else(|| panic!("special {n} did not decode to a mover"))
+    }
+
+    /// The trigger a number decodes to.
+    fn trigger(n: u32) -> Trigger {
+        match decode_line(n) {
+            Some(LineSpecial::Triggered {
+                trigger,
+                ..
+            }) => trigger,
+            other => panic!("special {n} decoded to {other:?}, wanted a trigger"),
         }
     }
 
     #[test]
-    fn idempotent_and_scoped() {
-        assert_eq!(encode_vanilla(GEN_MIN), None);
-        assert_eq!(encode_vanilla(0x4000), None);
-        let e = encode_vanilla(5).unwrap();
-        assert_eq!(
-            encode_vanilla(e),
-            None,
-            "re-encoding generalized must be None"
-        );
-        for n in [
-            0, 11, 12, 39, 51, 52, 54, 89, 97, 104, 124, 125, 126, 138, 139,
-        ] {
-            assert_eq!(encode_vanilla(n), None, "non-mover {n} must not encode");
+    fn every_mover_decodes() {
+        for &n in ALL_MOVERS {
+            mover(n);
         }
     }
 
@@ -964,7 +1243,7 @@ mod tests {
     fn boom_specials_in_range_and_distinct() {
         let mut seen = HashMap::new();
         for &n in ALL_MOVERS {
-            let e = encode_vanilla(n).unwrap();
+            let e = encode_table(n).unwrap();
             if (GEN_MIN..=GEN_MAX).contains(&e) {
                 // Distinct BOOM specials per distinct behaviour. Manual doors
                 // are extended; remaining BOOM specials must be unique.
@@ -983,12 +1262,11 @@ mod tests {
 
     #[test]
     fn extended_flags_decode() {
-        let d = |n: u32| decode(encode_vanilla(n).unwrap()).unwrap();
-        assert!(d(40).composite);
-        assert!(!d(9).composite);
-        assert!(d(1).manual);
-        assert_eq!(d(14).amount, 32);
-        assert_eq!(d(15).amount, 24);
+        assert!(mover(40).composite);
+        assert!(!mover(9).composite);
+        assert!(mover(1).manual);
+        assert_eq!(mover(14).amount, 32);
+        assert_eq!(mover(15).amount, 24);
     }
 
     /// Lock and monster flags survive the encode -> decode round trip with the
@@ -996,27 +1274,26 @@ mod tests {
     /// vanilla locks accept card or skull.
     #[test]
     fn lock_and_monster_decode() {
-        let d = |n: u32| decode(encode_vanilla(n).unwrap()).unwrap();
         let lock = |k| {
             Some(DoorLock {
                 kind: k,
                 skulls_are_cards: true,
             })
         };
-        assert_eq!(d(26).lock, lock(LockKind::BlueCard));
-        assert_eq!(d(27).lock, lock(LockKind::YellowCard));
-        assert_eq!(d(28).lock, lock(LockKind::RedCard));
-        assert_eq!(d(33).lock, lock(LockKind::RedCard));
-        assert_eq!(d(99).lock, lock(LockKind::BlueCard));
-        assert_eq!(d(137).lock, lock(LockKind::YellowCard));
-        assert_eq!(d(1).lock, None);
-        assert_eq!(d(2).lock, None);
+        assert_eq!(mover(26).lock, lock(LockKind::BlueCard));
+        assert_eq!(mover(27).lock, lock(LockKind::YellowCard));
+        assert_eq!(mover(28).lock, lock(LockKind::RedCard));
+        assert_eq!(mover(33).lock, lock(LockKind::RedCard));
+        assert_eq!(mover(99).lock, lock(LockKind::BlueCard));
+        assert_eq!(mover(137).lock, lock(LockKind::YellowCard));
+        assert_eq!(mover(1).lock, None);
+        assert_eq!(mover(2).lock, None);
 
         for n in [1, 4, 10, 32, 33, 34, 46, 88] {
-            assert!(d(n).monster, "special {n} must allow monsters");
+            assert!(mover(n).monster, "special {n} must allow monsters");
         }
         for n in [2, 26, 29, 31, 62, 99, 117, 118] {
-            assert!(!d(n).monster, "special {n} must not allow monsters");
+            assert!(!mover(n).monster, "special {n} must not allow monsters");
         }
     }
 
@@ -1024,18 +1301,17 @@ mod tests {
     /// zeroed-after-use doors are PushOnce/SwitchOnce.
     #[test]
     fn door_triggers_match_og() {
-        let t = |n: u32| decode(encode_vanilla(n).unwrap()).unwrap().trigger;
         for n in [1, 26, 27, 28, 117] {
-            assert_eq!(t(n), PushMany, "special {n}");
+            assert_eq!(trigger(n), PushMany, "special {n}");
         }
         for n in [31, 32, 33, 34, 118] {
-            assert_eq!(t(n), PushOnce, "special {n}");
+            assert_eq!(trigger(n), PushOnce, "special {n}");
         }
         for n in [99, 134, 136] {
-            assert_eq!(t(n), SwitchMany, "special {n}");
+            assert_eq!(trigger(n), SwitchMany, "special {n}");
         }
         for n in [133, 135, 137] {
-            assert_eq!(t(n), SwitchOnce, "special {n}");
+            assert_eq!(trigger(n), SwitchOnce, "special {n}");
         }
     }
 
@@ -1160,9 +1436,7 @@ mod tests {
             (127, S(Turbo16)),
         ];
         for &(n, kind) in cases {
-            let e = encode_vanilla(n).unwrap();
-            let spec = decode(e).unwrap_or_else(|| panic!("special {n} -> {e:#x} did not decode"));
-            assert_eq!(spec.kind, kind, "special {n} kind");
+            assert_eq!(mover(n).kind, kind, "special {n} kind");
         }
     }
 
@@ -1239,7 +1513,7 @@ mod tests {
             (123, 0x345B),
         ];
         for &(n, want) in cases {
-            assert_eq!(encode_vanilla(n), Some(want), "special {n} hex");
+            assert_eq!(encode_table(n), Some(want), "special {n} hex");
         }
     }
 
@@ -1249,26 +1523,78 @@ mod tests {
     /// MAP20 uses 0x39AA and 0x3B32).
     #[test]
     fn locked_door_decode() {
-        let a = decode(0x39AA).expect("locked door 0x39AA decodes");
-        assert_eq!(a.kind, D(Open)); // speed normal, open-stay
-        assert_eq!(a.trigger, SwitchOnce);
+        assert_eq!(mover(0x39AA).kind, D(Open)); // speed normal, open-stay
+        assert_eq!(trigger(0x39AA), SwitchOnce);
         assert_eq!(
-            a.lock,
+            mover(0x39AA).lock,
             Some(DoorLock {
                 kind: LockKind::YellowSkull,
                 skulls_are_cards: false,
             })
         );
 
-        let b = decode(0x3B32).expect("locked door 0x3B32 decodes");
-        assert_eq!(b.kind, D(BlazeOpen)); // speed fast, open-stay
-        assert_eq!(b.trigger, SwitchOnce);
+        assert_eq!(mover(0x3B32).kind, D(BlazeOpen)); // speed fast, open-stay
+        assert_eq!(trigger(0x3B32), SwitchOnce);
         assert_eq!(
-            b.lock,
+            mover(0x3B32).lock,
             Some(DoorLock {
                 kind: LockKind::RedSkull,
                 skulls_are_cards: true,
             })
         );
+    }
+
+    /// `decode_line` resolves in the right order. A mover number must reach a
+    /// mover through the generalized rewrite, a standing property must beat the
+    /// trigger table, and only genuinely unhandled numbers fall through.
+    #[test]
+    fn decode_line_resolution_order() {
+        assert!(decode_line(4).unwrap().mover().is_some(), "vanilla mover");
+        assert!(decode_line(0x3D88).unwrap().mover().is_some(), "BOOM mover");
+        assert_eq!(
+            decode_line(48),
+            Some(LineSpecial::Effect(LineEffect::Scroll))
+        );
+        assert_eq!(
+            decode_line(260),
+            Some(LineSpecial::Effect(LineEffect::Translucent))
+        );
+        assert!(matches!(
+            decode_line(52),
+            Some(LineSpecial::Triggered { .. })
+        ));
+    }
+
+    /// Nothing the engine cannot drive may decode as a mover: a malformed
+    /// value has to surface as `Unimplemented`, not a plausible wrong door.
+    #[test]
+    fn malformed_specials_are_rejected() {
+        // Category field 5-7 names no mover family.
+        for category in 5..8 {
+            let bogus = EXT_BASE | category;
+            assert_eq!(decode_line(bogus), Some(LineSpecial::Unimplemented(bogus)));
+        }
+        // Extended door with a kind byte past the last DoorKind.
+        let bad_kind = ext(WalkOnce, MoverKind::Door(Normal)) | (0xF << 6);
+        assert_eq!(
+            decode_line(bad_kind),
+            Some(LineSpecial::Unimplemented(bad_kind))
+        );
+        // Just below the BOOM range, and a Doom 2 number with no behaviour here.
+        for n in [GEN_MIN - 1, 242] {
+            assert_eq!(decode_line(n), Some(LineSpecial::Unimplemented(n)));
+        }
+    }
+
+    /// The sector wire form survives a decode/encode round trip. The two are
+    /// separately written bit expressions, so a shift or mask slip in either
+    /// loses save state.
+    #[test]
+    fn sector_special_round_trip() {
+        for raw in [0u32, 1, 4, 9, 17, 0x80, 0x60 | 9, 0x20, 0xE0 | 5] {
+            assert_eq!(encode_sector(decode_sector(raw)), raw, "sector {raw:#x}");
+        }
+        // A type this engine does not implement must decode inert, never panic.
+        assert!(decode_sector(20).is_inert());
     }
 }

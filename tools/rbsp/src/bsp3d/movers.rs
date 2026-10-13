@@ -9,7 +9,7 @@ use super::builder::{
     Bsp3dBuilder, BuildKind, HEIGHT_EPSILON, QUANT_PRECISION, QuantizedVec3, WallType,
 };
 use super::input::{Bsp3dInput, NO_REF};
-use crate::special_encode::{self, Category as SpecialCategory};
+use crate::special_encode::{Category as SpecialCategory, MoverSpec, decode_line};
 use glam::{Vec2, Vec3};
 use std::collections::{BTreeSet, HashMap, HashSet};
 
@@ -43,24 +43,25 @@ impl MoverSurface {
     }
 }
 
-/// Classify a (generalized) linedef special as floor, ceiling, or both.
-///
-/// Specials are normalised to generalized form by the input prep (see
-/// [`crate::special_encode`]), so this decodes the generalized special and
-/// maps its category to which surface(s) move: floors/lifts/stairs raise the
-/// floor, ceilings/doors/crushers move the ceiling, and the composite
-/// vanilla-40 moves both.
-pub fn classify_special(special: u32) -> Option<MoverSurface> {
-    let spec = special_encode::decode(special)?;
+/// Which surface(s) a mover moves: floors/lifts/stairs raise the floor,
+/// ceilings/doors/crushers move the ceiling, and the composite vanilla-40
+/// moves both.
+pub fn classify_mover(spec: MoverSpec) -> MoverSurface {
     if spec.composite {
-        return Some(MoverSurface::Both);
+        return MoverSurface::Both;
     }
-    Some(match spec.kind.category() {
+    match spec.kind.category() {
         SpecialCategory::Floor | SpecialCategory::Lift | SpecialCategory::Stairs => {
             MoverSurface::Floor
         }
         SpecialCategory::Ceiling | SpecialCategory::Door => MoverSurface::Ceiling,
-    })
+    }
+}
+
+/// Classify a raw linedef special as a mover surface, for build tools reading
+/// WAD numbers directly.
+pub fn classify_special(special: u32) -> Option<MoverSurface> {
+    decode_line(special)?.mover().map(classify_mover)
 }
 
 /// Build a tag→linedef-indices map for O(1) lookup per sector tag.

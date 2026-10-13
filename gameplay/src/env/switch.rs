@@ -2,17 +2,12 @@
 
 use std::ptr;
 
-use log::{debug, warn};
+use log::debug;
 use sound_common::{SfxName, SndServerTx};
 
-use crate::env::effects::light_presets::ev_turn_light_on;
-use crate::env::generalized;
-use crate::level::LevelState;
 use crate::pic::{Button, ButtonWhere};
-use crate::thing::MapObject;
 use level::MapPtr;
 use level::bsp3d::BSP3D;
-use level::flags::LineDefFlags;
 use level::map_defs::LineDef;
 
 const BUTTONTIME: u32 = 35;
@@ -75,7 +70,7 @@ pub fn change_switch_texture(
     bsp3d: &mut BSP3D,
 ) {
     let sfx = if !use_again {
-        line.special = 0;
+        line.special = None;
         SfxName::Swtchn
     } else {
         SfxName::Swtchx
@@ -138,79 +133,4 @@ pub fn change_switch_texture(
             return;
         }
     }
-}
-
-/// P_UseSpecialLine
-/// Called when a thing uses a special line.
-/// Only the front sides of lines are usable.
-pub fn p_use_special_line(_side: i32, line: MapPtr<LineDef>, thing: &mut MapObject) -> bool {
-    // Monsters may only use generalized specials carrying the monster bit
-    // (the manual doors); that bit is checked in handle_generalized_use.
-    if thing.player().is_none() {
-        if line.flags.contains(LineDefFlags::Secret) {
-            return false;
-        }
-        if !generalized::is_generalized(line.special) {
-            return false;
-        }
-    }
-
-    assert!(!thing.level.is_null(), "Thing had a bad level pointer");
-    let level: &mut LevelState = unsafe { &mut *thing.level };
-
-    // Mover switches, manual doors included, only ever arrive in generalized form.
-    if generalized::is_generalized(line.special) {
-        return generalized::handle_generalized_use(line, thing, level);
-    }
-
-    match line.special {
-        11 => {
-            change_switch_texture(
-                line,
-                false,
-                &level.switch_list,
-                &mut level.button_list,
-                &level.snd_command,
-                &mut level.level_data.bsp_3d,
-            );
-            level.do_exit_level();
-        }
-        51 => {
-            change_switch_texture(
-                line,
-                false,
-                &level.switch_list,
-                &mut level.button_list,
-                &level.snd_command,
-                &mut level.level_data.bsp_3d,
-            );
-            level.do_secret_exit_level();
-        }
-        138 => {
-            ev_turn_light_on(line.clone(), 255, level);
-            change_switch_texture(
-                line,
-                true,
-                &level.switch_list,
-                &mut level.button_list,
-                &level.snd_command,
-                &mut level.level_data.bsp_3d,
-            );
-        }
-        139 => {
-            ev_turn_light_on(line.clone(), 35, level);
-            change_switch_texture(
-                line,
-                true,
-                &level.switch_list,
-                &mut level.button_list,
-                &level.snd_command,
-                &mut level.level_data.bsp_3d,
-            );
-        }
-        _ => {
-            warn!("Invalid or unimplemented line switch: {}", line.special);
-        }
-    }
-    true
 }

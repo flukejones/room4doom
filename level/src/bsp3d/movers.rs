@@ -4,8 +4,14 @@
 //! answers "does anything move this sector" for the AABB expansion at parse.
 
 use crate::map_defs::{LineDef, Sector};
-use rbsp::bsp3d::movers::{MoverSurface, classify_special};
+use rbsp::bsp3d::movers::{MoverSurface, classify_mover};
+use rbsp::special_encode::LineSpecial;
 use std::collections::HashMap;
+
+/// The surface a line's special moves, if it is a mover at all.
+fn surface(special: Option<LineSpecial>) -> Option<MoverSurface> {
+    special?.mover().map(classify_mover)
+}
 
 /// Build a tag→linedef-indices map for O(1) lookup per sector tag.
 pub(crate) fn build_tag_linedef_index(linedefs: &[LineDef]) -> HashMap<i16, Vec<usize>> {
@@ -30,7 +36,7 @@ pub(crate) fn classify_sector_mover(
         && let Some(indices) = tag_linedefs.get(&sector.tag)
     {
         for &li in indices {
-            if let Some(kind) = classify_special(linedefs[li].special) {
+            if let Some(kind) = surface(linedefs[li].special) {
                 result = Some(match result {
                     Some(prev) => prev.combine(kind),
                     None => kind,
@@ -41,7 +47,7 @@ pub(crate) fn classify_sector_mover(
     for line in &sector.lines {
         if let Some(back) = &line.backsector
             && back.num == sector.num
-            && let Some(kind) = classify_special(line.special)
+            && let Some(kind) = surface(line.special)
         {
             result = Some(match result {
                 Some(prev) => prev.combine(kind),

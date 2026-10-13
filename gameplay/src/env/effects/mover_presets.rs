@@ -22,7 +22,7 @@ use crate::thinker::Thinker;
 use level::env_query::get_next_sector;
 use level::env_target::{ceiling_target, door_top, floor_target, plat_target, shortest_texture};
 use level::map_defs::{LineDef, Sector, SectorHeight};
-use level::special_encode::{CeilKind, DoorKind, FloorKind, PlatKind, StairKind};
+use level::special_encode::{CeilKind, DoorKind, FloorKind, PlatKind, SectorSpecial, StairKind};
 use level::{LineDefFlags, MapPtr, MovementType};
 use math::{FixedT, p_random};
 
@@ -175,7 +175,7 @@ pub fn ev_vertical_door(
     }
 
     if !repeatable {
-        line.special = 0;
+        line.special = None;
     }
     let sfx = match kind {
         DoorKind::BlazeRaise | DoorKind::BlazeOpen => SfxName::Bdopn,
@@ -193,7 +193,7 @@ pub fn ev_vertical_door(
 /// Sector type 10: door that closes 30 seconds after level start.
 /// Doom function name `P_SpawnDoorCloseIn30`
 pub fn spawn_door_close_in_30(sector: &mut Sector, level: &mut LevelState) {
-    sector.special = 0;
+    sector.special = SectorSpecial::default();
     let mut door = base_mover(MapPtr::new(sector), MoverPlane::Ceiling, VDOORSPEED);
     door.low = MoveTarget::LiveFloor;
     door.high = door.sector.ceilingheight;
@@ -206,7 +206,7 @@ pub fn spawn_door_close_in_30(sector: &mut Sector, level: &mut LevelState) {
 /// Sector type 14: door that raises 5 minutes after level start, then behaves
 /// as a normal door. Doom function name `P_SpawnDoorRaiseIn5Mins`
 pub fn spawn_door_raise_in_5_mins(sector: &mut Sector, level: &mut LevelState) {
-    sector.special = 0;
+    sector.special = SectorSpecial::default();
     let sec = MapPtr::new(sector);
     let mut door = base_mover(sec.clone(), MoverPlane::Ceiling, VDOORSPEED);
     door.low = MoveTarget::LiveFloor;
@@ -239,7 +239,7 @@ fn floor_up(kind: FloorKind) -> bool {
 /// Floor texture and special picked up from the neighbour the floor lands on.
 fn landing_neighbour_change(sec: &MapPtr<Sector>, dest: SectorHeight) -> MoverChange {
     let mut change = MoverChange {
-        newspecial: 0,
+        newspecial: SectorSpecial::default(),
         texture: sec.floorpic,
     };
     for line in &sec.lines {
@@ -442,7 +442,7 @@ pub fn ev_do_donut(line: MapPtr<LineDef>, level: &mut LevelState) -> bool {
             ring.sounds.moving = Some(SfxName::Stnmov);
             aim_floor(&mut ring, s3.floorheight, true);
             ring.change = Some(MoverChange {
-                newspecial: 0,
+                newspecial: SectorSpecial::default(),
                 texture: s3.floorpic,
             });
             push_mover(ring, &mut level.thinkers);
@@ -586,7 +586,7 @@ pub fn ev_do_platform(
                 plat.phase = MoverPhase::Up;
                 plat.sounds.moving = Some(SfxName::Stnmov);
                 if matches!(kind, PlatKind::RaiseToNearestAndChange) {
-                    sec.special = 0;
+                    sec.special = SectorSpecial::default();
                 }
                 sec.floorpic = line.frontsector.floorpic;
                 level

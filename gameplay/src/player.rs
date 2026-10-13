@@ -19,6 +19,7 @@ use crate::thing::enemy::noise_alert;
 use crate::thing::{BONUSADD, MapObjFlag, MapObject};
 use game_config::tic_cmd::{FORWARDMOVE, TIC_CMD_BUTTONS, TicCmd};
 use game_config::{GameMode, Skill, WeaponType};
+use level::special_encode::{SectorDamage, SectorKind, SectorSpecial};
 use math::{Angle, fixed_to_float, p_random, r_point_to_angle};
 use pic_data::INVERSECOLORMAP;
 
@@ -574,43 +575,33 @@ impl Player {
                 return;
             }
 
-            // BOOM: vanilla type in bits 0-4, damage in bits 5-6, secret in bit 7
-            let vanilla_type = sector.special & 0x1F;
-            let boom_damage = (sector.special & 0x60) >> 5;
+            let kind = sector.special.kind;
+            let no_suit = self.status.powers[PowerType::IronFeet as usize] == 0;
+            let damage_tic = level.level_time & 0x1F == 0;
 
-            match vanilla_type {
-                // HELLSLIME DAMAGE
-                5 if self.status.powers[PowerType::IronFeet as usize] == 0
-                    && level.level_time & 0x1F == 0 =>
-                {
+            match kind {
+                Some(SectorKind::Damage10) if no_suit && damage_tic => {
                     debug!("Hell-slime damage!");
                     mobj.p_take_damage(None, None, 10);
                 }
-                // NUKAGE DAMAGE
-                7 if self.status.powers[PowerType::IronFeet as usize] == 0
-                    && level.level_time & 0x1F == 0 =>
-                {
+                Some(SectorKind::Damage5) if no_suit && damage_tic => {
                     debug!("Nukage damage!");
                     mobj.p_take_damage(None, None, 5);
                 }
-                // SUPER HELLSLIME DAMAGE | STROBE HURT
-                16 | 4
-                    if (self.status.powers[PowerType::IronFeet as usize] == 0
-                        || p_random() < 5)
-                        && level.level_time & 0x1F == 0 =>
+                Some(SectorKind::Damage20 | SectorKind::StrobeFastDamage)
+                    if (no_suit || p_random() < 5) && damage_tic =>
                 {
                     debug!("Super hell-slime damage!");
                     mobj.p_take_damage(None, None, 20);
                 }
-                // SECRET SECTOR
-                9 => {
+                Some(SectorKind::Secret) => {
                     self.secrets_found += 1;
-                    sector.special = 0;
+                    sector.special = SectorSpecial::default();
                 }
                 // EXIT SUPER DAMAGE! (for E1M8 finale)
-                11 => {
+                Some(SectorKind::DamageEnd) => {
                     self.status.cheats.remove(PlayerCheat::Godmode);
-                    if level.level_time & 0x1F == 0 {
+                    if damage_tic {
                         debug!("End of episode damage!");
                         mobj.p_take_damage(None, None, 20);
                     }
@@ -621,32 +612,28 @@ impl Player {
                 _ => {}
             }
 
-            // BOOM generalized damage (bits 5-6), applied independently of vanilla type
-            if boom_damage > 0
-                && vanilla_type != 5
-                && vanilla_type != 7
-                && vanilla_type != 4
-                && vanilla_type != 16
-                && level.level_time & 0x1F == 0
+            // BOOM damage rides on top of any type that does not damage itself.
+            let self_damaging = matches!(
+                kind,
+                Some(
+                    SectorKind::Damage5
+                        | SectorKind::Damage10
+                        | SectorKind::Damage20
+                        | SectorKind::StrobeFastDamage
+                )
+            );
+            let boom_damage = sector.special.damage;
+            if !self_damaging
+                && damage_tic
+                && boom_damage.amount() > 0
+                && (no_suit || (boom_damage == SectorDamage::Twenty && p_random() < 5))
             {
-                let damage = match boom_damage {
-                    1 => 5,
-                    2 => 10,
-                    3 => 20,
-                    _ => 0,
-                };
-                if damage > 0
-                    && (self.status.powers[PowerType::IronFeet as usize] == 0
-                        || (boom_damage == 3 && p_random() < 5))
-                {
-                    mobj.p_take_damage(None, None, damage);
-                }
+                mobj.p_take_damage(None, None, boom_damage.amount());
             }
 
-            // BOOM secret (bit 7)
-            if sector.special & 0x80 != 0 && vanilla_type != 9 {
+            if sector.special.secret && kind != Some(SectorKind::Secret) {
                 self.secrets_found += 1;
-                sector.special &= !0x80;
+                sector.special.secret = false;
             }
         }
     }

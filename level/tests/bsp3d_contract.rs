@@ -4,6 +4,7 @@
 
 use glam::{Vec2, Vec3};
 use level::flags::LineDefFlags;
+use level::special_encode::{LineEffect, LineSpecial};
 use level::{LevelData, MovementType, NO_INDEX, PolyFlags, WallSlot};
 use test_utils::{
     doom_wad_path, doom1_wad_path, load_map, load_map_with_pwad, move_sector_surface,
@@ -247,7 +248,8 @@ fn assert_surface_cache(map: &LevelData, name: &str) {
         );
         assert_eq!(
             flags.contains(PolyFlags::TRANSLUCENT),
-            ld.special == 260 && !flags.contains(PolyFlags::SKY_FILLER),
+            ld.special == Some(LineSpecial::Effect(LineEffect::Translucent))
+                && !flags.contains(PolyFlags::SKY_FILLER),
             "{name} wall {gi} TRANSLUCENT"
         );
         if flags.contains(PolyFlags::SKY_FILLER) {

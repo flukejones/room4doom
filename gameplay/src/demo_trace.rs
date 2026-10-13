@@ -21,6 +21,7 @@ use math::{get_prndindex, get_rndindex};
 use crate::LevelState;
 use crate::info::{STATES, StateData};
 use crate::thinker::{Thinker, ThinkerData};
+use level::special_encode::encode_sector;
 
 const FNV_OFFSET: u64 = 0xCBF2_9CE4_8422_2325;
 const FNV_PRIME: u64 = 0x0000_0100_0000_01B3;
@@ -157,7 +158,7 @@ pub fn trace_tic(level: &LevelState) {
         sector_h.w_i64(s.floorheight.raw() as i64);
         sector_h.w_i64(s.ceilingheight.raw() as i64);
         sector_h.w_u64(s.lightlevel as u64);
-        sector_h.w_u64(s.special as u64);
+        sector_h.w_u64(u64::from(encode_sector(s.special)));
     }
 
     TRACE.with(|t| {

@@ -8,8 +8,7 @@ use std::ptr;
 use log::{debug, error};
 
 use crate::doom_def::{FLOATSPEED, USERANGE, VIEWHEIGHT};
-use crate::env::specials::cross_special_line;
-use crate::env::switch::p_use_special_line;
+use crate::env::activate::activate_line;
 use crate::info::{STATES, StateData, StateNum};
 use crate::level::LevelState;
 use crate::maputl::{
@@ -19,6 +18,7 @@ use crate::{MapObjKind, MapObject};
 use level::MapPtr;
 use level::flags::LineDefFlags;
 use level::map_defs::{LineDef, SlopeType};
+use level::special_encode::Activation;
 use math::{ANG180, Angle, AngleInner, FixedT, p_random, r_point_to_angle};
 
 use super::MapObjFlag;
@@ -380,8 +380,8 @@ impl MapObject {
                 // see if the line was crossed
                 let side = point_on_line_side(self.x, self.y, ld);
                 let old_side = point_on_line_side(old_x, old_y, ld);
-                if side != old_side && ld.special != 0 {
-                    cross_special_line(old_side, ld.clone(), self);
+                if side != old_side && ld.special.is_some() {
+                    activate_line(ld.clone(), self, old_side, Activation::Cross);
                 }
             }
         }
@@ -694,7 +694,7 @@ impl MapObject {
             ctrl.sky_line = Some(MapPtr::new(ld));
         }
         ctrl.include_portal(&portal);
-        if ld.special != 0 {
+        if ld.special.is_some() {
             ctrl.spec_hits.push(MapPtr::new(ld));
         }
         true
@@ -978,7 +978,7 @@ impl MapObject {
                 intercept.frac,
             );
 
-            if line.special == 0 {
+            if line.special.is_none() {
                 // TODO: ordering is not great
                 let portal = PortalZ::new(line);
                 if portal.range <= 0 {
@@ -992,7 +992,7 @@ impl MapObject {
             }
 
             let side = point_on_line_side(self.x, self.y, line);
-            p_use_special_line(side as i32, line.clone(), self);
+            activate_line(line.clone(), self, side, Activation::Use);
             // BOOM PassUse: allow activating multiple lines in one press
             if line.flags.contains(LineDefFlags::PassUse) {
                 return true;
@@ -1158,7 +1158,7 @@ impl MapObject {
             self.movedir = MoveDir::None;
             let mut good = false;
             for ld in &specs.spec_hits {
-                if p_use_special_line(0, ld.clone(), self) || ld.special == 0 {
+                if activate_line(ld.clone(), self, 0, Activation::Use) || ld.special.is_none() {
                     good = true;
                 }
             }

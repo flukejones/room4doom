@@ -7,69 +7,33 @@
 use std::ptr;
 
 use crate::doom_def::{ONCEILINGZ, ONFLOORZ};
-use crate::env::effects::light_presets::{
-    LightPreset, ev_start_light_strobing, ev_turn_light_on, ev_turn_tag_lights_off, spawn_light,
-};
-use crate::env::effects::mover_presets::{
-    ev_stop_platform, spawn_door_close_in_30, spawn_door_raise_in_5_mins,
-};
-use crate::env::generalized;
+use crate::env::effects::light_presets::{LightPreset, spawn_light};
+use crate::env::effects::mover_presets::{spawn_door_close_in_30, spawn_door_raise_in_5_mins};
 use crate::env::switch::start_sector_sound;
-use crate::env::teleport::teleport;
 use crate::info::{MOBJINFO, MapObjKind};
 use crate::level::LevelState;
 use crate::pic::ButtonWhere;
 use crate::thing::MapObject;
 use crate::{MapObjFlag, TICRATE};
-use level::map_defs::{LineDef, Sector, SectorHeight};
+use level::map_defs::{Sector, SectorHeight};
+use level::special_encode::{LineEffect, LineSpecial, SectorKind, SectorSpecial};
 use level::{MapPtr, MovementType};
 use log::{debug, error, trace};
 use math::{Angle, FixedT};
 use pic_data::PicData;
 use sound_common::SfxName;
 
-// BOOM generalized sector type bit masks
-#[allow(dead_code)]
-const BOOM_DAMAGE_MASK: u32 = 0x60;
-#[allow(dead_code)]
-const BOOM_DAMAGE_SHIFT: u32 = 5;
-const BOOM_SECRET_MASK: u32 = 0x80;
-
-level::byte_enum! {
-    /// Vanilla sector-special types (bits 0-4 of `Sector::special`). Damage
-    /// types act during play (player think); the rest spawn something at load.
-    pub enum SectorSpecial {
-        Flicker = 1,
-        StrobeFast = 2,
-        StrobeSlow = 3,
-        StrobeFastDamage = 4,
-        Damage10 = 5,
-        Damage5 = 7,
-        Glow = 8,
-        Secret = 9,
-        DoorCloseIn30 = 10,
-        DamageEnd = 11,
-        StrobeSlowSync = 12,
-        StrobeFastSync = 13,
-        DoorRaiseIn5Mins = 14,
-        Damage20 = 16,
-        FireFlicker = 17,
-    }
-}
-
-impl SectorSpecial {
-    /// The light this sector type spawns at level load, if any.
-    fn light_preset(self) -> Option<LightPreset> {
-        match self {
-            Self::Flicker => Some(LightPreset::Flash),
-            Self::StrobeFast | Self::StrobeFastDamage => Some(LightPreset::StrobeFast),
-            Self::StrobeSlow => Some(LightPreset::StrobeSlow),
-            Self::Glow => Some(LightPreset::Glow),
-            Self::StrobeSlowSync => Some(LightPreset::StrobeSlowSync),
-            Self::StrobeFastSync => Some(LightPreset::StrobeFastSync),
-            Self::FireFlicker => Some(LightPreset::Fire),
-            _ => None,
-        }
+/// The light a sector type spawns at level load, if any.
+fn light_preset(kind: SectorKind) -> Option<LightPreset> {
+    match kind {
+        SectorKind::Flicker => Some(LightPreset::Flash),
+        SectorKind::StrobeFast | SectorKind::StrobeFastDamage => Some(LightPreset::StrobeFast),
+        SectorKind::StrobeSlow => Some(LightPreset::StrobeSlow),
+        SectorKind::Glow => Some(LightPreset::Glow),
+        SectorKind::StrobeSlowSync => Some(LightPreset::StrobeSlowSync),
+        SectorKind::StrobeFastSync => Some(LightPreset::StrobeFastSync),
+        SectorKind::FireFlicker => Some(LightPreset::Fire),
+        _ => None,
     }
 }
 
@@ -286,151 +250,6 @@ pub fn move_plane(
     PlaneResult::Ok
 }
 
-/// Trigger various actions when a line is crossed which has a non-zero special
-/// attached
-///
-/// Doom function name is `P_CrossSpecialLine`
-pub fn cross_special_line(side: usize, mut line: MapPtr<LineDef>, thing: &mut MapObject) {
-    let mut ok = false;
-
-    //  Triggers that other things can activate
-    if thing.player().is_none() {
-        // Things that should NOT trigger specials...
-        match thing.kind {
-            MapObjKind::MT_ROCKET
-            | MapObjKind::MT_PLASMA
-            | MapObjKind::MT_BFG
-            | MapObjKind::MT_TROOPSHOT
-            | MapObjKind::MT_HEADSHOT
-            | MapObjKind::MT_BRUISERSHOT => return,
-            _ => {}
-        }
-
-        // Teleports stay vanilla; the monster-openable door/lift movers
-        // (vanilla 4/10/88) are generalized and carry the encoded monster bit,
-        // checked in handle_generalized_cross.
-        if matches!(
-            line.special,
-            39    // TELEPORT TRIGGER
-            | 97  // TELEPORT RETRIGGER
-            | 125 // TELEPORT MONSTERONLY TRIGGER
-            | 126 // TELEPORT MONSTERONLY RETRIGGER
-        ) || generalized::is_generalized(line.special)
-        {
-            ok = true;
-        }
-
-        if !ok {
-            return;
-        }
-    }
-
-    assert!(!thing.level.is_null(), "Thing had a bad level pointer");
-    let level: &mut LevelState = unsafe { &mut *thing.level };
-
-    // BOOM generalized linedef types
-    if generalized::is_generalized(line.special) {
-        let is_monster = thing.player().is_none();
-        generalized::handle_generalized_cross(line, thing, level, is_monster);
-        return;
-    }
-
-    match line.special {
-        52 => {
-            level.do_exit_level();
-        }
-        124 => {
-            level.do_secret_exit_level();
-        }
-        12 => {
-            debug!(
-                "line-special #{}: turn light on nearest bright!",
-                line.special
-            );
-            ev_turn_light_on(line.clone(), 0, level);
-            line.special = 0;
-        }
-        13 => {
-            debug!("line-special #{}: turn light on 255!", line.special);
-            ev_turn_light_on(line.clone(), 255, level);
-            line.special = 0;
-        }
-        35 => {
-            debug!("line-special #{}: turn light off!", line.special);
-            ev_turn_light_on(line.clone(), 35, level);
-            line.special = 0;
-        }
-        79 => {
-            debug!("line-special #{}: turn light off!", line.special);
-            ev_turn_light_on(line.clone(), 35, level);
-        }
-        80 => {
-            debug!(
-                "line-special #{}: turn light on nearest bright!",
-                line.special
-            );
-            ev_turn_light_on(line, 0, level);
-        }
-        81 => {
-            debug!("line-special #{}: turn light on 255!", line.special);
-            ev_turn_light_on(line, 255, level);
-        }
-        17 => {
-            debug!("line-special #{}: start light strobe!", line.special);
-            ev_start_light_strobing(line.clone(), level);
-            line.special = 0;
-        }
-        104 => {
-            debug!(
-                "line-special #{}: turn lights off in sector tag!",
-                line.special
-            );
-            ev_turn_tag_lights_off(line.clone(), level);
-            line.special = 0;
-        }
-        125
-            // TELEPORT MonsterONLY
-            if thing.player().is_none() => {
-                teleport(line.clone(), side, thing, level);
-                line.special = 0;
-            }
-        39 => {
-            teleport(line.clone(), side, thing, level);
-            line.special = 0;
-        }
-        54 => {
-            ev_stop_platform(line.clone(), level);
-            line.special = 0;
-        }
-        89 => {
-            ev_stop_platform(line.clone(), level);
-        }
-        97 => {
-            teleport(line, side, thing, level);
-        }
-        126
-            // TELEPORT MonsterONLY
-            if thing.player().is_none() => {
-                teleport(line.clone(), side, thing, level);
-            }
-        _ => {}
-    }
-}
-
-/// Actions for when a thing shoots a special line
-///
-/// Doom function name `P_ShootSpecialLine`
-pub fn shoot_special_line(line: MapPtr<LineDef>, thing: &mut MapObject) {
-    assert!(!thing.level.is_null(), "Thing had a bad level pointer");
-    let level: &mut LevelState = unsafe { &mut *thing.level };
-
-    // Every shootable vanilla special is a mover, so all arrive in generalized
-    // form; monster permission is the encoded monster bit (vanilla 46 only).
-    if generalized::is_generalized(line.special) {
-        generalized::handle_generalized_shoot(line, thing, level);
-    }
-}
-
 pub fn spawn_specials(level: &mut LevelState) {
     // TODO: deathmatch -timer never seeds level_timer, so timed matches never end; seed from GameOptions here.
 
@@ -439,46 +258,42 @@ pub fn spawn_specials(level: &mut LevelState) {
         .level_data
         .sectors
         .iter_mut()
-        .filter(|s| s.special != 0)
+        .filter(|s| !s.special.is_inert())
     {
-        // BOOM: bits 5-11 encode generalized sector properties.
-        // Vanilla type is in bits 0-4.
-        let vanilla_type = (sector.special & 0x1F) as u8;
-
-        // BOOM secret (bit 7)
-        if sector.special & BOOM_SECRET_MASK != 0 {
+        if sector.special.secret {
             level.total_level_secrets += 1;
         }
-
-        let Ok(special) = SectorSpecial::try_from(vanilla_type) else {
+        let Some(kind) = sector.special.kind else {
             continue;
         };
-        if let Some(preset) = special.light_preset() {
-            debug!("sector-special #{}: {special:?}", sector.special);
+        if let Some(preset) = light_preset(kind) {
+            debug!("sector-special: {kind:?}");
             spawn_light(sector, preset, level);
-            // The light spawn cleared the special; type 4 keeps its damage.
-            if matches!(special, SectorSpecial::StrobeFastDamage) {
-                sector.special = SectorSpecial::StrobeFastDamage as u32;
+            // The light spawn cleared the special; type 4 keeps its damage,
+            // and OG restores exactly 4 (dropping any BOOM bits with it).
+            if matches!(kind, SectorKind::StrobeFastDamage) {
+                sector.special = SectorSpecial {
+                    kind: Some(SectorKind::StrobeFastDamage),
+                    ..SectorSpecial::default()
+                };
             }
             continue;
         }
-        match special {
-            SectorSpecial::Secret => {
-                // Only count vanilla secret if BOOM secret bit is not set
-                // (BOOM secret already counted above)
-                if sector.special & BOOM_SECRET_MASK == 0 {
+        match kind {
+            // The BOOM secret bit already counted this one.
+            SectorKind::Secret => {
+                if !sector.special.secret {
                     level.total_level_secrets += 1;
                 }
             }
-            SectorSpecial::DoorCloseIn30 => spawn_door_close_in_30(sector, level),
-            SectorSpecial::DoorRaiseIn5Mins => spawn_door_raise_in_5_mins(sector, level),
+            SectorKind::DoorCloseIn30 => spawn_door_close_in_30(sector, level),
+            SectorKind::DoorRaiseIn5Mins => spawn_door_raise_in_5_mins(sector, level),
             _ => {}
         }
     }
 
     for line in level_iter.level_data.linedefs.iter_mut() {
-        // Scrolling wall
-        if line.special == 48 {
+        if line.special == Some(LineSpecial::Effect(LineEffect::Scroll)) {
             level.line_special_list.push(MapPtr::new(line));
         }
     }
@@ -619,9 +434,10 @@ pub fn respawn_specials(level: &mut LevelState) {
 #[cfg(test)]
 mod env_tests {
     use crate::MapObjKind;
-    use crate::env::specials::cross_special_line;
+    use crate::env::activate::activate_line;
     use crate::test_support::{TestLevel, rng_guard};
     use level::MapPtr;
+    use level::special_encode::Activation;
     use math::get_prndindex;
 
     fn tag_sector(level: &TestLevel, tag: i16) -> usize {
@@ -641,7 +457,7 @@ mod env_tests {
             let mut level = TestLevel::load("E1M1");
             let player = level.spawn_ptr(1056, -3616, MapObjKind::MT_PLAYER);
             let ld = MapPtr::new(&mut level.level_data_mut().linedefs[195]);
-            cross_special_line(0, ld, unsafe { &mut *player });
+            activate_line(ld, unsafe { &mut *player }, 0, Activation::Cross);
             level
         };
         let sec = tag_sector(&make(), 2);

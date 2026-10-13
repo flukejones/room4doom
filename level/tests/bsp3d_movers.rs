@@ -4,7 +4,7 @@
 
 use glam::Vec2;
 use level::env_target::mover_targets_for_sector;
-use level::special_encode::{MoverKind, decode, encode_vanilla, is_generalized};
+use level::special_encode::{LineSpecial, MoverKind};
 use level::{BSP3D, LevelData, LineDefFlags, MovementType, NO_INDEX, PolyFlags, WallSlot};
 use test_utils::{
     Surface, collect_border_linedefs, collect_sector_vertices, doom_wad_path, doom1_wad_path,
@@ -12,6 +12,11 @@ use test_utils::{
     sigil_wad_path, sigil2_wad_path,
 };
 use wad::WadData;
+
+/// The shareware episode, the only WAD available in CI.
+const DOOM1_MAPS: [&str; 9] = [
+    "E1M1", "E1M2", "E1M3", "E1M4", "E1M5", "E1M6", "E1M7", "E1M8", "E1M9",
+];
 
 // ---------------------------------------------------------------------------
 // Helpers shared by the mover tests below.
@@ -858,35 +863,24 @@ fn e1m5_movers_have_targets() {
     assert!(any, "E1M5 should yield at least one mover target");
 }
 
+/// A shipped id map must not carry a single special this engine has no
+/// behaviour for — the decode table has to cover everything Doom itself uses.
 #[test]
-fn e1m5_specials_normalized_at_load() {
-    let map = load_map(&doom1_wad_path(), "E1M5");
+fn doom1_maps_have_no_unhandled_specials() {
     let mut saw_mover = false;
-    for line in map.linedefs.iter() {
-        let original = line.default_special;
-        if original <= 0 {
-            assert_eq!(line.special, original as u32);
-            continue;
-        }
-        match encode_vanilla(original as u32) {
-            Some(generalized) => {
-                saw_mover = true;
-                assert_eq!(
-                    line.special, generalized,
-                    "linedef special {original} not normalized (got {:#x})",
-                    line.special
-                );
-                assert!(is_generalized(line.special));
-                assert!(
-                    decode(line.special).is_some(),
-                    "normalized special {:#x} (from {original}) did not decode",
-                    line.special
-                );
-            }
-            None => assert_eq!(line.special, original as u32),
+    for name in DOOM1_MAPS {
+        let map = load_map(&doom1_wad_path(), name);
+        for line in map.linedefs.iter() {
+            assert!(
+                !matches!(line.special, Some(LineSpecial::Unimplemented(_))),
+                "{name} linedef {} special {} is unhandled",
+                line.num,
+                line.default_special
+            );
+            saw_mover |= line.special.and_then(LineSpecial::mover).is_some();
         }
     }
-    assert!(saw_mover, "E1M5 should contain at least one mover special");
+    assert!(saw_mover, "doom1 should contain mover specials");
 }
 
 // ---------------------------------------------------------------------------
@@ -942,12 +936,15 @@ fn e1m1_update_flat_texture_resolves_from_sector() {
 #[test]
 fn e1m5_manual_door_decodes_manual() {
     let map = load_map(&doom1_wad_path(), "E1M5");
-    let manual_specials = [1i16, 26, 27, 28, 31, 32, 33, 34, 117, 118];
+    let manual_specials = [1u32, 26, 27, 28, 31, 32, 33, 34, 117, 118];
     let mut found = false;
     for line in map.linedefs.iter() {
         if manual_specials.contains(&line.default_special) {
             found = true;
-            let spec = decode(line.special).expect("manual door decodes");
+            let spec = line
+                .special
+                .and_then(LineSpecial::mover)
+                .expect("manual door decodes");
             assert!(matches!(spec.kind, MoverKind::Door(_)));
             assert!(
                 spec.manual,

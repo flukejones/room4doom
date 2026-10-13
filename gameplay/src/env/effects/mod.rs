@@ -21,6 +21,7 @@ use crate::thinker::{Think, Thinker, ThinkerAlloc, ThinkerData};
 use level::byte_enum;
 use level::env_query::find_min_light_surrounding;
 use level::map_defs::{Sector, SectorHeight};
+use level::special_encode::SectorSpecial;
 use level::{MapPtr, MovementType};
 use math::p_random;
 
@@ -99,7 +100,7 @@ pub enum MoveTarget {
 /// Sector floor texture and special applied when a [`MoveEffect`] finishes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MoverChange {
-    pub newspecial: u32,
+    pub newspecial: SectorSpecial,
     pub texture: usize,
 }
 
@@ -366,7 +367,7 @@ fn push_light(light: LightEffect, level: &mut LevelState) {
 /// Skeleton light, ramp fields idle. Clears the sector special, as every
 /// vanilla light spawner does.
 fn base_light(sector: &mut Sector, pattern: LightPattern) -> LightEffect {
-    sector.special = 0;
+    sector.special = SectorSpecial::default();
     LightEffect {
         thinker: null_mut(),
         pattern,

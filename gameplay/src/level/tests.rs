@@ -196,7 +196,7 @@ mod map_data_tests {
         assert_eq!(sectors[84].floorheight, -24.0);
         assert_eq!(sectors[84].ceilingheight, 48.0);
         assert_eq!(sectors[84].lightlevel, 255);
-        assert_eq!(sectors[84].special, 0);
+        assert!(sectors[84].special.is_inert());
         assert_eq!(sectors[84].tag, 0);
     }
 

@@ -10,6 +10,7 @@ use std::io::Error as IoError;
 use std::ptr::{self, null_mut};
 
 use level::map_defs::{Sector, SectorHeight};
+use level::special_encode::{decode_line, decode_sector, encode_sector};
 use level::{LevelData, LineDefFlags, MapPtr};
 use log::{debug, warn};
 use math::{Angle, FixedT, get_prndindex, get_rndindex, set_prndindex, set_rndindex};
@@ -30,9 +31,9 @@ use crate::thinker::{Think as _, ThinkerData};
 use game_config::{Skill, WeaponType};
 
 const SAVE_MAGIC: &[u8; 4] = b"R4DS";
-// v3: the generalized-special encoding changed (EXT_BASE, lock/monster bits),
-// so stored line specials from v2 no longer decode.
-const SAVE_VERSION: u32 = 3;
+// v4: line specials are stored as the authored number, not the generalized
+// rewrite, so v3 line records no longer decode.
+const SAVE_VERSION: u32 = 4;
 const HEADER_SIZE: usize = 64;
 const SAVE_DESCRIPTION_SIZE: usize = 24;
 // Wire record sizes for load_world skip-ahead (must match field read sequences)
@@ -356,14 +357,20 @@ fn save_world(w: &mut SaveWriter, level_data: &LevelData) {
         w.write_u32(s.floorpic as u32);
         w.write_u32(s.ceilingpic as u32);
         w.write_u32(s.lightlevel as u32);
-        w.write_u32(s.special);
+        w.write_u32(encode_sector(s.special));
         w.write_i16(s.tag);
     }
 
     w.write_u32(level_data.linedefs.len() as u32);
     for l in level_data.linedefs.iter() {
         w.write_u32(l.flags.bits());
-        w.write_u32(l.special);
+        // A line special is only ever consumed, never rewritten, so the
+        // authored number plus "still live" is the whole state.
+        w.write_u32(if l.special.is_some() {
+            l.default_special
+        } else {
+            0
+        });
         w.write_i16(l.tag);
     }
 
@@ -397,7 +404,7 @@ fn load_world(r: &mut SaveReader, level_data: &mut LevelData) -> Result<(), Save
         sectors[i].floorpic = r.read_u32()? as usize;
         sectors[i].ceilingpic = r.read_u32()? as usize;
         sectors[i].lightlevel = r.read_u32()? as usize;
-        sectors[i].special = r.read_u32()?;
+        sectors[i].special = decode_sector(r.read_u32()?);
         sectors[i].tag = r.read_i16()?;
     }
     // skip extra sectors in save if map has fewer
@@ -410,7 +417,7 @@ fn load_world(r: &mut SaveReader, level_data: &mut LevelData) -> Result<(), Save
     let count = n_linedefs.min(linedefs.len());
     for i in 0..count {
         linedefs[i].flags = LineDefFlags::from_bits_truncate(r.read_u32()?);
-        linedefs[i].special = r.read_u32()?;
+        linedefs[i].special = decode_line(r.read_u32()?);
         linedefs[i].tag = r.read_i16()?;
     }
     for _ in count..n_linedefs {
@@ -638,7 +645,7 @@ fn load_mover(r: &mut SaveReader, level: &mut LevelState) -> Result<(), SaveErro
     let at_top = r.read_u8()?;
     let at_bottom = r.read_u8()?;
     let has_change = r.read_bool()?;
-    let newspecial = r.read_u32()?;
+    let newspecial = decode_sector(r.read_u32()?);
     let texture = r.read_u32()? as usize;
     let sounds = MoverSounds {
         start_up: read_sfx(r)?,
@@ -1089,7 +1096,7 @@ pub fn save_game_to_bytes(
             match m.change {
                 Some(change) => {
                     w.write_bool(true);
-                    w.write_u32(change.newspecial);
+                    w.write_u32(encode_sector(change.newspecial));
                     w.write_u32(change.texture as u32);
                 }
                 None => {
@@ -1210,9 +1217,10 @@ pub fn load_game_from_bytes(
 mod tests {
     use super::{load_game_from_bytes, save_game_to_bytes};
     use crate::MapObjKind;
-    use crate::env::specials::cross_special_line;
+    use crate::env::activate::activate_line;
     use crate::test_support::{TestLevel, rng_guard};
     use level::MapPtr;
+    use level::special_encode::Activation;
 
     /// A mover mid-travel must resume identically after a save/load. The writer
     /// and reader are hand-written field sequences, so a mismatched order or a
@@ -1224,7 +1232,7 @@ mod tests {
         let start_lift = |level: &mut TestLevel| {
             let player = level.spawn_ptr(1056, -3616, MapObjKind::MT_PLAYER);
             let ld = MapPtr::new(&mut level.level_data_mut().linedefs[195]);
-            cross_special_line(0, ld, unsafe { &mut *player });
+            activate_line(ld, unsafe { &mut *player }, 0, Activation::Cross);
         };
         let sector = |level: &TestLevel| {
             level
