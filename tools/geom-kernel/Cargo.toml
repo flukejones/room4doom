@@ -8,7 +8,7 @@ description = "Pure map-geometry kernel (model, weld/split/merge, sector build) 
 
 [dependencies]
 bitflags.workspace = true
-serde = { workspace = true, features = ["std", "derive"] }
+serde = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
 ron.workspace = true

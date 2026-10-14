@@ -65,9 +65,9 @@ export component ComboBox inherits Rectangle {
 
         list := ScrollView {
             vertical-stretch: 1;
-            viewport-y: -clamp(
+            content-y: -clamp(
                 root.current-index * root.row-pitch - (self.visible-height - root.row-pitch) / 2,
-                0px, max(0px, self.viewport-height - self.visible-height));
+                0px, max(0px, self.content-height - self.visible-height));
 
             VerticalLayout {
                 spacing: Theme.pad-small;

@@ -40,7 +40,7 @@ resolver = "2"
 authors = ["Luke Jones <luke@ljones.dev>"]
 version = "1.0.0"
 edition = "2024"
-rust-version = "1.94"
+rust-version = "1.95"
 license = "MIT"
 
 [workspace.dependencies]
@@ -73,7 +73,16 @@ doomed-parser = { path = "./tools/doomed-parser" }
 editor-core = { path = "./tools/editor-core" }
 
 winit = "0.30"
-wgpu = "29"
+# Native renderers retain every desktop backend; browser WebGPU is unused.
+wgpu = { version = "30", default-features = false, features = [
+  "std",
+  "parking_lot",
+  "dx12",
+  "metal",
+  "gles",
+  "vulkan",
+  "wgsl",
+] }
 pollster = "0.4"
 bytemuck = "1"
 softbuffer = { git = "https://github.com/flukejones/softbuffer", branch = "madsmtm/iosurface" }
@@ -86,17 +95,23 @@ sdl2 = { version = "0.38", features = [
   "raw-window-handle",
 ] }
 
-argh = "0.1.12"
-eframe = "0.31"
+argh = { version = "0.1.19", default-features = false, features = ["help"] }
+eframe = { version = "0.31", default-features = false, features = [
+  "accesskit",
+  "default_fonts",
+  "glow",
+  "wayland",
+  "x11",
+] }
 egui = "0.31"
 # Pinned to a specific upstream rev so the build is reproducible (the branch ref
 # would drift). All slint git deps must share this rev.
-slint = { git = "https://github.com/slint-ui/slint.git", rev = "cc9d6fc57e23ebfc570313778358c959f1651383", default-features = false, features = [
+slint = { git = "https://github.com/slint-ui/slint.git", rev = "988addf283ebf510eeea2d83d892435c5d26a56f", default-features = false, features = [
   "std",
-  "compat-1-0",
+  "compat-1-2",
 ] }
-slint-build = { git = "https://github.com/slint-ui/slint.git", rev = "cc9d6fc57e23ebfc570313778358c959f1651383" }
-i-slint-backend-winit = { git = "https://github.com/slint-ui/slint.git", rev = "cc9d6fc57e23ebfc570313778358c959f1651383" }
+slint-build = { git = "https://github.com/slint-ui/slint.git", rev = "988addf283ebf510eeea2d83d892435c5d26a56f" }
+i-slint-backend-winit = { git = "https://github.com/slint-ui/slint.git", rev = "988addf283ebf510eeea2d83d892435c5d26a56f" }
 rfd = "0.15"
 
 nanoserde = { git = "https://github.com/not-fl3/nanoserde.git", default-features = false, features = [
@@ -115,10 +130,12 @@ opaline = { version = "0.4", default-features = false, features = [
   "builtin-themes",
 ] }
 
-zip = { version = "2", default-features = false, features = ["deflate"] }
+# PK3 loading only needs flate2; wad supplies its Rust backend. Avoid Zopfli's
+# compression-only encoder pulled in by zip's umbrella `deflate` feature.
+zip = { version = "2", default-features = false, features = ["deflate-flate2", "flate2"] }
 flate2 = "1"
 log = { version = "*" }
-simplelog = { version = "*" }
+simplelog = { version = "*", default-features = false, features = ["termcolor"] }
 criterion = { version = "0.5", features = ["html_reports"] }
 dirs = "~5.0"
 

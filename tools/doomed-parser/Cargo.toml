@@ -8,7 +8,7 @@ description = "DoomEd ASCII format parsers (.dwd maps, .dsp/.dpr project defs) f
 
 [dependencies]
 geom-kernel.workspace = true
-serde = { workspace = true, features = ["std", "derive"] }
+serde = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
 ron.workspace = true

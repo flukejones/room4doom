@@ -9,8 +9,18 @@ license.workspace = true
 [dependencies]
 log.workspace = true
 wgpu.workspace = true
-wgpu-hal = "29"
+wgpu-hal = { version = "30", features = ["metal"] }
 openxr-sys = "0.13.1"
 objc2 = "0.6.4"
-objc2-metal = "0.3.2"
+objc2-metal = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "MTLAllocation",
+    "MTLCommandQueue",
+    "MTLDevice",
+    "MTLPixelFormat",
+    "MTLTexture",
+] }
 libloading = "0.8.9"
+
+[dev-dependencies]
+objc2-metal = { version = "0.3.2", default-features = false, features = ["MTLBuffer"] }

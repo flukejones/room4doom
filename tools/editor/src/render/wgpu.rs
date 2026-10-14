@@ -6,7 +6,7 @@ use std::slice;
 
 use bytemuck::{Pod, Zeroable};
 use slint::Image;
-use slint::wgpu_29::wgpu;
+use slint::wgpu_30::wgpu;
 use wgpu::util::{BufferInitDescriptor, DeviceExt as _};
 
 use crate::assets::MISSING_PATCH_RGBA;
@@ -1592,7 +1592,7 @@ fn read_texture_rgba(
     device
         .poll(wgpu::PollType::wait_indefinitely())
         .expect("poll readback");
-    let mapped = slice.get_mapped_range();
+    let mapped = slice.get_mapped_range().expect("readback range");
     let mut out = Vec::with_capacity((unpadded * h) as usize);
     for row in 0..h {
         let start = (row * padded) as usize;
@@ -1690,11 +1690,11 @@ fn make_pipeline(
     label: &str,
 ) -> wgpu::RenderPipeline {
     let stride: u64 = attrs.iter().map(|a| vertex_format_size(a.format)).sum();
-    let vbuf_layout = wgpu::VertexBufferLayout {
+    let vbuf_layout = Some(wgpu::VertexBufferLayout {
         array_stride: stride,
         step_mode,
         attributes: attrs,
-    };
+    });
     device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         label: Some(label),
         layout: Some(layout),
@@ -1785,7 +1785,7 @@ pub fn capture(window: &slint::Window, on_ready: impl Fn() + 'static) -> WgpuCon
         if !matches!(state, slint::RenderingState::RenderingSetup) {
             return;
         }
-        if let slint::GraphicsAPI::WGPU29 {
+        if let slint::GraphicsAPI::WGPU30 {
             device,
             queue,
             ..
@@ -1809,6 +1809,7 @@ pub(crate) fn headless_renderer() -> Option<WgpuRenderer> {
         power_preference: wgpu::PowerPreference::default(),
         compatible_surface: None,
         force_fallback_adapter: false,
+        apply_limit_buckets: false,
     }))
     .ok()?;
     let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {

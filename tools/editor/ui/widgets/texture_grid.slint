@@ -17,8 +17,8 @@ export component TextureGrid inherits ScrollView {
     property <length> active-top: root.active-row * root.row-pitch;
 
     horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
-    viewport-y: root.active-index < 0 ? 0px : -clamp(root.active-top - (self.visible-height - root.row-height) / 2,
-                 0px, max(0px, self.viewport-height - self.visible-height));
+    content-y: root.active-index < 0 ? 0px : -clamp(root.active-top - (self.visible-height - root.row-height) / 2,
+                 0px, max(0px, self.content-height - self.visible-height));
 
     VerticalLayout {
         width: 100%;

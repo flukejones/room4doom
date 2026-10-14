@@ -79,10 +79,10 @@ component KeyNavScroll inherits Rectangle {
             }
             function bring-active-into-view() {
                 if (self.tracked >= 0) {
-                    if (self.tracked * root.row-h < -self.viewport-y) {
-                        self.viewport-y = -self.tracked * root.row-h;
-                    } else if ((self.tracked + 1) * root.row-h > -self.viewport-y + self.visible-height) {
-                        self.viewport-y = -((self.tracked + 1) * root.row-h - self.visible-height);
+                    if (self.tracked * root.row-h < -self.content-y) {
+                        self.content-y = -self.tracked * root.row-h;
+                    } else if ((self.tracked + 1) * root.row-h > -self.content-y + self.visible-height) {
+                        self.content-y = -((self.tracked + 1) * root.row-h - self.visible-height);
                     }
                 }
             }

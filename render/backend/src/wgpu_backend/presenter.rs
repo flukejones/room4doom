@@ -152,6 +152,7 @@ fn adapter_and_device(
         power_preference: wgpu::PowerPreference::HighPerformance,
         force_fallback_adapter: false,
         compatible_surface: Some(&surface),
+        apply_limit_buckets: false,
     }))
     .expect("no compatible wgpu adapter");
 
@@ -175,6 +176,7 @@ fn surface_config(w: u32, h: u32, vsync: bool) -> wgpu::SurfaceConfiguration {
     wgpu::SurfaceConfiguration {
         usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
         format: FORMAT,
+        color_space: wgpu::SurfaceColorSpace::Auto,
         width: w,
         height: h,
         present_mode: if vsync {
@@ -408,7 +410,7 @@ impl GpuPresenter {
             });
         self.chains[0].render(&mut encoder, &view, [0, 0, win_w, win_h]);
         self.queue.submit(Some(encoder.finish()));
-        surface_tex.present();
+        self.queue.present(surface_tex);
     }
 
     /// Resize the framebuffer texture to the engine buffer (`buf_w`×`buf_h`) and
@@ -761,7 +763,7 @@ impl GpuPresenter {
                 .create_view(&wgpu::TextureViewDescriptor::default());
             self.chains[cur].render(&mut encoder, &view, [0, 0, win_w, win_h]);
             self.queue.submit(Some(encoder.finish()));
-            surface_tex.present();
+            self.queue.present(surface_tex);
         } else if !presented_to_eye {
             self.queue.submit(Some(encoder.finish()));
         }
@@ -812,7 +814,7 @@ impl GpuPresenter {
         );
         self.queue.submit(Some(done.finish()));
         if let Some(surface_tex) = mirror {
-            surface_tex.present();
+            self.queue.present(surface_tex);
         }
 
         self.headset.as_mut().expect("checked above").finish_eye();
@@ -1066,7 +1068,7 @@ mod tests {
             .device
             .poll(wgpu::PollType::wait_indefinitely())
             .expect("readback poll");
-        let bytes = slice.get_mapped_range().to_vec();
+        let bytes = slice.get_mapped_range().expect("readback range").to_vec();
         buffer.unmap();
         bytes
     }

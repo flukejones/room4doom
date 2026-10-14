@@ -46,7 +46,7 @@ winit = { workspace = true, optional = true }
 [dev-dependencies]
 test-utils.workspace = true
 wad.workspace = true
-naga = { version = "29", features = ["wgsl-in"] }
+naga = { version = "30", features = ["wgsl-in"] }
 
 [[example]]
 name = "minimal"

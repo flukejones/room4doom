@@ -10,6 +10,7 @@ use std::ffi::c_void;
 use objc2::rc::Retained;
 use objc2::runtime::ProtocolObject;
 use objc2_metal::{MTLCommandQueue, MTLDevice, MTLPixelFormat, MTLTexture, MTLTextureType};
+use wgpu::wgt::STORAGE_BINDING_SIZE_ALIGNMENT;
 use wgpu_hal::api::Metal;
 use wgpu_hal::metal::{Device as MetalDevice, Queue as MetalQueue};
 use wgpu_hal::{Adapter as _, Instance as _};
@@ -22,12 +23,6 @@ pub(crate) fn build_wgpu(
     queue: &Retained<ProtocolObject<dyn MTLCommandQueue>>,
 ) -> Result<(wgpu::Instance, wgpu::Device, wgpu::Queue), VrError> {
     let device = queue.device();
-    // SAFETY: the retained queue owns this live runtime-selected Metal device.
-    let hal_device =
-        unsafe { MetalDevice::device_from_raw(device.clone(), wgpu::Features::empty()) };
-    // SAFETY: as above; the timestamp period is Metal's nanosecond base.
-    let hal_queue = unsafe { MetalQueue::queue_from_raw(queue.clone(), 1.0) };
-
     let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
         backends: wgpu::Backends::METAL,
         flags: wgpu::InstanceFlags::default(),
@@ -36,6 +31,22 @@ pub(crate) fn build_wgpu(
         display: None,
     });
     let adapter = runtime_adapter(&instance, device.registryID())?;
+    let mut limits = adapter.limits();
+    // HAL imports bypass wgpu's adapter limit adjustments. Its indirect-draw
+    // validation requires buffer sizes and binding offsets to fit in u32.
+    let max_buffer_size = u64::from(u32::MAX);
+    limits.max_buffer_size = limits.max_buffer_size.min(max_buffer_size);
+    limits.max_uniform_buffer_binding_size =
+        limits.max_uniform_buffer_binding_size.min(max_buffer_size);
+    limits.max_storage_buffer_binding_size = limits
+        .max_storage_buffer_binding_size
+        .min(max_buffer_size & !(u64::from(STORAGE_BINDING_SIZE_ALIGNMENT) - 1));
+    // SAFETY: the retained queue owns this live runtime-selected Metal device,
+    // and the matching adapter supports these limits.
+    let hal_device =
+        unsafe { MetalDevice::device_from_raw(device.clone(), wgpu::Features::empty(), &limits) };
+    // SAFETY: as above; the timestamp period is Metal's nanosecond base.
+    let hal_queue = unsafe { MetalQueue::queue_from_raw(queue.clone(), 1.0) };
 
     // SAFETY: the hal device and queue were built from the same MTLDevice
     // this adapter represents.
@@ -51,7 +62,7 @@ pub(crate) fn build_wgpu(
                 required_features: wgpu::Features::empty(),
                 // Real adapter limits: a per-eye headset target exceeds the
                 // downlevel defaults.
-                required_limits: adapter.limits(),
+                required_limits: limits,
                 memory_hints: wgpu::MemoryHints::Performance,
                 experimental_features: wgpu::ExperimentalFeatures::disabled(),
                 trace: wgpu::Trace::Off,
@@ -121,6 +132,7 @@ pub(crate) fn wrap_texture(
             1,
             1,
             copy_size,
+            None,
         )
     };
     let descriptor = wgpu::TextureDescriptor {
@@ -138,8 +150,14 @@ pub(crate) fn wrap_texture(
         view_formats: &[],
     };
     // SAFETY: the hal texture was built from this device's backend and
-    // matches the descriptor.
-    let texture = unsafe { device.create_texture_from_hal::<Metal>(hal_texture, &descriptor) };
+    // matches the descriptor. Each eye is fully rendered before presentation.
+    let texture = unsafe {
+        device.create_texture_from_hal::<Metal>(
+            hal_texture,
+            &descriptor,
+            wgpu::TextureUses::UNINITIALIZED,
+        )
+    };
     Ok(texture.create_view(&wgpu::TextureViewDescriptor::default()))
 }
 
