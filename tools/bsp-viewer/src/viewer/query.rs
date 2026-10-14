@@ -13,12 +13,9 @@ pub enum DragTool {
 }
 
 impl MapViewerApp {
-    pub fn output_query(&self, ctx: &egui::Context, text: &str) {
+    pub fn output_query(&self, text: &str) -> String {
         print!("{text}");
-        let mut clipboard = String::new();
-        clipboard.push_str(&format!("map: {}\n", self.data.map_name));
-        clipboard.push_str(text);
-        ctx.copy_text(clipboard);
+        format!("map: {}\n{text}", self.data.map_name)
     }
 
     pub fn query_line(&self, a: Vec2, b: Vec2) -> String {

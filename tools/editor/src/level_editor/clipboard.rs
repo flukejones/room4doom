@@ -7,7 +7,7 @@ use editor_core::{
 };
 
 use super::LevelEditorState;
-use crate::state::{Damage, MapClipboard, SelItem};
+use crate::level_editor::state::{Damage, MapClipboard, SelItem};
 use crate::undo::{EditAction, EditSession, UndoStack};
 
 impl LevelEditorState {
@@ -21,6 +21,7 @@ impl LevelEditorState {
         };
         if step(&mut self.undo, map).is_some() {
             self.selection.clear();
+            self.selected_surface = None;
             self.dirty = true;
             Damage::Edited
         } else {

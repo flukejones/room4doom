@@ -1,8 +1,7 @@
-use egui::{ColorImage, TextureHandle, TextureOptions};
 use glam::Vec3;
 use level::LevelData;
 use math::{Angle, Bam, FixedT};
-use pic_data::{ByteOrder, PicData};
+use pic_data::{ByteOrder, PalLitCache, PicData};
 use render_common::{BufferSize, DrawBuffer, PixelTarget, RenderPspDef, RenderView};
 use software3d::Software3D;
 use wad::WadData;
@@ -11,11 +10,22 @@ pub const FOV: f32 = std::f32::consts::FRAC_PI_2;
 const CLEAR_COLOUR: u32 = 0xFF000000;
 
 /// 3D render mode selected from the UI.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Render3DMode {
     Textured,
     SolidSectors,
     Wireframe,
+}
+
+impl Render3DMode {
+    pub const ALL: [Self; 3] = [Self::Textured, Self::SolidSectors, Self::Wireframe];
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Textured => "Textured",
+            Self::SolidSectors => "Solid sectors",
+            Self::Wireframe => "Wireframe",
+        }
+    }
 }
 
 /// Free-fly camera.
@@ -88,6 +98,7 @@ impl DrawBuffer for FrameBuffer {
 pub struct Renderer3D {
     sw: Software3D,
     pics: PicData,
+    pal_lit: PalLitCache<u32>,
     fb: FrameBuffer,
     mode: Render3DMode,
     w: usize,
@@ -102,6 +113,7 @@ impl Renderer3D {
         Self {
             sw: Software3D::new(w as f32, h as f32, FOV),
             pics,
+            pal_lit: PalLitCache::new(),
             fb: FrameBuffer::new(w, h),
             mode,
             w,
@@ -109,16 +121,14 @@ impl Renderer3D {
         }
     }
 
-    /// Render the level from `cam` into an egui texture, recreating the
-    /// renderer when the mode or viewport size changes.
+    /// Render into shared ARGB pixels; each UI owns its texture upload.
     pub fn render(
         &mut self,
-        ctx: &egui::Context,
         level: &LevelData,
         cam: &Camera3D,
         mode: Render3DMode,
         size: (usize, usize),
-    ) -> TextureHandle {
+    ) -> &[u32] {
         if self.mode != mode {
             self.mode = mode;
             self.sw = Software3D::new(self.w as f32, self.h as f32, FOV);
@@ -129,30 +139,22 @@ impl Renderer3D {
             self.fb = FrameBuffer::new(self.w, self.h);
             self.sw.resize(self.w as f32, self.h as f32);
         }
-
         self.render_to_buffer(level, cam);
-
-        let pixels: Vec<egui::Color32> = self
-            .fb
-            .data
-            .iter()
-            .map(|&c| egui::Color32::from_rgb((c >> 16) as u8, (c >> 8) as u8, c as u8))
-            .collect();
-        let image = ColorImage {
-            size: [self.w, self.h],
-            pixels,
-        };
-        ctx.load_texture("bsp3d", image, TextureOptions::NEAREST)
+        &self.fb.data
     }
 
-    /// Render one frame into the framebuffer (no egui dependency).
+    /// Render one frame into the framebuffer.
     fn render_to_buffer(&mut self, level: &LevelData, cam: &Camera3D) {
         let view = render_view(cam);
         self.fb.data.fill(CLEAR_COLOUR);
-        let pal_lit = self.pics.build_pal_lit(ByteOrder::Argb);
+        let pal_lit = self.pal_lit.get(
+            self.pics.palette_generation(),
+            self.pics.palettes(),
+            ByteOrder::Argb,
+        );
         let tint = self.pics.use_palette();
         let size = BufferSize::new(self.w, self.h);
-        let mut target = PixelTarget::new(&mut self.fb.data, size, self.w, &pal_lit, tint);
+        let mut target = PixelTarget::new(&mut self.fb.data, size, self.w, pal_lit, tint);
         self.sw.draw_view(&view, level, &mut self.pics, &mut target);
         self.sw.draw_debug_overlays(&mut target);
     }

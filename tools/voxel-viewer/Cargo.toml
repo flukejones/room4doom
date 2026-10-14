@@ -14,13 +14,20 @@ hprof = ["dep:coarse-prof", "software3d/hprof"]
 render_stats = ["software3d/render_stats"]
 
 [dependencies]
+log.workspace = true
+simplelog.workspace = true
 pic-data.workspace = true
 render-common.workspace = true
 software3d = { path = "../../render/software3d" }
 glam.workspace = true
-winit.workspace = true
-softbuffer.workspace = true
+gpui.workspace = true
+ui-common.workspace = true
+image.workspace = true
 coarse-prof = { workspace = true, optional = true }
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+gpui = { workspace = true, features = ["test-support"] }
+test-utils.workspace = true

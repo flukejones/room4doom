@@ -1,22 +1,24 @@
-//! GPU canvas rendering: [`frame`] builds vertex buffers, [`atlas`] packs textures, [`wgpu`] owns the device + pipelines, [`sync`] is the sole app-coupled bridge.
+//! GPU canvas rendering: [`frame`] builds geometry, [`atlas`] packs textures, [`wgpu`] owns
+//! pipelines and [`sync`] reconciles editing state. Native view publication and animation
+//! scheduling live with the map tab.
 
 pub mod atlas;
+pub(crate) mod cache;
 pub mod camera3d;
 pub mod editor_camera;
 pub mod frame;
 pub mod frame3d;
 pub mod input;
+#[cfg(target_os = "macos")]
+mod native_surface;
 pub mod sprites;
 pub mod style;
-mod sync;
+pub(crate) mod sync;
 pub mod triangulate;
 pub mod view;
 pub mod wgpu;
 
-pub(crate) use sync::{
-    apply_damage, export_camera, push_wgpu_frame, regrid_and_paint, repaint_canvas,
-    stop_light_timer,
-};
+pub(crate) use sync::export_camera;
 
 /// FNV-1a seed + prime, shared by the sector-colour hash and the atlas content key.
 pub(crate) const FNV_OFFSET: u64 = 0xcbf2_9ce4_8422_2325;

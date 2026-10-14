@@ -65,8 +65,6 @@ pub(crate) fn thing_world_half_extent(
 pub struct FrameInput<'a> {
     pub map: &'a EditorMap,
     pub tris: &'a SectorTris,
-    /// Pixels per world unit (for normal tick length).
-    pub zoom: f32,
     /// Device/logical pixel ratio (HiDPI). Multiplied into screen-px sizes.
     pub pixel_ratio: f32,
     pub style: &'a CanvasStyle,
@@ -188,6 +186,8 @@ fn vertical(p: [f32; 2], z0: f32, z1: f32, pen: f32, rgba: [f32; 4]) -> LineInst
         half_px: pen * 0.5,
         az: z0,
         bz: z1,
+        dash_px: 0.0,
+        length_px: 0.0,
         rgba,
     }
 }
@@ -381,20 +381,21 @@ pub(crate) fn line_instances(input: &FrameInput<'_>, key: LineKey) -> (LineInst,
     };
     let seg = line_at(a, b, pen, c, z);
 
-    // Front normal: midpoint → right of v1→v2, i.e. (dy,-dx). Length = fixed tick in world units.
+    // Front normal: midpoint → right of v1→v2, i.e. (dy,-dx). The shader sizes the tick.
     let (dx, dy) = (b[0] - a[0], b[1] - a[1]);
     let len = (dx * dx + dy * dy).sqrt();
     let normal = if len > 1.0 {
         let (nx, ny) = (dy / len, -dx / len);
-        let tick = NORMAL_TICK_PX / input.zoom;
         let mid = [f32::midpoint(a[0], b[0]), f32::midpoint(a[1], b[1])];
-        line_at(
+        let mut normal = line_at(
             mid,
-            [mid[0] + nx * tick, mid[1] + ny * tick],
+            [mid[0] + nx, mid[1] + ny],
             LINE_THICKNESS_PX * pr,
             c,
             z,
-        )
+        );
+        normal.length_px = NORMAL_TICK_PX * pr;
+        normal
     } else {
         LineInst::default()
     };
@@ -554,6 +555,8 @@ pub(crate) fn line_at(a: [f32; 2], b: [f32; 2], pen: f32, rgba: [f32; 4], z: f32
         half_px: pen * 0.5,
         az: z,
         bz: z,
+        dash_px: 0.0,
+        length_px: 0.0,
         rgba,
     }
 }
@@ -577,18 +580,21 @@ pub(crate) fn push_marker(buf: &mut Vec<MarkerInst>, c: [f32; 2], half_px: f32, 
     });
 }
 
-/// Build the edit preview overlay: rubber-band, polyline, or move ghosts on the grid plane.
+/// Build edit previews at their resolved world positions; only selection rubber uses the grid plane.
+#[expect(clippy::cast_precision_loss, reason = "GPU world coordinates use f32")]
 pub(crate) fn build_preview(
+    lines: &mut Vec<LineInst>,
+    markers: &mut Vec<MarkerInst>,
     overlay: &Overlay,
     style: &CanvasStyle,
     pixel_ratio: f32,
     z: f32,
-) -> (Vec<LineInst>, Vec<MarkerInst>) {
-    let mut lines = Vec::new();
-    let mut markers = Vec::new();
+) {
+    lines.clear();
+    markers.clear();
     let pen = LINE_THICKNESS_PX * pixel_ratio;
     let accent = rgba_f32(style.selected);
-    let mut polyline = |pts: &[[f32; 2]], close: bool| {
+    let mut polyline = |pts: &[[f32; 2]], close: bool, z: f32| {
         for w in pts.windows(2) {
             lines.push(line_at(w[0], w[1], pen, accent, z));
         }
@@ -603,39 +609,52 @@ pub(crate) fn build_preview(
             b,
         } => {
             let box_pts = [*a, [b[0], a[1]], *b, [a[0], b[1]]];
-            polyline(&box_pts, true);
+            polyline(&box_pts, true, z);
         }
         Overlay::Poly {
             pts,
-        } => polyline(pts, true),
+            z,
+        } => polyline(pts, true, *z as f32),
         Overlay::Chain {
             pts,
             rubber,
+            z,
         } => {
-            polyline(pts, false);
+            polyline(pts, false, *z as f32);
             if let (Some(last), Some(r)) = (pts.last(), rubber) {
-                lines.push(line_at(*last, *r, pen, accent, z));
+                lines.push(line_at(*last, *r, pen, accent, *z as f32));
             }
         }
         Overlay::Move {
             segments,
             points,
         } => {
-            for [a, b] in segments {
-                lines.push(line_at(*a, *b, pen, accent, z));
+            let foreground = rgba_f32(style.point);
+            let width = 3.0 * pixel_ratio;
+            lines.reserve(segments.len().saturating_mul(2));
+            for (width, colour) in [
+                (width + 2.0 * pixel_ratio, rgba_f32(style.back)),
+                (width, foreground),
+            ] {
+                for [a, b] in segments {
+                    let mut line = line_at([a[0], a[1]], [b[0], b[1]], width, colour, a[2]);
+                    line.bz = b[2];
+                    line.dash_px = 6.0 * pixel_ratio;
+                    lines.push(line);
+                }
             }
             let half = VERTEX_DRAW_PX * pixel_ratio * 0.5;
+            markers.reserve(points.len());
             for p in points {
                 markers.push(MarkerInst {
-                    centre: *p,
+                    centre: [p[0], p[1]],
                     half_px: half,
-                    z,
-                    rgba: accent,
+                    z: p[2],
+                    rgba: foreground,
                 });
             }
         }
     }
-    (lines, markers)
 }
 
 /// Transform-handle chrome: bbox outline, corner scale markers, rotate stem + knob.
@@ -648,12 +667,22 @@ pub(crate) fn push_handles(
     z: f32,
 ) {
     let pen = LINE_THICKNESS_PX * pixel_ratio;
-    let accent = rgba_f32(style.selected);
-    let corners = h.corners();
-    for i in 0..4 {
-        lines.push(line_at(corners[i], corners[(i + 1) % 4], pen, accent, z));
+    let accent = rgba_f32(style.point);
+    let corners = h.corners;
+    let stem = [
+        corners[2][0].midpoint(corners[3][0]),
+        corners[2][1].midpoint(corners[3][1]),
+    ];
+    // Theme foreground with a background halo stays distinct from the selected line.
+    for (width, colour) in [
+        (pen + 2.0 * pixel_ratio, rgba_f32(style.back)),
+        (pen, accent),
+    ] {
+        for i in 0..4 {
+            lines.push(line_at(corners[i], corners[(i + 1) % 4], width, colour, z));
+        }
+        lines.push(line_at(stem, h.rotate, width, colour, z));
     }
-    lines.push(line_at([h.pivot[0], h.max[1]], h.rotate, pen, accent, z));
     let half = HANDLE_DRAW_PX * pixel_ratio * 0.5;
     for c in corners.into_iter().chain([h.rotate]) {
         markers.push(MarkerInst {
@@ -679,33 +708,12 @@ pub fn rgba_f32(c: Color) -> [f32; 4] {
 mod tests {
     use super::*;
     use crate::defaults;
-    use crate::render::camera3d::Camera;
     use crate::render::triangulate::build_sector_tris;
-
-    fn fit_view(map: &EditorMap) -> (Camera, f32, [f32; 2]) {
-        let (mut lo, mut hi) = ([f32::MAX; 2], [f32::MIN; 2]);
-        for v in map.vertices.values() {
-            lo[0] = lo[0].min(v.x);
-            lo[1] = lo[1].min(v.y);
-            hi[0] = hi[0].max(v.x);
-            hi[1] = hi[1].max(v.y);
-        }
-        let viewport = [hi[0] - lo[0] + 256.0, hi[1] - lo[1] + 256.0];
-        let mut cam = Camera::default();
-        cam.look_down_at([
-            f32::midpoint(lo[0], hi[0]),
-            f32::midpoint(lo[1], hi[1]),
-            0.0,
-        ]);
-        cam.set_ortho_height(viewport[1]);
-        (cam, 1.0, viewport)
-    }
 
     #[allow(clippy::too_many_arguments)]
     fn input<'a>(
         map: &'a EditorMap,
         tris: &'a SectorTris,
-        zoom: f32,
         style: &'a CanvasStyle,
         sel: &'a Selection,
         atlas: &'a AtlasMaps,
@@ -716,7 +724,6 @@ mod tests {
         FrameInput {
             map,
             tris,
-            zoom,
             pixel_ratio: 1.0,
             style,
             selection: sel,
@@ -741,7 +748,6 @@ mod tests {
         let wad = wad::WadData::new(&test_utils::doom1_wad_path());
         let map = editor_core::import_wad_map(&wad, "E1M1").expect("E1M1 imports");
         let tris = build_sector_tris(&map);
-        let zoom = fit_view(&map).1;
         let style = CanvasStyle::default();
         let (sel, atlas, extents, colors) = (
             Selection::default(),
@@ -752,7 +758,6 @@ mod tests {
         let inp = input(
             &map,
             &tris,
-            zoom,
             &style,
             &sel,
             &atlas,

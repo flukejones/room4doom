@@ -3,10 +3,10 @@
 use editor_core::{LineKey, SectorKey, ThingKey, VertKey, weld_cluster};
 
 use super::{LevelEditorState, VERTEX_WELD_DIST};
-use crate::boundary::SelectMode;
+use crate::boundary::{SelectMode, Tool};
 use crate::level_editor::draw::default_sector;
-use crate::level_editor::pick3d::PickKind;
-use crate::state::{Damage, DragState, Overlay, SelItem};
+use crate::level_editor::pick3d::{PickHit, PickKind};
+use crate::level_editor::state::{Damage, DragState, Overlay, SelItem};
 use crate::undo::EditAction;
 
 impl LevelEditorState {
@@ -14,6 +14,7 @@ impl LevelEditorState {
         let had_any = !self.selection.is_empty() || self.current_sector.is_some();
         self.selection.clear();
         self.current_sector = None;
+        self.selected_surface = None;
         // No selection → grid resets to z=0.
         let plane_reset = self.set_grid_plane(0.0);
         if had_any {
@@ -23,6 +24,19 @@ impl LevelEditorState {
         } else {
             Damage::None
         }
+    }
+
+    pub(super) fn remember_surface(&mut self, hit: PickHit) {
+        self.selected_surface = hit.surface.and_then(|(sector, slot)| {
+            let owner = match hit.kind {
+                PickKind::Sector(key) => SelItem::Sector(key),
+                PickKind::Linedef(key) => SelItem::Line(key),
+                _ => return None,
+            };
+            let selected = self.selection.contains(&owner)
+                || (self.tool == Tool::Sector && self.current_sector == Some(sector));
+            selected.then_some((owner, sector, slot))
+        });
     }
 
     pub(super) fn select_pick(&mut self, kind: PickKind, shift: bool) -> Damage {
@@ -100,6 +114,7 @@ impl LevelEditorState {
                 self.selection.replace(item);
                 Damage::Edited
             };
+            self.remember_surface(hit);
             self.begin_move(world);
             return if plane_moved {
                 Damage::View.combine(damage)
@@ -121,6 +136,7 @@ impl LevelEditorState {
             cleared = !self.selection.is_empty() || self.current_sector.is_some();
             self.selection.clear();
             self.current_sector = None;
+            self.selected_surface = None;
         }
         self.drag = DragState::Rubber {
             start: world,

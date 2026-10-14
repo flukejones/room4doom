@@ -8,7 +8,8 @@ use editor_core::{
 };
 
 use crate::level_editor::draw::default_sector;
-use crate::state::{Damage, SelItem};
+use crate::level_editor::state::{Damage, SelItem};
+use crate::render::frame::build_preview;
 
 fn line_key(map: &EditorMap, i: usize) -> LineKey {
     map.lines.keys().nth(i).expect("line exists")
@@ -159,6 +160,205 @@ fn poly_chain_closes_at_start() {
 
     app.undo();
     assert_eq!(app.map.as_ref().expect("map").lines.len(), 0);
+}
+
+#[test]
+fn chain_preview_resolves_close_and_finish_targets() {
+    for (pointer, expected, lines) in [([4.0, 4.0], [0.0, 0.0], 3), ([61.0, 61.0], [64.0, 64.0], 2)]
+    {
+        let mut app = empty_app();
+        app.snap = false;
+        app.camera.set_zoom(1.0);
+        app.set_tool(Tool::Draw(DrawShape::Line));
+        for p in [[0.0, 0.0], [64.0, 0.0], [64.0, 64.0]] {
+            click_at(&mut app, p);
+        }
+        app.hover_poly(app.camera.world_to_screen(pointer));
+        let Overlay::Chain {
+            rubber,
+            ..
+        } = &app.overlay
+        else {
+            panic!("chain preview")
+        };
+        let actual = rubber.unwrap();
+        assert!((actual[0] - expected[0]).abs() < 0.001 && (actual[1] - expected[1]).abs() < 0.001);
+        click_at(&mut app, pointer);
+        assert!(app.poly.is_none());
+        assert_eq!(app.map.as_ref().unwrap().lines.len(), lines);
+    }
+}
+
+#[test]
+fn off_grid_line_choice_preserves_preview_endpoints() {
+    for extrude in [false, true] {
+        let mut app = empty_app();
+        app.snap = false;
+        app.camera.set_zoom(1.0);
+        draw_line(&mut app, [1.0, 3.0], [65.0, 6.0]);
+        let line = line_key(app.map.as_ref().unwrap(), 0);
+        app.set_tool(Tool::Select(SelectMode::Line));
+        app.selection.replace(SelItem::Line(line));
+        app.begin_move([32.0, 4.0]);
+        app.move_selection_to([32.0, 20.0]);
+        let Overlay::Move {
+            segments,
+            ..
+        } = &app.overlay
+        else {
+            panic!("move preview")
+        };
+        let expected = segments[0];
+        assert_eq!(expected, [[0.0, 16.0, 0.0], [64.0, 24.0, 0.0]]);
+        if extrude {
+            app.commit_pending_extrude();
+        } else {
+            app.commit_pending_move();
+        }
+        let map = app.map.as_ref().unwrap();
+        for p in expected {
+            assert!(
+                map.vertices.values().any(|v| [v.x, v.y] == [p[0], p[1]]),
+                "missing preview endpoint {p:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn transform_preview_includes_drop_welding() {
+    use crate::level_editor::state::TransformMode;
+    for rotate in [false, true] {
+        let mut app = empty_app();
+        app.snap = false;
+        app.angle_snap = false;
+        app.camera.set_zoom(1.0);
+        draw_line(&mut app, [0.0, 0.0], [64.0, 0.0]);
+        let line = line_key(app.map.as_ref().unwrap(), 0);
+        let target = if rotate { [32.5, 32.5] } else { [136.5, 0.5] };
+        draw_line(&mut app, target, [200.0, 80.0]);
+        let map = app.map.as_ref().unwrap();
+        let stationary = map.lines[line_key(map, 1)].v1;
+        let target = [map.vertices[stationary].x, map.vertices[stationary].y];
+        let l = map.lines[line];
+        let verts = [l.v1, l.v2]
+            .map(|k| (k, [map.vertices[k].x, map.vertices[k].y]))
+            .to_vec();
+        let (mode, pointer) = if rotate {
+            (
+                TransformMode::Rotate {
+                    start_angle: 0.0,
+                },
+                [32.0, 64.0],
+            )
+        } else {
+            (
+                TransformMode::Scale {
+                    anchor: [-8.0, -8.0],
+                    start: [72.0, 8.0],
+                    axis: [1.0, 0.0],
+                },
+                [152.0, 8.0],
+            )
+        };
+        app.drag = DragState::Transform {
+            pivot: [32.0, 0.0],
+            mode,
+            verts,
+            lines: vec![line],
+        };
+        app.transform_drag_to(pointer);
+        let Overlay::Move {
+            segments,
+            ..
+        } = &app.overlay
+        else {
+            panic!("transform preview")
+        };
+        let expected = segments[0].map(|p| [p[0], p[1]]);
+        assert!(
+            expected.contains(&target),
+            "preview must include stationary weld target {target:?}, got {expected:?}"
+        );
+        app.finish_transform(pointer);
+        let map = app.map.as_ref().unwrap();
+        let line = map.lines[line];
+        let actual = [line.v1, line.v2].map(|k| [map.vertices[k].x, map.vertices[k].y]);
+        assert_eq!(actual, expected);
+    }
+}
+
+#[test]
+fn draw_preview_uses_committed_floor_instead_of_grid_plane() {
+    let mut app = empty_app();
+    app.draw_brush.floor_h = -16;
+    app.camera.set_grid_z(64.0);
+    app.set_tool(Tool::Draw(DrawShape::Rect));
+    app.shape_click(DrawShape::Rect, [0.0, 0.0]);
+    app.shape_hover(app.camera.world_to_screen([64.0, 64.0]));
+    let mut lines = Vec::new();
+    let mut markers = Vec::new();
+    build_preview(
+        &mut lines,
+        &mut markers,
+        &app.overlay,
+        &Default::default(),
+        1.0,
+        app.camera.grid_z(),
+    );
+    assert!(
+        !lines.is_empty() && lines.iter().all(|l| l.az == -16.0 && l.bz == -16.0),
+        "new sector preview must use its floor height"
+    );
+    app.shape_click(DrawShape::Rect, [64.0, 64.0]);
+    assert_eq!(
+        app.map
+            .as_ref()
+            .unwrap()
+            .sectors
+            .values()
+            .next()
+            .unwrap()
+            .floor_height,
+        -16
+    );
+}
+
+#[test]
+fn thing_move_preview_uses_destination_floor() {
+    let mut app = empty_app();
+    app.camera.set_zoom(1.0);
+    draw_room(&mut app, &[[0., 0.], [256., 0.], [256., 128.], [0., 128.]]);
+    draw_line(&mut app, [128., 0.], [128., 128.]);
+    let left = app.sector_under([64., 64.]).unwrap();
+    let mut sector = app.map.as_ref().unwrap().sectors[left];
+    sector.floor_height = 64;
+    app.set_sector(left, sector);
+    app.place_thing([64., 64.]);
+    let thing = thing_key(app.map.as_ref().unwrap(), 0);
+    app.rebuild_pick_mesh();
+    app.camera.set_grid_z(64.0);
+    app.selection.replace(SelItem::Thing(thing));
+    let mut lines = Vec::new();
+    let mut markers = Vec::new();
+    for (from, to, height) in [(64., 192., 0_i16), (192., 64., 64)] {
+        app.begin_move([from, 64.]);
+        app.move_selection_to([to, 64.]);
+        build_preview(
+            &mut lines,
+            &mut markers,
+            &app.overlay,
+            &Default::default(),
+            1.0,
+            app.camera.grid_z(),
+        );
+        assert_eq!(markers.len(), 1);
+        assert_eq!(markers[0].centre, [to, 64.]);
+        assert_eq!(markers[0].z, f32::from(height));
+        app.finish_move();
+        let actual = app.map.as_ref().unwrap().things[thing];
+        assert_eq!(actual.z, i32::from(height));
+    }
 }
 
 #[test]
@@ -1663,6 +1863,61 @@ fn mirror_selected_keeps_sector_resolvable() {
 }
 
 #[test]
+fn selected_line_handles_follow_the_line_and_refresh_on_release() {
+    for end in [[80.0, 0.0], [0.0, 80.0], [48.0, 64.0], [-48.0, -64.0]] {
+        let mut app = empty_app();
+        app.camera.set_zoom(1.0);
+        draw_line(&mut app, [0.0, 0.0], end);
+        app.set_tool(Tool::Select(SelectMode::Line));
+        let middle = [end[0] * 0.5, end[1] * 0.5];
+        assert_eq!(click_at(&mut app, middle), Damage::Edited);
+        assert!(matches!(app.selection.items(), [SelItem::Line(_)]));
+        let h = app.transform_handles().expect("selected line has handles");
+        let rotate = [h.rotate[0] - middle[0], h.rotate[1] - middle[1]];
+        assert!(
+            (rotate[0] * end[0] + rotate[1] * end[1]).abs() < 0.01
+                && rotate[0] * end[1] - rotate[1] * end[0] > 0.0,
+            "rotate handle must follow the front normal: line={end:?}, pivot={:?}, rotate={:?}",
+            h.pivot,
+            h.rotate,
+        );
+        let corners = h.corners;
+        let edge = [corners[1][0] - corners[0][0], corners[1][1] - corners[0][1]];
+        assert!((edge[0] * end[1] - edge[1] * end[0]).abs() < 0.01);
+        for corner in corners {
+            let distance = (corner[0] * end[1] - corner[1] * end[0]).abs() / 80.0;
+            assert!(distance >= 5.0, "outline must be padded off the line");
+        }
+        let screen = app.camera.world_to_screen(middle);
+        app.begin_tool_drag(screen, false);
+        assert!(app.transform_handles().is_none());
+        assert_eq!(app.end_drag(screen), Damage::Overlay);
+        assert!(app.transform_handles().is_some());
+        let from = app.camera.world_to_screen(corners[2]);
+        let to = app
+            .camera
+            .world_to_screen([corners[2][0] + end[0], corners[2][1] + end[1]]);
+        app.begin_tool_drag(from, false);
+        app.drag_to(to);
+        let Overlay::Move {
+            segments,
+            ..
+        } = &app.overlay
+        else {
+            panic!("scale preview")
+        };
+        let [[a, b]] = segments.as_slice() else {
+            panic!("one line preview")
+        };
+        let changed = [b[0] - a[0], b[1] - a[1]];
+        assert!(
+            (changed[0] * end[1] - changed[1] * end[0]).abs() < 0.1,
+            "scaling along a line must preserve its direction"
+        );
+    }
+}
+
+#[test]
 fn scale_handle_drag_scales_about_opposite_corner() {
     let mut app = empty_app();
     app.camera.set_zoom(1.0);
@@ -1670,7 +1925,7 @@ fn scale_handle_drag_scales_about_opposite_corner() {
     app.set_tool(Tool::Select(SelectMode::All));
     select_all_lines(&mut app);
     let h = app.transform_handles().expect("handles for selection");
-    assert_eq!((h.min, h.max), ([0.0, 0.0], [64.0, 64.0]));
+    assert_eq!((h.corners[0], h.corners[2]), ([0.0, 0.0], [64.0, 64.0]));
     // Drag the max corner from (64,64) to (128,128): scale 2x about (0,0).
     let from = app.camera.world_to_screen([64.0, 64.0]);
     let to = app.camera.world_to_screen([128.0, 128.0]);
@@ -2174,4 +2429,97 @@ fn paste_sector_into_enclosure_is_one_undo_step() {
         app.sector_under([64.0, 64.0]).is_none(),
         "one undo removes the pasted sector entirely"
     );
+}
+
+#[test]
+fn selected_surface_height_nudges_follow_pick_shift_and_undo() {
+    use crate::app::{preferences::EditorPreferences, session::EditorSession};
+    use crate::tabs::map_editor::{MapCommand, MapPresentation};
+
+    for (dy, world, mode, ceiling) in [
+        (0., [128., 128., 0.], SelectMode::Sector, false),
+        (450., [128., 128., 128.], SelectMode::Sector, true),
+        (180., [128., 0., 0.], SelectMode::Line, false),
+        (180., [128., 0., 128.], SelectMode::Line, true),
+    ] {
+        let mut app = empty_app();
+        app.camera.set_zoom(1.0);
+        draw_room(&mut app, &[[0., 0.], [256., 0.], [256., 256.], [0., 256.]]);
+        app.rebuild_pick_mesh();
+        let sector = app.sector_under([128., 128.]).unwrap();
+        app.camera.top_down_to([128., 128., 64.]);
+        app.camera.settle();
+        app.camera.orbit(0., dy);
+        let [w, h] = app.camera.viewport();
+        let p = app.render_camera().world_to_ndc(world, w / h).unwrap();
+        let pos = [(p[0] + 1.) * w / 2., (1. - p[1]) * h / 2.];
+        app.set_tool(Tool::Select(mode));
+        app.tool_click(pos, false);
+        let heights = |app: &LevelEditorState| {
+            let s = app.map.as_ref().unwrap().sectors[sector];
+            [s.floor_height, s.ceil_height]
+        };
+        app.grid = 8;
+        app.snap = true;
+        let mut session = EditorSession::new(app, None, EditorPreferences::default());
+        let effect = MapPresentation::default().command(
+            &mut session,
+            MapCommand::HeightStep {
+                raise: true,
+                opposite: false,
+            },
+        );
+        assert_eq!(effect.damage, Damage::Edited);
+        let app = &mut session.map_editor;
+        assert_eq!(heights(app), if ceiling { [0, 136] } else { [8, 128] });
+        assert_eq!(app.nudge_selected_height(false, true), Damage::Edited);
+        let expected = if ceiling { [-8, 136] } else { [8, 120] };
+        assert_eq!(heights(app), expected);
+        app.snap = false;
+        app.nudge_selected_height(true, false);
+        assert_eq!(heights(app), if ceiling { [-8, 137] } else { [9, 120] });
+        app.undo();
+        assert_eq!(heights(app), expected, "one undo restores one height step");
+        app.redo();
+        assert_eq!(heights(app), if ceiling { [-8, 137] } else { [9, 120] });
+        app.clear_selection();
+        assert_eq!(app.nudge_selected_height(true, false), Damage::None);
+    }
+}
+
+#[test]
+fn two_sided_height_edges_edit_the_sector_that_defines_them() {
+    let mut app = empty_app();
+    app.camera.set_zoom(1.0);
+    draw_room(&mut app, &[[0., 0.], [256., 0.], [256., 256.], [0., 256.]]);
+    draw_line(&mut app, [128., 0.], [128., 256.]);
+    let left = app.sector_under([64., 128.]).unwrap();
+    let right = app.sector_under([192., 128.]).unwrap();
+    assert_ne!(left, right);
+    let unchanged = app.map.as_ref().unwrap().sectors[left];
+    app.grid = 8;
+    app.sector_fill = SectorFill::None;
+    for (z, expected) in [(32., [40, 96]), (96., [32, 104])] {
+        let mut sector = app.map.as_ref().unwrap().sectors[right];
+        sector.floor_height = 32;
+        sector.ceil_height = 96;
+        app.set_sector(right, sector);
+        app.rebuild_pick_mesh();
+        app.camera.top_down_to([128., 128., 64.]);
+        app.camera.settle();
+        app.camera.orbit(225., 180.);
+        let [w, h] = app.camera.viewport();
+        let p = app
+            .render_camera()
+            .world_to_ndc([128., 128., z], w / h)
+            .unwrap();
+        let pos = [(p[0] + 1.) * w / 2., (1. - p[1]) * h / 2.];
+        app.set_tool(Tool::Select(SelectMode::Line));
+        app.tool_click(pos, false);
+        assert_eq!(app.nudge_selected_height(true, false), Damage::Edited);
+        let map = app.map.as_ref().unwrap();
+        let changed = map.sectors[right];
+        assert_eq!([changed.floor_height, changed.ceil_height], expected);
+        assert_eq!(map.sectors[left], unchanged);
+    }
 }

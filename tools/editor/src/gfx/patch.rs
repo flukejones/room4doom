@@ -1,7 +1,7 @@
-//! Texture-editor composite preview (Slint image); patch codec + composer live in [`crate::assets::texture_compose`], this adds highlight stroke and light-map.
+//! Texture-editor composite preview (GPUI image); patch codec + composer live in [`crate::assets::texture_compose`], this adds highlight stroke and light-map.
 
+use crate::gfx::image::UiPixels;
 use editor_core::{ImportedPatch, TextureDef};
-use slint::{Rgba8Pixel, SharedPixelBuffer};
 use wad::WadData;
 use wad::types::WadPalette;
 
@@ -22,11 +22,11 @@ pub fn compose_texture_highlight(
     palette: &WadPalette,
     highlight: Option<usize>,
     colormap: Option<&[u8]>,
-) -> SharedPixelBuffer<Rgba8Pixel> {
+) -> UiPixels {
     let (w, h) = (def.width.max(1) as usize, def.height.max(1) as usize);
     let pic = compose_texture_indices(def, imported, wad);
 
-    let mut buf = SharedPixelBuffer::<Rgba8Pixel>::new(w as u32, h as u32);
+    let mut buf = UiPixels::new(w as u32, h as u32);
     let bytes = buf.make_mut_bytes();
     // pic.data is column-major (data[x*h + y]); buf is row-major.
     let real = |i: u16| i != TRANSPARENT_INDEX && i != MISSING_PATCH_INDEX;

@@ -1,0 +1,2 @@
+# Unified diffs prefix unchanged empty lines with a space.
+*.patch -whitespace

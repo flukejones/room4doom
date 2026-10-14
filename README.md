@@ -168,6 +168,11 @@ And maybe write a book on all I've learned about writing a Doom engine.
 
 ## Building
 
+Run `just setup-gpui` (or `bash tools/setup-gpui.sh`) once after cloning, before
+using Cargo. This prepares the pinned GPUI dependency patch under the ignored
+`vendor/` directory. The editor, BSP viewer and voxel viewer use GPUI. Cargo also
+resolves these workspace patches when building only the game.
+
 I use and develop on Linux exclusively so although I once did a Windows build I don't maintain it.
 
 - Default build: `cargo build` (uses the `display-pixels` + rodio audio path; pure-Rust)

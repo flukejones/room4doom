@@ -11,6 +11,7 @@ pub mod remap;
 pub mod sector;
 pub mod select;
 pub mod snap_index;
+pub mod state;
 pub mod transform;
 pub mod view;
 
@@ -25,19 +26,19 @@ use editor_core::{
     ArenaKey as _, EditorMap, LineFlags, LineKey, Name8, Sector, SectorKey, ThingFlags, VertKey,
 };
 
-use crate::boundary::{DrawShape, SelectMode, Tool};
+use crate::boundary::{DrawShape, FlatSlot, SelectMode, Tool};
 use crate::defaults::{DEFAULT_THING_KIND, DEFAULT_THING_OPTIONS, DEFAULT_THINGS};
 use crate::level_editor::bvh::{MeshBvh, ThingLeaf};
 use crate::level_editor::snap_index::SnapIndex;
+use crate::level_editor::state::{
+    Damage, DragState, MapClipboard, Overlay, PolyChain, SectorFill, Selection, ShapeDraw,
+    SkillFilter,
+};
 use crate::level_editor::view::{PICK_RADIUS, vert_pair};
 use crate::render::editor_camera::EditorCamera;
 use crate::render::frame3d::Vert3D;
 use crate::render::style::CanvasStyle;
 use crate::render::view::{DEFAULT_GRID, WorldRect, snap};
-use crate::state::{
-    Damage, DragState, MapClipboard, Overlay, PolyChain, SectorFill, Selection, ShapeDraw,
-    SkillFilter,
-};
 use crate::undo::UndoStack;
 
 /// Screen pixels per wheel notch.
@@ -129,6 +130,8 @@ pub struct LevelEditorState {
     pub cursor_world: [f32; 2],
     /// Panel-open sector; `None` hides the panel.
     pub current_sector: Option<SectorKey>,
+    /// Picked floor/ceiling and the selected item that owns the height shortcut.
+    selected_surface: Option<(state::SelItem, SectorKey, FlatSlot)>,
     pub draw_brush: DrawBrush,
     pub thing_template: ThingTemplate,
     pub sector_fill: SectorFill,
@@ -182,6 +185,7 @@ impl LevelEditorState {
             style: CanvasStyle::default(),
             cursor_world: [0.0, 0.0],
             current_sector: None,
+            selected_surface: None,
             draw_brush: DrawBrush::default(),
             thing_template: ThingTemplate {
                 kind: DEFAULT_THING_KIND,
@@ -201,9 +205,9 @@ impl LevelEditorState {
         }
     }
 
-    /// Install a map. Caller must also call `SharedState::reset_map` to clear caches.
+    /// Install a map. Caller must also call `EditorSession::reset_map` to clear caches.
     pub fn load_map(&mut self, mut map: EditorMap, name: &str) -> Damage {
-        self.camera.reset();
+        self.clear_map();
         if let Some(bounds) = map_bounds(&map) {
             self.camera.center_on(bounds);
             self.camera.settle();
@@ -212,10 +216,19 @@ impl LevelEditorState {
         derive_thing_heights(&mut map);
         self.map = Some(map);
         self.map_name = name.to_owned();
+        Damage::Edited
+    }
+
+    /// Release the document and map-scoped interaction state, retaining editor preferences.
+    pub fn clear_map(&mut self) {
+        self.map = None;
+        self.map_name.clear();
+        self.camera.reset();
         self.tool = Tool::Select(SelectMode::All);
         self.clear_gesture_state();
         self.selection.clear();
         self.current_sector = None;
+        self.selected_surface = None;
         self.sampled_sector = None;
         // Fresh maps re-issue generation-0 keys, so the old pick mesh could alias them.
         self.surface_mesh = Vec::new();
@@ -223,7 +236,6 @@ impl LevelEditorState {
         self.edge_lines.clear();
         self.snap_index = None;
         self.dirty = false;
-        Damage::Edited
     }
 
     /// Rebuild pick mesh without the renderer (headless/tests).
@@ -313,6 +325,7 @@ impl LevelEditorState {
         } else {
             self.select_pick(hit.kind, shift)
         };
+        self.remember_surface(hit);
         if moved {
             Damage::View.combine(damage)
         } else {
@@ -404,13 +417,18 @@ impl LevelEditorState {
             return self.finish_transform(self.cursor_world);
         }
         if matches!(self.drag, DragState::MoveSel { .. }) {
+            self.move_selection_to(self.cursor_world);
             // A moved single line holds for the Move/Extrude choice; the UI commits or cancels.
             if self.line_drag_pending().is_some() {
                 return Damage::Overlay;
             }
             let damage = self.finish_move();
             self.drag = DragState::None;
-            return damage;
+            return if damage == Damage::None {
+                Damage::Overlay
+            } else {
+                damage
+            };
         }
         let drag = mem::take(&mut self.drag);
         match drag {

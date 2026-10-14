@@ -14,7 +14,7 @@ use editor_core::{
 };
 
 use super::{HEAL_TOL, LevelEditorState, ON_SEGMENT_TOL_PX, default_sector};
-use crate::state::{Damage, SelItem};
+use crate::level_editor::state::{Damage, SelItem};
 use crate::undo::EditAction;
 
 /// Max deviation from straight (45°) for two lines to be mergeable.

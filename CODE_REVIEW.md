@@ -123,7 +123,7 @@ Strictly typed and memory-safe, but logical and layout traps remain. Shaders are
 
 - **File layout order, top to bottom:** `mod` → `use` (incl. re-exports) → `const`/`static` → newtypes → simple enums/structs (unit/no-impl or basic-impl) → richer structs/enums → everything else in *use order*, each item declared before it is used. Flag a newtype or `const` stranded between functions, or an item referenced above its declaration.
 - **Magic numbers** (atlas size, tic rate, scroll/scale tuning, light falloff) are named `const` at module top, not bare literals — especially when the same value is duplicated in a WGSL shader (cross-language drift risk; cross-reference it).
-- **Scalar constants shared across a language boundary have ONE source.** A comment saying "must match X in Y" is not a contract — it drifts silently. WGSL: substitute the Rust values over defaults declared in the shader file (the editor's `surface_wgsl` rewrites `SURFACE_*`, fill thresholds, sentinels in place — prepending instead leaves the file broken for wgsl-analyzer). Slint: shared indices/values live in a Slint global Rust reads (`Tabs`), or a typed enum mirrored via explicit `match` — never bare `0/1/2` on both sides.
+- **Scalar constants shared across a language boundary have ONE source.** A comment saying "must match X in Y" is not a contract — it drifts silently. WGSL: substitute the Rust values over defaults declared in the shader file (the editor's `surface_wgsl` rewrites `SURFACE_*`, fill thresholds, sentinels in place — prepending instead leaves the file broken for wgsl-analyzer). Native UI: reuse feature types and `EditorTab`; do not repeat integer mappings in menus and views.
 - **Enum ↔ int via explicit `match`, never `as`** for GPU/config mappings — `SkyMode as u32` silently breaks if a variant is reordered; `match mode { Static => 0, Dynamic => 1 }` is stable and documents the wire contract.
 - **Stringly-typed finite sets** → enums (`TryFrom` for unknown-input parsing, never silent-default).
 - **`pub(crate)` over `pub`** for items used only within the crate; audit `pub use` for an actual external consumer. A `pub` BSP3D field only read inside `build.rs` should be `pub(crate)`.
@@ -143,77 +143,61 @@ Strictly typed and memory-safe, but logical and layout traps remain. Shaders are
 
 ## Concurrency
 
-The codebase is sync-threaded — no async runtime, no `.await`, no `async_lock`. The sound backend owns a dedicated thread fed by a channel (`SoundAction`); the editor offloads BSP export/launch to a one-shot `std::thread` and bridges results back over `std::sync::mpsc`. New concurrency should follow that channel-bridge shape, not introduce an executor.
+The engine uses synchronous worker threads and channels. The sound backend owns a dedicated thread fed by `SoundAction`; the editor offloads BSP/export/launch to `std::thread` workers and awaits their `async_channel` results on GPUI's foreground executor. Reuse these paths rather than adding another runtime.
 
-- **Flag a `!Send` value (`Rc`, `RefCell`, Slint `Weak`'s borrowed state) captured into a spawned thread.** The worker must take an owned snapshot; cross back to the UI with `upgrade_in_event_loop`, never by sharing the `Rc`.
-- **Flag blocking/long work on a thread that must stay responsive** — heavy CPU (BSP build) or sync I/O on the Slint event loop freezes the UI. Move it to the worker thread (see `jobs.rs`).
+- **Flag a `!Send` value (`Rc`, `RefCell`, native UI handles) captured into a spawned thread.** The worker must take an owned snapshot; return owned outcomes through the channel, never by sharing the `Rc`.
+- **Flag blocking/long work on a thread that must stay responsive** — heavy CPU (BSP build) or sync I/O on the GPUI foreground thread freezes the UI. Move it to the worker thread (see `jobs.rs`).
 - **Flag held-across-statement lock guards on sync mutexes.** `let lock = m.lock(); let n = lock.foo().bar;` holds the lock for the rest of the scope. Prefer a single chained expression: `let n = m.lock()…foo().bar;`. Multi-line bodies that need the guard longer should `drop(lock);` at the earliest safe point. Same judgement for a long-lived `RefCell` `borrow_mut()` held across a re-entrant call.
 
-## Slint architecture
+## GPUI architecture
 
-The editor's `.slint` lives in `tools/editor/ui/`. Globals are split: typed `*Controller` globals (`foundation/globals.slint`) that Rust populates with `in` properties and listens to via callbacks, and the `Theme` global (`foundation/theme.slint`) that re-exports the active-theme colours from `ThemeController`.
+The editor's presentation is grouped by feature under `tools/editor/src/tabs/` and `dialogs/`. Each tab and the dialog host is a persistent GPUI entity. `MapEditor` owns plain `MapPresentation`; `DialogsView` owns plain `DialogDrafts`. Their commands share the same domain path with headless callers. `app/window.rs` composes entities and routes typed requests; `app/session.rs` owns project/resources and the editing session. `EditorAppearance` contains shell chrome only. Pure editing values live in `level_editor/state.rs`; GPU caches live in `render/cache.rs`.
 
-- **Flag business logic in `.slint` files.** Conditionals must be presentational only (`visible: x > 0`); decisions about *what to show* or *what to do* belong in Rust.
-- **Flag shadow state** — Rust structs mirroring Slint model contents back into Rust. Slint retains properties; set once, let Slint hold them. (`SharedState` holds the editor model; controller `in` properties are the view projection of it, not a second copy.)
-- **Flag direct Slint-to-Slint state sharing.** Components read from the `*Controller` globals Rust populates, not from each other.
-- **Flag callbacks treated as commands.** Slint fires events; Rust decides. A controller callback (`apply`, `picked`) reports an intent; the Slint side must not block waiting for the resulting `in`-property update.
-- **Recognise gestures and key shortcuts in Slint; forward semantic actions, not raw events.** `canvas.slint` classifies click / drag / pan / zoom (from `TouchArea` state + the active tool) and maps key shortcuts in the `FocusScope`, forwarding named callbacks (`tool-click`, `tool-drag-start/drag/end`, `pan`, `zoom-at`, `undo`/`redo`/`delete-selection`/…). Flag a raw `pointer(kind,button,…)` forwarder or a stringly-typed `key(text)` that re-derives the gesture in Rust — that ternary/`match text` belongs in Slint. The split: Slint decides anything needing only input state (which button, is-it-a-drag, which modifier); Rust keeps anything needing the map (hit-test, snap, mutate) or the authoritative `ViewTransform` (it drives tile rasterization, so it cannot fork to Slint — Slint forwards pan/zoom *deltas*, Rust owns the transform). `TouchArea.moved` fires on any sub-pixel movement, so a drag needs an explicit threshold (`abs(mouse - pressed-x) > drag-threshold`) or every click registers as a micro-drag.
-- **`clicked` fires on BOTH presses of a double-click.** Verified in Slint core (`input_items.rs`): every left release fires `clicked`; `double-clicked` fires *additionally* on the second. So a click handler that toggles selection will fire twice during a double-click. Flag any single-click action that conflicts with the double-click action on the same element (e.g. click-deselects while double-click-opens) — see the selection-model rule below.
-- **Plain click replaces selection; toggle-deselect lives on a modifier.** Follow the desktop convention (Finder / Explorer / GTK): a plain click on an already-selected item keeps it selected (replace/re-anchor), and Shift/Ctrl/Cmd+click toggles it into/out of the multi-select group. This is not just convention — it dissolves the click/double-click conflict at the source (a double-click's first click can only re-select its target, never deselect it), so no single-vs-double timer deferral is needed. Flag a plain-click handler that deselects an already-selected item.
-- **One gated call site means every sibling must gate.** When an operation's show/act decision is Rust-computed at one call site (populate-browser → visible only on success), grep the sibling call sites — the texture-browser bug was nine ungated copies beside two correct ones. Inconsistent siblings are how a fixed pattern regresses.
-- **UI drives UI; round-trips to Rust are data requests only.** A button or menu that opens or closes a popup toggles the `*-visible` property *in Slint* (`PrefsController.prefs-visible = true`); it must not call a Rust callback whose job is to set visibility. Rust callbacks are for data — populate a model, apply an edit, handle a pick — never to drive the UI back to itself. Where Rust must *react* to a show/hide (fill on open, revert a live-theme preview on close), it observes the visibility via a `changed *-visible` watcher mirrored into the window root (the `on_property_changed` pattern, like the OS-scheme bridge at `editor.slint` `changed os-dark`); a global can't host the `changed` handler, so mirror it: `property <bool> prefs-open: PrefsController.prefs-visible; changed prefs-open => { ... }`. Rust never writes `*-visible`. **Exception:** a popup whose *show decision* is Rust-computed (the map-list picker appears only when a WAD scan finds >1 map) may have Rust set `*-visible` true on open; its close still belongs to Slint. **Name callbacks for what they do** — `populate-texture-browser`, not `browse`; a generic verb that needs the Rust body read to understand is a smell.
-- **Flag hardcoded colors, font sizes, radii, spacing.** Use the local `Theme` global: colours (`Theme.text`), spacing (`Theme.pad`), radii (`Theme.border-radius`/`border-radius-small`), and the type scale (`Theme.font-size-small/caption/body/heading/title`). New chrome colours go through `ThemeController` so both light/dark resolve; deliberately theme-invariant colours (the missing-resource magenta) still get a `Theme` token; canvas raster colours stay in Rust (`render/style.rs`), not Slint. Widgets use the themed `widgets/` controls — a `std-widgets` `CheckBox`/`ComboBox` follows the OS palette, not the editor theme.
-- **Flag Rust handling `slint::Image` for display decisions.** Rust builds the pixel data (tiles, texture previews, browser thumbs) and pushes `image`/`TileData`/`GfxEntry`; Slint only places it. Don't push display *logic* (which image to show) into Slint via raw `Image` swaps it shouldn't decide.
-- **Flag x/y positioning** where layouts would do. Overlays and modals are the exception — absolute positioning is inherent there (hover preview cards, `PopupScaffold` centring).
-- **Flag reading a repeated item's laid-out `y`/`height` from a `changed`/`init` handler that writes a layout-affecting property** (e.g. `viewport-y`). It panics at runtime with "Recursion detected": the geometry read forces a layout pass that re-fires the repeater/handler. Scroll-into-view must be a **pure binding** of inputs (`viewport-y: <expr of active-index, columns, row-height>`) with a calculated offset (uniform row height), never `bring-into-view(self.y, …)` from a handler. Also derive grid `columns` from the element's own `width`, not `visible-width` (the scrollbar toggling `visible-width` rebuilds the rows and can feed the loop).
+- **Keep business logic in the domain.** GPUI views classify input gestures and call typed feature actions; hit-testing, snap, geometry and undo stay in the editing model. Rendering reconciliation stays below the native presentation adapter. Cross-feature requests use GPUI events handled by the shell.
+- **Flag shadow document state.** Feature rows and fields are a presentation projection, not a second editable map. Widget-local state is for focus, text selection, layout and transient gestures. Do not reintroduce a global property/callback framework.
+- **Recognise gestures once.** Native canvas input owns click/drag/pan/orbit/zoom classification and an explicit drag threshold. Forward semantic actions and deltas to domain callbacks; do not duplicate camera transforms or map decisions in a view.
+- **Plain click replaces selection; modifier click toggles.** A double-click's first click keeps its target selected, so opening an editor never fights a plain-click deselection.
+- **One gated call site means every sibling must gate.** If browser population or a show decision can fail, check every sibling opener for the same success guard.
+- **Dialog lifecycle is explicit.** Opening populates the feature's draft once; closing reverts unapplied live edits. Use direct feature methods and the shared modal host, not callback registration or duplicated population at the button.
+- **Reuse standard Zed widgets and icons.** Shared text input and theme integration live in `ui-common`. Use the active theme for chrome colours and standard widget sizing; reserve absolute positions for overlays, hover previews and movable popup frames.
+- **Flag layout feedback loops.** A canvas size probe should notify only when its size or scale changes. Scroll-to-selection uses the existing scroll handle and measured list geometry, not a render-time mutation loop.
+- **Retire replaced images.** GPUI image caches must evict superseded and hidden previews, including the renderer's cached image resources, rather than accumulating a new image on each edit or zoom.
+- **Use one native menu action path.** macOS gets native app menus and a themed transparent titlebar; avoid a duplicated in-window menu bar.
 
-## Slint-Rust boundary
+## GPUI focus and popups
 
-The editor is single-threaded on the Slint event loop: state is `Rc<RefCell<SharedState>>` (defined in `state.rs`), with callbacks set up in `main.rs` and the per-area `set_callbacks_*` / `init` fns. Top-level editors live under `level_editor/` and `texture_editor/`; shared glue (`menu.rs`, `project.rs`, `render/sync.rs`) sits at `src/`. The only off-loop work is the export/launch worker (`jobs.rs`).
+Dialogs remain overlays in one editor window. The shared popup composition provides drag/resize, Escape-to-cancel, input swallowing and persisted `PopupId` geometry.
 
-- **Verify the call site is on the Slint event-loop thread before `Weak::upgrade()`.** Inside `on_*` callbacks you are on the loop — `weak.upgrade()` is correct. From a spawned worker thread it returns `None` silently; post back with `weak.upgrade_in_event_loop(...)` instead (whose closure must be `Send`, so it cannot carry the `Rc` — bridge data over the `mpsc` channel, as `jobs.rs` does).
-- **Flag worker threads that touch `SharedState` or a `Weak` directly.** `Rc`/`RefCell` are `!Send`; the worker gets a plain snapshot (`bincode` bytes) + the `Sender` + the `Weak`, runs the build, sends a `JobOutcome`, then pings `ExportController.job-done`. `start_export` / `start_launch` in `jobs.rs` are the reference pattern.
-- **Flag `.await` / async `lock()` inside `on_*` callbacks.** The Slint thread has no async runtime, and this project has none repo-wide. Two correct patterns:
-  - **Instant work:** do it inline in the callback on the borrowed `SharedState` — the common case here.
-  - **Non-instant work** (the BSP build): spawn a `std::thread`, snapshot the data it needs first, post results back over the channel and `upgrade_in_event_loop` — never block the loop.
-- **A `slint::Timer` must not be armed while a `SharedState` borrow is live.** `shared.borrow().timer.start(closure)` holds the borrow across `start()`, and if a previously-armed shot fires during registration its closure's `borrow_mut()` panics. Every editor timer's tic closure borrows `shared`, so they all live in module `thread_local`s reached without a borrow: `HOVER_TIMER` (`level_editor/preview.rs`), `LIGHT_TIMER` (`render/sync.rs`), `CAM_TIMER` (`views/view_canvas.rs`), `ANIM_TIMER` (`bsp_anim.rs`). **Also exempt:** the macOS app-menu poll/watch timers (`macos/menu.rs` `MENU_STATE`/`WATCH_TIMER`) — app-lifetime native-menu plumbing built *before* `SharedState` exists, bridging an ObjC C-fn callback with no `SharedState` access. A new `static`/`thread_local` Slint `Timer` is acceptable for the same reason (its closure needs `shared`); flag one only if it could instead be an `Rc`-owned field armed without a live borrow.
+- **Flush property fields before commands change their owner.** Save, quit, map/selection changes and document actions must commit the focused field before operating. Blur must not later apply that old field to a new selection. Action fields create only on explicit submission.
+- **Text input owns text actions.** Clipboard, select-all, undo/redo, IME and character editing go to the focused input first; map and texture shortcuts must not also mutate the document.
+- **Guard every quit path.** Cmd+Q, the app-global fallback and the window close button all honour the unsaved-change guard, including when no element has focus.
+- **Unhandled keys propagate.** Popup and canvas handlers consume only the shortcuts they implement; platform/menu accelerators must remain reachable.
+- **Cancel pointer gestures on deactivation.** A mouse release outside the window or a focus change must not leave map, texture or popup drags latched.
+- **Reuse the shared popup frame and geometry slots.** A new popup needs its own `PopupId` and preference slot; keep its bounds clamped to the window.
 
-## Slint focus and popups
+## GPUI threading and scheduling
 
-Dialogs follow a single-window rule: every dialog is a boolean-visibility overlay layer, never a second `slint::Window`. `widgets/popup.slint` (`PopupScaffold`) is the shared scaffold — an MDI-style draggable/resizable frame with title bar, close button, Escape-to-cancel, click/scroll swallowing, and persisted geometry (a `PopupId` slot + `WindowController` props + `PopupWindows` prefs field per popup).
+The editor's `Rc<RefCell<EditorSession>>` and native UI handles remain on GPUI's foreground thread.
 
-- **Flag element `id`s declared inside `if` blocks.** Slint can't reference them from outside. Use a `visible:` toggle on an always-present element instead.
-- **Flag `FocusScope` placed inside a `VerticalLayout` / `HorizontalLayout`** instead of as a direct child of the owning `Rectangle`. Focus silently breaks. When a layout slot needs a scope, wrap it: the Rectangle takes the layout slot, the FocusScope fills the Rectangle.
-- **Verify new overlays reuse `PopupScaffold`** rather than re-rolling a frame/backdrop + centred panel — a hand-rolled overlay always misses part of the contract (Escape close, scroll swallow, geometry slot). Wire the full plumbing: `cancelled =>` sets `*-visible = false` *in Slint* per the UI-drives-UI rule, and a new popup gets its own `PopupId` variant + geometry slot (an unbound `id` saves into another popup's slot).
-- **A `FocusScope` key handler's fallthrough is `reject`, not `accept`.** A trailing `accept` eats every unhandled key (platform shortcuts, menu accelerators) whenever that scope has focus.
-- **Flag `parent.width` / `parent.height` inside an overlay's centred panel** when the intent is the panel size — `parent` there is the full-screen backdrop. Bind to the panel's own width/height (e.g. `PopupScaffold`'s `max-popup-width` / margin clamp).
-
-## Slint style
-
-- **Flag fluff comments in `.slint`** (`// Spacer`, section headers describing what the next block already shows). Use named widgets: `spacer := Rectangle {}`.
-- **Wholly-UI callback bodies in Slint are fine.** Only flag callbacks doing logic that needs Rust input or affects Rust-owned state.
-- **Verify shared controls live in `widgets/`** (`buttons.slint`, `combo.slint`, `inputs.slint`, `popup.slint`) — a fourth hand-rolled button/field/combo means it belongs there, not re-inlined per panel.
-- **Verify `*Controller` globals are scoped to one concern** (canvas, status, one inspector panel, one dialog) — not catch-all globals accreting unrelated state.
-
-## Threading (Slint-relevant)
-
-- **Flag work spawned on a thread that then needs the UI.** A worker is for the heavy compute only; UI mutation goes back through `upgrade_in_event_loop`. A worker that holds a `Weak` and calls `upgrade()` (not `upgrade_in_event_loop`) silently no-ops.
-- **Flag periodic/animation work driven by anything but `slint::Timer`.** The BSP build animation uses an `Rc`-owned `slint::Timer` ticked on the UI loop — a `std::thread` sleep-loop poking the UI is the anti-pattern.
-- **Verify the worker→UI channel is drained once per ping, not polled in a busy loop.** `ExportController.job-done` fires once per posted `JobOutcome`; the handler `try_recv`s and stops.
-- **Flag a re-entrant job start while one is in flight.** `job_busy` guards re-entry; a new long task must check it before spawning.
+- **Workers receive snapshots and a sender.** BSP/export/launch jobs must not capture `Rc`, `RefCell`, a native window or feature handles. Await `JobOutcome` delivery through `async_channel` on the foreground executor and apply it there.
+- **Release borrows before handlers, modal dialogs and awaits.** Never hold `EditorSession` or a GPUI entity borrow across a native modal loop or suspended future. The shell dispatches application commands on its foreground task; native path prompts use GPUI futures. Extract input registries before flushing them: a blur listener can update its owning entity. Flush focused fields before dispatching. Reject asynchronous results whose resource or document generation no longer matches.
+- **Schedule deadlines, never busy-poll.** Retain or detach GPUI tasks intentionally. Timers wake the earliest due animation/preview task and stop when idle; channel delivery awaits the receiver.
+- **Keep deadlines local to their owner.** `MapEditor` owns hover, camera, light and BSP deadlines; the shell schedules the earliest wake outside the borrowed editing session. Do not add global timer or callback registries.
+- **Guard job re-entry.** Check `job_busy` before starting another long job; report channel send failures.
 
 ## Editor state lifecycle
 
-The editor's map-scoped state (drafts, undo, caches, missing-resources, render
-buffers) lives in `SharedState`/`LevelEditorState`; maps are switched in place.
+The editor's document state (undo, caches, missing resources and render buffers)
+lives in `EditorSession`/`LevelEditorState`; maps are switched in place. Native
+views own their presentation and edit drafts.
 
 - **Generational keys have NO cross-map discriminant.** Fresh maps re-issue slot 0/generation 0, so a key or baked slot index from map A can resolve against map B's arenas. Any cache holding keys or slot-indexed mirrors (`surface_mesh`, `bvh`, `edge_lines`, clipboard, drafts) must be cleared on map switch even when a synchronous rebuild "self-heals" — the gap is one skipped rebuild wide.
-- **`reset_map` clears EVERY map-scoped field.** A field added to `SharedState`
+- **`reset_map` clears EVERY map-scoped field.** A field added to `EditorSession`
   that indexes into the map (an edit draft, a selection, a cache keyed by
   line/sector id) must be cleared on map switch, and any popup holding such a
-  draft closed (`close_map_popups`) — a stale draft applied after a switch
+  draft closed by the shell on document replacement — a stale draft applied after a switch
   writes the old map's data onto the new map's indices. When reviewing a new
-  `SharedState` field, ask: what happens to it on map switch?
+  `EditorSession` field, ask: what happens to it on map switch? Resource and document generations must also invalidate native field histories and cached feature state when identities repeat.
 - **Composite edits record exactly ONE undo step.** Public ops that record
   their own snapshot (`apply_sector`, `add_sector_at`) must not be composed
   directly — a composite (paste) snapshots once up front and calls the
@@ -236,9 +220,9 @@ buffers) lives in `SharedState`/`LevelEditorState`; maps are switched in place.
   for files that are regenerated wholesale with no prior value worth keeping.
 - **Blocking work off the event loop.** Anything that can take seconds on a
   large input (PNG encode of a 16k map image, BSP build) runs on the worker
-  via the `jobs.rs` pattern behind `job_busy`. GPU submission/readback stays on
+  via the `app/jobs.rs` pattern behind `job_busy`. GPU submission/readback stays on
   the loop (the context lives there) — split the CPU half out. And never hold a
-  `SharedState` borrow across a modal `rfd` dialog.
+  `EditorSession` borrow across a modal `rfd` dialog.
 
 ## Duplication
 

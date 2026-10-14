@@ -106,5 +106,20 @@ modules:
       - install -D -m 755 ./doom1.wad -t /app/bin/
     sources:
       - type: dir
-        path: ./
+        path: ../../
+        skip:
+          - .git
+          - target
+          - vendor
+          - .flatpak-builder
+      # Cargo resolves the GUI workspace paths even when packaging only the game.
+      - type: git
+        url: https://github.com/zed-industries/zed
+        commit: 76b8ab814f0d14568063b7231905f84e82d35194
+        disable-submodules: true
+        dest: vendor/zed-gpui
+      - type: patch
+        path: ../../patches/gpui-minimal.patch
+        dest: vendor/zed-gpui
+        use-git: true
       - generated-sources.json

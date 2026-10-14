@@ -8,7 +8,7 @@ use editor_core::{
 
 use super::{LevelEditorState, NEW_LINE_FLAGS, ON_SEGMENT_TOL_PX};
 use crate::boundary::DrawShape;
-use crate::state::{Damage, Overlay, PolyChain, ShapeDraw};
+use crate::level_editor::state::{Damage, Overlay, PolyChain, ShapeDraw};
 use crate::undo::EditAction;
 
 /// Click-on-chain-start/end radius (screen px); caller divides by zoom.
@@ -16,7 +16,7 @@ const CHAIN_CLOSE_PX: f32 = 5.0;
 
 impl LevelEditorState {
     pub(super) fn poly_click(&mut self, world: [f32; 2], shift: bool) -> Damage {
-        let point = self.snap_point(world);
+        let point = self.chain_target(world);
         let Some(chain) = &self.poly else {
             let base = self.line_key_snapshot();
             self.poly = Some(PolyChain {
@@ -27,15 +27,11 @@ impl LevelEditorState {
             return Damage::None;
         };
 
-        let near = |a: [f32; 2], b: [f32; 2]| {
-            let r = CHAIN_CLOSE_PX / self.camera.zoom_level();
-            (a[0] - b[0]).abs() <= r && (a[1] - b[1]).abs() <= r
-        };
         let (start, prev) = (chain.points[0], *chain.points.last().expect("non-empty"));
-        if near(point, prev) {
+        if point == prev {
             return self.end_poly(None);
         }
-        if prev != start && near(point, start) {
+        if prev != start && point == start {
             return self.end_poly(Some(start));
         }
         if shift {
@@ -47,6 +43,20 @@ impl LevelEditorState {
         }
         self.refresh_chain_overlay(Some(point));
         Damage::None
+    }
+
+    fn chain_target(&mut self, world: [f32; 2]) -> [f32; 2] {
+        let point = self.snap_point(world);
+        if let Some(chain) = &self.poly {
+            let radius = CHAIN_CLOSE_PX / self.camera.zoom_level();
+            for target in [*chain.points.last().expect("non-empty"), chain.points[0]] {
+                if (point[0] - target[0]).abs() <= radius && (point[1] - target[1]).abs() <= radius
+                {
+                    return target;
+                }
+            }
+        }
+        point
     }
 
     fn end_poly(&mut self, last: Option<[f32; 2]>) -> Damage {
@@ -88,6 +98,7 @@ impl LevelEditorState {
         self.overlay = Overlay::Chain {
             pts: chain.points.clone(),
             rubber,
+            z: self.draw_brush.floor_h,
         };
     }
 
@@ -160,13 +171,14 @@ impl LevelEditorState {
         if self.poly.is_none() {
             return Damage::None;
         }
-        let b = self.snap_point(world);
+        let b = self.chain_target(world);
         let next = self
             .poly
             .as_ref()
             .map(|c| Overlay::Chain {
                 pts: c.points.clone(),
                 rubber: Some(b),
+                z: self.draw_brush.floor_h,
             })
             .expect("chain present");
         if self.overlay == next {
@@ -194,6 +206,7 @@ impl LevelEditorState {
                 };
                 self.overlay = Overlay::Poly {
                     pts: vec![anchor],
+                    z: self.draw_brush.floor_h,
                 };
                 Damage::None
             }
@@ -225,6 +238,7 @@ impl LevelEditorState {
         }
         self.overlay = Overlay::Poly {
             pts,
+            z: self.draw_brush.floor_h,
         };
         Damage::Overlay
     }

@@ -61,7 +61,7 @@
 
 ## Tools
 
-- [x] `bsp-viewer` — BSP geometry inspector with egui GUI
+- [x] `bsp-viewer` — BSP geometry inspector with GPUI
 - [x] `voxel-viewer` — standalone voxel render testing
 - [x] `wad-tool` — WAD inspection and lump extraction CLI (`info`, `list`, `show`, `extract`)
 

@@ -85,11 +85,13 @@ impl MoverState {
     }
 
     /// Advance all active lerps by `dt` seconds, applying each to the BSP3D.
-    /// Returns true if any surface is still moving (so the view keeps
-    /// repainting).
+    /// Returns true if any surface changed, including its final animation step.
     pub fn tick(&mut self, level: &mut LevelData, dt: f32) -> bool {
         let step = LERP_SPEED * dt;
-        let mut active = false;
+        let mut changed = false;
+        if !step.is_finite() || step <= 0.0 {
+            return false;
+        }
         for group in self.groups.values_mut() {
             for s in group.iter_mut() {
                 let goal = match s.phase {
@@ -114,18 +116,52 @@ impl MoverState {
                     level
                         .bsp_3d
                         .move_surface(s.sector_id, s.movement, h.to_f32());
-                    if s.current != goal {
-                        active = true;
-                    }
+                    changed = true;
                 }
             }
         }
-        active
+        changed
     }
 
-    /// Any group is mid-animation or settled-at-target (so a second click can
-    /// reverse it).
-    pub fn has_groups(&self) -> bool {
-        !self.groups.is_empty()
+    pub fn animating(&self) -> bool {
+        self.groups.values().flatten().any(|surface| {
+            let goal = match surface.phase {
+                Phase::ToTarget => surface.target,
+                Phase::ToRest => surface.rest,
+            };
+            (surface.current - goal).abs() > f32::EPSILON
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn final_step_is_drawn_and_settled_movers_can_reverse() {
+        let mut level = test_utils::load_map(&test_utils::doom1_wad_path(), "E1M1");
+        let rest = level.sectors[0].floorheight.to_f32();
+        let mut movers = MoverState::default();
+        movers.groups.insert(
+            0,
+            vec![SurfaceAnim {
+                sector_id: 0,
+                movement: MovementType::Floor,
+                rest,
+                target: rest + 10.,
+                current: rest,
+                phase: Phase::ToTarget,
+            }],
+        );
+        assert!(movers.animating());
+        assert!(movers.tick(&mut level, 0.1));
+        assert_eq!(level.sectors[0].floorheight.to_f32(), rest + 10.);
+        assert!(!movers.animating());
+        assert!(!movers.tick(&mut level, 0.1));
+        assert!(movers.toggle(0, &mut level));
+        assert!(movers.tick(&mut level, 0.1));
+        assert_eq!(level.sectors[0].floorheight.to_f32(), rest);
+        assert!(!movers.animating());
     }
 }

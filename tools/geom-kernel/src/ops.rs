@@ -62,7 +62,12 @@ pub fn move_vertices(
     tol: f32,
     default_sector: Sector,
 ) -> Vec<LineKey> {
+    let welds = crate::geom::move_weld_targets(map, moves, tol);
     for &(k, p) in moves {
+        let p = welds.get(&k).map_or(p, |&target| {
+            let v = map.vertices[target];
+            [v.x, v.y]
+        });
         if let Some(v) = map.vertices.get_mut(k) {
             v.x = p[0];
             v.y = p[1];
@@ -98,7 +103,8 @@ pub fn move_vertices(
         .filter(|(k, _)| !verts_before.contains(k))
         .map(|(_, v)| [v.x, v.y])
         .collect();
-    let welded = weld_moved_vertices(map, &vert_ids, tol);
+    // Intersections may add vertices, but must not select a different drop target.
+    let welded = weld_moved_vertices(map, &welds);
     merge_coincident_moved(map, &vert_ids);
     let deduped = dedup_coincident_lines(map).len();
     if !welded && crossed.is_empty() && deduped == 0 {
@@ -712,18 +718,44 @@ pub fn extrude_line(
     tol: f32,
     default_sector: Sector,
 ) -> Vec<LineKey> {
+    if !map.lines.contains(line) {
+        return Vec::new();
+    }
+    let (p1, p2) = segment_points(map, line);
+    extrude_line_to(
+        map,
+        line,
+        [
+            [p1[0] + delta[0], p1[1] + delta[1]],
+            [p2[0] + delta[0], p2[1] + delta[1]],
+        ],
+        tol,
+        default_sector,
+    )
+}
+
+/// Extrude to resolved endpoints, allowing each endpoint to snap independently.
+pub fn extrude_line_to(
+    map: &mut EditorMap,
+    line: LineKey,
+    [q1, q2]: [[f32; 2]; 2],
+    tol: f32,
+    default_sector: Sector,
+) -> Vec<LineKey> {
     let Some(l) = map.lines.get(line).copied() else {
         return Vec::new();
     };
     let (p1, p2) = segment_points(map, line);
+    let delta = [
+        (q1[0] - p1[0]).midpoint(q2[0] - p2[0]),
+        (q1[1] - p1[1]).midpoint(q2[1] - p2[1]),
+    ];
     let along = [p2[0] - p1[0], p2[1] - p1[1]];
     let cross = delta[0] * along[1] - delta[1] * along[0];
     let scale = delta[0].hypot(delta[1]) * along[0].hypot(along[1]);
     if scale <= 0.0 || cross.abs() / scale < EXTRUDE_PARALLEL_EPS {
         return Vec::new();
     }
-    let q1 = [p1[0] + delta[0], p1[1] + delta[1]];
-    let q2 = [p2[0] + delta[0], p2[1] + delta[1]];
     let side = SideDef {
         sector: None,
         ..l.front

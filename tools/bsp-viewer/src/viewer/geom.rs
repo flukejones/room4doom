@@ -1,27 +1,4 @@
-use egui::{Color32, Mesh, Pos2};
 use glam::Vec2;
-use std::sync::Arc;
-
-pub fn filled_polygon(points: &[Pos2], color: Color32) -> egui::Shape {
-    if points.len() < 3 {
-        return egui::Shape::Noop;
-    }
-    let n = points.len();
-    let centroid = Pos2::new(
-        points.iter().map(|p| p.x).sum::<f32>() / n as f32,
-        points.iter().map(|p| p.y).sum::<f32>() / n as f32,
-    );
-    let mut mesh = Mesh::default();
-    mesh.colored_vertex(centroid, color);
-    for p in points {
-        mesh.colored_vertex(*p, color);
-    }
-    let n = n as u32;
-    for i in 0..n {
-        mesh.add_triangle(0, 1 + i, 1 + (i + 1) % n);
-    }
-    egui::Shape::Mesh(Arc::new(mesh))
-}
 
 pub fn point_to_segment_dist(p: Vec2, a: Vec2, b: Vec2) -> f32 {
     let ab = b - a;

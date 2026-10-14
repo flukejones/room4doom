@@ -1,7 +1,8 @@
 use log::{info, warn};
 
 use super::PicData;
-use wad::WadData;
+pub use wad::animations::AnimationDef;
+use wad::{WadData, animations::VANILLA_ANIMATIONS};
 #[derive(Debug, Default)]
 pub struct PicAnimation {
     is_texture: bool,
@@ -29,9 +30,9 @@ impl PicAnimation {
     /// Initialise animated texture/flat definitions from WAD data. OG:
     /// P_InitPicAnims.
     pub fn init(pic_data: &PicData, wad: &WadData) -> Vec<Self> {
-        let mut anims = Vec::with_capacity(ANIM_DEFS.len());
+        let mut anims = Vec::with_capacity(VANILLA_ANIMATIONS.len());
 
-        for def in ANIM_DEFS {
+        for def in &VANILLA_ANIMATIONS {
             if let Some(anim) = Self::resolve(
                 pic_data,
                 def.is_texture,
@@ -115,52 +116,3 @@ impl PicAnimation {
         })
     }
 }
-
-pub struct AnimationDef {
-    is_texture: bool,
-    end_name: &'static str,
-    start_name: &'static str,
-    speed: usize,
-}
-
-impl AnimationDef {
-    const fn new(
-        is_texture: bool,
-        end_name: &'static str,
-        start_name: &'static str,
-        speed: usize,
-    ) -> Self {
-        Self {
-            is_texture,
-            end_name,
-            start_name,
-            speed,
-        }
-    }
-}
-
-const ANIM_DEFS: [AnimationDef; 22] = [
-    AnimationDef::new(false, "NUKAGE3", "NUKAGE1", 8),
-    AnimationDef::new(false, "FWATER4", "FWATER1", 8),
-    AnimationDef::new(false, "SWATER4", "SWATER1", 8),
-    AnimationDef::new(false, "LAVA4", "LAVA1", 8),
-    AnimationDef::new(false, "BLOOD3", "BLOOD1", 8),
-    // DOOM II flat animations.
-    AnimationDef::new(false, "RROCK08", "RROCK05", 8),
-    AnimationDef::new(false, "SLIME04", "SLIME01", 8),
-    AnimationDef::new(false, "SLIME08", "SLIME05", 8),
-    AnimationDef::new(false, "SLIME12", "SLIME09", 8),
-    AnimationDef::new(true, "BLODGR4", "BLODGR1", 8),
-    AnimationDef::new(true, "SLADRIP3", "SLADRIP1", 8),
-    AnimationDef::new(true, "BLODRIP4", "BLODRIP1", 8),
-    AnimationDef::new(true, "FIREWALL", "FIREWALA", 8),
-    AnimationDef::new(true, "GSTFONT3", "GSTFONT1", 8),
-    AnimationDef::new(true, "FIRELAVA", "FIRELAV3", 8),
-    AnimationDef::new(true, "FIREMAG3", "FIREMAG1", 8),
-    AnimationDef::new(true, "FIREBLU2", "FIREBLU1", 8),
-    AnimationDef::new(true, "ROCKRED3", "ROCKRED1", 8),
-    AnimationDef::new(true, "BFALL4", "BFALL1", 8),
-    AnimationDef::new(true, "SFALL4", "SFALL1", 8),
-    AnimationDef::new(true, "WFALL4", "WFALL1", 8),
-    AnimationDef::new(true, "DBRAIN4", "DBRAIN1", 8),
-];

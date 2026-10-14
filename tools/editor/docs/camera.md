@@ -58,7 +58,7 @@ new agreed behaviour first).
 
 ## Gesture → behaviour map
 
-Wired in `ui/views/map/map_canvas.slint` → `src/views/view_canvas.rs` →
+Wired in `src/native_canvas.rs` → `src/views/view_canvas.rs` →
 `EditorCamera`:
 
 | Gesture | Callback | Camera op |

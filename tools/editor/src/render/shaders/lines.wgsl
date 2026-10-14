@@ -32,6 +32,20 @@ fn fs_solid_dim(in: SolidOut) -> @location(0) vec4<f32> {
     return vec4<f32>(in.rgba.rgb * (1.0 / 4.0), in.rgba.a);
 }
 
+struct LineOut {
+    @builtin(position) pos: vec4<f32>,
+    @location(0) rgba: vec4<f32>,
+    @location(1) @interpolate(linear) along_px: f32,
+    @location(2) @interpolate(flat) dash_px: f32,
+};
+@fragment
+fn fs_preview_line(in: LineOut) -> @location(0) vec4<f32> {
+    if (in.dash_px > 0.0 && fract(in.along_px / (in.dash_px * 2.0)) >= 0.5) {
+        discard;
+    }
+    return in.rgba;
+}
+
 // One instance per line: two endpoints, a px half-width, colour. The base quad is expanded in pixel space so thickness never scales with zoom.
 @vertex
 fn vs_line(
@@ -41,8 +55,10 @@ fn vs_line(
     @location(2) half_px: f32,
     @location(3) az: f32,
     @location(4) bz: f32,
-    @location(5) rgba: vec4<f32>,
-) -> SolidOut {
+    @location(5) dash_px: f32,
+    @location(6) length_px: f32,
+    @location(7) rgba: vec4<f32>,
+) -> LineOut {
     let q = quad_corner(vi);
     let ca = to_clip(vec3<f32>(a_pt, az));
     let cb = to_clip(vec3<f32>(b_pt, bz));
@@ -52,11 +68,19 @@ fn vs_line(
     let len = length(dir);
     if (len > 0.0001) { dir = dir / len; } else { dir = vec2<f32>(1.0, 0.0); }
     let perp = vec2<f32>(-dir.y, dir.x);
-    let c = mix(ca, cb, q.x);
+    var c = mix(ca, cb, q.x);
+    // Normal ticks expand from their anchor like vertex markers; camera changes
+    // keep their screen size without updating the cached geometry.
+    if (length_px > 0.0 && len > 0.0001) {
+        c = ca;
+        c = vec4<f32>(c.xy + px_to_ndc(dir * (q.x * length_px)) * c.w, c.zw);
+    }
     let off = px_to_ndc(perp * (q.y * half_px)) * c.w;
-    var o: SolidOut;
+    var o: LineOut;
     o.pos = vec4<f32>(c.x + off.x, c.y + off.y, c.z, c.w);
     o.rgba = rgba;
+    o.along_px = q.x * select(len, length_px, length_px > 0.0);
+    o.dash_px = dash_px;
     return o;
 }
 

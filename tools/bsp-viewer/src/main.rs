@@ -1,3 +1,4 @@
+mod ui;
 mod viewer;
 
 use argh::FromArgs;
@@ -457,7 +458,8 @@ fn cmd_view(args: &Args) {
     let data = viewer::extract_viewer_data(&args.map, &level_data, &wad);
     let renderer3d = viewer::Renderer3D::new(&wad, viewer::Render3DMode::Textured, 1280, 760);
     let spawn = player_spawn_camera(&mut level_data);
-    viewer::run(data, level_data, renderer3d, spawn);
+    let app = viewer::MapViewerApp::new(data, Some(level_data), Some(renderer3d), spawn);
+    ui::run(app);
 }
 
 /// Camera at the player-1 start (thing kind 1), at eye height above its floor.

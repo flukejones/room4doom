@@ -88,6 +88,8 @@ pub(crate) struct EditorAssets {
     texture_index: HashMap<Name8, (usize, usize)>,
     /// Patches flattened to palette indices per resolved texture (lazy, like `init_wall_pics`); evicted on edit, cleared on map-wad/group change.
     composed: HashMap<Name8, WallPic>,
+    /// Resolvable engine defaults, displayed read-only and never written as project overrides.
+    vanilla_animations: Vec<&'static wad::animations::AnimationDef>,
     animations: Vec<AnimDef>,
     imported_patches: Vec<ImportedPatch>,
     iwad_flats: Vec<IwadFlat>,
@@ -135,6 +137,8 @@ impl EditorAssets {
             }
             None => (animations_iwad, Vec::new(), AssetSource::Draft),
         };
+        let mut vanilla_animations = Vec::with_capacity(wad::animations::VANILLA_ANIMATIONS.len());
+        collect_vanilla_animations(&texture_groups, &iwad_flat_index, &mut vanilla_animations);
         // Always at least one group so `active_group` indexing is safe.
         if texture_groups.is_empty() {
             texture_groups.push(TextureGroup {
@@ -155,6 +159,7 @@ impl EditorAssets {
             active_map_wad: String::new(),
             texture_index: HashMap::new(),
             composed: HashMap::new(),
+            vanilla_animations,
             animations,
             imported_patches,
             iwad_flats,
@@ -200,6 +205,13 @@ impl EditorAssets {
         self.active_group
     }
 
+    /// Resolve a texture lump by its source WAD, including later PWAD groups.
+    pub fn texture_group_index(&self, wad_name: &str, lump: &Name8) -> Option<usize> {
+        self.texture_groups
+            .iter()
+            .position(|group| group.wad_name.eq_ignore_ascii_case(wad_name) && group.lump == *lump)
+    }
+
     /// "wad · LUMP" label for group `i`.
     pub fn group_label(&self, i: usize) -> Option<String> {
         self.texture_groups.get(i).map(|g| {
@@ -227,6 +239,10 @@ impl EditorAssets {
 
     pub fn animations(&self) -> &[AnimDef] {
         &self.animations
+    }
+
+    pub fn vanilla_animations(&self) -> &[&'static wad::animations::AnimationDef] {
+        &self.vanilla_animations
     }
 
     /// Retarget the texture index to `map_wad` (Vanilla mode only). No-op if unchanged.
@@ -353,12 +369,14 @@ impl EditorAssets {
     }
 
     pub(super) fn imported_patches_push(&mut self, patch: ImportedPatch) {
+        self.composed.clear();
         self.imported_patches.push(patch);
         self.generation.patches = self.generation.patches.wrapping_add(1);
     }
 
-    /// Mutable defs of the active group; marks edited, bumps generation.
+    /// Mutable defs of the active group; invalidates composition, marks edited and bumps generation.
     pub(super) fn textures_vec_mut(&mut self) -> &mut Vec<TextureDef> {
+        self.composed.clear();
         self.generation.textures = self.generation.textures.wrapping_add(1);
         let g = &mut self.texture_groups[self.active_group];
         g.edited = true;
@@ -371,18 +389,18 @@ impl EditorAssets {
         let g = &mut self.texture_groups[self.active_group];
         g.edited = true;
         let prev = mem::replace(&mut g.defs, set);
-        self.rebuild_texture_index();
+        self.refresh_texture_index();
         prev
     }
 
     /// Rebuild texture index after a `texture_mut`/`textures_vec_mut` batch (`&mut` callers can't self-rebuild).
     pub(super) fn refresh_texture_index(&mut self) {
         self.rebuild_texture_index();
-    }
-
-    pub(super) fn animations_vec_mut(&mut self) -> &mut Vec<AnimDef> {
-        self.generation.animations = self.generation.animations.wrapping_add(1);
-        &mut self.animations
+        collect_vanilla_animations(
+            &self.texture_groups,
+            &self.iwad_flat_index,
+            &mut self.vanilla_animations,
+        );
     }
 
     /// Swap the animation set (undo/redo); returns the displaced set.
@@ -425,7 +443,32 @@ fn load_iwad_flats(wad: &WadData) -> Vec<IwadFlat> {
     flats
 }
 
-/// Boom `ANIMATED` lump sequences; empty if absent. Vanilla hardcoded anims not included.
+/// Engine defaults whose ordered frame ranges exist in the loaded resources.
+fn collect_vanilla_animations(
+    groups: &[TextureGroup],
+    flats: &HashMap<Name8, usize>,
+    animations: &mut Vec<&'static wad::animations::AnimationDef>,
+) {
+    animations.clear();
+    for def in &wad::animations::VANILLA_ANIMATIONS {
+        let start = Name8::new(def.start_name).expect("vanilla animation name");
+        let end = Name8::new(def.end_name).expect("vanilla animation name");
+        let available = if def.is_texture {
+            groups.iter().any(|group| {
+                let first = group.defs.iter().position(|texture| texture.name == start);
+                let last = group.defs.iter().position(|texture| texture.name == end);
+                matches!((first, last), (Some(first), Some(last)) if first < last)
+            })
+        } else {
+            matches!((flats.get(&start), flats.get(&end)), (Some(first), Some(last)) if first < last)
+        };
+        if available {
+            animations.push(def);
+        }
+    }
+}
+
+/// WAD-supplied Boom `ANIMATED` entries; vanilla engine defaults are kept separately.
 fn load_iwad_animations(wad: &WadData) -> Vec<AnimDef> {
     wad.get_lump("ANIMATED")
         .map(|l| {
@@ -449,6 +492,51 @@ mod tests {
     use editor_core::{DenseLineDef, DenseMap, DenseSideDef, LineFlags, Vertex};
 
     use super::*;
+
+    #[test]
+    fn vanilla_sequences_resolve_from_the_iwad_without_becoming_project_overrides() {
+        let path = test_utils::doom1_wad_path();
+        let wad = WadData::new(&path);
+        let mut project = Project::draft(&path, &wad);
+        let custom = AnimDef {
+            is_texture: true,
+            start: Name8::new("CUSTOM1").unwrap(),
+            end: Name8::new("CUSTOM3").unwrap(),
+            speed: 6,
+        };
+        project.animations.push(custom);
+        let mut assets = EditorAssets::load(std::slice::from_ref(&path), &wad, Some(&project));
+        let builtins = assets.vanilla_animations();
+        assert!(builtins.iter().any(|animation| {
+            !animation.is_texture
+                && animation.start_name == "NUKAGE1"
+                && animation.end_name == "NUKAGE3"
+        }));
+        assert!(builtins.iter().any(|animation| {
+            animation.is_texture
+                && animation.start_name == "SLADRIP1"
+                && animation.end_name == "SLADRIP3"
+        }));
+        assert!(
+            builtins
+                .iter()
+                .all(|animation| animation.start_name != "SLIME01")
+        );
+
+        assets.write_into(&mut project);
+        assert_eq!(
+            project.animations,
+            [custom],
+            "viewing defaults must not export them as custom ANIMATED entries"
+        );
+        let reopened = EditorAssets::load(std::slice::from_ref(&path), &wad, Some(&project));
+        assert!(
+            reopened
+                .vanilla_animations()
+                .iter()
+                .any(|animation| animation.start_name == "NUKAGE1")
+        );
+    }
 
     fn group(wad: &str, lump: &str, names: &[(&str, &[&str])], edited: bool) -> TextureGroup {
         let defs = names
@@ -487,6 +575,7 @@ mod tests {
             active_map_wad: String::new(),
             texture_index: HashMap::new(),
             composed: HashMap::new(),
+            vanilla_animations: Vec::new(),
             animations: Vec::new(),
             imported_patches: Vec::new(),
             iwad_flats: Vec::new(),

@@ -1,7 +1,7 @@
 //! Wall-elevation and flat rendering; no `pic-data` dependency.
 
+use crate::gfx::image::{UiImage, UiPixels};
 use editor_core::Name8;
-use slint::{Rgba8Pixel, SharedPixelBuffer};
 
 use super::put_palette_color;
 use crate::assets::EditorAssets;
@@ -28,7 +28,7 @@ pub fn render_wall(
     bands: &[WallBand],
     width_world: f32,
     px_per_unit: f32,
-) -> Option<slint::Image> {
+) -> Option<UiImage> {
     let total: f32 = bands.iter().map(|b| b.height.max(0.0)).sum();
     let width = (width_world * px_per_unit).round().max(1.0) as u32;
     let height = (total * px_per_unit).round().max(1.0) as u32;
@@ -36,7 +36,7 @@ pub fn render_wall(
         return None;
     }
 
-    let mut buf = SharedPixelBuffer::<Rgba8Pixel>::new(width, height);
+    let mut buf = UiPixels::new(width, height);
     let bytes = buf.make_mut_bytes();
     bytes.fill(0);
 
@@ -74,12 +74,12 @@ pub fn render_wall(
             }
         }
     }
-    Some(slint::Image::from_rgba8_premultiplied(buf))
+    Some(UiImage::from_rgba8(buf))
 }
 
 /// Render a flat as a `side`-px square (nearest); missing flat → gap fill.
-pub fn render_flat_square(assets: &EditorAssets, name: Name8, side: u32) -> slint::Image {
-    let mut buf = SharedPixelBuffer::<Rgba8Pixel>::new(side, side);
+pub fn render_flat_square(assets: &EditorAssets, name: Name8, side: u32) -> UiImage {
+    let mut buf = UiPixels::new(side, side);
     let bytes = buf.make_mut_bytes();
     let palette = *assets.palette();
 
@@ -101,5 +101,5 @@ pub fn render_flat_square(assets: &EditorAssets, name: Name8, side: u32) -> slin
             }
         }
     }
-    slint::Image::from_rgba8_premultiplied(buf)
+    UiImage::from_rgba8(buf)
 }

@@ -6,10 +6,10 @@ use std::fs::{self, File};
 use std::io::{self, BufWriter};
 use std::path::Path;
 
+use crate::app::session::EditorSession;
 use crate::level_editor::map_bounds;
 use crate::render::export_camera;
 use crate::render::view::WorldRect;
-use crate::state::SharedState;
 
 pub const PNG_MARGIN_UNITS: f32 = 64.0;
 pub const PNG_MAX_DIM: u32 = 16384;
@@ -76,10 +76,14 @@ pub fn image_size(bounds: WorldRect, scale: f32) -> (u32, u32) {
     reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
 )]
 pub fn render_map_rgba(
-    state: &SharedState,
+    state: &EditorSession,
     scale: f32,
 ) -> Result<(Vec<u8>, u32, u32), PngExportError> {
-    let map = state.app.map.as_ref().ok_or(PngExportError::EmptyMap)?;
+    let map = state
+        .map_editor
+        .map
+        .as_ref()
+        .ok_or(PngExportError::EmptyMap)?;
     let bounds = map_bounds(map).ok_or(PngExportError::EmptyMap)?;
     let (width, height) = image_size(bounds, scale);
     if width > PNG_MAX_DIM || height > PNG_MAX_DIM {
@@ -184,7 +188,6 @@ mod tests {
         let input = FrameInput {
             map: &map,
             tris: &tris,
-            zoom: scale,
             pixel_ratio: 1.0,
             style: &style,
             selection: &sel,

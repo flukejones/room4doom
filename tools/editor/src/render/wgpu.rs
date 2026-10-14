@@ -1,12 +1,13 @@
-//! GPU map renderer for the editor canvas. Renders through Slint's `femtovg-wgpu` backend: [`capture`] grabs the device/queue from the window notifier, [`WgpuContext::paint`] draws the cached map mesh + grid into an off-screen `Rgba8Unorm` texture handed back as a `slint::Image` (requires `TEXTURE_BINDING | RENDER_ATTACHMENT`). Layers (draw order): **surface3d** — sector floors/ceilings/walls at real Z, fill mode drives the shader; **grid / lines / normals** — line instances, constant device-pixel width in VS; **verts / things** — marker and quad instances, things shader draws icon + ring.
+//! Cached editor geometry rendered into native GPUI surfaces, with PNG readback on demand.
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::slice;
 
+use crate::gfx::image::UiImage as Image;
+#[cfg(not(target_os = "macos"))]
+use crate::gfx::image::UiPixels;
 use bytemuck::{Pod, Zeroable};
-use slint::Image;
-use slint::wgpu_30::wgpu;
 use wgpu::util::{BufferInitDescriptor, DeviceExt as _};
 
 use crate::assets::MISSING_PATCH_RGBA;
@@ -17,6 +18,10 @@ use crate::render::input::SectorFill;
 
 /// Minimum texture edge; guards against 0-dim texture on empty canvas.
 const MIN_DIM: u32 = 1;
+#[cfg(target_os = "macos")]
+const OUTPUT_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8Unorm;
+#[cfg(not(target_os = "macos"))]
+const OUTPUT_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 /// Depth format: 3D surfaces write, 2D overlays test only.
 const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 const CLEAR: wgpu::Color = wgpu::Color {
@@ -43,9 +48,9 @@ const GRID_WGSL: &str = include_str!("shaders/grid.wgsl");
 /// `bytes_per_row` alignment required by wgpu buffer copy.
 const COPY_BYTES_PER_ROW_ALIGN: u32 = 256;
 
-/// LineInst layout: a(2), b(2), half_px(1), az(1), bz(1), rgba(4) — each `*_VBUF` must match its `#[repr(C)]` struct field order.
-const LINE_VBUF: [wgpu::VertexAttribute; 6] = wgpu::vertex_attr_array![
-    0 => Float32x2, 1 => Float32x2, 2 => Float32, 3 => Float32, 4 => Float32, 5 => Float32x4];
+/// LineInst layout: a(2), b(2), half_px(1), az(1), bz(1), dash_px(1), length_px(1), rgba(4) — each `*_VBUF` must match its `#[repr(C)]` struct field order.
+const LINE_VBUF: [wgpu::VertexAttribute; 8] = wgpu::vertex_attr_array![
+    0 => Float32x2, 1 => Float32x2, 2 => Float32, 3 => Float32, 4 => Float32, 5 => Float32, 6 => Float32, 7 => Float32x4];
 /// MarkerInst: centre(2), half_px(1), z(1), rgba(4).
 const MARKER_VBUF: [wgpu::VertexAttribute; 4] =
     wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32, 2 => Float32, 3 => Float32x4];
@@ -128,6 +133,10 @@ pub struct LineInst {
     pub az: f32,
     /// World Z of `b`. Equals `az` for flat lines; spans floor→ceil for wireframe verticals.
     pub bz: f32,
+    /// Preview dash and gap length in device pixels; zero keeps the stroke solid.
+    pub dash_px: f32,
+    /// Screen-space tick length at `a`'s depth; zero uses the world endpoints.
+    pub length_px: f32,
     pub rgba: [f32; 4],
 }
 
@@ -262,7 +271,7 @@ pub struct Sector3D {
     pub _pad: f32,
 }
 
-/// Shared `wgpu` device/queue + pipelines, captured from Slint's renderer.
+/// Canvas device/queue and cached pipelines.
 #[derive(Clone, Default)]
 pub struct WgpuContext(Rc<RefCell<Option<WgpuRenderer>>>);
 
@@ -522,6 +531,8 @@ pub struct WgpuRenderer {
     grid_z: Cell<f32>,
     /// Reused depth texture; recreated only on canvas resize.
     depth: RefCell<Option<(u32, u32, wgpu::Texture)>>,
+    #[cfg(target_os = "macos")]
+    native_surface: RefCell<Option<super::native_surface::SurfaceCache>>,
 }
 
 /// Uploaded atlas textures + bind groups.
@@ -730,7 +741,7 @@ impl WgpuRenderer {
             &line_shader,
             &solid_layout,
             "vs_line",
-            "fs_solid",
+            "fs_preview_line",
             &LINE_VBUF,
             wgpu::VertexStepMode::Instance,
             DepthMode::OnTop,
@@ -841,6 +852,8 @@ impl WgpuRenderer {
             grid_style: Cell::new(GridStyle::default()),
             grid_z: Cell::new(0.0),
             depth: RefCell::new(None),
+            #[cfg(target_os = "macos")]
+            native_surface: RefCell::new(None),
         }
     }
 
@@ -1281,14 +1294,6 @@ impl WgpuRenderer {
     }
 
     /// Encode the cached geometry into a fresh texture. `extra_usage` adds `COPY_SRC` for readback.
-    #[expect(
-        clippy::cast_precision_loss,
-        reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
-    )]
-    #[expect(
-        clippy::too_many_lines,
-        reason = "keep the complete dispatch or geometry pass together without changing its established ordering"
-    )]
     fn encode_to_texture(
         &self,
         width: u32,
@@ -1297,8 +1302,6 @@ impl WgpuRenderer {
         extra_usage: wgpu::TextureUsages,
         clear: wgpu::Color,
     ) -> wgpu::Texture {
-        self.write_camera(camera, [width as f32, height as f32]);
-        self.write_grid(camera, [width as f32, height as f32]);
         let texture = self.device.create_texture(&wgpu::TextureDescriptor {
             label: Some("editor-map-wgpu"),
             size: wgpu::Extent3d {
@@ -1309,12 +1312,34 @@ impl WgpuRenderer {
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8Unorm,
+            format: OUTPUT_FORMAT,
             usage: wgpu::TextureUsages::TEXTURE_BINDING
                 | wgpu::TextureUsages::RENDER_ATTACHMENT
                 | extra_usage,
             view_formats: &[],
         });
+        self.encode_into(camera, width, height, clear, &texture);
+        texture
+    }
+
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "viewport pixel dimensions use float shader uniforms"
+    )]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "record the ordered canvas layers in one render pass"
+    )]
+    fn encode_into(
+        &self,
+        camera: Camera,
+        width: u32,
+        height: u32,
+        clear: wgpu::Color,
+        texture: &wgpu::Texture,
+    ) {
+        self.write_camera(camera, [width as f32, height as f32]);
+        self.write_grid(camera, [width as f32, height as f32]);
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         let depth_view = self.depth_view(width.max(MIN_DIM), height.max(MIN_DIM));
         let mut encoder = self
@@ -1422,18 +1447,38 @@ impl WgpuRenderer {
             }
         }
         self.queue.submit([encoder.finish()]);
-        texture
     }
 
     fn paint(&self, camera: Camera, width: u32, height: u32) -> Image {
-        let texture = self.encode_to_texture(
-            width,
-            height,
-            camera,
-            wgpu::TextureUsages::empty(),
-            self.clear.get(),
-        );
-        Image::try_from(texture).expect("texture meets Slint's import contract")
+        #[cfg(target_os = "macos")]
+        {
+            let mut native = self.native_surface.borrow_mut();
+            if native.is_none() {
+                *native = Some(
+                    super::native_surface::SurfaceCache::new(&self.device)
+                        .expect("canvas CoreVideo cache"),
+                );
+            }
+            let target = native
+                .as_mut()
+                .expect("initialized above")
+                .target(&self.device, width.max(MIN_DIM), height.max(MIN_DIM))
+                .expect("canvas native render target");
+            self.encode_into(camera, width, height, self.clear.get(), &target.texture);
+            // GPUI uses its own Metal queue. Finish this producer before its
+            // compositor samples the shared storage on that queue.
+            self.device
+                .poll(wgpu::PollType::wait_indefinitely())
+                .expect("canvas render completes");
+            Image::from_surface(target.pixels)
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            let rgba = self.render_canvas_rgba(camera, width, height);
+            let mut pixels = UiPixels::new(width, height);
+            pixels.make_mut_bytes().copy_from_slice(&rgba);
+            Image::from_rgba8(pixels)
+        }
     }
 
     fn set_clear(&self, rgba: [u8; 4]) {
@@ -1600,6 +1645,11 @@ fn read_texture_rgba(
     }
     drop(mapped);
     buffer.unmap();
+    if texture.format() == wgpu::TextureFormat::Bgra8Unorm {
+        for pixel in out.as_chunks_mut::<4>().0 {
+            pixel.swap(0, 2);
+        }
+    }
     out
 }
 
@@ -1708,7 +1758,7 @@ fn make_pipeline(
             module: shader,
             entry_point: Some(fs),
             targets: &[Some(wgpu::ColorTargetState {
-                format: wgpu::TextureFormat::Rgba8Unorm,
+                format: OUTPUT_FORMAT,
                 blend: Some(wgpu::BlendState::ALPHA_BLENDING),
                 write_mask: wgpu::ColorWrites::ALL,
             })],
@@ -1748,7 +1798,7 @@ fn make_fullscreen_pipeline(
             module: shader,
             entry_point: Some("fs_grid"),
             targets: &[Some(wgpu::ColorTargetState {
-                format: wgpu::TextureFormat::Rgba8Unorm,
+                format: OUTPUT_FORMAT,
                 blend: Some(wgpu::BlendState::ALPHA_BLENDING),
                 write_mask: wgpu::ColorWrites::ALL,
             })],
@@ -1777,28 +1827,36 @@ fn vertex_format_size(f: wgpu::VertexFormat) -> u64 {
     }
 }
 
-/// Install a rendering notifier that captures the wgpu device/queue and runs `on_ready` once.
-pub fn capture(window: &slint::Window, on_ready: impl Fn() + 'static) -> WgpuContext {
-    let ctx = WgpuContext::default();
-    let captured = ctx.clone();
-    let result = window.set_rendering_notifier(move |state, api| {
-        if !matches!(state, slint::RenderingState::RenderingSetup) {
-            return;
-        }
-        if let slint::GraphicsAPI::WGPU30 {
-            device,
-            queue,
-            ..
-        } = api
-        {
-            captured.set(WgpuRenderer::new(device.clone(), queue.clone()));
-            on_ready();
-        }
-    });
-    if let Err(e) = result {
-        log::warn!("wgpu rendering notifier not installed: {e:?}");
-    }
-    ctx
+/// Create the editor canvas device independently from the GUI compositor.
+pub fn initialize() -> Result<WgpuContext, String> {
+    let descriptor = wgpu::InstanceDescriptor::new_without_display_handle();
+    #[cfg(target_os = "macos")]
+    let descriptor = wgpu::InstanceDescriptor {
+        backends: wgpu::Backends::METAL,
+        ..descriptor
+    };
+    let instance = wgpu::Instance::new(descriptor);
+    let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+        // GPUI prefers an integrated, non-removable Metal device. Use the same
+        // preference so both renderers usually share a physical GPU.
+        power_preference: if cfg!(target_os = "macos") {
+            wgpu::PowerPreference::LowPower
+        } else {
+            wgpu::PowerPreference::HighPerformance
+        },
+        compatible_surface: None,
+        force_fallback_adapter: false,
+        apply_limit_buckets: false,
+    }))
+    .map_err(|error| format!("editor GPU adapter: {error}"))?;
+    let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+        label: Some("editor-canvas"),
+        ..Default::default()
+    }))
+    .map_err(|error| format!("editor GPU device: {error}"))?;
+    let context = WgpuContext::default();
+    context.set(WgpuRenderer::new(device, queue));
+    Ok(context)
 }
 
 /// Headless wgpu renderer for tests. `None` when no adapter is available (CI).
@@ -1828,7 +1886,7 @@ mod tests {
     use crate::render::editor_camera::CameraMode;
     use crate::render::export_camera;
     use crate::render::frame::{self, FrameInput};
-    use crate::render::input::{SectorFill, Selection};
+    use crate::render::input::{Overlay, SectorFill, Selection};
     use crate::render::sprites::ThingSpriteCache;
     use crate::render::style::CanvasStyle;
     use crate::render::triangulate::build_sector_tris;
@@ -1838,6 +1896,60 @@ mod tests {
     fn px(buf: &[u8], w: u32, x: u32, y: u32) -> [u8; 4] {
         let at = ((y * w + x) * 4) as usize;
         [buf[at], buf[at + 1], buf[at + 2], buf[at + 3]]
+    }
+
+    #[test]
+    fn move_preview_has_screen_sized_dashes() {
+        let Some(mut renderer) = headless_renderer() else {
+            return;
+        };
+        renderer.upload_map(&MapFrame::default());
+        renderer.overlays_visible.set(false);
+        renderer.set_clear([0, 0, 0, 255]);
+        let style = CanvasStyle {
+            point: [255; 4],
+            back: [0, 0, 0, 255],
+            ..Default::default()
+        };
+        let preview = Overlay::Move {
+            segments: vec![[[-96.0, 0.0, 0.0], [96.0, 0.0, 0.0]]],
+            points: Vec::new(),
+        };
+        let mut lines = Vec::new();
+        let mut markers = Vec::new();
+        for (ratio, size) in [(1_u16, 256_u16), (2, 512)] {
+            frame::build_preview(
+                &mut lines,
+                &mut markers,
+                &preview,
+                &style,
+                f32::from(ratio),
+                0.0,
+            );
+            renderer.set_overlay(&lines, &markers);
+            for zoom in [1.0, 2.0] {
+                let camera = export_camera([0.0, 0.0], zoom * f32::from(ratio), f32::from(size));
+                let pixels = renderer.render_canvas_rgba(camera, u32::from(size), u32::from(size));
+                let mut bright = 0;
+                let mut transitions = 0;
+                let mut previous = None;
+                for x in size / 2..size / 2 + 48 * ratio {
+                    let white =
+                        px(&pixels, u32::from(size), u32::from(x), u32::from(size / 2))[0] > 240;
+                    bright += u32::from(white);
+                    transitions += u32::from(previous.is_some_and(|was| was != white));
+                    previous = Some(white);
+                }
+                assert!(
+                    (16 * u32::from(ratio)..=32 * u32::from(ratio)).contains(&bright),
+                    "preview needs contrasting dashes and gaps: {bright}"
+                );
+                assert!(
+                    (7..=8).contains(&transitions),
+                    "dash spacing must stay constant at zoom {zoom}, DPI {ratio}: {transitions}"
+                );
+            }
+        }
     }
 
     /// Every shared const must exist in surface.wgsl and carry the Rust value after substitution.
@@ -1897,7 +2009,6 @@ mod tests {
         let input = FrameInput {
             map: &map,
             tris: &tris,
-            zoom,
             pixel_ratio: 1.0,
             style: &style,
             selection: &sel,

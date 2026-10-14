@@ -8,15 +8,64 @@ use editor_core::{
 
 use super::LevelEditorState;
 use super::pick3d::pick_mesh;
+use crate::boundary::{FlatSlot, Tool};
 use crate::level_editor::draw::default_sector;
+use crate::level_editor::state::{Damage, SelItem};
 use crate::render::frame3d::{NO_VERT, SURFACE_FLOOR, Vert3D};
-use crate::state::{Damage, SelItem};
 use crate::undo::EditAction;
 
 /// Above any map ceiling.
 const FLOOR_PROBE_Z: f32 = 1.0e6;
 
 impl LevelEditorState {
+    /// Nudge the picked surface, or the opposite plane of its sector.
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "the editing plane uses floating point Doom units"
+    )]
+    pub fn nudge_selected_height(&mut self, raise: bool, opposite: bool) -> Damage {
+        let Some((owner, key, picked)) = self.selected_surface else {
+            return Damage::None;
+        };
+        if self.editing_active()
+            || !(self.selection.contains(&owner)
+                || (self.tool == Tool::Sector && self.current_sector == Some(key)))
+        {
+            return Damage::None;
+        }
+        let Some(map) = self.map.as_ref() else {
+            return Damage::None;
+        };
+        let owner_valid = match owner {
+            SelItem::Sector(sector) => sector == key,
+            SelItem::Line(line) => map
+                .lines
+                .get(line)
+                .is_some_and(|line| line.sides().any(|side| side.sector == Some(key))),
+            _ => false,
+        };
+        let Some(mut sector) = map.sectors.get(key).copied().filter(|_| owner_valid) else {
+            return Damage::None;
+        };
+        let step = if self.snap { self.grid.max(1) } else { 1 };
+        let height = if (picked == FlatSlot::Ceil) ^ opposite {
+            &mut sector.ceil_height
+        } else {
+            &mut sector.floor_height
+        };
+        *height = height.saturating_add(if raise { step } else { -step });
+        let plane = if picked == FlatSlot::Ceil {
+            sector.ceil_height
+        } else {
+            sector.floor_height
+        };
+        let damage = self.apply_sector(key, sector);
+        if damage != Damage::None {
+            self.set_grid_plane(plane as f32);
+        }
+        damage
+    }
+
     pub fn sector_under(&self, world: [f32; 2]) -> Option<SectorKey> {
         sector_at(self.map.as_ref()?, world)
     }
@@ -80,11 +129,10 @@ impl LevelEditorState {
         if old == sector {
             return Damage::None;
         }
-        let heights_changed =
-            old.floor_height != sector.floor_height || old.ceil_height != sector.ceil_height;
+        let floor_changed = old.floor_height != sector.floor_height;
         self.dirty = true;
         map.sectors[key] = sector;
-        if heights_changed {
+        if floor_changed {
             self.rederive_thing_z_in_sector(key);
         }
         Damage::Edited

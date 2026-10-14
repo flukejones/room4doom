@@ -54,3 +54,6 @@ pub mod umapinfo;
 
 /// BOOM binary lump parsers (SWITCHES, ANIMATED)
 pub mod boom;
+
+/// Vanilla Doom wall texture and flat animation definitions.
+pub mod animations;

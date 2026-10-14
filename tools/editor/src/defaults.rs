@@ -182,6 +182,23 @@ pub fn thing_palette(doom2: bool, sprite_present: impl Fn(&str) -> bool) -> Vec<
 
 pub const LAUNCH_THING_KINDS: &[i32] = &[1, 2, 3, 4, 11];
 
+pub(crate) fn launch_type_choices(selected: i32) -> std::rc::Rc<[(i32, gpui::SharedString)]> {
+    LAUNCH_THING_KINDS
+        .iter()
+        .copied()
+        .chain((!LAUNCH_THING_KINDS.contains(&selected)).then_some(selected))
+        .map(|kind| {
+            let name = launch_thing_name(kind);
+            let label = if name == "(unknown)" {
+                format!("Thing {kind}").into()
+            } else {
+                name.into()
+            };
+            (kind, label)
+        })
+        .collect()
+}
+
 pub fn launch_thing_name(kind: i32) -> &'static str {
     DEFAULT_THINGS
         .iter()

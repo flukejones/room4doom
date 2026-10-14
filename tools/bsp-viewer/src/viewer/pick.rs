@@ -37,8 +37,8 @@ pub fn pick_sector(
             continue;
         }
         // Ray-vs-polygon directly — no per-polygon AABB exists to pre-reject.
-        let verts: Vec<Vec3> = indices.iter().map(|&i| bsp3d.vertex_get(i)).collect();
-        if let Some(t) = ray_hits_polygon(origin, dir, &verts, poly.normal)
+        let vertices = indices.iter().map(|&i| bsp3d.vertex_get(i));
+        if let Some(t) = ray_hits_polygon(origin, dir, vertices, poly.normal)
             && best.is_none_or(|(bt, ..)| t < bt)
         {
             let linedef_id = poly.linedef.as_ref().map(|ld| ld.num);
@@ -72,22 +72,27 @@ fn ray_from_cursor(cam: &Camera3D, px: f32, py: f32, w: usize, h: usize) -> (Vec
 
 /// Ray vs planar convex polygon. Double-sided (no facing rejection). Returns
 /// the positive parameter `t` of the hit, or `None`.
-fn ray_hits_polygon(origin: Vec3, dir: Vec3, verts: &[Vec3], normal: Vec3) -> Option<f32> {
+fn ray_hits_polygon(
+    origin: Vec3,
+    dir: Vec3,
+    verts: impl IntoIterator<Item = Vec3>,
+    normal: Vec3,
+) -> Option<f32> {
+    let mut verts = verts.into_iter();
+    let first = verts.next()?;
     let denom = normal.dot(dir);
     if denom.abs() < 1e-6 {
         return None;
     }
-    let t = normal.dot(verts[0] - origin) / denom;
+    let t = normal.dot(first - origin) / denom;
     if t <= NEAR {
         return None;
     }
     let hit = origin + dir * t;
     // Consistent edge-cross sign => point is inside the convex polygon.
     let mut sign = 0i32;
-    let n = verts.len();
-    for i in 0..n {
-        let a = verts[i];
-        let b = verts[(i + 1) % n];
+    let mut a = first;
+    for b in verts.chain(std::iter::once(first)) {
         let c = (b - a).cross(hit - a).dot(normal);
         let s = if c > 1e-4 {
             1
@@ -103,6 +108,7 @@ fn ray_hits_polygon(origin: Vec3, dir: Vec3, verts: &[Vec3], normal: Vec3) -> Op
                 return None;
             }
         }
+        a = b;
     }
     Some(t)
 }
@@ -125,7 +131,7 @@ mod tests {
     #[test]
     fn ray_hits_front() {
         let (v, n) = quad();
-        let t = ray_hits_polygon(Vec3::ZERO, Vec3::X, &v, n);
+        let t = ray_hits_polygon(Vec3::ZERO, Vec3::X, v, n);
         assert!(t.is_some());
         assert!((t.unwrap() - 10.0).abs() < 1e-3);
     }
@@ -134,7 +140,7 @@ mod tests {
     fn ray_misses() {
         let (v, n) = quad();
         let dir = Vec3::new(1.0, 5.0, 0.0).normalize();
-        assert!(ray_hits_polygon(Vec3::ZERO, dir, &v, n).is_none());
+        assert!(ray_hits_polygon(Vec3::ZERO, dir, v, n).is_none());
     }
 
     #[test]
@@ -142,7 +148,7 @@ mod tests {
         // Ray from behind the quad (+X side) travelling -X still hits it
         // (double-sided picking).
         let (v, n) = quad();
-        let t = ray_hits_polygon(Vec3::new(20.0, 0.0, 0.0), -Vec3::X, &v, n);
+        let t = ray_hits_polygon(Vec3::new(20.0, 0.0, 0.0), -Vec3::X, v, n);
         assert!(t.is_some());
         assert!((t.unwrap() - 10.0).abs() < 1e-3);
     }

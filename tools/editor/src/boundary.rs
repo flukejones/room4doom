@@ -1,8 +1,8 @@
-//! Domain types that cross the Slint boundary, with `From` conversions to generated mirrors.
+//! Domain types that cross the GPUI boundary, with `From` conversions to native presentation values.
 
 use editor_core::ThingFlags;
 
-use crate::generated;
+use crate::components::types as ui_model;
 use crate::render::input::SectorFill;
 
 /// Draw-tool shape. `Line` = freeform chain; others = two-click. N-gon sides in `ngon_sides`.
@@ -80,7 +80,7 @@ pub enum FlatSlot {
     Ceil,
 }
 
-impl From<Tool> for generated::ToolKind {
+impl From<Tool> for ui_model::ToolKind {
     fn from(t: Tool) -> Self {
         match t {
             Tool::Select(SelectMode::All) => Self::Select,
@@ -99,26 +99,26 @@ impl From<Tool> for generated::ToolKind {
     }
 }
 
-impl From<generated::ToolKind> for Tool {
-    fn from(t: generated::ToolKind) -> Self {
+impl From<ui_model::ToolKind> for Tool {
+    fn from(t: ui_model::ToolKind) -> Self {
         match t {
-            generated::ToolKind::Select => Self::Select(SelectMode::All),
-            generated::ToolKind::SelectVertex => Self::Select(SelectMode::Vertex),
-            generated::ToolKind::SelectLine => Self::Select(SelectMode::Line),
-            generated::ToolKind::SelectThing => Self::Select(SelectMode::Thing),
-            generated::ToolKind::SelectSector => Self::Select(SelectMode::Sector),
-            generated::ToolKind::Line => Self::Draw(DrawShape::Line),
-            generated::ToolKind::Rect => Self::Draw(DrawShape::Rect),
-            generated::ToolKind::Triangle => Self::Draw(DrawShape::Triangle),
-            generated::ToolKind::Ngon => Self::Draw(DrawShape::Ngon),
-            generated::ToolKind::Thing => Self::Thing,
-            generated::ToolKind::Sector => Self::Sector,
-            generated::ToolKind::Launch => Self::Launch,
+            ui_model::ToolKind::Select => Self::Select(SelectMode::All),
+            ui_model::ToolKind::SelectVertex => Self::Select(SelectMode::Vertex),
+            ui_model::ToolKind::SelectLine => Self::Select(SelectMode::Line),
+            ui_model::ToolKind::SelectThing => Self::Select(SelectMode::Thing),
+            ui_model::ToolKind::SelectSector => Self::Select(SelectMode::Sector),
+            ui_model::ToolKind::Line => Self::Draw(DrawShape::Line),
+            ui_model::ToolKind::Rect => Self::Draw(DrawShape::Rect),
+            ui_model::ToolKind::Triangle => Self::Draw(DrawShape::Triangle),
+            ui_model::ToolKind::Ngon => Self::Draw(DrawShape::Ngon),
+            ui_model::ToolKind::Thing => Self::Thing,
+            ui_model::ToolKind::Sector => Self::Sector,
+            ui_model::ToolKind::Launch => Self::Launch,
         }
     }
 }
 
-impl From<SectorFill> for generated::SectorFill {
+impl From<SectorFill> for ui_model::SectorFill {
     fn from(f: SectorFill) -> Self {
         match f {
             SectorFill::None => Self::None,
@@ -128,17 +128,17 @@ impl From<SectorFill> for generated::SectorFill {
     }
 }
 
-impl From<generated::SectorFill> for SectorFill {
-    fn from(f: generated::SectorFill) -> Self {
+impl From<ui_model::SectorFill> for SectorFill {
+    fn from(f: ui_model::SectorFill) -> Self {
         match f {
-            generated::SectorFill::None => Self::None,
-            generated::SectorFill::Colour => Self::Colour,
-            generated::SectorFill::Texture => Self::Texture,
+            ui_model::SectorFill::None => Self::None,
+            ui_model::SectorFill::Colour => Self::Colour,
+            ui_model::SectorFill::Texture => Self::Texture,
         }
     }
 }
 
-impl From<SkillFilter> for generated::SkillFilter {
+impl From<SkillFilter> for ui_model::SkillFilter {
     fn from(s: SkillFilter) -> Self {
         match s {
             SkillFilter::All => Self::All,
@@ -149,18 +149,18 @@ impl From<SkillFilter> for generated::SkillFilter {
     }
 }
 
-impl From<generated::SkillFilter> for SkillFilter {
-    fn from(s: generated::SkillFilter) -> Self {
+impl From<ui_model::SkillFilter> for SkillFilter {
+    fn from(s: ui_model::SkillFilter) -> Self {
         match s {
-            generated::SkillFilter::All => Self::All,
-            generated::SkillFilter::Easy => Self::Easy,
-            generated::SkillFilter::Normal => Self::Normal,
-            generated::SkillFilter::Hard => Self::Hard,
+            ui_model::SkillFilter::All => Self::All,
+            ui_model::SkillFilter::Easy => Self::Easy,
+            ui_model::SkillFilter::Normal => Self::Normal,
+            ui_model::SkillFilter::Hard => Self::Hard,
         }
     }
 }
 
-impl From<TexSlot> for generated::TexSlot {
+impl From<TexSlot> for ui_model::TexSlot {
     fn from(s: TexSlot) -> Self {
         match s {
             TexSlot::FrontTop => Self::FrontTop,
@@ -173,20 +173,20 @@ impl From<TexSlot> for generated::TexSlot {
     }
 }
 
-impl From<generated::TexSlot> for TexSlot {
-    fn from(s: generated::TexSlot) -> Self {
+impl From<ui_model::TexSlot> for TexSlot {
+    fn from(s: ui_model::TexSlot) -> Self {
         match s {
-            generated::TexSlot::FrontTop => Self::FrontTop,
-            generated::TexSlot::FrontMid => Self::FrontMid,
-            generated::TexSlot::FrontBottom => Self::FrontBottom,
-            generated::TexSlot::BackTop => Self::BackTop,
-            generated::TexSlot::BackMid => Self::BackMid,
-            generated::TexSlot::BackBottom => Self::BackBottom,
+            ui_model::TexSlot::FrontTop => Self::FrontTop,
+            ui_model::TexSlot::FrontMid => Self::FrontMid,
+            ui_model::TexSlot::FrontBottom => Self::FrontBottom,
+            ui_model::TexSlot::BackTop => Self::BackTop,
+            ui_model::TexSlot::BackMid => Self::BackMid,
+            ui_model::TexSlot::BackBottom => Self::BackBottom,
         }
     }
 }
 
-impl From<FlatSlot> for generated::FlatSlot {
+impl From<FlatSlot> for ui_model::FlatSlot {
     fn from(s: FlatSlot) -> Self {
         match s {
             FlatSlot::Floor => Self::Floor,
@@ -195,11 +195,11 @@ impl From<FlatSlot> for generated::FlatSlot {
     }
 }
 
-impl From<generated::FlatSlot> for FlatSlot {
-    fn from(s: generated::FlatSlot) -> Self {
+impl From<ui_model::FlatSlot> for FlatSlot {
+    fn from(s: ui_model::FlatSlot) -> Self {
         match s {
-            generated::FlatSlot::Floor => Self::Floor,
-            generated::FlatSlot::Ceil => Self::Ceil,
+            ui_model::FlatSlot::Floor => Self::Floor,
+            ui_model::FlatSlot::Ceil => Self::Ceil,
         }
     }
 }

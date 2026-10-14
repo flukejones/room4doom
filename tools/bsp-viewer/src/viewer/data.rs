@@ -1,4 +1,4 @@
-use egui::Color32;
+use super::canvas::Color;
 use glam::Vec2;
 use level::special_encode::encode_sector;
 use level::{BSP3D, LevelData, Node3D, is_leaf, leaf_index};
@@ -22,7 +22,7 @@ pub struct ViewerData {
     pub vertices: Vec<ViewVertex>,
     pub ss_divline_path: Vec<Vec<usize>>,
     pub floor_height_value: Vec<f32>,
-    pub floor_texture_color: Vec<Color32>,
+    pub floor_texture_color: Vec<Color>,
 }
 
 pub struct ViewLinedef {
@@ -153,7 +153,7 @@ pub fn extract_viewer_data(map_name: &str, level_data: &LevelData, wad: &WadData
             .collect()
     };
 
-    let floor_texture_color: Vec<Color32> = {
+    let floor_texture_color: Vec<Color> = {
         let palette = wad.lump_iter::<WadPalette>("PLAYPAL").next().unwrap();
         let flats: Vec<_> = wad.flats_iter().collect();
         level_data
@@ -169,9 +169,9 @@ pub fn extract_viewer_data(map_name: &str, level_data: &LevelData, wad: &WadData
                         g += ((c >> 8) & 0xFF) as u64;
                         b += (c & 0xFF) as u64;
                     }
-                    Color32::from_rgb((r / count) as u8, (g / count) as u8, (b / count) as u8)
+                    Color::from_rgb((r / count) as u8, (g / count) as u8, (b / count) as u8)
                 }
-                _ => Color32::from_rgb(128, 128, 128),
+                _ => Color::from_rgb(128, 128, 128),
             })
             .collect()
     };

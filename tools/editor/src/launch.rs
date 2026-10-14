@@ -12,7 +12,7 @@ use editor_core::EditorMap;
 use editor_core::wad_export::{ExportError, ExportOptions, export_map_pwad};
 use rbsp::wad_io::NodesFormat;
 
-use crate::prefs::EditorPreferences;
+use crate::app::preferences::EditorPreferences;
 
 const LAUNCH_WAD: &str = "redoomed_launch.wad";
 const LAUNCH_SKILL: &str = "3";

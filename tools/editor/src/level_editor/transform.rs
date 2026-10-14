@@ -1,20 +1,22 @@
 //! Transform handles: rotate/scale the selection about its bbox pivot by dragging corner/rotate handles, plus the exact menu transforms (rotate 90°, mirror). Positions stay uncommitted until release; the commit runs through the full move pipeline.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::f32::consts::PI;
 
-use editor_core::geom::derive_thing_heights;
+use editor_core::geom::{derive_thing_heights, resolve_vertex_moves};
 use editor_core::{Axis, LineKey, VertKey, mirror_fixup, move_vertices, transform_moves};
 
 use super::{LevelEditorState, ON_SEGMENT_TOL_PX, default_sector};
 use crate::boundary::Tool;
-use crate::state::{Damage, DragState, Overlay, TransformMode};
+use crate::level_editor::state::{Damage, DragState, Overlay, SelItem, TransformMode};
 use crate::undo::EditAction;
 
 /// Handle hit radius (screen px).
 const HANDLE_HIT_PX: f32 = 8.0;
-/// Rotate handle offset above the bbox top edge (screen px).
+/// Rotate handle offset beyond the selection box edge (screen px).
 const ROTATE_HANDLE_PX: f32 = 24.0;
+/// Keep the line's selection outline clear of its stroke and endpoint markers.
+const LINE_PADDING_PX: f32 = 8.0;
 /// Below this world span an axis is degenerate: scale locks to 1 on it.
 const DEGENERATE_SPAN: f32 = 1e-3;
 /// Rotation quantisation when angle snap is on (15°).
@@ -22,31 +24,57 @@ const ROTATE_SNAP_STEP: f32 = PI / 12.0;
 
 /// Handle layout for the current selection, in world coordinates.
 pub struct TransformHandles {
-    pub min: [f32; 2],
-    pub max: [f32; 2],
+    pub corners: [[f32; 2]; 4],
     pub pivot: [f32; 2],
     pub rotate: [f32; 2],
 }
 
-impl TransformHandles {
-    /// The four bbox corners, x-then-y order: min, (max,min), max, (min,max).
-    pub fn corners(&self) -> [[f32; 2]; 4] {
-        [
-            self.min,
-            [self.max[0], self.min[1]],
-            self.max,
-            [self.min[0], self.max[1]],
-        ]
-    }
-}
-
 impl LevelEditorState {
-    /// Handle layout when the Select tool has a multi-vertex selection at rest; `None` hides the handles.
+    /// A padded, line-aligned box for a single line; a shared box for larger selections.
     pub fn transform_handles(&self) -> Option<TransformHandles> {
-        if !matches!(self.tool, Tool::Select(_)) || !matches!(self.drag, DragState::None) {
+        if !matches!(self.drag, DragState::None) {
             return None;
         }
         let map = self.map.as_ref()?;
+        let zoom = self.camera.zoom_level();
+        let offset = ROTATE_HANDLE_PX / zoom;
+        if let [SelItem::Line(key)] = self.selection.items() {
+            let line = map.lines.get(*key)?;
+            let a = map.vertices.get(line.v1)?;
+            let b = map.vertices.get(line.v2)?;
+            let (dx, dy) = (b.x - a.x, b.y - a.y);
+            let length = dx.hypot(dy);
+            if !length.is_finite() || length < DEGENERATE_SPAN {
+                return None;
+            }
+            let tangent = [dx / length, dy / length];
+            // Doom's front normal points right of v1 -> v2, like the rendered normal tick.
+            let normal = [tangent[1], -tangent[0]];
+            let pad = LINE_PADDING_PX / zoom;
+            let corner = |p: [f32; 2], along: f32, across: f32| {
+                [
+                    p[0] + pad * (along * tangent[0] + across * normal[0]),
+                    p[1] + pad * (along * tangent[1] + across * normal[1]),
+                ]
+            };
+            let pivot = [a.x.midpoint(b.x), a.y.midpoint(b.y)];
+            return Some(TransformHandles {
+                corners: [
+                    corner([a.x, a.y], -1.0, -1.0),
+                    corner([b.x, b.y], 1.0, -1.0),
+                    corner([b.x, b.y], 1.0, 1.0),
+                    corner([a.x, a.y], -1.0, 1.0),
+                ],
+                pivot,
+                rotate: [
+                    pivot[0] + normal[0] * (pad + offset),
+                    pivot[1] + normal[1] * (pad + offset),
+                ],
+            });
+        }
+        if !matches!(self.tool, Tool::Select(_)) {
+            return None;
+        }
         let verts = self.selection_vertex_set();
         if verts.len() < 2 {
             return None;
@@ -59,10 +87,8 @@ impl LevelEditorState {
             max = [max[0].max(v.x), max[1].max(v.y)];
         }
         let pivot = [min[0].midpoint(max[0]), min[1].midpoint(max[1])];
-        let offset = ROTATE_HANDLE_PX / self.camera.zoom_level();
         Some(TransformHandles {
-            min,
-            max,
+            corners: [min, [max[0], min[1]], max, [min[0], max[1]]],
             pivot,
             rotate: [pivot[0], max[1] + offset],
         })
@@ -77,16 +103,23 @@ impl LevelEditorState {
             let s = self.camera.world_to_screen(p);
             (s[0] - pos[0]).hypot(s[1] - pos[1]) <= HANDLE_HIT_PX
         };
-        let corners = h.corners();
+        let corners = h.corners;
         let mode = if near(h.rotate) {
             let w = self.screen_to_world(pos);
             TransformMode::Rotate {
                 start_angle: (w[1] - h.pivot[1]).atan2(w[0] - h.pivot[0]),
             }
         } else if let Some(i) = (0..4).find(|&i| near(corners[i])) {
+            let edge = [corners[1][0] - corners[0][0], corners[1][1] - corners[0][1]];
+            let length = edge[0].hypot(edge[1]);
             TransformMode::Scale {
                 anchor: corners[(i + 2) % 4],
                 start: corners[i],
+                axis: if length < DEGENERATE_SPAN {
+                    [1.0, 0.0]
+                } else {
+                    [edge[0] / length, edge[1] / length]
+                },
             }
         } else {
             return false;
@@ -100,11 +133,11 @@ impl LevelEditorState {
             .iter()
             .filter_map(|&k| map.vertices.get(k).map(|v| (k, [v.x, v.y])))
             .collect();
-        let lines: Vec<[VertKey; 2]> = map
+        let lines = map
             .lines
-            .values()
-            .filter(|l| vert_set.contains(&l.v1) || vert_set.contains(&l.v2))
-            .map(|l| [l.v1, l.v2])
+            .iter()
+            .filter(|(_, l)| vert_set.contains(&l.v1) || vert_set.contains(&l.v2))
+            .map(|(k, _)| k)
             .collect();
         self.drag = DragState::Transform {
             pivot: h.pivot,
@@ -139,16 +172,24 @@ impl LevelEditorState {
             TransformMode::Scale {
                 anchor,
                 start,
+                axis,
             } => {
-                let axis_scale = |i: usize| {
-                    let span = start[i] - anchor[i];
+                let axis_scale = |direction: [f32; 2]| {
+                    let span = (start[0] - anchor[0]) * direction[0]
+                        + (start[1] - anchor[1]) * direction[1];
                     if span.abs() < DEGENERATE_SPAN {
                         1.0
                     } else {
-                        (world[i] - anchor[i]) / span
+                        ((world[0] - anchor[0]) * direction[0]
+                            + (world[1] - anchor[1]) * direction[1])
+                            / span
                     }
                 };
-                (anchor, 0.0, [axis_scale(0), axis_scale(1)])
+                (
+                    anchor,
+                    0.0,
+                    [axis_scale(axis), axis_scale([-axis[1], axis[0]])],
+                )
             }
         })
     }
@@ -162,16 +203,33 @@ impl LevelEditorState {
     ) -> Vec<(VertKey, [f32; 2])> {
         let DragState::Transform {
             verts,
+            mode,
             ..
         } = &self.drag
         else {
             return Vec::new();
         };
         let (s, c) = rot.sin_cos();
-        verts
+        let axis = match mode {
+            TransformMode::Scale {
+                axis,
+                ..
+            } => *axis,
+            TransformMode::Rotate {
+                ..
+            } => [1.0, 0.0],
+        };
+        let normal = [-axis[1], axis[0]];
+        let mut moves: Vec<_> = verts
             .iter()
             .map(|&(k, p)| {
-                let d = [(p[0] - centre[0]) * scale[0], (p[1] - centre[1]) * scale[1]];
+                let relative = [p[0] - centre[0], p[1] - centre[1]];
+                let along = (relative[0] * axis[0] + relative[1] * axis[1]) * scale[0];
+                let across = (relative[0] * normal[0] + relative[1] * normal[1]) * scale[1];
+                let d = [
+                    along * axis[0] + across * normal[0],
+                    along * axis[1] + across * normal[1],
+                ];
                 (
                     k,
                     [
@@ -180,7 +238,16 @@ impl LevelEditorState {
                     ],
                 )
             })
-            .collect()
+            .collect();
+        if let Some(map) = &self.map {
+            moves.retain(|&(key, p)| map.vertices.get(key).is_some_and(|v| [v.x, v.y] != p));
+            resolve_vertex_moves(
+                map,
+                &mut moves,
+                ON_SEGMENT_TOL_PX / self.camera.zoom_level(),
+            );
+        }
+        moves
     }
 
     /// Live preview of the handle drag (map untouched).
@@ -189,7 +256,6 @@ impl LevelEditorState {
             return Damage::None;
         };
         let moved = self.transformed_verts(centre, rot, scale);
-        let at: HashMap<VertKey, [f32; 2]> = moved.iter().copied().collect();
         let DragState::Transform {
             lines,
             ..
@@ -197,24 +263,7 @@ impl LevelEditorState {
         else {
             return Damage::None;
         };
-        let Some(map) = &self.map else {
-            return Damage::None;
-        };
-        let pos = |v: VertKey| {
-            at.get(&v)
-                .copied()
-                .or_else(|| map.vertices.get(v).map(|p| [p.x, p.y]))
-        };
-        let mut segments = Vec::with_capacity(lines.len());
-        for &[v1, v2] in lines {
-            if let (Some(a), Some(b)) = (pos(v1), pos(v2)) {
-                segments.push([a, b]);
-            }
-        }
-        self.overlay = Overlay::Move {
-            segments,
-            points: moved.iter().map(|(_, p)| *p).collect(),
-        };
+        self.overlay = self.vertex_move_overlay(&moved, lines);
         Damage::Overlay
     }
 
@@ -225,16 +274,7 @@ impl LevelEditorState {
             self.drag = DragState::None;
             return Damage::None;
         };
-        let moves: Vec<(VertKey, [f32; 2])> = self
-            .transformed_verts(centre, rot, scale)
-            .into_iter()
-            .filter(|&(k, p)| {
-                self.map
-                    .as_ref()
-                    .and_then(|m| m.vertices.get(k))
-                    .is_some_and(|v| [v.x, v.y] != p)
-            })
-            .collect();
+        let moves = self.transformed_verts(centre, rot, scale);
         self.drag = DragState::None;
         if moves.is_empty() {
             return Damage::Overlay;

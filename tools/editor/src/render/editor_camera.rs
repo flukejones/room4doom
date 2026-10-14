@@ -2,7 +2,7 @@
 
 use super::camera3d::{Camera, Projection};
 use super::view::WorldRect;
-use crate::state::Damage;
+use crate::level_editor::state::Damage;
 
 /// Degrees of orbit per screen pixel of shift-drag.
 const ORBIT_DEG_PER_PX: f32 = 0.4;

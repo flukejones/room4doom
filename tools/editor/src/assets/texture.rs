@@ -72,3 +72,48 @@ fn swap_in(assets: &mut EditorAssets, snapshot: TexSnapshot) -> TexSnapshot {
         animations: assets.replace_animations(snapshot.animations),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::assets::texture_compose::TRANSPARENT_INDEX;
+
+    #[test]
+    fn moving_patches_invalidates_a_composed_wad_texture() {
+        let path = test_utils::doom1_wad_path();
+        let wad = wad::WadData::new(&path);
+        let mut assets = EditorAssets::load(std::slice::from_ref(&path), &wad, None);
+        assets.set_map_wad(path.file_name().unwrap().to_str().unwrap());
+        let index = assets
+            .textures()
+            .iter()
+            .position(|def| def.name.as_str() == "STARTAN3")
+            .unwrap();
+        let name = assets.textures()[index].name;
+        assets.ensure_composed(&[name], &wad);
+        assert!(
+            assets
+                .composed(&name)
+                .unwrap()
+                .data
+                .iter()
+                .any(|&pixel| pixel != TRANSPARENT_INDEX),
+            "the WAD texture starts with visible artwork"
+        );
+
+        let def = assets.texture_mut(index).unwrap();
+        for placement in &mut def.patches {
+            placement.origin_x = def.width;
+        }
+        assets.ensure_composed(&[name], &wad);
+        assert!(
+            assets
+                .composed(&name)
+                .unwrap()
+                .data
+                .iter()
+                .all(|&pixel| pixel == TRANSPARENT_INDEX),
+            "moving every patch beyond the right edge leaves the texture transparent"
+        );
+    }
+}

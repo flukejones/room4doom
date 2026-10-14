@@ -4,9 +4,9 @@
 pub type Color = [u8; 4];
 
 /// Vertex marker edge in screen pixels (DoomEd CPOINTDRAW).
-pub const VERTEX_DRAW_PX: f32 = 7.0;
+pub const VERTEX_DRAW_PX: f32 = 8.0;
 /// Length of the line-normal tick at line midpoints, in screen pixels.
-pub const NORMAL_TICK_PX: f32 = 6.0;
+pub const NORMAL_TICK_PX: f32 = 8.0;
 /// Strong grid spacing in world units (flat alignment grid).
 pub const TILE_GRID: i32 = 64;
 /// Grid lines are skipped below this on-screen spacing.

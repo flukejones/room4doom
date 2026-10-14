@@ -2,9 +2,9 @@
 
 use editor_core::{LineKey, SectorKey, ThingKey, VertKey};
 
-use crate::boundary::SelectMode;
+use crate::boundary::{FlatSlot, SelectMode};
+use crate::level_editor::state::SelItem;
 use crate::render::frame3d::Vert3D;
-use crate::state::SelItem;
 
 /// Ray-triangle parallel/edge-on epsilon.
 const RAY_EPS: f32 = 1e-6;
@@ -44,6 +44,8 @@ pub(crate) struct PickHit {
     pub kind: PickKind,
     pub world: [f32; 3],
     pub grid_z: f32,
+    /// Height target for a selected face or horizontal wall edge.
+    pub surface: Option<(SectorKey, FlatSlot)>,
 }
 
 /// Nearest mesh triangle hit.

@@ -1,4 +1,4 @@
-//! Doom picture codec and texture composer — pure palette-index data, no UI; `gfx` builds Slint images on top, no Slint dep here avoids a module cycle.
+//! Doom picture codec and texture composer — pure palette-index data; `gfx` builds native UI images from it without coupling asset decoding to presentation.
 
 use editor_core::{ImportedPatch, TextureDef};
 use wad::WadData;

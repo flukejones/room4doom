@@ -3,7 +3,7 @@ use wad::WadData;
 use wad::types::WadPalette;
 
 use super::GfxCache;
-use super::palette::flat_to_rgba;
+use super::flat_to_rgba;
 use crate::assets::{EditorAssets, FlatPic};
 
 fn test_palette() -> WadPalette {

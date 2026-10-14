@@ -1,0 +1,12 @@
+diff --git a/src/edge_builder.rs b/src/edge_builder.rs
+--- a/src/edge_builder.rs
++++ b/src/edge_builder.rs
+@@ -62,7 +62,7 @@
+ impl BasicEdgeBuilder {
+     pub fn new(clip_shift: i32) -> Self {
+         BasicEdgeBuilder {
+-            edges: Vec::with_capacity(64), // TODO: stack array + fallback
++            edges: Vec::with_capacity(8), // Small polygons; grow normally for larger paths.
+             clip_shift,
+         }
+     }

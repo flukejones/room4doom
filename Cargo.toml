@@ -22,6 +22,7 @@ members = [
   "sound/opl2_emulator",
   "level",
   "tools/bsp-viewer",
+  "tools/ui-common",
   "tools/wad-tool",
   "tools/multigen",
   "tools/rbsp",
@@ -34,7 +35,16 @@ members = [
   "pic-data",
 ]
 default-members = ["game-exe"]
+exclude = ["vendor/zed-gpui", "vendor/tiny-skia"]
 resolver = "2"
+
+# Materialized by `just setup-gpui`; only the diff is committed.
+[patch."https://github.com/zed-industries/zed"]
+gpui = { path = "vendor/zed-gpui/crates/gpui" }
+gpui_platform = { path = "vendor/zed-gpui/crates/gpui_platform" }
+
+[patch.crates-io]
+tiny-skia = { path = "vendor/tiny-skia" }
 
 [workspace.package]
 authors = ["Luke Jones <luke@ljones.dev>"]
@@ -71,6 +81,11 @@ rbsp = { path = "./tools/rbsp" }
 geom-kernel = { path = "./tools/geom-kernel" }
 doomed-parser = { path = "./tools/doomed-parser" }
 editor-core = { path = "./tools/editor-core" }
+ui-common = { path = "./tools/ui-common" }
+
+gpui = { git = "https://github.com/zed-industries/zed", rev = "76b8ab814f0d14568063b7231905f84e82d35194", default-features = false }
+gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "76b8ab814f0d14568063b7231905f84e82d35194", default-features = false, features = ["font-kit", "x11", "wayland", "image-png"] }
+image = { version = "0.25", default-features = false }
 
 winit = "0.30"
 # Native renderers retain every desktop backend; browser WebGPU is unused.
@@ -96,22 +111,6 @@ sdl2 = { version = "0.38", features = [
 ] }
 
 argh = { version = "0.1.19", default-features = false, features = ["help"] }
-eframe = { version = "0.31", default-features = false, features = [
-  "accesskit",
-  "default_fonts",
-  "glow",
-  "wayland",
-  "x11",
-] }
-egui = "0.31"
-# Pinned to a specific upstream rev so the build is reproducible (the branch ref
-# would drift). All slint git deps must share this rev.
-slint = { git = "https://github.com/slint-ui/slint.git", rev = "988addf283ebf510eeea2d83d892435c5d26a56f", default-features = false, features = [
-  "std",
-  "compat-1-2",
-] }
-slint-build = { git = "https://github.com/slint-ui/slint.git", rev = "988addf283ebf510eeea2d83d892435c5d26a56f" }
-i-slint-backend-winit = { git = "https://github.com/slint-ui/slint.git", rev = "988addf283ebf510eeea2d83d892435c5d26a56f" }
 rfd = "0.15"
 
 nanoserde = { git = "https://github.com/not-fl3/nanoserde.git", default-features = false, features = [
@@ -218,10 +217,7 @@ opt-level = 3
 codegen-units = 1
 
 [workspace.lints.rust]
-# `elided_lifetimes_in_paths` is `allow` because Slint generated globals
-# (`app.global::<X>()`) all have a hidden lifetime parameter. ~250 sites of
-# mechanical noise for no real safety win — the lifetime is benign and
-# inferred correctly.
+# Keep inferred path lifetimes; explicit annotations add no safety here.
 elided_lifetimes_in_paths = "allow"
 future_incompatible = { level = "warn", priority = -1 }
 nonstandard_style = { level = "warn", priority = -1 }

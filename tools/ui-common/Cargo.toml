@@ -1,0 +1,19 @@
+[package]
+name = "ui-common"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+gpui.workspace = true
+gpui_platform.workspace = true
+opaline.workspace = true
+serde.workspace = true
+unicode-segmentation = "1.12"
+
+[dev-dependencies]
+gpui = { workspace = true, features = ["test-support"] }
+
+[lints]
+workspace = true

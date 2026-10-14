@@ -2,17 +2,23 @@
 
 use std::collections::{HashMap, HashSet};
 
-use editor_core::geom::thing_floor_z;
-use editor_core::{LineKey, SectorKey, ThingKey, VertKey, extrude_line, move_vertices};
+use editor_core::geom::{resolve_vertex_moves, thing_floor_z};
+use editor_core::ops::extrude_line_to;
+use editor_core::{LineKey, SectorKey, ThingKey, VertKey, move_vertices};
 
 use super::{LevelEditorState, ON_SEGMENT_TOL_PX};
 use crate::level_editor::draw::default_sector;
+use crate::level_editor::state::{Damage, DragState, Overlay, SelItem};
 use crate::render::view::snap;
-use crate::state::{Damage, DragState, Overlay, SelItem};
 use crate::undo::EditAction;
 
 /// Padding around the containment-change region when re-deriving thing Z.
 const THING_Z_REGION_PAD: f32 = 1.0;
+
+struct MoveTargets {
+    vertices: Vec<(VertKey, [f32; 2])>,
+    things: Vec<(ThingKey, [i32; 3])>,
+}
 
 impl LevelEditorState {
     pub(super) fn begin_move(&mut self, world: [f32; 2]) {
@@ -38,11 +44,11 @@ impl LevelEditorState {
                 SelItem::Sector(_) => {}
             }
         }
-        let lines: Vec<[VertKey; 2]> = map
+        let lines = map
             .lines
-            .values()
-            .filter(|l| vert_set.contains(&l.v1) || vert_set.contains(&l.v2))
-            .map(|l| [l.v1, l.v2])
+            .iter()
+            .filter(|(_, l)| vert_set.contains(&l.v1) || vert_set.contains(&l.v2))
+            .map(|(k, _)| k)
             .collect();
         let verts = vert_set
             .into_iter()
@@ -50,6 +56,7 @@ impl LevelEditorState {
             .collect();
         self.drag = DragState::MoveSel {
             start_world: world,
+            delta: [0.0, 0.0],
             verts,
             things,
             lines,
@@ -57,53 +64,33 @@ impl LevelEditorState {
     }
 
     #[expect(
-        clippy::cast_possible_truncation,
         clippy::cast_precision_loss,
         reason = "map and viewport coordinates deliberately use float precision; GPU and image records retain their packed widths"
-    )]
-    #[expect(
-        clippy::too_many_lines,
-        reason = "keep the complete dispatch or geometry pass together without changing its established ordering"
     )]
     pub(super) fn finish_move(&mut self) -> Damage {
         self.overlay = Overlay::None;
         let DragState::MoveSel {
-            start_world,
+            delta,
             verts,
-            things,
             ..
         } = &self.drag
         else {
             return Damage::None;
         };
-        let delta = [
-            self.cursor_world[0] - start_world[0],
-            self.cursor_world[1] - start_world[1],
-        ];
+        let delta = *delta;
         if delta == [0.0, 0.0] {
             return Damage::None;
         }
-        let grid = self.grid;
-        let moves: Vec<(VertKey, [f32; 2])> = verts
+        let Some(targets) = self.move_targets() else {
+            return Damage::None;
+        };
+        let MoveTargets {
+            vertices: moves,
+            things: resolved_things,
+        } = targets;
+        let thing_moves: Vec<_> = resolved_things
             .iter()
-            .map(|(i, o)| {
-                (
-                    *i,
-                    [snap(o[0] + delta[0], grid), snap(o[1] + delta[1], grid)],
-                )
-            })
-            .collect();
-        let thing_moves: Vec<(ThingKey, [i32; 2])> = things
-            .iter()
-            .map(|(i, o)| {
-                (
-                    *i,
-                    [
-                        snap(o[0] as f32 + delta[0], grid).round() as i32,
-                        snap(o[1] as f32 + delta[1], grid).round() as i32,
-                    ],
-                )
-            })
+            .map(|&(k, p)| (k, [p[0], p[1]]))
             .collect();
         let tol = ON_SEGMENT_TOL_PX / self.camera.zoom_level();
         // Containment can change anywhere inside a touched sector (a deleted divider merges whole rooms): the Z re-derive region spans the FULL extents of every sector bordering a moved line, plus whatever the kernel re-sectors.
@@ -159,8 +146,9 @@ impl LevelEditorState {
             .iter()
             .filter(|(k, t)| {
                 let (x, y) = (t.x as f32, t.y as f32);
-                moved_things.contains(k)
-                    || (x >= lo[0] - pad
+                (moved_things.contains(k) && !moves.is_empty())
+                    || (!moves.is_empty()
+                        && x >= lo[0] - pad
                         && x <= hi[0] + pad
                         && y >= lo[1] - pad
                         && y <= hi[1] + pad)
@@ -173,23 +161,28 @@ impl LevelEditorState {
                 t.z = z;
             }
         }
+        // For thing-only moves, use the same 3D floor hit displayed by the preview.
+        if moves.is_empty() {
+            for (key, position) in resolved_things {
+                if let Some(thing) = map.things.get_mut(key) {
+                    thing.z = position[2];
+                }
+            }
+        }
         self.dirty = true;
         Damage::Edited
     }
 
-    /// Cursor − drag-start of the in-flight move; `[0,0]` when no move drag.
+    /// Last preview displacement of the in-flight move; `[0,0]` when no move drag.
     fn move_drag_delta(&self) -> [f32; 2] {
         let DragState::MoveSel {
-            start_world,
+            delta,
             ..
         } = &self.drag
         else {
             return [0.0, 0.0];
         };
-        [
-            self.cursor_world[0] - start_world[0],
-            self.cursor_world[1] - start_world[1],
-        ]
+        *delta
     }
 
     /// The dragged line when the move gesture holds exactly one selected line and actually moved.
@@ -215,23 +208,23 @@ impl LevelEditorState {
         let Some(line) = self.line_drag_pending() else {
             return Damage::None;
         };
-        let DragState::MoveSel {
-            verts,
-            ..
-        } = &self.drag
-        else {
+        let Some(targets) = self.move_targets() else {
             return Damage::None;
         };
-        let Some(&(_, origin)) = verts.first() else {
+        let Some(map) = &self.map else {
             return Damage::None;
         };
-        let raw = self.move_drag_delta();
-        let grid = self.grid;
-        // Snap the leading corner as a move would; one delta for both corners keeps the quad a parallelogram.
-        let delta = [
-            snap(origin[0] + raw[0], grid) - origin[0],
-            snap(origin[1] + raw[1], grid) - origin[1],
-        ];
+        let wall = map.lines[line];
+        let endpoint = |key| {
+            targets
+                .vertices
+                .iter()
+                .find(|(k, _)| *k == key)
+                .map(|(_, p)| *p)
+        };
+        let (Some(a), Some(b)) = (endpoint(wall.v1), endpoint(wall.v2)) else {
+            return Damage::None;
+        };
         self.drag = DragState::None;
         self.overlay = Overlay::None;
         let tol = ON_SEGMENT_TOL_PX / self.camera.zoom_level();
@@ -240,7 +233,7 @@ impl LevelEditorState {
             return Damage::None;
         };
         self.undo.record(EditAction::Extrude, map);
-        let new = extrude_line(map, line, delta, tol, sector);
+        let new = extrude_line_to(map, line, [a, b], tol, sector);
         let Some(&far) = new.get(1).or_else(|| new.first()) else {
             self.undo.discard_last();
             return Damage::Overlay;
@@ -264,52 +257,130 @@ impl LevelEditorState {
     pub(super) fn move_selection_to(&mut self, world: [f32; 2]) -> Damage {
         let DragState::MoveSel {
             start_world,
-            verts,
-            things,
+            delta: previous_delta,
+            ..
+        } = &mut self.drag
+        else {
+            return Damage::None;
+        };
+        let delta = [world[0] - start_world[0], world[1] - start_world[1]];
+        if delta == *previous_delta {
+            return Damage::None;
+        }
+        *previous_delta = delta;
+        let Some(targets) = self.move_targets() else {
+            return Damage::None;
+        };
+        let DragState::MoveSel {
             lines,
             ..
         } = &self.drag
         else {
             return Damage::None;
         };
-        let Some(map) = &self.map else {
-            return Damage::None;
+        let mut overlay = self.vertex_move_overlay(&targets.vertices, lines);
+        if let Overlay::Move {
+            points,
+            ..
+        } = &mut overlay
+        {
+            points.extend(targets.things.iter().map(|(_, p)| p.map(|c| c as f32)));
+        }
+        self.overlay = overlay;
+        Damage::Overlay
+    }
+
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        reason = "map thing coordinates are stored as integers"
+    )]
+    fn move_targets(&self) -> Option<MoveTargets> {
+        let map = self.map.as_ref()?;
+        let DragState::MoveSel {
+            delta,
+            verts,
+            things,
+            ..
+        } = &self.drag
+        else {
+            return None;
         };
-        let delta = [world[0] - start_world[0], world[1] - start_world[1]];
-        let grid = self.grid;
-        let moved_pos = |orig: [f32; 2]| {
+        let moved = |p: [f32; 2]| {
             [
-                snap(orig[0] + delta[0], grid),
-                snap(orig[1] + delta[1], grid),
+                snap(p[0] + delta[0], self.grid),
+                snap(p[1] + delta[1], self.grid),
             ]
         };
-
-        let preview: HashMap<VertKey, [f32; 2]> =
-            verts.iter().map(|(k, o)| (*k, moved_pos(*o))).collect();
-        let at = |v: VertKey| {
-            preview
-                .get(&v)
-                .copied()
-                .or_else(|| map.vertices.get(v).map(|p| [p.x, p.y]))
+        let mut vertices: Vec<_> = verts.iter().map(|&(key, p)| (key, moved(p))).collect();
+        resolve_vertex_moves(
+            map,
+            &mut vertices,
+            ON_SEGMENT_TOL_PX / self.camera.zoom_level(),
+        );
+        let top = if things.is_empty() {
+            0.0
+        } else {
+            map.sectors
+                .values()
+                .map(|s| s.floor_height)
+                .max()
+                .unwrap_or(0) as f32
+                + 1.0
         };
+        let things = things
+            .iter()
+            .map(|&(key, p)| {
+                let xy = moved(p.map(|c| c as f32)).map(|c| c.round() as i32);
+                let z = self
+                    .floor_height_below([xy[0] as f32, xy[1] as f32, top])
+                    .unwrap_or(0);
+                (key, [xy[0], xy[1], z])
+            })
+            .collect();
+        Some(MoveTargets {
+            vertices,
+            things,
+        })
+    }
 
+    /// Shared world-space geometry for moving and transforming vertices.
+    #[expect(clippy::cast_precision_loss, reason = "GPU world coordinates use f32")]
+    pub(super) fn vertex_move_overlay(
+        &self,
+        moves: &[(VertKey, [f32; 2])],
+        lines: &[LineKey],
+    ) -> Overlay {
+        let Some(map) = &self.map else {
+            return Overlay::None;
+        };
+        let mut positions: HashMap<_, _> =
+            moves.iter().map(|&(k, p)| (k, [p[0], p[1], 0.0])).collect();
         let mut segments = Vec::with_capacity(lines.len());
-        for &[v1, v2] in lines {
-            if let (Some(a), Some(b)) = (at(v1), at(v2)) {
+        for key in lines {
+            let Some(line) = map.lines.get(*key) else {
+                continue;
+            };
+            let z = line
+                .front
+                .sector
+                .and_then(|s| map.sectors.get(s))
+                .map_or(0.0, |s| s.floor_height as f32);
+            let mut at = |key| {
+                if let Some(p) = positions.get_mut(&key) {
+                    p[2] = z;
+                    Some(*p)
+                } else {
+                    map.vertices.get(key).map(|p| [p.x, p.y, z])
+                }
+            };
+            if let (Some(a), Some(b)) = (at(line.v1), at(line.v2)) {
                 segments.push([a, b]);
             }
         }
-        let mut points: Vec<[f32; 2]> = preview.values().copied().collect();
-        points.extend(
-            things
-                .iter()
-                .map(|(_, o)| moved_pos([o[0] as f32, o[1] as f32])),
-        );
-
-        self.overlay = Overlay::Move {
+        Overlay::Move {
             segments,
-            points,
-        };
-        Damage::Overlay
+            points: positions.into_values().collect(),
+        }
     }
 }

@@ -1,0 +1,964 @@
+diff --git a/Cargo.toml b/Cargo.toml
+index b3d85a3bee12..fc6ba6008fd4 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -365,7 +365,7 @@ git_ui_core = { path = "crates/git_ui_core" }
+ go_to_line = { path = "crates/go_to_line" }
+ google_ai = { path = "crates/google_ai" }
+ gpui = { path = "crates/gpui", default-features = false }
+-gpui_apple = { path = "crates/gpui_apple" }
++gpui_apple = { path = "crates/gpui_apple", default-features = false }
+ gpui_linux = { path = "crates/gpui_linux", default-features = false }
+ gpui_macos = { path = "crates/gpui_macos", default-features = false }
+ gpui_macros = { path = "crates/gpui_macros" }
+@@ -374,7 +374,7 @@ gpui_shared_string = { path = "crates/gpui_shared_string" }
+ gpui_tokio = { path = "crates/gpui_tokio" }
+ gpui_util = { path = "crates/gpui_util" }
+ gpui_web = { path = "crates/gpui_web", default-features = false }
+-gpui_wgpu = { path = "crates/gpui_wgpu" }
++gpui_wgpu = { path = "crates/gpui_wgpu", default-features = false }
+ gpui_windows = { path = "crates/gpui_windows", default-features = false }
+ grammars = { path = "crates/grammars" }
+ hang_telemetry = { path = "crates/hang_telemetry" }
+@@ -648,25 +648,7 @@ httparse = "1.10"
+ human_bytes = "0.4.1"
+ idna = "1.0"
+ ignore = "0.4.22"
+-# image's default features minus "avif", which only adds an encoder (rav1e);
+-# decoding AVIF would additionally need the non-default "avif-native" feature.
+-image = { version = "0.25.1", default-features = false, features = [
+-    "bmp",
+-    "dds",
+-    "exr",
+-    "ff",
+-    "gif",
+-    "hdr",
+-    "ico",
+-    "jpeg",
+-    "png",
+-    "pnm",
+-    "qoi",
+-    "rayon",
+-    "tga",
+-    "tiff",
+-    "webp",
+-] }
++image = { version = "0.25.1", default-features = false }
+ imara-diff = { version = "0.2", default-features = false }
+ indexmap = { version = "2.7.0", features = ["serde"] }
+ indoc = "2"
+@@ -825,7 +807,6 @@ resvg = { version = "0.46.0", default-features = false, features = [
+     "text",
+     "system-fonts",
+     "memmap-fonts",
+-    "raster-images",
+ ] }
+ rsa = { version = "0.9", default-features = false, features = ["std", "u64_digit"] }
+ runtimelib = { version = "1.4.0", default-features = false, features = [
+diff --git a/crates/gpui/Cargo.toml b/crates/gpui/Cargo.toml
+index 4d978071f5e8..0c4649f49fe5 100644
+--- a/crates/gpui/Cargo.toml
++++ b/crates/gpui/Cargo.toml
+@@ -17,7 +17,47 @@ categories = ["gui"]
+ workspace = true
+ 
+ [features]
+-default = ["font-kit", "wayland", "x11", "windows-manifest"]
++# image's default features minus "avif", which only adds an encoder (rav1e);
++# decoding AVIF would additionally need the non-default "avif-native" feature.
++default = [
++    "font-kit",
++    "wayland",
++    "x11",
++    "windows-manifest",
++    "svg-raster-images",
++    "image-bmp",
++    "image-dds",
++    "image-exr",
++    "image-ff",
++    "image-gif",
++    "image-hdr",
++    "image-ico",
++    "image-jpeg",
++    "image-png",
++    "image-pnm",
++    "image-qoi",
++    "image-tga",
++    "image-tiff",
++    "image-webp",
++    "image-rayon",
++]
++svg = ["dep:resvg", "dep:usvg"]
++svg-raster-images = ["svg", "resvg/raster-images"]
++image-bmp = ["image/bmp"]
++image-dds = ["image/dds"]
++image-exr = ["image/exr"]
++image-ff = ["image/ff"]
++image-gif = ["image/gif"]
++image-hdr = ["image/hdr"]
++image-ico = ["image/ico"]
++image-jpeg = ["image/jpeg"]
++image-png = ["image/png"]
++image-pnm = ["image/pnm"]
++image-qoi = ["image/qoi"]
++image-tga = ["image/tga"]
++image-tiff = ["image/tiff"]
++image-webp = ["image/webp"]
++image-rayon = ["image/rayon"]
+ test-support = [
+     "collections/test-support",
+     "http_client/test-support",
+@@ -84,8 +124,8 @@ raw-window-handle.workspace = true
+ regex = { workspace = true, default-features = true }
+ refineable.workspace = true
+ scheduler.workspace = true
+-resvg.workspace = true
+-usvg.workspace = true
++resvg = { workspace = true, optional = true }
++usvg = { workspace = true, optional = true }
+ ttf-parser = "0.25"
+ schemars = { workspace = true, features = ["derive"] }
+ seahash = "4.1"
+diff --git a/crates/gpui/README.md b/crates/gpui/README.md
+index 132e5ac1e9f1..27f75a99e67e 100644
+--- a/crates/gpui/README.md
++++ b/crates/gpui/README.md
+@@ -42,6 +42,38 @@ The features on `gpui_platform` are platform-specific, so the list above is a sa
+ 
+ - **Windows** — no features are required. Windowing uses Win32 and text uses DirectWrite. `font-kit` has no effect here.
+ 
++### Image formats and SVG
++
++GPUI and `gpui_platform` preserve the existing image formats and SVG support in
++their default features. To select only PNG, disable defaults on both crates and
++enable `image-png` on either one:
++
++```toml
++gpui = { version = "*", default-features = false }
++gpui_platform = { version = "*", default-features = false, features = ["font-kit", "wayland", "x11", "image-png"] }
++```
++
++The individual format features are `image-bmp`, `image-dds`, `image-exr`,
++`image-ff`, `image-gif`, `image-hdr`, `image-ico`, `image-jpeg`, `image-png`,
++`image-pnm`, `image-qoi`, `image-tga`, `image-tiff`, and `image-webp`.
++`image-rayon` enables parallel image processing. `image-defaults` enables the
++original format set and parallel processing together. `gpui_platform` forwards
++each of these features to GPUI.
++
++Raw `RenderImage` frames do not need any image-format feature. File assets and
++clipboard images need the corresponding codec; unsupported formats return an
++error. `image-gif` and `image-webp` also enable animated decoding.
++
++`svg` enables SVG parsing and rendering, including SVG text. `svg-raster-images`
++also enables embedded raster images and their decoder dependencies. The defaults
++include `svg-raster-images`. Without `svg`, the SVG renderer, element, and drawing
++APIs are not compiled. Ordinary GPUI text remains available. Use
++`Image::to_bitmap_data()` to decode bitmap images independently of SVG support;
++`Image::to_image_data()` is available with `svg` enabled and also accepts SVGs.
++
++Cargo combines features requested by all dependencies. These switches control
++GPUI's requests; another dependency can still enable additional image codecs.
++
+ ### Additional Topics
+ 
+ - [Ownership and data flow](_ownership_and_data_flow)
+diff --git a/crates/gpui/src/app.rs b/crates/gpui/src/app.rs
+index cdbd5593b114..fce753f11300 100644
+--- a/crates/gpui/src/app.rs
++++ b/crates/gpui/src/app.rs
+@@ -42,6 +42,8 @@ pub use visual_test_context::*;
+ 
+ #[cfg(any(feature = "inspector", debug_assertions))]
+ use crate::InspectorElementRegistry;
++#[cfg(feature = "svg")]
++use crate::SvgRenderer;
+ use crate::asset_cache::CachedLoad;
+ use crate::{
+     Action, ActionBuildError, ActionRegistry, ActivationPolicy, ActivityGuard, Any, AnyView,
+@@ -52,10 +54,9 @@ use crate::{
+     OwnedMenu, PathPromptOptions, Pixels, Platform, PlatformDisplay, PlatformKeyboardLayout,
+     PlatformKeyboardMapper, Point, Priority, PromptBuilder, PromptButton, PromptHandle,
+     PromptLevel, Render, RenderImage, RenderablePromptHandle, Reservation, ScreenCaptureSource,
+-    SharedString, SubscriberSet, Subscription, SvgRenderer, SystemNotification,
+-    SystemNotificationResponse, Task, TextRenderingMode, TextSystem, ThermalState, Window,
+-    WindowAppearance, WindowButtonLayout, WindowHandle, WindowId, WindowInvalidator,
+-    WindowingRequest,
++    SharedString, SubscriberSet, Subscription, SystemNotification, SystemNotificationResponse,
++    Task, TextRenderingMode, TextSystem, ThermalState, Window, WindowAppearance,
++    WindowButtonLayout, WindowHandle, WindowId, WindowInvalidator, WindowingRequest,
+     colors::{Colors, GlobalColors},
+     hash, init_app_menus,
+ };
+@@ -203,8 +204,11 @@ impl Application {
+     pub fn with_assets(self, asset_source: impl AssetSource) -> Self {
+         let mut context_lock = self.0.borrow_mut();
+         let asset_source = Arc::new(asset_source);
+-        context_lock.asset_source = asset_source.clone();
+-        context_lock.svg_renderer = SvgRenderer::new(asset_source);
++        #[cfg(feature = "svg")]
++        {
++            context_lock.svg_renderer = SvgRenderer::new(asset_source.clone());
++        }
++        context_lock.asset_source = asset_source;
+         drop(context_lock);
+         self
+     }
+@@ -873,6 +877,7 @@ pub struct App {
+     // assets
+     pub(crate) loading_assets: FxHashMap<(TypeId, u64), Box<dyn Any>>,
+     asset_source: Arc<dyn AssetSource>,
++    #[cfg(feature = "svg")]
+     pub(crate) svg_renderer: SvgRenderer,
+     http_client: Arc<dyn HttpClient>,
+ 
+@@ -957,6 +962,7 @@ impl App {
+                 foreground_journal,
+                 #[cfg(all(feature = "profiler", not(target_family = "wasm")))]
+                 hang_monitor: None,
++                #[cfg(feature = "svg")]
+                 svg_renderer: SvgRenderer::new(asset_source.clone()),
+                 loading_assets: Default::default(),
+                 asset_source,
+@@ -1969,6 +1975,7 @@ impl App {
+     }
+ 
+     /// Returns the SVG renderer used by the application.
++    #[cfg(feature = "svg")]
+     pub fn svg_renderer(&self) -> SvgRenderer {
+         self.svg_renderer.clone()
+     }
+diff --git a/crates/gpui/src/elements/img.rs b/crates/gpui/src/elements/img.rs
+index 2c77e5f32ad1..371f7ea4afdb 100644
+--- a/crates/gpui/src/elements/img.rs
++++ b/crates/gpui/src/elements/img.rs
+@@ -1,23 +1,29 @@
++#[cfg(feature = "image-webp")]
++use crate::decode_static_image_from_decoder;
+ use crate::{
+     AnyElement, AnyImageCache, App, Asset, AssetLogger, Bounds, DefiniteLength, Element, ElementId,
+     Entity, GlobalElementId, Hitbox, Image, ImageCache, InspectorElementId, InteractiveElement,
+     Interactivity, IntoElement, LayoutId, Length, ObjectFit, Pixels, RenderImage, Resource,
+-    SharedString, SharedUri, StyleRefinement, Styled, Task, Window, decode_static_image,
+-    decode_static_image_from_decoder, px,
++    SharedString, SharedUri, StyleRefinement, Styled, Task, Window, decode_static_image, px,
+ };
+ use anyhow::Result;
+ 
+ use futures::Future;
+ use gpui_util::ResultExt;
+-use image::{
+-    AnimationDecoder, ImageError, ImageFormat, Rgba,
+-    codecs::{gif::GifDecoder, webp::WebPDecoder},
+-};
++use image::ImageError;
++#[cfg(feature = "image-gif")]
++use image::codecs::gif::GifDecoder;
++#[cfg(any(feature = "image-gif", feature = "image-webp"))]
++use image::{AnimationDecoder, ImageFormat};
++#[cfg(feature = "image-webp")]
++use image::{Rgba, codecs::webp::WebPDecoder};
+ use scheduler::Instant;
++#[cfg(any(test, feature = "image-gif", feature = "image-webp"))]
+ use smallvec::SmallVec;
++#[cfg(any(feature = "image-gif", feature = "image-webp"))]
++use std::io::Cursor;
+ use std::{
+-    fs,
+-    io::{self, Cursor},
++    fs, io,
+     ops::{Deref, DerefMut},
+     path::{Path, PathBuf},
+     str::FromStr,
+@@ -605,10 +611,17 @@ impl Asset for ImageDecoder {
+ 
+     fn load(
+         source: Self::Source,
+-        cx: &mut App,
++        _cx: &mut App,
+     ) -> impl Future<Output = Self::Output> + Send + 'static {
+-        let renderer = cx.svg_renderer();
+-        async move { source.to_image_data(renderer).map_err(Into::into) }
++        #[cfg(feature = "svg")]
++        let renderer = _cx.svg_renderer();
++        async move {
++            #[cfg(feature = "svg")]
++            let result = source.to_image_data(renderer);
++            #[cfg(not(feature = "svg"))]
++            let result = source.to_bitmap_data();
++            result.map_err(Into::into)
++        }
+     }
+ }
+ 
+@@ -627,6 +640,7 @@ impl Asset for ImageAssetLoader {
+         let client = cx.http_client();
+         // TODO: Can we make SVGs always rescale?
+         // let scale_factor = cx.scale_factor();
++        #[cfg(feature = "svg")]
+         let svg_renderer = cx.svg_renderer();
+         let asset_source = cx.asset_source().clone();
+         async move {
+@@ -668,6 +682,7 @@ impl Asset for ImageAssetLoader {
+ 
+             if let Ok(format) = image::guess_format(&bytes) {
+                 let data = match format {
++                    #[cfg(feature = "image-gif")]
+                     ImageFormat::Gif => {
+                         let decoder = GifDecoder::new(Cursor::new(&bytes))?;
+                         let mut frames = SmallVec::new();
+@@ -697,6 +712,7 @@ impl Asset for ImageAssetLoader {
+ 
+                         frames
+                     }
++                    #[cfg(feature = "image-webp")]
+                     ImageFormat::WebP => {
+                         let mut decoder = WebPDecoder::new(Cursor::new(&bytes))?;
+ 
+@@ -737,9 +753,18 @@ impl Asset for ImageAssetLoader {
+ 
+                 Ok(Arc::new(RenderImage::new(data)))
+             } else {
+-                svg_renderer
+-                    .render_single_frame(&bytes, 1.0)
+-                    .map_err(Into::into)
++                #[cfg(feature = "svg")]
++                {
++                    svg_renderer
++                        .render_single_frame(&bytes, 1.0)
++                        .map_err(Into::into)
++                }
++                #[cfg(not(feature = "svg"))]
++                {
++                    Err(ImageCacheError::Other(Arc::new(anyhow::anyhow!(
++                        "Unsupported image format"
++                    ))))
++                }
+             }
+         }
+     }
+@@ -771,6 +796,7 @@ pub enum ImageCacheError {
+     #[error("image error: {0}")]
+     Image(Arc<ImageError>),
+     /// An error that occurred while processing an SVG.
++    #[cfg(feature = "svg")]
+     #[error("svg error: {0}")]
+     Usvg(Arc<usvg::Error>),
+ }
+@@ -787,6 +813,7 @@ impl From<io::Error> for ImageCacheError {
+     }
+ }
+ 
++#[cfg(feature = "svg")]
+ impl From<usvg::Error> for ImageCacheError {
+     fn from(value: usvg::Error) -> Self {
+         Self::Usvg(Arc::new(value))
+diff --git a/crates/gpui/src/elements/mod.rs b/crates/gpui/src/elements/mod.rs
+index 8a2a1b70a7bf..6063423bf5db 100644
+--- a/crates/gpui/src/elements/mod.rs
++++ b/crates/gpui/src/elements/mod.rs
+@@ -8,6 +8,7 @@ mod image_cache;
+ mod img;
+ mod list;
+ mod surface;
++#[cfg(feature = "svg")]
+ mod svg;
+ mod text;
+ mod uniform_list;
+@@ -22,6 +23,7 @@ pub use image_cache::*;
+ pub use img::*;
+ pub use list::*;
+ pub use surface::*;
++#[cfg(feature = "svg")]
+ pub use svg::*;
+ pub use text::*;
+ pub use uniform_list::*;
+diff --git a/crates/gpui/src/gpui.rs b/crates/gpui/src/gpui.rs
+index d4da5aa34c01..769d2322d591 100644
+--- a/crates/gpui/src/gpui.rs
++++ b/crates/gpui/src/gpui.rs
+@@ -57,6 +57,7 @@ mod spring;
+ mod style;
+ mod styled;
+ mod subscription;
++#[cfg(feature = "svg")]
+ mod svg_renderer;
+ mod tab_stop;
+ mod taffy;
+@@ -203,6 +204,7 @@ use std::{any::Any, future::Future};
+ pub use style::*;
+ pub use styled::*;
+ pub use subscription::*;
++#[cfg(feature = "svg")]
+ pub use svg_renderer::*;
+ pub(crate) use tab_stop::*;
+ use taffy::TaffyLayoutEngine;
+diff --git a/crates/gpui/src/platform.rs b/crates/gpui/src/platform.rs
+index c08d9646fe45..3b0cc456a024 100644
+--- a/crates/gpui/src/platform.rs
++++ b/crates/gpui/src/platform.rs
+@@ -40,10 +40,11 @@ use crate::{
+     DEFAULT_WINDOW_SIZE, DevicePixels, DispatchEventResult, Edges, ExternalDragPayload, Font,
+     FontId, FontMetrics, FontRun, ForegroundExecutor, GlyphId, GpuSpecs, Hsla, ImageSource, Keymap,
+     LineLayout, MissingGlyphSink, Pixels, PlatformGestures, PlatformInput, Point, Priority,
+-    RenderGlyphParams, RenderImage, RenderImageParams, RenderSvgParams, Scene, ShapedGlyph,
+-    ShapedRun, SharedString, Size, SvgRenderer, SystemWindowTab, Task, Window, WindowControlArea,
+-    hash, point, px, size,
++    RenderGlyphParams, RenderImage, RenderImageParams, Scene, ShapedGlyph, ShapedRun, SharedString,
++    Size, SystemWindowTab, Task, Window, WindowControlArea, hash, point, px, size,
+ };
++#[cfg(feature = "svg")]
++use crate::{RenderSvgParams, SvgRenderer};
+ #[cfg(any(target_os = "linux", target_os = "freebsd"))]
+ use anyhow::bail;
+ use anyhow::{Context as _, Result};
+@@ -52,8 +53,9 @@ use collections::FxHashMap;
+ use futures::channel::oneshot;
+ #[cfg(any(test, feature = "test-support", feature = "bench-support"))]
+ use image::RgbaImage;
+-use image::codecs::gif::GifDecoder;
+-use image::{AnimationDecoder as _, DynamicImage, Frame};
++#[cfg(feature = "image-gif")]
++use image::{AnimationDecoder as _, codecs::gif::GifDecoder};
++use image::{DynamicImage, Frame};
+ use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
+ use scheduler::Instant;
+ pub use scheduler::RunnableMeta;
+@@ -1698,6 +1700,7 @@ pub fn get_gamma_correction_ratios(gamma: f32) -> [f32; 4] {
+ #[expect(missing_docs)]
+ pub enum AtlasKey {
+     Glyph(RenderGlyphParams),
++    #[cfg(feature = "svg")]
+     Svg(RenderSvgParams),
+     Image(RenderImageParams),
+ }
+@@ -1715,6 +1718,7 @@ impl AtlasKey {
+                     AtlasTextureKind::Monochrome
+                 }
+             }
++            #[cfg(feature = "svg")]
+             AtlasKey::Svg(_) => AtlasTextureKind::Monochrome,
+             AtlasKey::Image(_) => AtlasTextureKind::Polychrome,
+         }
+@@ -1727,6 +1731,7 @@ impl From<RenderGlyphParams> for AtlasKey {
+     }
+ }
+ 
++#[cfg(feature = "svg")]
+ impl From<RenderSvgParams> for AtlasKey {
+     fn from(params: RenderSvgParams) -> Self {
+         Self::Svg(params)
+@@ -3315,8 +3320,20 @@ impl Image {
+     }
+ 
+     /// Convert the clipboard image to an `ImageData` object.
++    #[cfg(feature = "svg")]
+     pub fn to_image_data(&self, svg_renderer: SvgRenderer) -> Result<Arc<RenderImage>> {
++        if self.format == ImageFormat::Svg {
++            return svg_renderer
++                .render_single_frame(&self.bytes, 1.0)
++                .map_err(Into::into);
++        }
++        self.to_bitmap_data()
++    }
++
++    /// Decode a bitmap image without an SVG renderer.
++    pub fn to_bitmap_data(&self) -> Result<Arc<RenderImage>> {
+         let frames = match self.format {
++            #[cfg(feature = "image-gif")]
+             ImageFormat::Gif => {
+                 let decoder = GifDecoder::new(Cursor::new(&self.bytes))?;
+                 let mut frames = SmallVec::new();
+@@ -3342,6 +3359,8 @@ impl Image {
+ 
+                 frames
+             }
++            #[cfg(not(feature = "image-gif"))]
++            ImageFormat::Gif => decode_static_image(&self.bytes, image::ImageFormat::Gif)?,
+             ImageFormat::Png => decode_static_image(&self.bytes, image::ImageFormat::Png)?,
+             ImageFormat::Jpeg => decode_static_image(&self.bytes, image::ImageFormat::Jpeg)?,
+             ImageFormat::Webp => decode_static_image(&self.bytes, image::ImageFormat::WebP)?,
+@@ -3349,9 +3368,7 @@ impl Image {
+             ImageFormat::Tiff => decode_static_image(&self.bytes, image::ImageFormat::Tiff)?,
+             ImageFormat::Ico => decode_static_image(&self.bytes, image::ImageFormat::Ico)?,
+             ImageFormat::Svg => {
+-                return svg_renderer
+-                    .render_single_frame(&self.bytes, 1.0)
+-                    .map_err(Into::into);
++                anyhow::bail!("SVG images require the svg feature and an SVG renderer")
+             }
+             ImageFormat::Pnm => decode_static_image(&self.bytes, image::ImageFormat::Pnm)?,
+         };
+@@ -3433,19 +3450,21 @@ impl From<String> for ClipboardString {
+     }
+ }
+ 
+-#[cfg(test)]
++#[cfg(all(test, any(feature = "image-jpeg", feature = "svg")))]
+ mod image_tests {
+     use super::*;
++    #[cfg(feature = "svg")]
+     use std::sync::Arc;
+ 
+     #[test]
++    #[cfg(feature = "image-jpeg")]
+     fn test_image_to_image_data_applies_exif_orientation() {
+         let image = Image::from_bytes(
+             ImageFormat::Jpeg,
+             include_bytes!("../examples/image/exif-orientation-rotate-180.jpg").to_vec(),
+         );
+ 
+-        let render_image = image.to_image_data(SvgRenderer::new(Arc::new(()))).unwrap();
++        let render_image = image.to_bitmap_data().unwrap();
+ 
+         assert_eq!(render_image.size(0), size(16.into(), 32.into()));
+ 
+@@ -3455,6 +3474,7 @@ mod image_tests {
+     }
+ 
+     #[test]
++    #[cfg(feature = "svg")]
+     fn test_svg_image_to_image_data_converts_to_bgra() {
+         let image = Image::from_bytes(
+             ImageFormat::Svg,
+diff --git a/crates/gpui/src/window.rs b/crates/gpui/src/window.rs
+index 1214b0351a2b..684056aca913 100644
+--- a/crates/gpui/src/window.rs
++++ b/crates/gpui/src/window.rs
+@@ -15,15 +15,17 @@ use crate::{
+     MonochromeSprite, MouseButton, MouseEvent, MouseMoveEvent, MouseUpEvent, Path, Pixels,
+     PlatformAtlas, PlatformDisplay, PlatformInput, PlatformInputHandler, PlatformWindow, Point,
+     PolychromeSprite, Priority, PromptButton, PromptLevel, Quad, Render, RenderGlyphParams,
+-    RenderImage, RenderImageParams, RenderSvgParams, Replay, ResizeEdge, SMOOTH_SVG_SCALE_FACTOR,
+-    SUBPIXEL_VARIANTS_X, SUBPIXEL_VARIANTS_Y, ScaledPixels, Scene, Shadow, SharedString, Size,
+-    StrikethroughStyle, Style, SubpixelSprite, SubscriberSet, Subscription, SystemWindowTab,
+-    SystemWindowTabController, TabStopMap, TaffyLayoutEngine, Task, TextInputConfiguration,
+-    TextInputStateChange, TextRenderingMode, TextStyle, TextStyleRefinement, ThermalState,
+-    TransformationMatrix, Underline, UnderlineStyle, WindowAppearance, WindowBackgroundAppearance,
+-    WindowBounds, WindowControls, WindowDecorations, WindowOptions, WindowParams, WindowTextSystem,
+-    WindowVisibility, point, prelude::*, px, rems, size, transparent_black,
++    RenderImage, RenderImageParams, Replay, ResizeEdge, SUBPIXEL_VARIANTS_X, SUBPIXEL_VARIANTS_Y,
++    ScaledPixels, Scene, Shadow, SharedString, Size, StrikethroughStyle, Style, SubpixelSprite,
++    SubscriberSet, Subscription, SystemWindowTab, SystemWindowTabController, TabStopMap,
++    TaffyLayoutEngine, Task, TextInputConfiguration, TextInputStateChange, TextRenderingMode,
++    TextStyle, TextStyleRefinement, ThermalState, TransformationMatrix, Underline, UnderlineStyle,
++    WindowAppearance, WindowBackgroundAppearance, WindowBounds, WindowControls, WindowDecorations,
++    WindowOptions, WindowParams, WindowTextSystem, WindowVisibility, point, prelude::*, px, rems,
++    size, transparent_black,
+ };
++#[cfg(feature = "svg")]
++use crate::{RenderSvgParams, SMOOTH_SVG_SCALE_FACTOR};
+ 
+ use crate::gestures::{GestureTuning, RecognizedTouchGesture, TouchGestureRecognizer};
+ use crate::interactive::TouchEvent;
+@@ -4980,6 +4982,7 @@ impl Window {
+     /// Paint a monochrome SVG into the scene for the next frame at the current stacking context.
+     ///
+     /// This method should only be called as part of the paint phase of element drawing.
++    #[cfg(feature = "svg")]
+     pub fn paint_svg(
+         &mut self,
+         bounds: Bounds<Pixels>,
+diff --git a/crates/gpui_apple/Cargo.toml b/crates/gpui_apple/Cargo.toml
+index 23142d504f51..0edd0e2de594 100644
+--- a/crates/gpui_apple/Cargo.toml
++++ b/crates/gpui_apple/Cargo.toml
+@@ -13,7 +13,7 @@ path = "src/gpui_apple.rs"
+ doctest = false
+ 
+ [features]
+-default = []
++default = ["gpui/default"]
+ bench-support = ["gpui/bench-support"]
+ test-support = ["gpui/test-support"]
+ runtime_shaders = []
+diff --git a/crates/gpui_apple/src/metal_renderer.rs b/crates/gpui_apple/src/metal_renderer.rs
+index e46620587fd1..f7bf0fdff4a1 100644
+--- a/crates/gpui_apple/src/metal_renderer.rs
++++ b/crates/gpui_apple/src/metal_renderer.rs
+@@ -19,7 +19,8 @@ use objc2_core_foundation::CFRetained;
+ use objc2_core_video::{
+     CVMetalTexture, CVMetalTextureCache, CVMetalTextureGetTexture, CVPixelBufferGetHeight,
+     CVPixelBufferGetHeightOfPlane, CVPixelBufferGetPixelFormatType, CVPixelBufferGetWidth,
+-    CVPixelBufferGetWidthOfPlane, kCVPixelFormatType_420YpCbCr8BiPlanarFullRange, kCVReturnSuccess,
++    CVPixelBufferGetWidthOfPlane, kCVPixelFormatType_32BGRA,
++    kCVPixelFormatType_420YpCbCr8BiPlanarFullRange, kCVReturnSuccess,
+ };
+ use parking_lot::Mutex;
+ 
+@@ -124,6 +125,7 @@ pub struct MetalRenderer {
+     monochrome_sprites_pipeline_state: metal::RenderPipelineState,
+     polychrome_sprites_pipeline_state: metal::RenderPipelineState,
+     surfaces_pipeline_state: metal::RenderPipelineState,
++    bgra_surfaces_pipeline_state: metal::RenderPipelineState,
+     unit_vertices: metal::Buffer,
+     #[allow(clippy::arc_with_non_send_sync)]
+     instance_buffer_pool: Arc<Mutex<InstanceBufferPool>>,
+@@ -359,6 +361,14 @@ impl MetalRenderer {
+             "surface_fragment",
+             MTLPixelFormat::BGRA8Unorm,
+         );
++        let bgra_surfaces_pipeline_state = build_pipeline_state(
++            &device,
++            &library,
++            "bgra_surfaces",
++            "surface_vertex",
++            "bgra_surface_fragment",
++            MTLPixelFormat::BGRA8Unorm,
++        );
+ 
+         let command_queue = device.new_command_queue();
+         let supports_shared_storage = cfg!(target_os = "ios") || is_apple_gpu;
+@@ -399,6 +409,7 @@ impl MetalRenderer {
+             monochrome_sprites_pipeline_state,
+             polychrome_sprites_pipeline_state,
+             surfaces_pipeline_state,
++            bgra_surfaces_pipeline_state,
+             unit_vertices,
+             instance_buffer_pool,
+             sprite_atlas,
+@@ -791,6 +802,7 @@ impl MetalRenderer {
+                     instance_bindings,
+                     viewport_size,
+                     command_encoder,
++                    command_buffer,
+                 ),
+                 PrimitiveBatch::SubpixelSprites { .. } => unreachable!(),
+             }
+@@ -1187,12 +1199,12 @@ impl MetalRenderer {
+         instance_bindings: &InstanceBindings,
+         viewport_size: Size<DevicePixels>,
+         command_encoder: &metal::RenderCommandEncoderRef,
++        command_buffer: &metal::CommandBufferRef,
+     ) {
+         if surfaces.is_empty() {
+             return;
+         }
+ 
+-        command_encoder.set_render_pipeline_state(&self.surfaces_pipeline_state);
+         command_encoder.set_vertex_buffer(
+             SurfaceInputIndex::Vertices as u64,
+             Some(&self.unit_vertices),
+@@ -1209,6 +1221,7 @@ impl MetalRenderer {
+             &viewport_size as *const Size<DevicePixels> as *const _,
+         );
+ 
++        let mut textures = Vec::with_capacity(surfaces.len() * 2);
+         for (index, surface) in surfaces.iter().enumerate() {
+             let image_buffer = &surface.image_buffer;
+             let texture_size = size(
+@@ -1216,10 +1229,17 @@ impl MetalRenderer {
+                 DevicePixels::from(CVPixelBufferGetHeight(image_buffer) as i32),
+             );
+ 
+-            assert_eq!(
+-                CVPixelBufferGetPixelFormatType(image_buffer),
+-                kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
++            let format = CVPixelBufferGetPixelFormatType(image_buffer);
++            let bgra = format == kCVPixelFormatType_32BGRA;
++            assert!(
++                bgra || format == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange,
++                "unsupported CoreVideo surface format"
+             );
++            command_encoder.set_render_pipeline_state(if bgra {
++                &self.bgra_surfaces_pipeline_state
++            } else {
++                &self.surfaces_pipeline_state
++            });
+ 
+             let plane_texture = |plane, format| unsafe {
+                 let mut texture = ptr::null_mut();
+@@ -1229,8 +1249,16 @@ impl MetalRenderer {
+                     image_buffer,
+                     None,
+                     format,
+-                    CVPixelBufferGetWidthOfPlane(image_buffer, plane),
+-                    CVPixelBufferGetHeightOfPlane(image_buffer, plane),
++                    if bgra {
++                        CVPixelBufferGetWidth(image_buffer)
++                    } else {
++                        CVPixelBufferGetWidthOfPlane(image_buffer, plane)
++                    },
++                    if bgra {
++                        CVPixelBufferGetHeight(image_buffer)
++                    } else {
++                        CVPixelBufferGetHeightOfPlane(image_buffer, plane)
++                    },
+                     plane,
+                     ptr::NonNull::from(&mut texture),
+                 );
+@@ -1242,8 +1270,16 @@ impl MetalRenderer {
+                     ptr::NonNull::new(texture).expect("CoreVideo returned a null texture"),
+                 )
+             };
+-            let y_texture = plane_texture(0, objc2_metal::MTLPixelFormat::R8Unorm);
+-            let cb_cr_texture = plane_texture(1, objc2_metal::MTLPixelFormat::RG8Unorm);
++            let y_texture = plane_texture(
++                0,
++                if bgra {
++                    objc2_metal::MTLPixelFormat::BGRA8Unorm
++                } else {
++                    objc2_metal::MTLPixelFormat::R8Unorm
++                },
++            );
++            let cb_cr_texture =
++                (!bgra).then(|| plane_texture(1, objc2_metal::MTLPixelFormat::RG8Unorm));
+ 
+             command_encoder.set_vertex_bytes(
+                 SurfaceInputIndex::TextureSize as u64,
+@@ -1257,13 +1293,18 @@ impl MetalRenderer {
+                     objc2::rc::Retained::as_ptr(&texture) as *mut _,
+                 ))
+             });
+-            command_encoder.set_fragment_texture(SurfaceInputIndex::CbCrTexture as u64, unsafe {
+-                let texture = CVMetalTextureGetTexture(&cb_cr_texture)
+-                    .expect("CoreVideo returned no Metal texture");
+-                Some(metal::TextureRef::from_ptr(
+-                    objc2::rc::Retained::as_ptr(&texture) as *mut _,
+-                ))
+-            });
++            if let Some(cb_cr_texture) = &cb_cr_texture {
++                command_encoder.set_fragment_texture(
++                    SurfaceInputIndex::CbCrTexture as u64,
++                    unsafe {
++                        let texture = CVMetalTextureGetTexture(&cb_cr_texture)
++                            .expect("CoreVideo returned no Metal texture");
++                        Some(metal::TextureRef::from_ptr(
++                            objc2::rc::Retained::as_ptr(&texture) as *mut _,
++                        ))
++                    },
++                );
++            }
+ 
+             command_encoder.draw_primitives_instanced_base_instance(
+                 metal::MTLPrimitiveType::Triangle,
+@@ -1272,6 +1313,18 @@ impl MetalRenderer {
+                 1,
+                 (first_surface + index) as u64,
+             );
++            textures.push(y_texture);
++            textures.extend(cb_cr_texture);
++        }
++        // CoreVideo requires the wrappers, as well as their Metal textures, to
++        // remain alive until the GPU has finished reading the image buffers.
++        let textures = Cell::new(Some(textures));
++        let block = RcBlock::new(move |_: ptr::NonNull<AnyObject>| {
++            drop(textures.take());
++        });
++        // SAFETY: both pointee types use the Objective-C block pointer ABI.
++        unsafe {
++            command_buffer.add_completed_handler(&*RcBlock::as_ptr(&block).cast());
+         }
+     }
+ }
+@@ -1702,11 +1755,79 @@ mod tests {
+     use super::*;
+     use objc2_core_foundation::{CFDictionary, CFType};
+     use objc2_core_video::{
+-        CVPixelBufferCreate, CVPixelBufferGetBaseAddressOfPlane,
+-        CVPixelBufferGetBytesPerRowOfPlane, CVPixelBufferLockBaseAddress, CVPixelBufferLockFlags,
+-        CVPixelBufferUnlockBaseAddress, kCVPixelBufferIOSurfacePropertiesKey,
++        CVPixelBufferCreate, CVPixelBufferGetBaseAddress, CVPixelBufferGetBaseAddressOfPlane,
++        CVPixelBufferGetBytesPerRow, CVPixelBufferGetBytesPerRowOfPlane,
++        CVPixelBufferLockBaseAddress, CVPixelBufferLockFlags, CVPixelBufferUnlockBaseAddress,
++        kCVPixelBufferIOSurfacePropertiesKey,
+     };
+ 
++    #[test]
++    fn render_bgra_core_video_surface() -> anyhow::Result<()> {
++        let attributes = CFDictionary::from_slices(
++            &[unsafe { kCVPixelBufferIOSurfacePropertiesKey }],
++            &[&*CFDictionary::<CFType, CFType>::empty()],
++        );
++        let mut image_buffer = ptr::null_mut();
++        assert_eq!(
++            unsafe {
++                CVPixelBufferCreate(
++                    None,
++                    16,
++                    16,
++                    kCVPixelFormatType_32BGRA,
++                    Some(attributes.as_opaque()),
++                    ptr::NonNull::from(&mut image_buffer),
++                )
++            },
++            kCVReturnSuccess
++        );
++        let image_buffer = unsafe {
++            CFRetained::from_raw(
++                ptr::NonNull::new(image_buffer)
++                    .ok_or_else(|| anyhow::anyhow!("CoreVideo returned no BGRA buffer"))?,
++            )
++        };
++        unsafe {
++            assert_eq!(
++                CVPixelBufferLockBaseAddress(&image_buffer, CVPixelBufferLockFlags::empty()),
++                kCVReturnSuccess
++            );
++            let stride = CVPixelBufferGetBytesPerRow(&image_buffer);
++            let bytes = slice::from_raw_parts_mut(
++                CVPixelBufferGetBaseAddress(&image_buffer).cast::<u8>(),
++                stride * 16,
++            );
++            for row in bytes.chunks_exact_mut(stride) {
++                for pixel in row[..16 * 4].chunks_exact_mut(4) {
++                    pixel.copy_from_slice(&[17, 89, 203, 255]);
++                }
++            }
++            assert_eq!(
++                CVPixelBufferUnlockBaseAddress(&image_buffer, CVPixelBufferLockFlags::empty()),
++                kCVReturnSuccess
++            );
++        }
++        let bounds = Bounds {
++            origin: Point::default(),
++            size: size(ScaledPixels(16.0), ScaledPixels(16.0)),
++        };
++        let mut scene = Scene::default();
++        scene.insert_primitive(PaintSurface {
++            order: 0,
++            bounds,
++            content_mask: ContentMask { bounds },
++            image_buffer,
++        });
++        scene.finish();
++        let mut renderer = MetalRenderer::new_headless(Arc::new(Mutex::new(Default::default())));
++        let image =
++            renderer.render_scene_to_image(&scene, size(DevicePixels(16), DevicePixels(16)))?;
++        for pixel in image.pixels() {
++            assert_eq!(pixel.0, [203, 89, 17, 255]);
++        }
++        Ok(())
++    }
++
+     #[test]
+     fn render_core_video_surface() {
+         let attributes = CFDictionary::from_slices(
+diff --git a/crates/gpui_apple/src/shaders.metal b/crates/gpui_apple/src/shaders.metal
+index 2b52bb9ecc04..0a982b9f7658 100644
+--- a/crates/gpui_apple/src/shaders.metal
++++ b/crates/gpui_apple/src/shaders.metal
+@@ -881,6 +881,13 @@ vertex SurfaceVertexOutput surface_vertex(
+       {clip_distance.x, clip_distance.y, clip_distance.z, clip_distance.w}};
+ }
+ 
++fragment float4 bgra_surface_fragment(SurfaceFragmentInput input [[stage_in]],
++                                      texture2d<float> texture
++                                      [[texture(SurfaceInputIndex_YTexture)]]) {
++  constexpr sampler texture_sampler(mag_filter::linear, min_filter::linear);
++  return texture.sample(texture_sampler, input.texture_position);
++}
++
+ fragment float4 surface_fragment(SurfaceFragmentInput input [[stage_in]],
+                                  texture2d<float> y_texture
+                                  [[texture(SurfaceInputIndex_YTexture)]],
+diff --git a/crates/gpui_linux/Cargo.toml b/crates/gpui_linux/Cargo.toml
+index a91818acd0e2..565992c52692 100644
+--- a/crates/gpui_linux/Cargo.toml
++++ b/crates/gpui_linux/Cargo.toml
+@@ -13,7 +13,7 @@ path = "src/gpui_linux.rs"
+ doctest = false
+ 
+ [features]
+-default = ["wayland", "x11"]
++default = ["wayland", "x11", "gpui/default"]
+ test-support = ["gpui/test-support"]
+ wayland = [
+     "dep:accesskit_unix",
+diff --git a/crates/gpui_platform/Cargo.toml b/crates/gpui_platform/Cargo.toml
+index 11ff9e182b17..eaf79a81b871 100644
+--- a/crates/gpui_platform/Cargo.toml
++++ b/crates/gpui_platform/Cargo.toml
+@@ -13,10 +13,24 @@ path = "src/gpui_platform.rs"
+ doctest = false
+ 
+ [features]
+-default = ["multithreaded"]
+-# Threads in the browser: needs a nightly toolchain and a cross-origin-isolated
+-# page. Off, gpui_web builds on stable.
+-multithreaded = ["gpui_web/multithreaded"]
++default = ["gpui/default"]
++svg = ["gpui/svg"]
++svg-raster-images = ["svg", "gpui/svg-raster-images"]
++image-bmp = ["gpui/image-bmp"]
++image-dds = ["gpui/image-dds"]
++image-exr = ["gpui/image-exr"]
++image-ff = ["gpui/image-ff"]
++image-gif = ["gpui/image-gif"]
++image-hdr = ["gpui/image-hdr"]
++image-ico = ["gpui/image-ico"]
++image-jpeg = ["gpui/image-jpeg"]
++image-png = ["gpui/image-png"]
++image-pnm = ["gpui/image-pnm"]
++image-qoi = ["gpui/image-qoi"]
++image-tga = ["gpui/image-tga"]
++image-tiff = ["gpui/image-tiff"]
++image-webp = ["gpui/image-webp"]
++image-rayon = ["gpui/image-rayon"]
+ bench-support = ["gpui/bench-support", "gpui_macos/bench-support", "gpui_wgpu/bench-support"]
+ font-kit = ["gpui_macos/font-kit"]
+ inspector = ["gpui/inspector"]
+@@ -57,6 +71,3 @@ gpui_linux.workspace = true
+ [target.'cfg(target_os = "linux")'.dependencies]
+ gpui_wgpu = { workspace = true, optional = true }
+ 
+-[target.'cfg(target_family = "wasm")'.dependencies]
+-gpui_web.workspace = true
+-console_error_panic_hook.workspace = true
+diff --git a/crates/gpui_web/Cargo.toml b/crates/gpui_web/Cargo.toml
+index 4018a96329bf..4c168eb2b39f 100644
+--- a/crates/gpui_web/Cargo.toml
++++ b/crates/gpui_web/Cargo.toml
+@@ -10,7 +10,7 @@ autoexamples = false
+ workspace = true
+ 
+ [features]
+-default = ["multithreaded"]
++default = ["multithreaded", "gpui/default"]
+ multithreaded = ["dep:wasm_thread", "scheduler/wasm-threads"]
+ 
+ [lib]
+diff --git a/crates/gpui_wgpu/Cargo.toml b/crates/gpui_wgpu/Cargo.toml
+index 179b134e5cae..4e0932d3090a 100644
+--- a/crates/gpui_wgpu/Cargo.toml
++++ b/crates/gpui_wgpu/Cargo.toml
+@@ -13,7 +13,7 @@ path = "src/gpui_wgpu.rs"
+ doctest = false
+ 
+ [features]
+-default = []
++default = ["gpui/default"]
+ bench-support = ["gpui/bench-support", "dep:image"]
+ font-kit = ["dep:font-kit"]
+ test-support = ["gpui/test-support", "dep:image"]
+diff --git a/crates/language_model/Cargo.toml b/crates/language_model/Cargo.toml
+index da9c036fa57a..0def2755a031 100644
+--- a/crates/language_model/Cargo.toml
++++ b/crates/language_model/Cargo.toml
+@@ -22,7 +22,7 @@ collections.workspace = true
+ credentials_provider.workspace = true
+ env_var.workspace = true
+ futures.workspace = true
+-gpui.workspace = true
++gpui = { workspace = true, default-features = true }
+ gpui_util.workspace = true
+ http_client.workspace = true
+ icons.workspace = true
+diff --git a/crates/ui/Cargo.toml b/crates/ui/Cargo.toml
+index e1a9812cec8e..fc90edc09144 100644
+--- a/crates/ui/Cargo.toml
++++ b/crates/ui/Cargo.toml
+@@ -16,7 +16,7 @@ path = "src/ui.rs"
+ chrono.workspace = true
+ component.workspace = true
+ documented.workspace = true
+-gpui.workspace = true
++gpui = { workspace = true, features = ["svg"] }
+ gpui_macros.workspace = true
+ icons.workspace = true
+ itertools.workspace = true
+@@ -40,4 +40,4 @@ theme_settings.workspace = true
+ ignored = ["log"]
+ 
+ [features]
+-default = []
++default = ["gpui/default"]

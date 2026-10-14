@@ -6,14 +6,16 @@ use super::bvh::Leaf;
 use super::pick3d::{
     PickHit, PickKind, pick_mesh, point_ray_dist_sq, ray_hits_quad, ray_hits_tri, seg_ray_dist_sq,
 };
-use editor_core::{LineKey, ThingKey, VertKey};
+use editor_core::{LineKey, SectorKey, ThingKey, VertKey};
 
 use super::{GRID_STEPS, LevelEditorState, WHEEL_NOTCH_PX, map_bounds};
-use crate::boundary::{SelectMode, SkillFilter};
+use crate::boundary::{FlatSlot, SelectMode, SkillFilter};
+use crate::level_editor::state::{Damage, SectorFill, SelItem};
 use crate::render::camera3d::{Camera, Projection};
-use crate::render::frame3d::{NO_VERT, SURFACE_CEIL, SURFACE_FLOOR};
+use crate::render::frame3d::{
+    NO_VERT, SURFACE_CEIL, SURFACE_FLOOR, SURFACE_WALL_LOWER, SURFACE_WALL_UPPER, Vert3D,
+};
 use crate::render::view::WHEEL_ZOOM_FACTOR;
-use crate::state::{Damage, SectorFill, SelItem};
 
 /// Cylinder radius (world units) for edge picking.
 pub(crate) const PICK_RADIUS: f32 = 3.0;
@@ -31,6 +33,37 @@ pub(crate) fn vert_pair(a: VertKey, b: VertKey) -> (VertKey, VertKey) {
 }
 
 impl LevelEditorState {
+    /// Destination floor from the retained 3D triangles, shared by move preview and commit.
+    pub(super) fn floor_height_below(&self, origin: [f32; 3]) -> Option<i32> {
+        let map = self.map.as_ref()?;
+        let dir = [0.0, 0.0, -1.0];
+        PICK_LEAVES.with_borrow_mut(|leaves| {
+            self.bvh.gather(origin, dir, 0.0, leaves);
+            let mut nearest = None;
+            for leaf in leaves.iter() {
+                let Leaf::Tri {
+                    tri,
+                } = *leaf
+                else {
+                    continue;
+                };
+                let [a, b, c] = self.surface_mesh[tri..tri + 3] else {
+                    continue;
+                };
+                if a.surface != SURFACE_FLOOR {
+                    continue;
+                }
+                if let Some(t) = ray_hits_tri(origin, dir, a.pos, b.pos, c.pos)
+                    && nearest.is_none_or(|(best, _)| t < best)
+                {
+                    nearest = Some((t, a.sector));
+                }
+            }
+            let (_, slot) = nearest?;
+            Some(map.sectors[map.sectors.key_at_slot(slot)?].floor_height)
+        })
+    }
+
     pub fn set_viewport(&mut self, w: f32, h: f32) -> Damage {
         self.camera.set_viewport(w, h);
         Damage::View
@@ -67,6 +100,7 @@ impl LevelEditorState {
             kind,
             world: hit.world,
             grid_z: hit.world[2],
+            surface: None,
         })
     }
 
@@ -93,7 +127,7 @@ impl LevelEditorState {
         let r2 = PICK_RADIUS * PICK_RADIUS;
         let vr2 = VERTEX_PICK_RADIUS * VERTEX_PICK_RADIUS;
         let mut vertex: Option<(f32, f32, VertKey, f32)> = None; // (dist², t, vert, gz)
-        let mut edge: Option<(f32, f32, LineKey, f32)> = None; // (dist², t, line, gz)
+        let mut edge: Option<(f32, f32, LineKey, usize)> = None; // (dist², t, line, mesh vertex)
         let mut face: Option<(f32, usize)> = None; // (t, first-vert index)
         let mut thing: Option<(f32, ThingKey, f32)> = None; // (t, thing, gz)
 
@@ -144,7 +178,7 @@ impl LevelEditorState {
                                 };
                                 let (d, t) = seg_ray_dist_sq(a.pos, b.pos, origin, dir);
                                 if d <= r2 && edge.is_none_or(|e| d < e.0) {
-                                    edge = Some((d, t, lk, a.pos[2]));
+                                    edge = Some((d, t, lk, i + m));
                                 }
                             }
                         }
@@ -188,10 +222,13 @@ impl LevelEditorState {
         {
             return Some(hit(PickKind::Vertex(vk), ray_point(origin, dir, t), gz));
         }
-        if let Some((_, t, lk, gz)) = edge
+        if let Some((_, t, lk, index)) = edge
             && t <= occluder
         {
-            return Some(hit(PickKind::Linedef(lk), ray_point(origin, dir, t), gz));
+            let v = &tris[index];
+            let mut picked = hit(PickKind::Linedef(lk), ray_point(origin, dir, t), v.pos[2]);
+            picked.surface = self.edge_surface(lk, v);
+            return Some(picked);
         }
         let thing_occluder = if face_occludes { face_t } else { f32::INFINITY };
         if let Some((tt, tk, gz)) = thing
@@ -215,10 +252,45 @@ impl LevelEditorState {
                 } else {
                     map.sectors[s].floor_height as f32
                 };
-                return Some(hit(PickKind::Sector(s), ray_point(origin, dir, ft), gz));
+                let mut picked = hit(PickKind::Sector(s), ray_point(origin, dir, ft), gz);
+                picked.surface = match v.surface {
+                    SURFACE_FLOOR => Some((s, FlatSlot::Floor)),
+                    SURFACE_CEIL => Some((s, FlatSlot::Ceil)),
+                    _ => None,
+                };
+                return Some(picked);
             }
         }
         None
+    }
+
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "mesh heights use floating point Doom units"
+    )]
+    fn edge_surface(&self, line: LineKey, vertex: &Vert3D) -> Option<(SectorKey, FlatSlot)> {
+        let map = self.map.as_ref()?;
+        // Prefer the picked face's sector; a step's other edge may belong to
+        // the adjoining sector, whose height produced that edge.
+        map.sectors
+            .key_at_slot(vertex.sector)
+            .into_iter()
+            .chain(map.lines.get(line)?.sides().filter_map(|side| side.sector))
+            .find_map(|key| {
+                let sector = map.sectors.get(key)?;
+                let z = vertex.pos[2];
+                let floor = !matches!(vertex.surface, SURFACE_CEIL | SURFACE_WALL_UPPER)
+                    && z == sector.floor_height as f32;
+                let ceiling = !matches!(vertex.surface, SURFACE_FLOOR | SURFACE_WALL_LOWER)
+                    && z == sector.ceil_height as f32;
+                if floor {
+                    Some((key, FlatSlot::Floor))
+                } else if ceiling {
+                    Some((key, FlatSlot::Ceil))
+                } else {
+                    None
+                }
+            })
     }
 
     fn pick_ray(&self, pos: [f32; 2]) -> Option<([f32; 3], [f32; 3])> {
@@ -284,14 +356,6 @@ impl LevelEditorState {
     /// Toggle overlay layer (grid + lines + vertices).
     pub fn toggle_overlays(&mut self) -> Damage {
         self.overlays_visible = !self.overlays_visible;
-        Damage::View
-    }
-
-    pub fn set_overlays_visible(&mut self, on: bool) -> Damage {
-        if on == self.overlays_visible {
-            return Damage::None;
-        }
-        self.overlays_visible = on;
         Damage::View
     }
 
@@ -438,6 +502,7 @@ fn hit(kind: PickKind, world: [f32; 3], grid_z: f32) -> PickHit {
         kind,
         world,
         grid_z,
+        surface: None,
     }
 }
 

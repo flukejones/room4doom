@@ -1,4 +1,4 @@
-//! Pure 2D geometry for the editor: point/segment tests, line intersection/splitting, ring orientation, loop detection, snap-candidate selection; Slint-free and app-state-free, unit-testable against a real [`EditorMap`], points are world-space `[f32; 2]`.
+//! Pure 2D geometry for the editor: point/segment tests, line intersection/splitting, ring orientation, loop detection, snap-candidate selection; UI-free and app-state-free, unit-testable against a real [`EditorMap`], points are world-space `[f32; 2]`.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::mem;
@@ -249,23 +249,34 @@ fn bbox_overlaps(a: ([f32; 2], [f32; 2]), b: ([f32; 2], [f32; 2])) -> bool {
     a.0[0] <= b.1[0] && b.0[0] <= a.1[0] && a.0[1] <= b.1[1] && b.0[1] <= a.1[1]
 }
 
-/// Weld each moved vertex onto the nearest stationary vertex within `tol` (run after a drag): a vertex within tolerance of an existing one remaps onto it (lines re-point), and lines collapsing to one vertex are deleted. Only `moved` keys weld, and only onto vertices outside that set, so a stationary target never shifts and two moved vertices never chain. Returns whether anything changed.
-pub(crate) fn weld_moved_vertices(map: &mut EditorMap, moved: &[VertKey], tol: f32) -> bool {
+/// Resolve drop-weld coordinates without changing map geometry.
+pub fn resolve_vertex_moves(map: &EditorMap, moves: &mut [(VertKey, [f32; 2])], tol: f32) {
+    let remap = move_weld_targets(map, moves, tol);
+    for (key, position) in moves {
+        if let Some(&target) = remap.get(key) {
+            let v = map.vertices[target];
+            *position = [v.x, v.y];
+        }
+    }
+}
+
+pub(crate) fn move_weld_targets(
+    map: &EditorMap,
+    moves: &[(VertKey, [f32; 2])],
+    tol: f32,
+) -> HashMap<VertKey, VertKey> {
     let tol_sq = tol * tol;
-    let moved_set: HashSet<VertKey> = moved.iter().copied().collect();
-    let nearest = |p: Vertex, best: &mut Option<(f32, VertKey)>, j: VertKey, v: Vertex| {
-        let d = (v.x - p.x) * (v.x - p.x) + (v.y - p.y) * (v.y - p.y);
-        if d <= tol_sq && best.is_none_or(|(bd, _)| d < bd) {
+    let moved_set: HashSet<VertKey> = moves.iter().map(|(k, _)| *k).collect();
+    let nearest = |p: [f32; 2], best: &mut Option<(f32, VertKey)>, j: VertKey, v: Vertex| {
+        let d = (v.x - p[0]) * (v.x - p[0]) + (v.y - p[1]) * (v.y - p[1]);
+        if d <= tol_sq && best.is_none_or(|(bd, bk)| d < bd || (d == bd && j < bk)) {
             *best = Some((d, j));
         }
     };
     let mut remap: HashMap<VertKey, VertKey> = HashMap::new();
-    if moved.len() * map.vertices.len() <= WELD_GRID_THRESHOLD {
+    if tol <= 0.0 || moves.len().saturating_mul(map.vertices.len()) <= WELD_GRID_THRESHOLD {
         // Small workload (the common single-vertex drag): direct scan beats building the grid.
-        for &i in moved {
-            let Some(&p) = map.vertices.get(i) else {
-                continue;
-            };
+        for &(i, p) in moves {
             let mut best: Option<(f32, VertKey)> = None;
             for (j, &v) in map.vertices.iter() {
                 if !moved_set.contains(&j) {
@@ -289,11 +300,8 @@ pub(crate) fn weld_moved_vertices(map: &mut EditorMap, moved: &[VertKey], tol: f
                 buckets.entry(cell(v.x, v.y)).or_default().push(j);
             }
         }
-        for &i in moved {
-            let Some(&p) = map.vertices.get(i) else {
-                continue;
-            };
-            let c = cell(p.x, p.y);
+        for &(i, p) in moves {
+            let c = cell(p[0], p[1]);
             let mut best: Option<(f32, VertKey)> = None;
             for dx in -1..=1 {
                 for dy in -1..=1 {
@@ -308,6 +316,11 @@ pub(crate) fn weld_moved_vertices(map: &mut EditorMap, moved: &[VertKey], tol: f
             }
         }
     }
+    remap
+}
+
+/// Merge moved vertices with their already-resolved, coincident stationary targets.
+pub(crate) fn weld_moved_vertices(map: &mut EditorMap, remap: &HashMap<VertKey, VertKey>) -> bool {
     if remap.is_empty() {
         return false;
     }
@@ -854,7 +867,8 @@ mod tests {
             vec![dline(0, 1), dline(1, 2)],
         );
         let v = vert_keys(&map);
-        assert!(weld_moved_vertices(&mut map, &[v[1]], 1.0));
+        let targets = move_weld_targets(&map, &[(v[1], [4.0, 0.1])], 1.0);
+        assert!(weld_moved_vertices(&mut map, &targets));
         // Line b-c collapsed (zero-length) and was removed; a-c survives.
         assert_eq!(map.lines.len(), 1);
         let l = map.lines.values().next().expect("one line");

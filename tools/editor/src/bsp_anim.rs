@@ -1,18 +1,10 @@
 //! BSP build animation overlay: replays recorded [`rbsp::BuildEvent`]s as world-space GPU instances on the shared overlay layer.
 
-use std::cell::RefCell;
-use std::rc::Rc;
-use std::time::Duration;
-
 use rbsp::BuildEvent;
-use slint::{ComponentHandle as _, Timer};
 
-use crate::SharedState;
-use crate::generated::EditorWindow;
-use crate::prefs::BspAnimPref;
+use crate::EditorSession;
+use crate::app::preferences::BspAnimPref;
 use crate::render::frame::{push_line, push_marker, rgba_f32};
-use crate::render::repaint_canvas;
-use crate::render::stop_light_timer;
 use crate::render::style::Color;
 use crate::render::wgpu::{LineInst, MarkerInst};
 
@@ -34,11 +26,6 @@ const ANIM_PARTITION_THICKNESS: f32 = 3.0;
 const ANIM_SEG_THICKNESS: f32 = 3.0;
 const ANIM_SUBSECTOR_THICKNESS: f32 = 1.0;
 
-thread_local! {
-    // thread_local (not SharedState) so the timer arms without borrowing `shared`.
-    static ANIM_TIMER: Timer = Timer::default();
-}
-
 pub struct BspAnim {
     events: Vec<BuildEvent>,
     next: usize,
@@ -58,17 +45,15 @@ pub struct BspAnim {
 
 /// Begin (or replace) build animation replay.
 pub fn start(
-    ui: &EditorWindow,
-    shared: &Rc<RefCell<SharedState>>,
+    state: &mut EditorSession,
+    pixel_ratio: f32,
     events: Vec<BuildEvent>,
     mode: BspAnimPref,
-    interval_ms: u64,
     keep_all: bool,
 ) {
     if mode == BspAnimPref::Off || events.is_empty() {
         return;
     }
-    let pixel_ratio = ui.window().scale_factor();
     let world_span = events_world_span(&events);
     let instant = matches!(mode, BspAnimPref::Instant);
     let partition_count = events
@@ -91,10 +76,8 @@ pub fn start(
         })
         .sum();
 
-    stop_light_timer();
     {
-        let state = &mut *shared.borrow_mut();
-        let style = &state.app.style;
+        let style = &state.map_editor.style;
         let aabb_halo = if luminance(style.back) < 0.5 {
             [0x00, 0x00, 0x00, 0xd0]
         } else {
@@ -116,107 +99,86 @@ pub fn start(
         });
     }
 
-    let _ = advance(ui, shared);
-    if instant {
-        return;
-    }
-
-    let interval = Duration::from_millis(interval_ms.clamp(MIN_INTERVAL_MS, MAX_INTERVAL_MS));
-    let weak = ui.as_weak();
-    let s = shared.clone();
-    ANIM_TIMER.with(|t| {
-        t.start(slint::TimerMode::Repeated, interval, move || {
-            let Some(ui) = weak.upgrade() else { return };
-            if advance(&ui, &s) {
-                ANIM_TIMER.with(Timer::stop);
-            }
-        });
-    });
+    advance(state);
 }
 
 /// Advance overlay by one partition step. Returns `true` when finished.
-fn advance(ui: &EditorWindow, shared: &Rc<RefCell<SharedState>>) -> bool {
-    let finished = {
-        let state = &mut *shared.borrow_mut();
-        let SharedState {
-            bsp_anim,
-            wgpu,
-            ..
-        } = state;
-        let Some(anim) = bsp_anim.as_mut() else {
-            return true;
-        };
-        let end = if anim.instant {
-            anim.events.len()
-        } else {
-            partition_step_end(&anim.events, anim.next)
-        };
-        if !anim.keep_all {
-            anim.divlines.clear();
-            anim.subsectors.clear();
-            anim.seg_verts.clear();
-        }
-        let step = &anim.events[anim.next..end];
-        let step_seg_count: usize = step
-            .iter()
-            .map(|e| match e {
-                BuildEvent::SegsSplit {
-                    left,
-                    right,
-                    ..
-                } => left.len() + right.len(),
-                _ => 0,
-            })
-            .sum();
-        let mut step_segs: Vec<([f32; 2], [f32; 2], Color)> = Vec::with_capacity(step_seg_count);
-        let mut step_boxes: Vec<([f32; 2], [f32; 2], Color)> = Vec::new();
-        for ev in step {
-            match ev {
-                BuildEvent::PartitionChosen {
-                    p1,
-                    p2,
-                } => anim.divlines.push((*p1, *p2)),
-                BuildEvent::SegsSplit {
-                    left,
-                    right,
-                    left_bbox,
-                    right_bbox,
-                } => {
-                    step_segs.clear();
-                    step_boxes.clear();
-                    let sides = [
-                        (left, ANIM_SEG_LEFT, ANIM_AABB_LEFT, left_bbox),
-                        (right, ANIM_SEG_RIGHT, ANIM_AABB_RIGHT, right_bbox),
-                    ];
-                    for (segs, base, box_colour, bbox) in sides {
-                        for (i, seg) in segs.iter().enumerate() {
-                            let colour = shade(base, i);
-                            step_segs.push((seg[0], seg[1], colour));
-                            anim.seg_verts.push((seg[0], colour));
-                            anim.seg_verts.push((seg[1], colour));
-                        }
-                        if let Some(bbox) = bbox {
-                            step_boxes.push((bbox[0], bbox[1], box_colour));
-                        }
+pub(crate) fn advance(state: &mut EditorSession) -> bool {
+    let EditorSession {
+        bsp_anim,
+        wgpu,
+        ..
+    } = state;
+    let Some(anim) = bsp_anim.as_mut() else {
+        return true;
+    };
+    let end = if anim.instant {
+        anim.events.len()
+    } else {
+        partition_step_end(&anim.events, anim.next)
+    };
+    if !anim.keep_all {
+        anim.divlines.clear();
+        anim.subsectors.clear();
+        anim.seg_verts.clear();
+    }
+    let step = &anim.events[anim.next..end];
+    let step_seg_count: usize = step
+        .iter()
+        .map(|e| match e {
+            BuildEvent::SegsSplit {
+                left,
+                right,
+                ..
+            } => left.len() + right.len(),
+            _ => 0,
+        })
+        .sum();
+    let mut step_segs: Vec<([f32; 2], [f32; 2], Color)> = Vec::with_capacity(step_seg_count);
+    let mut step_boxes: Vec<([f32; 2], [f32; 2], Color)> = Vec::new();
+    for ev in step {
+        match ev {
+            BuildEvent::PartitionChosen {
+                p1,
+                p2,
+            } => anim.divlines.push((*p1, *p2)),
+            BuildEvent::SegsSplit {
+                left,
+                right,
+                left_bbox,
+                right_bbox,
+            } => {
+                step_segs.clear();
+                step_boxes.clear();
+                let sides = [
+                    (left, ANIM_SEG_LEFT, ANIM_AABB_LEFT, left_bbox),
+                    (right, ANIM_SEG_RIGHT, ANIM_AABB_RIGHT, right_bbox),
+                ];
+                for (segs, base, box_colour, bbox) in sides {
+                    for (i, seg) in segs.iter().enumerate() {
+                        let colour = shade(base, i);
+                        step_segs.push((seg[0], seg[1], colour));
+                        anim.seg_verts.push((seg[0], colour));
+                        anim.seg_verts.push((seg[1], colour));
+                    }
+                    if let Some(bbox) = bbox {
+                        step_boxes.push((bbox[0], bbox[1], box_colour));
                     }
                 }
-                BuildEvent::SubsectorDone {
-                    verts,
-                } => anim.subsectors.push(verts.clone()),
             }
+            BuildEvent::SubsectorDone {
+                verts,
+            } => anim.subsectors.push(verts.clone()),
         }
-        anim.next = end;
+    }
+    anim.next = end;
 
-        let mut lines = Vec::new();
-        let mut markers = Vec::new();
-        draw_kept(anim, &mut lines, &mut markers);
-        draw_step_segs(anim, &mut lines, &step_segs, &step_boxes);
-        wgpu.set_overlay(&lines, &markers);
-        anim.next >= anim.events.len()
-    };
-
-    repaint_canvas(ui, shared);
-    finished
+    let mut lines = Vec::new();
+    let mut markers = Vec::new();
+    draw_kept(anim, &mut lines, &mut markers);
+    draw_step_segs(anim, &mut lines, &step_segs, &step_boxes);
+    wgpu.set_overlay(&lines, &markers);
+    anim.next >= anim.events.len()
 }
 
 /// Emit persisted divlines, subsector outlines, seg-vertex dots.
@@ -349,17 +311,10 @@ fn with_alpha(c: Color, alpha: u8) -> Color {
     [c[0], c[1], c[2], alpha]
 }
 
-pub fn clear(ui: &EditorWindow, shared: &Rc<RefCell<SharedState>>) {
-    {
-        let state = &mut *shared.borrow_mut();
-        if state.bsp_anim.is_none() {
-            return;
-        }
-        ANIM_TIMER.with(Timer::stop);
-        state.bsp_anim = None;
+pub fn clear(state: &mut EditorSession) {
+    if state.bsp_anim.take().is_some() {
         state.wgpu.set_overlay(&[], &[]);
     }
-    repaint_canvas(ui, shared);
 }
 
 #[cfg(test)]

@@ -2,6 +2,7 @@
 
 use std::marker::PhantomData;
 use std::ops::{Index, IndexMut};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use serde::{Deserialize, Serialize};
 
@@ -50,12 +51,60 @@ struct Slot<T> {
 }
 
 /// Keyed storage with stable generational references: slot-ordered iteration; freed slots reuse with a bumped generation; serde preserves keys (undo identity).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(bound(serialize = "T: Serialize", deserialize = "T: Deserialize<'de>"))]
 pub struct Arena<K, T> {
     slots: Vec<Slot<T>>,
     free: Vec<u32>,
     #[serde(skip)]
     _key: PhantomData<K>,
+    #[serde(skip)]
+    changes: Option<ChangeLog>,
+    #[serde(skip)]
+    checkpoint: u64,
+}
+
+#[derive(Debug)]
+struct ChangeLog {
+    slots: Vec<u32>,
+    marked: Vec<bool>,
+    free_changed: bool,
+}
+
+impl ChangeLog {
+    fn mark(&mut self, slot: u32) {
+        self.marked
+            .resize(self.marked.len().max(slot as usize + 1), false);
+        if !self.marked[slot as usize] {
+            self.marked[slot as usize] = true;
+            self.slots.push(slot);
+        }
+    }
+
+    fn clear(&mut self) {
+        for slot in self.slots.drain(..) {
+            self.marked[slot as usize] = false;
+        }
+        self.free_changed = false;
+    }
+}
+
+impl<K, T: Clone> Clone for Arena<K, T> {
+    fn clone(&self) -> Self {
+        Self {
+            slots: self.slots.clone(),
+            free: self.free.clone(),
+            _key: PhantomData,
+            changes: None,
+            checkpoint: self.checkpoint,
+        }
+    }
+}
+
+impl<K, T: PartialEq> PartialEq for Arena<K, T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.slots == other.slots && self.free == other.free
+    }
 }
 
 impl<K, T> Default for Arena<K, T> {
@@ -64,6 +113,8 @@ impl<K, T> Default for Arena<K, T> {
             slots: Vec::new(),
             free: Vec::new(),
             _key: PhantomData,
+            changes: None,
+            checkpoint: 0,
         }
     }
 }
@@ -88,7 +139,7 @@ impl<K: ArenaKey, T> Arena<K, T> {
     }
 
     pub fn insert(&mut self, value: T) -> K {
-        if let Some(slot) = self.free.pop() {
+        let key = if let Some(slot) = self.free.pop() {
             let s = &mut self.slots[slot as usize];
             s.value = Some(value);
             K::new(slot, s.generation)
@@ -99,7 +150,14 @@ impl<K: ArenaKey, T> Arena<K, T> {
                 value: Some(value),
             });
             K::new(slot, 0)
+        };
+        if let Some(changes) = &mut self.changes {
+            changes.mark(key.slot());
+            changes.free_changed = true;
+        } else {
+            self.checkpoint = 0;
         }
+        key
     }
 
     /// Remove by key; the freed slot's generation is bumped so the key goes stale.
@@ -111,6 +169,12 @@ impl<K: ArenaKey, T> Arena<K, T> {
         let value = s.value.take();
         s.generation = s.generation.wrapping_add(1);
         self.free.push(key.slot());
+        if let Some(changes) = &mut self.changes {
+            changes.mark(key.slot());
+            changes.free_changed = true;
+        } else {
+            self.checkpoint = 0;
+        }
         value
     }
 
@@ -127,12 +191,19 @@ impl<K: ArenaKey, T> Arena<K, T> {
 
     pub fn get_mut(&mut self, key: K) -> Option<&mut T> {
         let s = self.slots.get_mut(key.slot() as usize)?;
-        (s.generation == key.generation())
-            .then_some(s.value.as_mut())
-            .flatten()
+        if s.generation != key.generation() {
+            return None;
+        }
+        let value = s.value.as_mut()?;
+        if let Some(changes) = &mut self.changes {
+            changes.mark(key.slot());
+        } else {
+            self.checkpoint = 0;
+        }
+        Some(value)
     }
 
-    /// The live key occupying `slot` (Slint int-id → key resolution).
+    /// The live key occupying `slot` (UI identifier → key resolution).
     pub fn key_at_slot(&self, slot: u32) -> Option<K> {
         let s = self.slots.get(slot as usize)?;
         s.value.as_ref().map(|_| K::new(slot, s.generation))
@@ -147,7 +218,7 @@ impl<K: ArenaKey, T> Arena<K, T> {
     }
 
     pub fn values_mut(&mut self) -> impl Iterator<Item = &mut T> {
-        self.slots.iter_mut().filter_map(|s| s.value.as_mut())
+        self.iter_mut().map(|(_, value)| value)
     }
 
     #[expect(
@@ -167,12 +238,70 @@ impl<K: ArenaKey, T> Arena<K, T> {
         reason = "insert bounds every slot index to u32"
     )]
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (K, &mut T)> {
-        self.slots.iter_mut().enumerate().filter_map(|(i, s)| {
+        let changes = &mut self.changes;
+        let checkpoint = &mut self.checkpoint;
+        self.slots.iter_mut().enumerate().filter_map(move |(i, s)| {
             let generation = s.generation;
-            s.value
-                .as_mut()
-                .map(move |v| (K::new(i as u32, generation), v))
+            s.value.as_mut().map(|v| {
+                let key = K::new(i as u32, generation);
+                if let Some(changes) = changes {
+                    changes.mark(key.slot());
+                } else {
+                    *checkpoint = 0;
+                }
+                (key, v)
+            })
         })
+    }
+
+    /// Slots exposed for mutation since `snapshot` was synchronized. Each slot
+    /// appears once; values may be unchanged. `None` requires a full comparison
+    /// (for example after deserialization, replacement or an older checkpoint).
+    /// Only mutations through the arena's mutable APIs are tracked.
+    pub fn changed_slots_since(&self, snapshot: &Self) -> Option<&[u32]> {
+        self.changes
+            .as_ref()
+            .filter(|_| self.checkpoint == snapshot.checkpoint)
+            .map(|changes| changes.slots.as_slice())
+    }
+
+    /// Refresh a read-only snapshot, copying only touched slots when possible.
+    /// Starts/acknowledges change tracking on `source`, retaining its log capacity.
+    /// Clones and deserialized arenas have tracking disabled until synchronized.
+    pub fn sync_snapshot_from(&mut self, source: &mut Self)
+    where
+        T: Clone,
+    {
+        static NEXT_CHECKPOINT: AtomicU64 = AtomicU64::new(1);
+        if let Some(slots) = source.changed_slots_since(self) {
+            self.slots.resize_with(source.slots.len(), || Slot {
+                generation: 0,
+                value: None,
+            });
+            for &slot in slots {
+                let slot = slot as usize;
+                self.slots[slot].clone_from(&source.slots[slot]);
+            }
+            if source
+                .changes
+                .as_ref()
+                .is_some_and(|changes| changes.free_changed)
+            {
+                self.free.clone_from(&source.free);
+            }
+        } else {
+            self.slots.clone_from(&source.slots);
+            self.free.clone_from(&source.free);
+        }
+        source.checkpoint = NEXT_CHECKPOINT.fetch_add(1, Ordering::Relaxed);
+        let changes = source.changes.get_or_insert_with(|| ChangeLog {
+            slots: Vec::new(),
+            marked: Vec::new(),
+            free_changed: false,
+        });
+        changes.clear();
+        self.checkpoint = source.checkpoint;
+        self.changes = None;
     }
 
     /// Remove every element failing the predicate; returns how many were removed.
@@ -208,6 +337,52 @@ mod tests {
     use super::*;
 
     arena_key!(TestKey);
+
+    #[test]
+    fn snapshots_follow_mutations_slot_reuse_and_replacements() {
+        let mut live = Arena::<TestKey, i32>::new();
+        let first = live.insert(10);
+        let second = live.insert(20);
+        let mut snapshot = Arena::new();
+        snapshot.sync_snapshot_from(&mut live);
+        let stale_snapshot = snapshot.clone();
+        live[first] = 11;
+        *live.values_mut().nth(1).unwrap() = 21;
+        live.remove(first);
+        let reused = live.insert(30);
+        let appended = live.insert(40);
+        let slots = live.changed_slots_since(&snapshot).unwrap();
+        assert_eq!(
+            slots.len(),
+            3,
+            "repeated mutation and slot reuse stay bounded"
+        );
+        assert!(
+            slots.contains(&first.slot())
+                && slots.contains(&second.slot())
+                && slots.contains(&appended.slot())
+        );
+        snapshot.sync_snapshot_from(&mut live);
+        assert_eq!(snapshot, live);
+        assert_eq!(snapshot.get(first), None);
+        assert_eq!(snapshot.get(reused), Some(&30));
+        assert!(live.changed_slots_since(&stale_snapshot).is_none());
+
+        // A clone is an independent branch; undo is an independent deserialization.
+        let mut branch = live.clone();
+        branch[second] = 99;
+        assert!(branch.changed_slots_since(&snapshot).is_none());
+        assert!(live.changed_slots_since(&branch).is_none());
+        snapshot.sync_snapshot_from(&mut branch);
+        assert_eq!(snapshot.get(second), Some(&99));
+        assert_eq!(live.get(second), Some(&21));
+        let saved = ron::to_string(&live).unwrap();
+        let mut restored: Arena<TestKey, i32> = ron::from_str(&saved).unwrap();
+        assert!(restored.changed_slots_since(&snapshot).is_none());
+        snapshot.sync_snapshot_from(&mut restored);
+        assert_eq!(snapshot, live);
+        assert_eq!(ron::to_string(&snapshot).unwrap(), saved);
+    }
 
     #[test]
     fn insert_get_remove_round_trip() {

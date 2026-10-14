@@ -19,8 +19,10 @@ simplelog.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 glam.workspace = true
-eframe.workspace = true
-egui.workspace = true
+gpui.workspace = true
+ui-common.workspace = true
+image.workspace = true
+tiny-skia = "0.12"
 software3d.workspace = true
 pic-data.workspace = true
 render-common.workspace = true
@@ -28,3 +30,4 @@ math.workspace = true
 
 [dev-dependencies]
 test-utils.workspace = true
+gpui = { workspace = true, features = ["test-support"] }
