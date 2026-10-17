@@ -6,7 +6,7 @@ members = [
   "gameplay",
   "gamestate",
   "gamestate-traits",
-  "ui",
+  "game-ui",
   "input",
   "math",
   "render/backend",
@@ -30,7 +30,7 @@ members = [
   "tools/doomed-parser",
   "tools/editor-core",
   "tools/editor",
-  "ui-draw",
+  "game-ui-draw",
   "game-config",
   "pic-data",
 ]
@@ -63,8 +63,8 @@ gameplay = { path = "./gameplay" }
 pic-data = { path = "./pic-data" }
 gamestate = { path = "./gamestate" }
 gamestate-traits = { path = "./gamestate-traits" }
-doom-ui = { path = "./ui" }
-ui-draw = { path = "./ui-draw" }
+doom-ui = { path = "./game-ui" }
+ui-draw = { path = "./game-ui-draw" }
 
 sound-common = { path = "./sound/common" }
 sound-rodio = { path = "./sound/rodio" }
