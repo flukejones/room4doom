@@ -28,9 +28,13 @@ pub fn extract_voxels(path: &Path, game_mode: GameMode) -> Option<Pk3Voxels> {
         _ => "filter/doom.id.doom1/",
     };
 
-    // Collect entry names first to avoid borrow issues
+    // Collect entry names first to avoid borrow issues. `name()` reports the
+    // decoded name, which can fail for a malformed header; skip those entries.
     let names: Vec<String> = (0..archive.len())
-        .filter_map(|i| archive.by_index(i).ok().map(|e| e.name().to_owned()))
+        .filter_map(|i| {
+            let entry = archive.by_index(i).ok()?;
+            Some(entry.name().ok()?.into_owned())
+        })
         .collect();
 
     let mut voxeldef_text = String::new();

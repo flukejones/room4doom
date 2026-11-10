@@ -129,9 +129,10 @@ opaline = { version = "0.4", default-features = false, features = [
   "builtin-themes",
 ] }
 
-# PK3 loading only needs flate2; wad supplies its Rust backend. Avoid Zopfli's
-# compression-only encoder pulled in by zip's umbrella `deflate` feature.
-zip = { version = "2", default-features = false, features = ["deflate-flate2", "flate2"] }
+# PK3 loading only needs flate2's Rust backend, which `deflate-flate2` selects.
+# Avoid zip's umbrella `deflate` feature: it pulls in Zopfli's
+# compression-only encoder, and this crate only ever reads archives.
+zip = { version = "9", default-features = false, features = ["deflate-flate2"] }
 flate2 = "1"
 log = { version = "*" }
 simplelog = { version = "*", default-features = false, features = ["termcolor"] }
