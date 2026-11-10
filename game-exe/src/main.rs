@@ -146,7 +146,7 @@ where
         game_options,
         wad,
         snd_tx,
-        snd_thread,
+        Some(snd_thread),
         user_config.to_config_array(),
     );
     game.pic_data.set_crt_gamma(user_config.crt_gamma);
@@ -177,7 +177,7 @@ fn run_winit(
         game_options,
         wad,
         snd_tx,
-        snd_thread,
+        Some(snd_thread),
         user_config.to_config_array(),
     );
     game.pic_data.set_crt_gamma(user_config.crt_gamma);

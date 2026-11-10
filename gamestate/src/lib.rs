@@ -185,13 +185,11 @@ impl Drop for Game {
         if let Err(e) = self.sound_cmd.send(SoundAction::Shutdown) {
             warn!("Sound channel closed before shutdown: {e}");
         }
-        match self.snd_thread.take() {
-            Some(thread) => {
-                if let Err(e) = thread.join() {
-                    warn!("Sound thread panicked during shutdown: {e:?}");
-                }
-            }
-            None => warn!("Sound thread already gone at shutdown"),
+        // A caller that drives the sound loop itself passes no thread to join.
+        if let Some(thread) = self.snd_thread.take()
+            && let Err(e) = thread.join()
+        {
+            warn!("Sound thread panicked during shutdown: {e:?}");
         }
         sleep(SHUTDOWN_DRAIN_DELAY);
     }
@@ -296,11 +294,14 @@ impl Game {
     /// Use `prepare_wad()` first to validate options and load PWADs, then
     /// set up the sound backend in `main()`, and pass the resulting channel
     /// and thread handle here.
+    ///
+    /// Pass `None` for the thread handle on targets that cannot spawn threads
+    /// (embedded and WASI builds), where the caller drives `sound_cmd` itself.
     pub fn new(
         options: GameOptions,
         wad: WadData,
         snd_tx: SndServerTx,
-        snd_thread: JoinHandle<()>,
+        snd_thread: Option<JoinHandle<()>>,
         initial_config: [i32; ConfigKey::KeyCount as usize],
     ) -> Self {
         let wad_name = wad.wad_name().to_lowercase();
@@ -381,7 +382,7 @@ impl Game {
             save_description: String::new(),
             options,
             sound_cmd: snd_tx,
-            snd_thread: Some(snd_thread),
+            snd_thread,
             umapinfo,
         }
     }
