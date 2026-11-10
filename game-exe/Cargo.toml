@@ -30,7 +30,7 @@ wgpu3dbsp = ["wgpu3d", "render-backend/wgpu3dbsp", "doom-ui/wgpu3dbsp", "gamepla
 # Stereo output to an OpenXR runtime; `--vr` then selects it at runtime.
 vr = ["wgpu3d", "render-backend/vr", "doom-ui/vr", "dep:vr"]
 
-hprof = ["render-backend/hprof", "gameplay/hprof"]
+hprof = ["dep:coarse-prof", "render-backend/hprof", "gameplay/hprof"]
 render_stats = ["render-backend/render_stats"]
 
 fixed64 = ["math/fixed64", "gameplay/fixed64"]
@@ -71,7 +71,7 @@ wad.workspace = true
 # utility deps
 simplelog.workspace = true
 nanoserde.workspace = true
-coarse-prof.workspace = true
+coarse-prof = { workspace = true, optional = true }
 
 [lints]
 workspace = true

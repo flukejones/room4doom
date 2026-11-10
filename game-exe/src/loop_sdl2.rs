@@ -297,6 +297,7 @@ pub fn d_doom_loop_sdl2<P>(
 
         if let Some(fd) = timestep.frame_rate() {
             fps_text = format!("FPS {}", fd.frames);
+            #[cfg(feature = "hprof")]
             coarse_prof::write(&mut std::io::stdout()).unwrap();
         }
     }
