@@ -33,7 +33,7 @@ coarse-prof = { workspace = true, optional = true }
 dirs.workspace = true
 math.workspace = true
 wad.workspace = true
-rbsp.workspace = true
+rbsp = { workspace = true, features = ["wad-types"] }
 glam.workspace = true
 log.workspace = true
 bitflags.workspace = true
