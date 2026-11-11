@@ -51,7 +51,7 @@ doom-ui.workspace = true
 gameplay.workspace = true
 glam.workspace = true
 level.workspace = true
-pic-data.workspace = true
+pic-data = { workspace = true, features = ["pk3"] }
 gamestate.workspace = true
 math.workspace = true
 gamestate-traits.workspace = true

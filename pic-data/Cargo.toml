@@ -6,12 +6,16 @@ edition.workspace = true
 license.workspace = true
 
 [features]
+default = ["pk3"]
 safety_check = []
+# Reading voxel models from a PK3 archive; a dependent that never loads one builds without
+# the archive reader.
+pk3 = ["dep:zip"]
 
 [dependencies]
 log.workspace = true
 wad.workspace = true
-zip.workspace = true
+zip = { workspace = true, optional = true }
 
 [dev-dependencies]
 test-utils.workspace = true

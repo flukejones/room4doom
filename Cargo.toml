@@ -60,7 +60,9 @@ input = { path = "./input" }
 math = { path = "./math" }
 game-config = { path = "./game-config" }
 gameplay = { path = "./gameplay" }
-pic-data = { path = "./pic-data" }
+# Defaults stay off at the workspace level so a library dependent does not build the PK3
+# reader; the game binary opts in.
+pic-data = { path = "./pic-data", default-features = false }
 gamestate = { path = "./gamestate" }
 gamestate-traits = { path = "./gamestate-traits" }
 doom-ui = { path = "./game-ui" }

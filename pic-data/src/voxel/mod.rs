@@ -1,5 +1,6 @@
 pub mod faces;
 pub mod kvx;
+#[cfg(feature = "pk3")]
 pub mod pk3;
 pub mod slices;
 pub mod voxeldef;
@@ -10,6 +11,7 @@ use std::path::Path;
 
 use faces::{VoxelFace, generate_faces};
 use slices::VoxelSlices;
+#[cfg(feature = "pk3")]
 use wad::types::GameMode;
 
 use crate::parallel_map;
@@ -171,6 +173,7 @@ impl VoxelManager {
     }
 
     /// Load voxels from a PK3 (ZIP) archive.
+    #[cfg(feature = "pk3")]
     pub fn load_from_pk3(
         pk3_path: &Path,
         game_mode: GameMode,
