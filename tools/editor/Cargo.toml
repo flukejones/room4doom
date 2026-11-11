@@ -14,7 +14,7 @@ colorous.workspace = true
 opaline.workspace = true
 dirs.workspace = true
 png.workspace = true
-rbsp.workspace = true
+rbsp = { workspace = true, features = ["wad-types"] }
 editor-core.workspace = true
 log.workspace = true
 math.workspace = true

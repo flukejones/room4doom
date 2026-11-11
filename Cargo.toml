@@ -60,7 +60,9 @@ input = { path = "./input" }
 math = { path = "./math" }
 game-config = { path = "./game-config" }
 gameplay = { path = "./gameplay" }
-pic-data = { path = "./pic-data" }
+# Defaults stay off at the workspace level so a library dependent does not build the PK3
+# reader; the game binary opts in.
+pic-data = { path = "./pic-data", default-features = false }
 gamestate = { path = "./gamestate" }
 gamestate-traits = { path = "./gamestate-traits" }
 doom-ui = { path = "./game-ui" }
@@ -77,7 +79,9 @@ wgpu3d = { path = "./render/wgpu3d" }
 wgpu3dbsp = { path = "./render/wgpu3dbsp" }
 vr = { path = "./render/vr" }
 level = { path = "./level" }
-rbsp = { path = "./tools/rbsp" }
+# Defaults stay off at the workspace level so a library dependent (level) does not
+# build the command-line tool; members that need them opt in.
+rbsp = { path = "./tools/rbsp", default-features = false }
 geom-kernel = { path = "./tools/geom-kernel" }
 doomed-parser = { path = "./tools/doomed-parser" }
 editor-core = { path = "./tools/editor-core" }
@@ -129,9 +133,10 @@ opaline = { version = "0.4", default-features = false, features = [
   "builtin-themes",
 ] }
 
-# PK3 loading only needs flate2; wad supplies its Rust backend. Avoid Zopfli's
-# compression-only encoder pulled in by zip's umbrella `deflate` feature.
-zip = { version = "2", default-features = false, features = ["deflate-flate2", "flate2"] }
+# PK3 loading only needs flate2's Rust backend, which `deflate-flate2` selects.
+# Avoid zip's umbrella `deflate` feature: it pulls in Zopfli's
+# compression-only encoder, and this crate only ever reads archives.
+zip = { version = "9", default-features = false, features = ["deflate-flate2"] }
 flate2 = "1"
 log = { version = "*" }
 simplelog = { version = "*", default-features = false, features = ["termcolor"] }

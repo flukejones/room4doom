@@ -8,7 +8,7 @@ build = "../../build.rs"
 
 [features]
 default = []
-hprof = []
+hprof = ["dep:coarse-prof"]
 render_stats = []
 bench = []
 
@@ -19,7 +19,7 @@ gameplay.workspace = true
 level.workspace = true
 pic-data.workspace = true
 render-common.workspace = true
-coarse-prof.workspace = true
+coarse-prof = { workspace = true, optional = true }
 
 [dev-dependencies]
 wad.workspace = true

@@ -7,21 +7,29 @@ license.workspace = true
 description = "High-precision BSP node builder for Doom maps"
 
 [features]
-default = ["wad-types"]
+default = ["wad-types", "cli"]
 wad-types = ["dep:wad"]
 f32 = []
+# Command-line only: the builders below are libraries, so a dependent crate builds
+# without a parser or a logger.
+cli = ["dep:argh", "dep:simplelog"]
 
 [dependencies]
-argh.workspace = true
+argh = { workspace = true, optional = true }
 bitflags.workspace = true
 glam.workspace = true
 log.workspace = true
-simplelog.workspace = true
+simplelog = { workspace = true, optional = true }
 wad = { workspace = true, optional = true }
 
 [dev-dependencies]
 criterion.workspace = true
 wad.workspace = true
+
+[[bin]]
+name = "rbsp"
+path = "src/main.rs"
+required-features = ["cli"]
 
 [[bench]]
 name = "build_bsp"

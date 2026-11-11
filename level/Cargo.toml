@@ -8,7 +8,7 @@ build = "../build.rs"
 
 [features]
 null_check = []
-hprof = []
+hprof = ["dep:coarse-prof"]
 # Mirror rbsp's `Float` width so geometry casts gate correctly.
 f32 = ["rbsp/f32"]
 # Test-only markers gating BSP3D tests by the WAD they load (WADs not in-repo):
@@ -29,11 +29,11 @@ wad-all = [
 ]
 
 [dependencies]
-coarse-prof.workspace = true
+coarse-prof = { workspace = true, optional = true }
 dirs.workspace = true
 math.workspace = true
 wad.workspace = true
-rbsp.workspace = true
+rbsp = { workspace = true, features = ["wad-types"] }
 glam.workspace = true
 log.workspace = true
 bitflags.workspace = true

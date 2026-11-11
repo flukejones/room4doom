@@ -590,6 +590,7 @@ impl ApplicationHandler for DoomApp {
 
                 if let Some(fd) = self.timestep.frame_rate() {
                     self.fps_text = format!("FPS {}", fd.frames);
+                    #[cfg(feature = "hprof")]
                     coarse_prof::write(&mut std::io::stdout()).unwrap();
                 }
 

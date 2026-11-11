@@ -9,7 +9,7 @@ build = "../../build.rs"
 [features]
 safety_check = []
 debug_seg_clip = []
-hprof = []
+hprof = ["dep:coarse-prof"]
 trig_lut = ["math/trig_lut"]
 
 [dependencies]
@@ -21,7 +21,7 @@ math.workspace = true
 gameplay.workspace = true
 pic-data.workspace = true
 render-common.workspace = true
-coarse-prof.workspace = true
+coarse-prof = { workspace = true, optional = true }
 
 [dev-dependencies]
 wad.workspace = true
